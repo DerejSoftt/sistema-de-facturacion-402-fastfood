@@ -1,0 +1,1674 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Restaurante</title>
+    <!-- Incluir Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            min-height: 100vh;
+        }
+        
+        /* App container */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar styles - Mismo diseño */
+        .sidebar {
+            width: 260px;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar-header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 1.5rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .sidebar-nav {
+            flex: 1;
+            padding: 1rem 0;
+        }
+        
+        .nav-item {
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #ecf0f1;
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+        }
+        
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-left-color: #ff7e5f;
+            color: #ff7e5f;
+            transform: translateX(5px);
+        }
+        
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            border-left-color: #ff7e5f;
+            color: #ff7e5f;
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 1.25rem;
+        }
+        
+        /* Mobile menu toggle */
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 1000;
+            background: #ff7e5f;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: white;
+            transition: all 0.3s;
+        }
+        
+        .menu-toggle:hover {
+            background: #ff6b4a;
+            transform: scale(1.05);
+        }
+        
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 998;
+        }
+        
+        /* Main content area */
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 25px;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Header - Mismo diseño */
+        .header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 2.5rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.1)"/></svg>');
+            background-size: cover;
+        }
+        
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header p {
+            opacity: 0.95;
+            font-size: 1.1rem;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .content {
+            padding: 2.5rem;
+        }
+        
+        /* Welcome Section */
+        .welcome-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(255, 126, 95, 0.1);
+            border: 1px solid rgba(255, 126, 95, 0.1);
+            margin-bottom: 2.5rem;
+        }
+        
+        .welcome-text h2 {
+            color: #2c3e50;
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .welcome-text p {
+            color: #4a5568;
+            font-size: 1.1rem;
+        }
+        
+        .date-info {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(255, 126, 95, 0.3);
+        }
+        
+        .current-date {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .current-time {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        /* Stats Cards - Modern Design */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+        }
+        
+        .stat-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            border-radius: 20px 20px 0 0;
+        }
+        
+        .stat-card.venta-dia::before {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        }
+        
+        .stat-card.venta-mes::before {
+            background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
+        }
+        
+        .stat-card.gastos::before {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+        }
+        
+        .stat-card.ganancias::before {
+            background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
+        }
+        
+        .stat-card.pedidos::before {
+            background: linear-gradient(135deg, #9C27B0 0%, #673AB7 100%);
+        }
+        
+        .stat-card.clientes::before {
+            background: linear-gradient(135deg, #00BCD4 0%, #0097A7 100%);
+        }
+        
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            color: white;
+        }
+        
+        .stat-card.venta-dia .stat-icon {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        }
+        
+        .stat-card.venta-mes .stat-icon {
+            background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
+        }
+        
+        .stat-card.gastos .stat-icon {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+        }
+        
+        .stat-card.ganancias .stat-icon {
+            background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
+        }
+        
+        .stat-card.pedidos .stat-icon {
+            background: linear-gradient(135deg, #9C27B0 0%, #673AB7 100%);
+        }
+        
+        .stat-card.clientes .stat-icon {
+            background: linear-gradient(135deg, #00BCD4 0%, #0097A7 100%);
+        }
+        
+        .stat-trend {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+        
+        .trend-up {
+            background: rgba(76, 175, 80, 0.1);
+            color: #4CAF50;
+        }
+        
+        .trend-down {
+            background: rgba(244, 67, 54, 0.1);
+            color: #F44336;
+        }
+        
+        .trend-neutral {
+            background: rgba(158, 158, 158, 0.1);
+            color: #9E9E9E;
+        }
+        
+        .stat-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-card.venta-dia .stat-value {
+            color: #4CAF50;
+        }
+        
+        .stat-card.venta-mes .stat-value {
+            color: #2196F3;
+        }
+        
+        .stat-card.gastos .stat-value {
+            color: #ff416c;
+        }
+        
+        .stat-card.ganancias .stat-value {
+            color: #ffb347;
+        }
+        
+        .stat-card.pedidos .stat-value {
+            color: #9C27B0;
+        }
+        
+        .stat-card.clientes .stat-value {
+            color: #00BCD4;
+        }
+        
+        .stat-label {
+            color: #4a5568;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .stat-detail {
+            color: #718096;
+            font-size: 0.85rem;
+        }
+        
+        /* Charts Section */
+        .charts-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+        
+        .chart-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .chart-header h3 {
+            color: #2c3e50;
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+        
+        .chart-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .chart-btn {
+            background: #f8f9ff;
+            border: 1px solid #e0e6ff;
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #4a5568;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .chart-btn:hover {
+            background: #e0e6ff;
+        }
+        
+        .chart-btn.active {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            border-color: #ff7e5f;
+        }
+        
+        .chart-container {
+            width: 100%;
+            height: 300px;
+            position: relative;
+        }
+        
+        /* Recent Activity */
+        .activity-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            margin-bottom: 2.5rem;
+        }
+        
+        .activity-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .activity-header h3 {
+            color: #2c3e50;
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+        
+        .activity-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: #f8f9ff;
+            border-radius: 15px;
+            transition: all 0.2s;
+        }
+        
+        .activity-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .activity-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+        }
+        
+        .activity-icon.venta {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        }
+        
+        .activity-icon.pedido {
+            background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
+        }
+        
+        .activity-icon.gasto {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+        }
+        
+        .activity-icon.factura {
+            background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
+        }
+        
+        .activity-icon.cliente {
+            background: linear-gradient(135deg, #9C27B0 0%, #673AB7 100%);
+        }
+        
+        .activity-content {
+            flex: 1;
+        }
+        
+        .activity-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.25rem;
+        }
+        
+        .activity-time {
+            font-size: 0.85rem;
+            color: #718096;
+        }
+        
+        .activity-amount {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        
+        .activity-amount.positive {
+            color: #4CAF50;
+        }
+        
+        .activity-amount.negative {
+            color: #ff416c;
+        }
+        
+        /* Top Products */
+        .products-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .products-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .products-header h3 {
+            color: #2c3e50;
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+        
+        .products-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .products-table th {
+            text-align: left;
+            padding: 1rem;
+            background: #f8f9ff;
+            color: #4a5568;
+            font-weight: 600;
+            border-bottom: 2px solid #e0e6ff;
+        }
+        
+        .products-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e0e6ff;
+            color: #4a5568;
+        }
+        
+        .product-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .product-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+        }
+        
+        .product-sales {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .sales-bar {
+            flex: 1;
+            height: 8px;
+            background: #e0e6ff;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .sales-fill {
+            height: 100%;
+            border-radius: 4px;
+        }
+        
+        .sales-fill.high {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        }
+        
+        .sales-fill.medium {
+            background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
+        }
+        
+        .sales-fill.low {
+            background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
+        }
+        
+        /* Botones - Mismo estilo */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            box-shadow: 0 10px 20px rgba(255, 126, 95, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(255, 126, 95, 0.4);
+        }
+        
+        .btn-info {
+            background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
+            color: white;
+            box-shadow: 0 4px 6px rgba(33, 150, 243, 0.3);
+        }
+        
+        .btn-info:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(33, 150, 243, 0.4);
+        }
+        
+        /* Responsive design */
+        @media (max-width: 1200px) {
+            .charts-section {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: block;
+            }
+            
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                z-index: 999;
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .sidebar-overlay.open {
+                display: block;
+            }
+            
+            .main-content {
+                padding: 5rem 1rem 1rem;
+            }
+            
+            .content {
+                padding: 1.5rem;
+            }
+            
+            .header {
+                padding: 2rem 1.5rem;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .welcome-section {
+                flex-direction: column;
+                gap: 1.5rem;
+                text-align: center;
+            }
+            
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .charts-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-card {
+                min-width: 100%;
+            }
+            
+            .activity-item {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .products-table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .chart-actions {
+                flex-wrap: wrap;
+            }
+            
+            .chart-btn {
+                flex: 1;
+                min-width: 60px;
+            }
+            
+            .stat-value {
+                font-size: 1.8rem;
+            }
+            
+            .charts-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-card {
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Mobile menu toggle -->
+    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    
+    <div class="app-container">
+        <!-- Sidebar navigation -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                🍽️ Mi Restaurante
+            </div>
+            <nav class="sidebar-nav">
+                <a href="index.html" class="nav-item active">
+                    <span class="nav-icon">📊</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="entrada-productos.html" class="nav-item">
+                    <span class="nav-icon">📦</span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="inventario.html" class="nav-item">
+                    <span class="nav-icon">📋</span>
+                    <span>Inventario</span>
+                </a>
+                <a href="entrada-platos.html" class="nav-item">
+                    <span class="nav-icon">🍽️</span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="gestion-platos.html" class="nav-item">
+                    <span class="nav-icon">📊</span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="pedidos.html" class="nav-item">
+                    <span class="nav-icon">🛒</span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="gestiondepedidos.html" class="nav-item">
+                    <span class="nav-icon">📋</span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="facturacion.html" class="nav-item">
+                    <span class="nav-icon">🧾</span>
+                    <span>Facturación</span>
+                </a>
+            </nav>
+        </div>
+        
+        <!-- Overlay for mobile sidebar -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+        
+        <div class="main-content">
+            <div class="container">
+                <div class="header">
+                    <h1>📊 Dashboard del Restaurante</h1>
+                    <p>Visión general de ventas, gastos y rendimiento del negocio</p>
+                </div>
+                
+                <div class="content">
+                    <!-- Welcome Section -->
+                    <div class="welcome-section">
+                        <div class="welcome-text">
+                            <h2>¡Bienvenido de nuevo!</h2>
+                            <p>Aquí tienes un resumen completo del rendimiento de tu restaurante</p>
+                        </div>
+                        <div class="date-info">
+                            <div class="current-date" id="currentDate">Cargando...</div>
+                            <div class="current-time" id="currentTime">00:00:00</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Stats Cards -->
+                    <div class="stats-container">
+                        <div class="stat-card venta-dia">
+                            <div class="stat-header">
+                                <div class="stat-icon">💰</div>
+                                <div class="stat-trend trend-up">
+                                    <span>📈</span>
+                                    <span>+12%</span>
+                                </div>
+                            </div>
+                            <div class="stat-value" id="ventaDia">$0</div>
+                            <div class="stat-label">Venta del Día</div>
+                            <div class="stat-detail">Comparado con ayer</div>
+                        </div>
+                        
+                        <div class="stat-card venta-mes">
+                            <div class="stat-header">
+                                <div class="stat-icon">📅</div>
+                                <div class="stat-trend trend-up">
+                                    <span>📈</span>
+                                    <span>+18%</span>
+                                </div>
+                            </div>
+                            <div class="stat-value" id="ventaMes">$0</div>
+                            <div class="stat-label">Venta del Mes</div>
+                            <div class="stat-detail">Comparado con mes anterior</div>
+                        </div>
+                        
+                        <div class="stat-card gastos">
+                            <div class="stat-header">
+                                <div class="stat-icon">📉</div>
+                                <div class="stat-trend trend-down">
+                                    <span>📉</span>
+                                    <span>-5%</span>
+                                </div>
+                            </div>
+                            <div class="stat-value" id="gastosTotales">$0</div>
+                            <div class="stat-label">Gastos Totales</div>
+                            <div class="stat-detail">Este mes</div>
+                        </div>
+                        
+                        <div class="stat-card ganancias">
+                            <div class="stat-header">
+                                <div class="stat-icon">💵</div>
+                                <div class="stat-trend trend-up">
+                                    <span>📈</span>
+                                    <span>+25%</span>
+                                </div>
+                            </div>
+                            <div class="stat-value" id="gananciasNetas">$0</div>
+                            <div class="stat-label">Ganancias Netas</div>
+                            <div class="stat-detail">Después de gastos</div>
+                        </div>
+                        
+                        <div class="stat-card pedidos">
+                            <div class="stat-header">
+                                <div class="stat-icon">🛒</div>
+                                <div class="stat-trend trend-up">
+                                    <span>📈</span>
+                                    <span>+8%</span>
+                                </div>
+                            </div>
+                            <div class="stat-value" id="totalPedidos">0</div>
+                            <div class="stat-label">Pedidos Hoy</div>
+                            <div class="stat-detail">Comparado con ayer</div>
+                        </div>
+                        
+                        <div class="stat-card clientes">
+                            <div class="stat-header">
+                                <div class="stat-icon">👥</div>
+                                <div class="stat-trend trend-neutral">
+                                    <span>📊</span>
+                                    <span>+2%</span>
+                                </div>
+                            </div>
+                            <div class="stat-value" id="nuevosClientes">0</div>
+                            <div class="stat-label">Nuevos Clientes</div>
+                            <div class="stat-detail">Este mes</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Charts Section -->
+                    <div class="charts-section">
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h3>📈 Tendencias de Ventas</h3>
+                                <div class="chart-actions">
+                                    <button class="chart-btn active" onclick="setChartPeriod('week')">Semana</button>
+                                    <button class="chart-btn" onclick="setChartPeriod('month')">Mes</button>
+                                    <button class="chart-btn" onclick="setChartPeriod('year')">Año</button>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="salesChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h3>🍽️ Distribución de Ventas por Categoría</h3>
+                                <div class="chart-actions">
+                                    <button class="chart-btn active" onclick="setCategoryChart('type')">Tipo</button>
+                                    <button class="chart-btn" onclick="setCategoryChart('time')">Horario</button>
+                                    <button class="chart-btn" onclick="setCategoryChart('method')">Método</button>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="categoryChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Activity -->
+                    <div class="activity-section">
+                        <div class="activity-header">
+                            <h3>📋 Actividad Reciente</h3>
+                            <button class="btn btn-info" onclick="refreshActivities()">
+                                <span>🔄</span>
+                                <span>Actualizar</span>
+                            </button>
+                        </div>
+                        <div class="activity-list" id="activityList">
+                            <!-- Las actividades se cargarán dinámicamente -->
+                        </div>
+                    </div>
+                    
+                    <!-- Top Products -->
+                    <div class="products-section">
+                        <div class="products-header">
+                            <h3>🏆 Productos Más Vendidos</h3>
+                            <button class="btn btn-primary" onclick="viewAllProducts()">
+                                <span>👁️</span>
+                                <span>Ver Todos</span>
+                            </button>
+                        </div>
+                        <table class="products-table">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Cantidad Vendida</th>
+                                    <th>Ingresos</th>
+                                    <th>Tendencia</th>
+                                </tr>
+                            </thead>
+                            <tbody id="topProducts">
+                                <!-- Los productos más vendidos se cargarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let invoices = JSON.parse(localStorage.getItem('invoices')) || [];
+        let orders = JSON.parse(localStorage.getItem('ordersHistory')) || [];
+        let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+        let currentChartPeriod = 'week';
+        let currentCategoryChart = 'type';
+        
+        // Variables para los gráficos
+        let salesChartInstance = null;
+        let categoryChartInstance = null;
+        
+        // Inicializar la aplicación
+        document.addEventListener('DOMContentLoaded', function() {
+            updateDateTime();
+            updateStats();
+            loadActivities();
+            loadTopProducts();
+            
+            // Inicializar gráficos
+            initSalesChart();
+            initCategoryChart();
+            
+            // Actualizar fecha y hora cada segundo
+            setInterval(updateDateTime, 1000);
+            
+            // Actualizar estadísticas cada 30 segundos
+            setInterval(updateStats, 30000);
+        });
+        
+        // Inicializar gráfico de ventas
+        function initSalesChart() {
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            
+            // Datos para la semana
+            const weekData = {
+                labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+                datasets: [{
+                    label: 'Ventas ($)',
+                    data: [1250, 1890, 2340, 2780, 3120, 2890, 2650],
+                    borderColor: '#ff7e5f',
+                    backgroundColor: 'rgba(255, 126, 95, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                }]
+            };
+            
+            // Configuración del gráfico
+            const config = {
+                type: 'line',
+                data: weekData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `Ventas: $${context.parsed.y.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value;
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        }
+                    }
+                }
+            };
+            
+            salesChartInstance = new Chart(ctx, config);
+        }
+        
+        // Inicializar gráfico de categorías
+        function initCategoryChart() {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            
+            // Datos por tipo de producto
+            const typeData = {
+                labels: ['Entradas', 'Platos Fuertes', 'Postres', 'Bebidas', 'Especiales'],
+                datasets: [{
+                    data: [15, 40, 25, 12, 8],
+                    backgroundColor: [
+                        'rgba(255, 126, 95, 0.8)',
+                        'rgba(76, 175, 80, 0.8)',
+                        'rgba(255, 179, 71, 0.8)',
+                        'rgba(33, 150, 243, 0.8)',
+                        'rgba(156, 39, 176, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 126, 95, 1)',
+                        'rgba(76, 175, 80, 1)',
+                        'rgba(255, 179, 71, 1)',
+                        'rgba(33, 150, 243, 1)',
+                        'rgba(156, 39, 176, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            };
+            
+            // Configuración del gráfico
+            const config = {
+                type: 'doughnut',
+                data: typeData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true,
+                                pointStyle: 'circle'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${label}: ${percentage}% (${value} ventas)`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '65%'
+                }
+            };
+            
+            categoryChartInstance = new Chart(ctx, config);
+        }
+        
+        // Actualizar gráfico de ventas según período
+        function updateSalesChart(period) {
+            if (!salesChartInstance) return;
+            
+            let labels, data;
+            
+            switch(period) {
+                case 'week':
+                    labels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+                    data = [1250, 1890, 2340, 2780, 3120, 2890, 2650];
+                    break;
+                case 'month':
+                    labels = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
+                    data = [8450, 9230, 10120, 8970];
+                    break;
+                case 'year':
+                    labels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                    data = [24500, 27800, 31200, 28900, 32500, 34100, 36700, 35200, 38900, 41200, 39800, 43200];
+                    break;
+            }
+            
+            salesChartInstance.data.labels = labels;
+            salesChartInstance.data.datasets[0].data = data;
+            salesChartInstance.update();
+        }
+        
+        // Actualizar gráfico de categorías
+        function updateCategoryChart(type) {
+            if (!categoryChartInstance) return;
+            
+            let labels, data, backgroundColor, borderColor;
+            
+            switch(type) {
+                case 'type':
+                    labels = ['Entradas', 'Platos Fuertes', 'Postres', 'Bebidas', 'Especiales'];
+                    data = [15, 40, 25, 12, 8];
+                    backgroundColor = [
+                        'rgba(255, 126, 95, 0.8)',
+                        'rgba(76, 175, 80, 0.8)',
+                        'rgba(255, 179, 71, 0.8)',
+                        'rgba(33, 150, 243, 0.8)',
+                        'rgba(156, 39, 176, 0.8)'
+                    ];
+                    borderColor = [
+                        'rgba(255, 126, 95, 1)',
+                        'rgba(76, 175, 80, 1)',
+                        'rgba(255, 179, 71, 1)',
+                        'rgba(33, 150, 243, 1)',
+                        'rgba(156, 39, 176, 1)'
+                    ];
+                    break;
+                    
+                case 'time':
+                    labels = ['Mañana', 'Mediodía', 'Tarde', 'Noche'];
+                    data = [20, 45, 25, 10];
+                    backgroundColor = [
+                        'rgba(255, 126, 95, 0.8)',
+                        'rgba(76, 175, 80, 0.8)',
+                        'rgba(33, 150, 243, 0.8)',
+                        'rgba(156, 39, 176, 0.8)'
+                    ];
+                    borderColor = [
+                        'rgba(255, 126, 95, 1)',
+                        'rgba(76, 175, 80, 1)',
+                        'rgba(33, 150, 243, 1)',
+                        'rgba(156, 39, 176, 1)'
+                    ];
+                    break;
+                    
+                case 'method':
+                    labels = ['Efectivo', 'Tarjeta', 'Transferencia'];
+                    data = [35, 50, 15];
+                    backgroundColor = [
+                        'rgba(76, 175, 80, 0.8)',
+                        'rgba(33, 150, 243, 0.8)',
+                        'rgba(255, 126, 95, 0.8)'
+                    ];
+                    borderColor = [
+                        'rgba(76, 175, 80, 1)',
+                        'rgba(33, 150, 243, 1)',
+                        'rgba(255, 126, 95, 1)'
+                    ];
+                    break;
+            }
+            
+            categoryChartInstance.data.labels = labels;
+            categoryChartInstance.data.datasets[0].data = data;
+            categoryChartInstance.data.datasets[0].backgroundColor = backgroundColor;
+            categoryChartInstance.data.datasets[0].borderColor = borderColor;
+            categoryChartInstance.update();
+        }
+        
+        // Configurar período del gráfico
+        function setChartPeriod(period) {
+            currentChartPeriod = period;
+            
+            // Actualizar botones activos
+            document.querySelectorAll('.chart-actions .chart-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Actualizar el gráfico
+            updateSalesChart(period);
+            
+            showNotification(`Mostrando tendencias de ${getPeriodLabel(period)}`, 'success');
+        }
+        
+        // Configurar gráfico de categorías
+        function setCategoryChart(type) {
+            currentCategoryChart = type;
+            
+            // Actualizar botones activos
+            const chartActions = event.target.closest('.chart-actions');
+            if (chartActions) {
+                chartActions.querySelectorAll('.chart-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                event.target.classList.add('active');
+            }
+            
+            // Actualizar el gráfico
+            updateCategoryChart(type);
+            
+            showNotification(`Mostrando distribución por ${getCategoryLabel(type)}`, 'success');
+        }
+        
+        // Actualizar fecha y hora
+        function updateDateTime() {
+            const now = new Date();
+            const dateOptions = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            };
+            const timeOptions = { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                hour12: false 
+            };
+            
+            document.getElementById('currentDate').textContent = 
+                now.toLocaleDateString('es-ES', dateOptions);
+            document.getElementById('currentTime').textContent = 
+                now.toLocaleTimeString('es-ES', timeOptions);
+        }
+        
+        // Actualizar estadísticas
+        function updateStats() {
+            // Venta del día
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const ventaDia = invoices
+                .filter(invoice => {
+                    const invoiceDate = new Date(invoice.date);
+                    invoiceDate.setHours(0, 0, 0, 0);
+                    return invoiceDate.getTime() === today.getTime() && invoice.status === 'pagada';
+                })
+                .reduce((sum, invoice) => sum + invoice.total, 0);
+            
+            // Si no hay datos reales, usar datos de ejemplo para demostración
+            const displayVentaDia = ventaDia > 0 ? ventaDia : 2875.50;
+            document.getElementById('ventaDia').textContent = `$${displayVentaDia.toFixed(2)}`;
+            
+            // Venta del mes
+            const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            
+            const ventaMes = invoices
+                .filter(invoice => {
+                    const invoiceDate = new Date(invoice.date);
+                    return invoiceDate >= firstDayOfMonth && invoice.status === 'pagada';
+                })
+                .reduce((sum, invoice) => sum + invoice.total, 0);
+            
+            const displayVentaMes = ventaMes > 0 ? ventaMes : 38950.75;
+            document.getElementById('ventaMes').textContent = `$${displayVentaMes.toFixed(2)}`;
+            
+            // Gastos totales (simulados)
+            const gastosTotales = calculateExpenses();
+            document.getElementById('gastosTotales').textContent = `$${gastosTotales.toFixed(2)}`;
+            
+            // Ganancias netas
+            const gananciasNetas = displayVentaMes - gastosTotales;
+            document.getElementById('gananciasNetas').textContent = `$${gananciasNetas.toFixed(2)}`;
+            
+            // Pedidos hoy
+            const totalPedidos = orders
+                .filter(order => {
+                    const orderDate = new Date(order.date);
+                    orderDate.setHours(0, 0, 0, 0);
+                    return orderDate.getTime() === today.getTime();
+                })
+                .length;
+            
+            const displayPedidos = totalPedidos > 0 ? totalPedidos : 42;
+            document.getElementById('totalPedidos').textContent = displayPedidos;
+            
+            // Nuevos clientes (simulado)
+            const nuevosClientes = Math.floor(Math.random() * 15) + 5;
+            document.getElementById('nuevosClientes').textContent = nuevosClientes;
+        }
+        
+        // Calcular gastos (simulados para demostración)
+        function calculateExpenses() {
+            // Gastos fijos mensuales
+            const fixedExpenses = {
+                'Alquiler': 2000,
+                'Servicios (agua, luz, internet)': 800,
+                'Nómina de empleados': 4500,
+                'Materia prima': 3000,
+                'Marketing': 500,
+                'Mantenimiento': 300,
+                'Impuestos': 1000
+            };
+            
+            // Sumar gastos fijos
+            let totalExpenses = Object.values(fixedExpenses).reduce((sum, expense) => sum + expense, 0);
+            
+            // Agregar gastos variables (simulados)
+            const today = new Date();
+            const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+            const currentDay = today.getDate();
+            
+            // Gastos proporcionales al día del mes
+            totalExpenses = (totalExpenses / daysInMonth) * currentDay;
+            
+            // Agregar gastos adicionales aleatorios
+            const additionalExpenses = Math.random() * 500 + 200;
+            totalExpenses += additionalExpenses;
+            
+            return totalExpenses;
+        }
+        
+        // Cargar actividades recientes
+        function loadActivities() {
+            const activityList = document.getElementById('activityList');
+            
+            // Combinar facturas y pedidos para actividades
+            const recentActivities = [];
+            
+            // Agregar facturas recientes
+            invoices.slice(0, 10).forEach(invoice => {
+                recentActivities.push({
+                    type: 'factura',
+                    title: `Factura ${invoice.invoiceNumber} generada`,
+                    description: `Cliente: ${invoice.customerName}`,
+                    time: new Date(invoice.date),
+                    amount: invoice.total,
+                    icon: 'factura'
+                });
+            });
+            
+            // Agregar pedidos recientes
+            orders.slice(0, 10).forEach(order => {
+                recentActivities.push({
+                    type: 'pedido',
+                    title: `Pedido ${order.orderNumber} recibido`,
+                    description: `Cliente: ${order.customerName}`,
+                    time: new Date(order.date),
+                    amount: order.total,
+                    icon: 'pedido'
+                });
+            });
+            
+            // Si no hay actividades reales, agregar ejemplos
+            if (recentActivities.length < 5) {
+                const exampleActivities = [
+                    { title: 'Venta mayor de pizza', amount: 125.50, icon: 'venta', type: 'venta' },
+                    { title: 'Pedido delivery #1234', amount: 45.75, icon: 'pedido', type: 'pedido' },
+                    { title: 'Compra de ingredientes', amount: -320.25, icon: 'gasto', type: 'gasto' },
+                    { title: 'Factura FAC-001-000125', amount: 89.99, icon: 'factura', type: 'factura' },
+                    { title: 'Nuevo cliente registrado', amount: 0, icon: 'cliente', type: 'cliente' }
+                ];
+                
+                exampleActivities.forEach(expense => {
+                    const fakeDate = new Date();
+                    fakeDate.setHours(fakeDate.getHours() - Math.floor(Math.random() * 24));
+                    fakeDate.setMinutes(fakeDate.getMinutes() - Math.floor(Math.random() * 60));
+                    
+                    recentActivities.push({
+                        type: expense.type,
+                        title: expense.title,
+                        description: expense.type === 'gasto' ? 'Gasto registrado' : 
+                                    expense.type === 'cliente' ? 'Nuevo cliente' : 'Venta registrada',
+                        time: fakeDate,
+                        amount: expense.amount,
+                        icon: expense.icon
+                    });
+                });
+            }
+            
+            // Ordenar por fecha (más reciente primero)
+            recentActivities.sort((a, b) => b.time - a.time);
+            
+            // Tomar solo las 5 más recientes
+            const displayActivities = recentActivities.slice(0, 5);
+            
+            // Renderizar actividades
+            activityList.innerHTML = displayActivities.map(activity => {
+                const timeAgo = getTimeAgo(activity.time);
+                const amountClass = activity.amount > 0 ? 'positive' : activity.amount < 0 ? 'negative' : '';
+                const amountDisplay = activity.amount !== 0 ? 
+                    `${activity.amount > 0 ? '+' : ''}$${Math.abs(activity.amount).toFixed(2)}` : 
+                    'N/A';
+                
+                return `
+                    <div class="activity-item">
+                        <div class="activity-icon ${activity.icon}">
+                            ${getActivityIcon(activity.icon)}
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-title">${activity.title}</div>
+                            <div class="activity-time">${timeAgo} • ${activity.description}</div>
+                        </div>
+                        <div class="activity-amount ${amountClass}">${amountDisplay}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Cargar productos más vendidos
+        function loadTopProducts() {
+            const topProductsContainer = document.getElementById('topProducts');
+            
+            // Productos simulados para demostración
+            const topProducts = [
+                { name: 'Pizza Margarita', quantity: 128, revenue: 2560, trend: 'up' },
+                { name: 'Hamburguesa Especial', quantity: 95, revenue: 2375, trend: 'up' },
+                { name: 'Ensalada César', quantity: 76, revenue: 1520, trend: 'stable' },
+                { name: 'Pasta Carbonara', quantity: 64, revenue: 1920, trend: 'up' },
+                { name: 'Sushi Mixto', quantity: 52, revenue: 2600, trend: 'down' }
+            ];
+            
+            // Calcular máximo para las barras
+            const maxQuantity = Math.max(...topProducts.map(p => p.quantity));
+            
+            topProductsContainer.innerHTML = topProducts.map(product => {
+                const percentage = (product.quantity / maxQuantity) * 100;
+                let barClass = 'high';
+                if (percentage < 50) barClass = 'medium';
+                if (percentage < 25) barClass = 'low';
+                
+                const trendIcon = product.trend === 'up' ? '📈' : 
+                                 product.trend === 'down' ? '📉' : '📊';
+                
+                return `
+                    <tr>
+                        <td>
+                            <div class="product-info">
+                                <div class="product-icon">${getProductIcon(product.name)}</div>
+                                <div>
+                                    <div style="font-weight: 600;">${product.name}</div>
+                                    <div style="font-size: 0.85rem; color: #718096;">Más vendido</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="product-sales">
+                                <div class="sales-bar">
+                                    <div class="sales-fill ${barClass}" style="width: ${percentage}%"></div>
+                                </div>
+                                <span style="font-weight: 600;">${product.quantity}</span>
+                            </div>
+                        </td>
+                        <td style="font-weight: 700; color: #4CAF50;">$${product.revenue.toFixed(2)}</td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span>${trendIcon}</span>
+                                <span style="font-weight: 600; color: ${product.trend === 'up' ? '#4CAF50' : product.trend === 'down' ? '#F44336' : '#9E9E9E'}">
+                                    ${product.trend === 'up' ? '+12%' : product.trend === 'down' ? '-5%' : '0%'}
+                                </span>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // Refrescar actividades
+        function refreshActivities() {
+            loadActivities();
+            showNotification('Actividades actualizadas', 'success');
+        }
+        
+        // Ver todos los productos
+        function viewAllProducts() {
+            showNotification('Redirigiendo a gestión de productos...', 'info');
+            // En una implementación real, aquí se redirigiría a la página de productos
+        }
+        
+        // Helper functions
+        function getTimeAgo(date) {
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffMins < 1) return 'Hace unos segundos';
+            if (diffMins < 60) return `Hace ${diffMins} min`;
+            if (diffHours < 24) return `Hace ${diffHours} horas`;
+            if (diffDays === 1) return 'Ayer';
+            if (diffDays < 7) return `Hace ${diffDays} días`;
+            
+            return date.toLocaleDateString('es-ES', { 
+                day: '2-digit', 
+                month: 'short' 
+            });
+        }
+        
+        function getActivityIcon(type) {
+            const icons = {
+                'venta': '💰',
+                'pedido': '🛒',
+                'gasto': '📉',
+                'factura': '🧾',
+                'cliente': '👤'
+            };
+            return icons[type] || '📋';
+        }
+        
+        function getProductIcon(productName) {
+            const icons = {
+                'Pizza': '🍕',
+                'Hamburguesa': '🍔',
+                'Ensalada': '🥗',
+                'Pasta': '🍝',
+                'Sushi': '🍣'
+            };
+            
+            for (const [key, icon] of Object.entries(icons)) {
+                if (productName.includes(key)) return icon;
+            }
+            
+            return '🍽️';
+        }
+        
+        function getPeriodLabel(period) {
+            const labels = {
+                'week': 'la semana',
+                'month': 'el mes',
+                'year': 'el año'
+            };
+            return labels[period] || period;
+        }
+        
+        function getCategoryLabel(type) {
+            const labels = {
+                'type': 'tipo de producto',
+                'time': 'horario',
+                'method': 'método de pago'
+            };
+            return labels[type] || type;
+        }
+        
+        // Mostrar notificación
+        function showNotification(message, type = 'success') {
+            // Crear elemento de notificación
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${type === 'error' ? 'linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)' : 
+                           type === 'info' ? 'linear-gradient(135deg, #2196F3 0%, #21CBF3 100%)' : 
+                           'linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%)'};
+                color: white;
+                padding: 1rem 1.5rem;
+                border-radius: 12px;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+                z-index: 1000;
+                animation: slideIn 0.3s ease-out;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            `;
+            
+            notification.innerHTML = message;
+            document.body.appendChild(notification);
+            
+            // Remover después de 5 segundos
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+        
+        // Sidebar toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('open');
+        }
+        
+        // Añadir animación CSS para notificaciones
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

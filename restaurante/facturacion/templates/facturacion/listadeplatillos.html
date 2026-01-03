@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Platos - Restaurante</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            min-height: 100vh;
+        }
+        
+        /* App container */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar styles - Mismo diseño */
+        .sidebar {
+            width: 260px;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar-header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 1.5rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .sidebar-nav {
+            flex: 1;
+            padding: 1rem 0;
+        }
+        
+        .nav-item {
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #ecf0f1;
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+        }
+        
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-left-color: #ff7e5f;
+            color: #ff7e5f;
+            transform: translateX(5px);
+        }
+        
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            border-left-color: #ff7e5f;
+            color: #ff7e5f;
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 1.25rem;
+        }
+        
+        /* Mobile menu toggle */
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 1000;
+            background: #ff7e5f;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: white;
+            transition: all 0.3s;
+        }
+        
+        .menu-toggle:hover {
+            background: #ff6b4a;
+            transform: scale(1.05);
+        }
+        
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 998;
+        }
+        
+        /* Main content area */
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 25px;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Header - Mismo diseño */
+        .header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 2.5rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.1)"/></svg>');
+            background-size: cover;
+        }
+        
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header p {
+            opacity: 0.95;
+            font-size: 1.1rem;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .content {
+            padding: 2.5rem;
+        }
+        
+        /* Stats Cards */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+            padding: 1.5rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(255, 126, 95, 0.1);
+            border: 1px solid rgba(255, 126, 95, 0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(255, 126, 95, 0.2);
+        }
+        
+        .stat-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #ff7e5f;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: #4a5568;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+        
+        /* Controls Section */
+        .controls-section {
+            background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(255, 126, 95, 0.1);
+            border: 1px solid rgba(255, 126, 95, 0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .controls-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .controls-header h3 {
+            color: #2c3e50;
+            font-size: 1.4rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .controls-header h3::before {
+            content: "🔍";
+            font-size: 1.2rem;
+        }
+        
+        /* Botones - Mismo estilo */
+        .btn {
+            padding: 1rem 2.5rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            box-shadow: 0 10px 20px rgba(255, 126, 95, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(255, 126, 95, 0.4);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
+            color: #2c3e50;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            box-shadow: 0 4px 6px rgba(255, 179, 71, 0.3);
+        }
+        
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(255, 179, 71, 0.4);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            box-shadow: 0 4px 6px rgba(255, 65, 108, 0.3);
+        }
+        
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(255, 65, 108, 0.4);
+        }
+        
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+        
+        /* Form inputs - Para filtros */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #2c3e50;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .form-group input,
+        .form-group select {
+            padding: 1rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: white;
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.05);
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .search-box {
+            flex: 1;
+            min-width: 300px;
+            position: relative;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 1rem 1rem 1rem 3.5rem;
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            color: #ff7e5f;
+        }
+        
+        .filter-select {
+            padding: 1rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            font-size: 1rem;
+            background: white;
+            min-width: 180px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.05);
+        }
+        
+        .filter-select:focus {
+            outline: none;
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.2);
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        
+        /* Platos Table */
+        .table-container {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(255, 126, 95, 0.1);
+            border: 1px solid rgba(255, 126, 95, 0.1);
+            margin-bottom: 2rem;
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+        
+        thead {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+        }
+        
+        thead th {
+            padding: 1.5rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        tbody tr {
+            border-bottom: 1px solid rgba(255, 126, 95, 0.1);
+            transition: all 0.2s;
+        }
+        
+        tbody tr:hover {
+            background: #f8f9ff;
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(255, 126, 95, 0.1);
+        }
+        
+        tbody td {
+            padding: 1.5rem;
+            color: #4a5568;
+        }
+        
+        /* Category badges - Mismo estilo */
+        .category-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .category-entrada { 
+            background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%); 
+            color: #7c2d12; 
+        }
+        .category-principal { 
+            background: linear-gradient(135deg, #f687b3 0%, #ed64a6 100%); 
+            color: #702459; 
+        }
+        .category-postre { 
+            background: linear-gradient(135deg, #fbd38d 0%, #f6ad55 100%); 
+            color: #7c2d12; 
+        }
+        .category-bebida { 
+            background: linear-gradient(135deg, #bee3f8 0%, #90cdf4 100%); 
+            color: #2c5282; 
+        }
+        .category-rapida { 
+            background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%); 
+            color: #22543d; 
+        }
+        .category-especial { 
+            background: linear-gradient(135deg, #e9d8fd 0%, #d6bcfa 100%); 
+            color: #44337a; 
+        }
+        
+        /* Action buttons */
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn-icon {
+            padding: 0.5rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 1rem;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e9ecff 100%);
+            color: #667eea;
+        }
+        
+        .btn-icon:hover {
+            transform: scale(1.1);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+        
+        .btn-edit:hover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-delete:hover {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            color: white;
+        }
+        
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+        
+        .page-btn {
+            padding: 0.75rem 1.25rem;
+            border: 2px solid #e0e6ff;
+            background: white;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        
+        .page-btn:hover {
+            background: #f8f9ff;
+            border-color: #ff7e5f;
+            color: #ff7e5f;
+        }
+        
+        .page-btn.active {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            border-color: #ff7e5f;
+        }
+        
+        .page-info {
+            padding: 0 1rem;
+            color: #4a5568;
+            font-weight: 600;
+        }
+        
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 4rem;
+            color: #a0aec0;
+        }
+        
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1rem;
+            opacity: 0.5;
+        }
+        
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: #4a5568;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 1200px) {
+            .stats-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: block;
+            }
+            
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                z-index: 999;
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .sidebar-overlay.open {
+                display: block;
+            }
+            
+            .main-content {
+                padding: 5rem 1rem 1rem;
+            }
+            
+            .content {
+                padding: 1.5rem;
+            }
+            
+            .header {
+                padding: 2rem 1.5rem;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .stats-container {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .controls-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .filter-row {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .search-box {
+                min-width: 100%;
+            }
+            
+            .filter-select {
+                width: 100%;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .table-container {
+                border-radius: 15px;
+            }
+            
+            table {
+                min-width: 1000px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+     {% csrf_token %}
+    <!-- Mobile menu toggle -->
+    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    
+       <div class="app-container">
+    <!-- Sidebar navigation -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            🍽️ 402 FASTFOOD
+        </div>
+        <nav class="sidebar-nav">
+            <!-- Verificar grupos sin template tag -->
+            {% with user_groups=user.groups.all|join:"," %}
+            
+            <!-- Menú para Usuario Normal (excluye superusuarios) -->
+            {% if "Usuario Normal" in user_groups and not user.is_superuser %}
+            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                <span class="nav-icon">🛒</span>
+                <span>Pedidos</span>
+            </a>
+            <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                <span class="nav-icon">📋</span>
+                <span>Inventario</span>
+            </a>
+            <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                <span class="nav-icon">📋</span>
+                <span>Gestión de Pedidos</span>
+            </a>
+            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                <span class="nav-icon">🧾</span>
+                <span>Facturación</span>
+            </a>
+            <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                <span class="nav-icon">📤</span>
+                <span>Salida de Productos</span>
+            </a>
+            {% endif %}
+            
+            <!-- Menú para Administrador -->
+            {% if "Administrador" in user_groups and not user.is_superuser %}
+            <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                <span class="nav-icon">📦</span>
+                <span>Entrada de Productos</span>
+            </a>
+            <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                <span class="nav-icon">📋</span>
+                <span>Inventario</span>
+            </a>
+            <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                <span class="nav-icon">🍽️</span>
+                <span>Entrada de Platos</span>
+            </a>
+            <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                <span class="nav-icon">📊</span>
+                <span>Gestión de Platos</span>
+            </a>
+            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                <span class="nav-icon">🛒</span>
+                <span>Pedidos</span>
+            </a>
+            <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                <span class="nav-icon">📋</span>
+                <span>Gestión de Pedidos</span>
+            </a>
+            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                <span class="nav-icon">🧾</span>
+                <span>Facturación</span>
+            </a>
+            <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                <span class="nav-icon">📤</span>
+                <span>Salida de Productos</span>
+            </a>
+            <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                <span class="nav-icon">👥</span>
+                <span>Gestión de Usuarios</span>
+            </a>
+            {% endif %}
+            
+            <!-- Menú para otros grupos... -->
+            {% if "Gerente" in user_groups and not user.is_superuser %}
+            <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
+            {% endif %}
+            
+            {% if "Cajero" in user_groups and not user.is_superuser %}
+            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                <span class="nav-icon">🛒</span>
+                <span>Pedidos</span>
+            </a>
+            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                <span class="nav-icon">🧾</span>
+                <span>Facturación</span>
+            </a>
+            {% endif %}
+            
+            <!-- Menú EXCLUSIVO para superusuarios -->
+            {% if user.is_superuser %}
+            <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                <span class="nav-icon">📦</span>
+                <span>Entrada de Productos</span>
+            </a>
+            <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                <span class="nav-icon">📋</span>
+                <span>Inventario</span>
+            </a>
+            <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                <span class="nav-icon">🍽️</span>
+                <span>Entrada de Platos</span>
+            </a>
+            <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                <span class="nav-icon">📊</span>
+                <span>Gestión de Platos</span>
+            </a>
+            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                <span class="nav-icon">🛒</span>
+                <span>Pedidos</span>
+            </a>
+            <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                <span class="nav-icon">📋</span>
+                <span>Gestión de Pedidos</span>
+            </a>
+            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                <span class="nav-icon">🧾</span>
+                <span>Facturación</span>
+            </a>
+            <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                <span class="nav-icon">📤</span>
+                <span>Salida de Productos</span>
+            </a>
+            <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                <span class="nav-icon">👥</span>
+                <span>Gestión de Usuarios</span>
+            </a>
+            {% endif %}
+            
+            <!-- Cerrar sesión para todos -->
+            <a href="{% url 'logout' %}" class="nav-item">
+                <span class="nav-icon">🚪</span>
+                <span>Cerrar Sesión</span>
+            </a>
+            
+            {% endwith %}
+        </nav>
+    </div>
+    
+        <!-- Overlay for mobile sidebar -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+        
+        <div class="main-content">
+            <div class="container">
+                <div class="header">
+                    <h1>📊 Gestión de Platos</h1>
+                    <p>Administra y controla el menú de tu restaurante</p>
+                </div>
+                
+                <div class="content">
+                    <!-- Stats Cards -->
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <span class="stat-icon">🍽️</span>
+                            <div class="stat-value" id="totalPlatos">0</div>
+                            <div class="stat-label">Total de Platos</div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">💰</span>
+                            <div class="stat-value" id="precioPromedio">$0</div>
+                            <div class="stat-label">Precio Promedio</div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">🏷️</span>
+                            <div class="stat-value" id="totalCategorias">0</div>
+                            <div class="stat-label">Categorías</div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">📅</span>
+                            <div class="stat-value" id="platosHoy">0</div>
+                            <div class="stat-label">Hoy</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Controls Section -->
+                    <div class="controls-section">
+                        <div class="controls-header">
+                            <h3>Buscar y Filtrar Platos</h3>
+                            <a href="{% url 'entrada_platos' %}" class="btn btn-primary btn-sm">
+                                <span>➕</span>
+                                <span>Agregar Nuevo Plato</span>
+                            </a>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="searchInput">🔍 Buscar Plato</label>
+                            <div class="search-box">
+                                <span class="search-icon">🔍</span>
+                                <input type="text" id="searchInput" placeholder="Buscar por nombre o código...">
+                            </div>
+                        </div>
+                        
+                        <div class="filter-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label for="categoryFilter">🏷️ Categoría</label>
+                                <select class="filter-select" id="categoryFilter">
+                                    <option value="">Todas las categorías</option>
+                                    <option value="entrada">Entrada</option>
+                                    <option value="principal">Plato Principal</option>
+                                    <option value="postre">Postre</option>
+                                    <option value="bebida">Bebida</option>
+                                    <option value="rapida">Comida Rápida</option>
+                                    <option value="especial">Especial</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" style="flex: 1;">
+                                <label for="sortFilter">🔃 Ordenar por</label>
+                                <select class="filter-select" id="sortFilter">
+                                    <option value="codigo">Código</option>
+                                    <option value="nombre">Nombre (A-Z)</option>
+                                    <option value="nombre_desc">Nombre (Z-A)</option>
+                                    <option value="precio_asc">Precio (Menor a Mayor)</option>
+                                    <option value="precio_desc">Precio (Mayor a Menor)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Platos Table -->
+                    <div class="table-container">
+                        <table id="platosTable">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Plato</th>
+                                    <th>Categoría</th>
+                                    <th>Precio</th>
+                                    <th>Fecha de Creación</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="platosBody">
+                                <!-- Platos will be loaded here dynamically -->
+                                {% for plato in platos %}
+                                <tr>
+                                    <td style="font-weight: 700; color: #2c3e50; font-family: 'Courier New', monospace;">
+                                        {{ plato.codigo }}
+                                    </td>
+                                    <td style="font-weight: 600; color: #2c3e50;">{{ plato.nombre }}</td>
+                                    <td>
+                                        <span class="category-badge category-{{ plato.categoria }}">
+                                            {{ plato.get_categoria_display }}
+                                        </span>
+                                    </td>
+                                    <td style="font-weight: 700; color: #ff7e5f;">${{ plato.precio }}</td>
+                                    <td>{{ plato.fecha_creacion|date:"d/m/Y" }}</td>
+                                    <td>
+                                        {% if plato.activo %}
+                                        <span style="color: #38a169; font-weight: 600;">✅ Activo</span>
+                                        {% else %}
+                                        <span style="color: #e53e3e; font-weight: 600;">❌ Inactivo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn-icon btn-edit" onclick="editarPlato({{ plato.id }})" title="Editar plato">
+                                                ✏️
+                                            </button>
+                                            <button class="btn-icon btn-delete" onclick="eliminarPlato({{ plato.id }})" title="Eliminar plato">
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr class="empty-state">
+                                    <td colspan="7">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                        </svg>
+                                        <h3>No hay platos en el menú</h3>
+                                        <p>Agrega tu primer plato usando el botón "Agregar Nuevo Plato"</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <div class="pagination" id="pagination" style="display: none;">
+                        <button class="page-btn" onclick="changePage(-1)">← Anterior</button>
+                        <span class="page-info" id="pageInfo">Página 1 de 1</span>
+                        <button class="page-btn" onclick="changePage(1)">Siguiente →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+   <script>
+    // Inicializar la aplicación
+    document.addEventListener('DOMContentLoaded', function() {
+        // Calcular estadísticas iniciales
+        updateStats();
+        setupEventListeners();
+    });
+    
+    // Configurar event listeners
+    function setupEventListeners() {
+        const searchInput = document.getElementById('searchInput');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const sortFilter = document.getElementById('sortFilter');
+        
+        searchInput.addEventListener('input', filterAndRender);
+        categoryFilter.addEventListener('change', filterAndRender);
+        sortFilter.addEventListener('change', filterAndRender);
+    }
+    
+    // Actualizar estadísticas
+    function updateStats() {
+        const filas = document.querySelectorAll('#platosBody tr');
+        const totalPlatos = filas.length - (document.querySelector('.empty-state') ? 1 : 0);
+        
+        if (totalPlatos > 0) {
+            let totalPrecio = 0;
+            let categorias = new Set();
+            const hoy = new Date().toISOString().split('T')[0];
+            let platosHoy = 0;
+            
+            // Calcular precio promedio, categorías y platos de hoy
+            document.querySelectorAll('#platosBody tr').forEach(row => {
+                if (!row.classList.contains('empty-state')) {
+                    // Precio
+                    const precioText = row.cells[3].textContent.replace('$', '');
+                    const precio = parseFloat(precioText);
+                    if (!isNaN(precio)) {
+                        totalPrecio += precio;
+                    }
+                    
+                    // Categoría
+                    const categoriaText = row.cells[2].textContent.trim();
+                    categorias.add(categoriaText);
+                    
+                    // Platos de hoy (simulado por ahora)
+                    const fechaCreacion = row.cells[4].textContent;
+                    if (fechaCreacion.includes(hoy.substring(8, 10))) {
+                        platosHoy++;
+                    }
+                }
+            });
+            
+            const precioPromedio = totalPlatos > 0 ? totalPrecio / totalPlatos : 0;
+            
+            document.getElementById('totalPlatos').textContent = totalPlatos;
+            document.getElementById('precioPromedio').textContent = `$${precioPromedio.toFixed(2)}`;
+            document.getElementById('totalCategorias').textContent = categorias.size;
+            document.getElementById('platosHoy').textContent = platosHoy;
+        }
+    }
+    
+    // Filtrar y renderizar platos
+    function filterAndRender() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const selectedCategory = document.getElementById('categoryFilter').value;
+        const sortBy = document.getElementById('sortFilter').value;
+        
+        const filas = document.querySelectorAll('#platosBody tr');
+        
+        filas.forEach(row => {
+            if (row.classList.contains('empty-state')) return;
+            
+            const codigo = row.cells[0].textContent.toLowerCase();
+            const nombre = row.cells[1].textContent.toLowerCase();
+            const categoria = row.cells[2].textContent.toLowerCase();
+            const categoriaValue = row.querySelector('.category-badge').className.includes('entrada') ? 'entrada' :
+                                  row.querySelector('.category-badge').className.includes('principal') ? 'principal' :
+                                  row.querySelector('.category-badge').className.includes('postre') ? 'postre' :
+                                  row.querySelector('.category-badge').className.includes('bebida') ? 'bebida' :
+                                  row.querySelector('.category-badge').className.includes('rapida') ? 'rapida' :
+                                  'especial';
+            
+            const matchesSearch = !searchTerm || 
+                codigo.includes(searchTerm) ||
+                nombre.includes(searchTerm);
+            
+            const matchesCategory = !selectedCategory || categoriaValue === selectedCategory;
+            
+            row.style.display = matchesSearch && matchesCategory ? '' : 'none';
+        });
+        
+        // Contar filas visibles
+        const filasVisibles = Array.from(filas).filter(row => 
+            row.style.display !== 'none' && !row.classList.contains('empty-state')
+        ).length;
+        
+        // Mostrar/Ocultar estado vacío
+        const emptyState = document.querySelector('.empty-state');
+        if (emptyState) {
+            emptyState.style.display = filasVisibles === 0 ? '' : 'none';
+        }
+        
+        // Si hay resultados, ordenarlos
+        if (filasVisibles > 0) {
+            ordenarTabla(sortBy);
+        }
+    }
+    
+    // Ordenar tabla
+    function ordenarTabla(sortBy) {
+        const tbody = document.getElementById('platosBody');
+        const filas = Array.from(tbody.querySelectorAll('tr'));
+        
+        // Filtrar solo las filas de datos (no el empty state)
+        const filasDatos = filas.filter(row => !row.classList.contains('empty-state'));
+        
+        filasDatos.sort((a, b) => {
+            switch(sortBy) {
+                case 'codigo':
+                    return a.cells[0].textContent.localeCompare(b.cells[0].textContent);
+                case 'nombre':
+                    return a.cells[1].textContent.localeCompare(b.cells[1].textContent);
+                case 'nombre_desc':
+                    return b.cells[1].textContent.localeCompare(a.cells[1].textContent);
+                case 'precio_asc':
+                    const precioA = parseFloat(a.cells[3].textContent.replace('$', ''));
+                    const precioB = parseFloat(b.cells[3].textContent.replace('$', ''));
+                    return precioA - precioB;
+                case 'precio_desc':
+                    const precioA2 = parseFloat(a.cells[3].textContent.replace('$', ''));
+                    const precioB2 = parseFloat(b.cells[3].textContent.replace('$', ''));
+                    return precioB2 - precioA2;
+                default:
+                    return 0;
+            }
+        });
+        
+        // Reordenar las filas en el DOM
+        filasDatos.forEach(row => tbody.appendChild(row));
+    }
+    
+    // Editar plato (VERSIÓN SIMPLIFICADA - sin API)
+    function editarPlato(platoId) {
+        // Obtener datos de la fila directamente del DOM
+        const row = document.querySelector(`button[onclick="editarPlato(${platoId})"]`).closest('tr');
+        
+        const codigo = row.cells[0].textContent;
+        const nombreActual = row.cells[1].textContent;
+        
+        // Determinar categoría actual basándose en las clases CSS
+        const badgeElement = row.querySelector('.category-badge');
+        let categoriaActual = 'entrada';
+        if (badgeElement.className.includes('principal')) categoriaActual = 'principal';
+        else if (badgeElement.className.includes('postre')) categoriaActual = 'postre';
+        else if (badgeElement.className.includes('bebida')) categoriaActual = 'bebida';
+        else if (badgeElement.className.includes('rapida')) categoriaActual = 'rapida';
+        else if (badgeElement.className.includes('especial')) categoriaActual = 'especial';
+        
+        const precioActual = row.cells[3].textContent.replace('$', '');
+        
+        // Mostrar formulario de edición
+        const nuevoNombre = prompt("🍽️ Nuevo nombre del plato:", nombreActual);
+        if (!nuevoNombre) return;
+        
+        const nuevaCategoria = prompt("🏷️ Nueva categoría (entrada/principal/postre/bebida/rapida/especial):", categoriaActual);
+        if (!nuevaCategoria) return;
+        
+        const nuevoPrecio = parseFloat(prompt("💰 Nuevo precio:", precioActual));
+        if (isNaN(nuevoPrecio) || nuevoPrecio < 0) {
+            showNotification("❌ El precio debe ser un número válido mayor o igual a 0", "error");
+            return;
+        }
+        
+        // Actualizar visualmente la fila
+        row.cells[1].textContent = nuevoNombre;
+        row.cells[3].textContent = `$${nuevoPrecio.toFixed(2)}`;
+        
+        // Actualizar badge de categoría
+        const categoriasValidas = ['entrada', 'principal', 'postre', 'bebida', 'rapida', 'especial'];
+        const categoriaFinal = categoriasValidas.includes(nuevaCategoria.toLowerCase()) ? nuevaCategoria.toLowerCase() : 'entrada';
+        
+        // Remover clases antiguas
+        badgeElement.className = 'category-badge';
+        // Añadir nueva clase
+        badgeElement.classList.add(`category-${categoriaFinal}`);
+        
+        // Actualizar texto del badge
+        const categoriasLabels = {
+            'entrada': 'Entrada',
+            'principal': 'Principal',
+            'postre': 'Postre',
+            'bebida': 'Bebida',
+            'rapida': 'Comida Rápida',
+            'especial': 'Especial'
+        };
+        badgeElement.textContent = categoriasLabels[categoriaFinal] || categoriaFinal;
+        
+        // Enviar actualización al servidor
+        fetch(`/actualizar-plato/${platoId}/`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                nombre: nuevoNombre,
+                categoria: categoriaFinal,
+                precio: nuevoPrecio
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(`✅ "${nuevoNombre}" actualizado exitosamente!`);
+                updateStats();
+            } else {
+                showNotification(`❌ Error: ${data.error}`, "error");
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification("❌ Error al actualizar el plato", "error");
+        });
+    }
+    
+    // Eliminar plato
+    function eliminarPlato(platoId) {
+        const row = document.querySelector(`button[onclick="eliminarPlato(${platoId})"]`).closest('tr');
+        const nombrePlato = row.cells[1].textContent;
+        
+        if (confirm(`⚠️ ¿Estás seguro de eliminar "${nombrePlato}" del menú?`)) {
+            fetch(`/eliminar-plato/${platoId}/`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': getCsrfToken()
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    row.remove();
+                    updateStats();
+                    showNotification(`🗑️ "${nombrePlato}" eliminado exitosamente!`);
+                    
+                    // Verificar si quedan platos
+                    const filasRestantes = document.querySelectorAll('#platosBody tr');
+                    if (filasRestantes.length === 1 && filasRestantes[0].classList.contains('empty-state')) {
+                        filasRestantes[0].style.display = '';
+                    }
+                } else {
+                    showNotification(`❌ Error: ${data.error}`, "error");
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification("❌ Error al eliminar el plato", "error");
+            });
+        }
+    }
+    
+    // Obtener token CSRF
+    function getCsrfToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]').value;
+    }
+    
+    // Mostrar notificación
+    function showNotification(message, type = "success") {
+        // Crear elemento de notificación
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'error' ? 'linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)' : 'linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%)'};
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        `;
+        
+        notification.innerHTML = message;
+        document.body.appendChild(notification);
+        
+        // Remover después de 3 segundos
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease-out';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
+    
+    // Sidebar toggle
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('open');
+    }
+    
+    // Añadir animación CSS para notificaciones
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
+</script>
+</body>
+</html>

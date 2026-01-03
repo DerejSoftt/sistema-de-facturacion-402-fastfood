@@ -1,0 +1,722 @@
+[file name]: index.html
+[file content begin]
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        {% if user.is_authenticated %}
+            Sistema Restaurante
+        {% else %}
+            Iniciar Sesión - 402 FASTFOOD
+        {% endif %}
+    </title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        /* Contenedor principal */
+        .login-container, .dashboard-container {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Encabezado */
+        .login-header, .dashboard-header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-header::before, .dashboard-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.1)"/></svg>');
+            background-size: cover;
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .logo-icon {
+            font-size: 40px;
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .login-title, .dashboard-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .login-subtitle, .dashboard-subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Formulario de login */
+        .login-form {
+            padding: 40px 30px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+
+        .input-group {
+            position: relative;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 16px 20px 16px 50px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: #f8f9ff;
+            color: #2c3e50;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.1);
+            background: white;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            color: #ff7e5f;
+        }
+
+        /* Opciones adicionales */
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .remember-me input {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .remember-me label {
+            color: #4a5568;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .forgot-password {
+            color: #ff7e5f;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: color 0.3s;
+        }
+
+        .forgot-password:hover {
+            color: #ff6b4a;
+            text-decoration: underline;
+        }
+
+        /* Botones */
+        .login-btn, .dashboard-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 8px 20px rgba(255, 126, 95, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none;
+            margin-bottom: 15px;
+        }
+
+        .login-btn:hover, .dashboard-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 25px rgba(255, 126, 95, 0.4);
+        }
+
+        .login-btn:active, .dashboard-btn:active {
+            transform: translateY(0);
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            box-shadow: 0 8px 20px rgba(255, 65, 108, 0.3);
+        }
+
+        .logout-btn:hover {
+            box-shadow: 0 12px 25px rgba(255, 65, 108, 0.4);
+        }
+
+        .pedidos-btn {
+            background: linear-gradient(135deg, #36D1DC 0%, #5B86E5 100%);
+            box-shadow: 0 8px 20px rgba(54, 209, 220, 0.3);
+        }
+
+        .pedidos-btn:hover {
+            box-shadow: 0 12px 25px rgba(54, 209, 220, 0.4);
+        }
+
+        /* Registro */
+        .register-link {
+            text-align: center;
+            color: #718096;
+            margin-top: 25px;
+            font-size: 0.9rem;
+        }
+
+        .register-link a {
+            color: #ff7e5f;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .register-link a:hover {
+            text-decoration: underline;
+        }
+
+        /* Mensajes de Django */
+        .messages {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .alert {
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            animation: slideIn 0.3s ease-out;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            max-width: 400px;
+            margin-bottom: 10px;
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, #4CAF50 0%, #8BC34A 100%);
+            color: white;
+        }
+
+        .alert-error {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            color: white;
+        }
+
+        .alert-info {
+            background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
+            color: white;
+        }
+
+        .alert-warning {
+            background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
+            color: white;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
+        /* Contenido del dashboard */
+        .dashboard-content {
+            padding: 40px 30px;
+        }
+
+        .user-info {
+            background: #f8f9ff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .user-info h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .info-value {
+            color: #2c3e50;
+        }
+
+        .superuser-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #333;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-left: 10px;
+        }
+
+        /* Responsive */
+        @media (max-width: 576px) {
+            .login-container, .dashboard-container {
+                max-width: 100%;
+                margin: 10px;
+            }
+
+            .login-header, .dashboard-header {
+                padding: 30px 20px;
+            }
+
+            .login-form, .dashboard-content {
+                padding: 30px 20px;
+            }
+
+            .form-options {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .alert {
+                left: 20px;
+                right: 20px;
+                max-width: calc(100% - 40px);
+            }
+        }
+
+        /* Toggle password */
+        .toggle-password {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #718096;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 5px;
+        }
+
+        .toggle-password:hover {
+            color: #ff7e5f;
+        }
+
+        /* Loading state */
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Mensajes de Django -->
+    <div class="messages">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    {% if user.is_authenticated %}
+        <!-- DASHBOARD: Usuario autenticado -->
+        <div class="dashboard-container">
+            <div class="dashboard-header">
+                <div class="logo">
+                    <div class="logo-icon">🏪</div>
+                </div>
+                <h1 class="dashboard-title">402 FASTFOOD</h1>
+                <p class="dashboard-subtitle">Bienvenido al sistema de gestión</p>
+            </div>
+
+            <div class="dashboard-content">
+                <!-- Información del usuario -->
+                <div class="user-info">
+                    <h3>
+                        👤 Información del Usuario
+                        {% if user.is_superuser %}
+                            <span class="superuser-badge">SUPERUSUARIO</span>
+                        {% endif %}
+                    </h3>
+                    <div class="info-row">
+                        <span class="info-label">Usuario:</span>
+                        <span class="info-value">{{ user.username }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Correo:</span>
+                        <span class="info-value">{{ user.email|default:"No especificado" }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Nombre:</span>
+                        <span class="info-value">
+                            {% if user.first_name or user.last_name %}
+                                {{ user.first_name }} {{ user.last_name }}
+                            {% else %}
+                                No especificado
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Último login:</span>
+                        <span class="info-value">{{ user.last_login|date:"d/m/Y H:i" }}</span>
+                    </div>
+                </div>
+
+                <!-- Botones de acción -->
+                {% if user.is_superuser %}
+                    <a href="{% url 'pedidos' %}" class="dashboard-btn pedidos-btn">
+                        <span>📋</span>
+                        <span>Ver Pedidos</span>
+                    </a>
+                {% else %}
+                    <a href="{% url 'pedidos' %}" class="dashboard-btn">
+                        <span>📊</span>
+                        <span>Ir al Dashboard</span>
+                    </a>
+                {% endif %}
+
+                <a href="{% url 'logout' %}" class="dashboard-btn logout-btn">
+                    <span>🚪</span>
+                    <span>Cerrar Sesión</span>
+                </a>
+            </div>
+        </div>
+    {% else %}
+        <!-- LOGIN: Usuario NO autenticado -->
+        <div class="login-container">
+            <div class="login-header">
+                <div class="logo">
+                    <div class="logo-icon">🔐</div>
+                </div>
+                <h1 class="login-title">Bienvenido de Nuevo</h1>
+                <p class="login-subtitle">Ingresa tus credenciales para acceder</p>
+            </div>
+
+            <form class="login-form" method="POST" action="{% url 'index' %}">
+              <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                
+                <div class="form-group">
+                    <label class="form-label">Usuario</label>
+                    <div class="input-group">
+                        <span class="input-icon">👤</span>
+                        <input type="text" class="form-input" name="username" id="username" 
+                               placeholder="Ingresa tu usuario" required autofocus>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Contraseña</label>
+                    <div class="input-group">
+                        <span class="input-icon">🔒</span>
+                        <input type="password" class="form-input" name="password" id="password" 
+                               placeholder="Ingresa tu contraseña" required>
+                        <button type="button" class="toggle-password" onclick="togglePassword()">👁️</button>
+                    </div>
+                </div>
+
+                <div class="form-options">
+                    <div class="remember-me">
+                        <input type="checkbox" id="remember" name="remember">
+                        <label for="remember">Recordar usuario</label>
+                    </div>
+                    <a href="#" class="forgot-password" onclick="showForgotPassword()">¿Olvidaste tu contraseña?</a>
+                </div>
+
+                <button type="submit" class="login-btn" id="loginButton">
+                    <span>🚀</span>
+                    <span>Iniciar Sesión</span>
+                </button>
+
+                <div class="register-link">
+                    ¿Necesitas una cuenta? <a href="#" onclick="showContactAdmin()">Contacta al administrador</a>
+                </div>
+            </form>
+        </div>
+    {% endif %}
+
+    <script>
+        // Solo ejecutar scripts de login si el usuario NO está autenticado
+        {% if not user.is_authenticated %}
+        // Elementos del DOM
+        const loginForm = document.querySelector('.login-form');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const loginButton = document.getElementById('loginButton');
+        const rememberCheckbox = document.getElementById('remember');
+
+        // Cargar usuario recordado al iniciar
+        document.addEventListener('DOMContentLoaded', function() {
+            const rememberedUser = localStorage.getItem('rememberedUser');
+            if (rememberedUser) {
+                try {
+                    const user = JSON.parse(rememberedUser);
+                    if (user && user.username) {
+                        usernameInput.value = user.username;
+                        rememberCheckbox.checked = true;
+                        showNotification(`👋 ¡Hola ${user.username}! Completa tu contraseña.`, 'info');
+                        passwordInput.focus();
+                    }
+                } catch (e) {
+                    localStorage.removeItem('rememberedUser');
+                }
+            }
+
+            // Auto-remover mensajes después de 5 segundos
+            setTimeout(() => {
+                const alerts = document.querySelectorAll('.alert');
+                alerts.forEach(alert => {
+                    alert.style.animation = 'slideOut 0.3s ease-out';
+                    setTimeout(() => alert.remove(), 300);
+                });
+            }, 5000);
+        });
+
+        // Manejar envío del formulario
+        loginForm.addEventListener('submit', function(e) {
+            // Mostrar estado de carga
+            setLoading(true);
+            
+            // Guardar en localStorage si se seleccionó "Recordar"
+            if (rememberCheckbox.checked && usernameInput.value.trim()) {
+                localStorage.setItem('rememberedUser', JSON.stringify({
+                    username: usernameInput.value.trim(),
+                    timestamp: new Date().toISOString()
+                }));
+            } else if (!rememberCheckbox.checked) {
+                localStorage.removeItem('rememberedUser');
+            }
+        });
+
+        // Función para mostrar/ocultar contraseña
+        function togglePassword() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            
+            // Cambiar ícono
+            const toggleBtn = document.querySelector('.toggle-password');
+            toggleBtn.textContent = type === 'password' ? '👁️' : '👁️‍🗨️';
+        }
+
+        // Funciones para mostrar información
+        function showForgotPassword() {
+            showNotification('📧 Para restablecer tu contraseña, contacta al administrador del sistema.', 'info');
+        }
+
+        function showContactAdmin() {
+            showNotification('📞 Contacta al administrador del sistema para solicitar una cuenta.', 'info');
+        }
+        {% endif %}
+
+        // Función para mostrar notificaciones (disponible siempre)
+        function showNotification(message, type = 'success') {
+            // Eliminar notificaciones existentes
+            const existingAlerts = document.querySelectorAll('.alert');
+            existingAlerts.forEach(alert => {
+                alert.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => alert.remove(), 300);
+            });
+            
+            // Crear nueva notificación
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            
+            // Configurar color según tipo
+            let bgColor = 'linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%)';
+            if (type === 'error') {
+                bgColor = 'linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)';
+            } else if (type === 'info') {
+                bgColor = 'linear-gradient(135deg, #2196F3 0%, #21CBF3 100%)';
+            } else if (type === 'warning') {
+                bgColor = 'linear-gradient(135deg, #ffb347 0%, #ffcc33 100%)';
+            } else if (type === 'success') {
+                bgColor = 'linear-gradient(135deg, #4CAF50 0%, #8BC34A 100%)';
+            }
+            
+            alert.style.background = bgColor;
+            alert.innerHTML = message;
+            
+            // Agregar al contenedor de mensajes
+            const messagesContainer = document.querySelector('.messages');
+            if (!messagesContainer) {
+                // Crear contenedor si no existe
+                const newMessagesContainer = document.createElement('div');
+                newMessagesContainer.className = 'messages';
+                document.body.appendChild(newMessagesContainer);
+                newMessagesContainer.appendChild(alert);
+            } else {
+                messagesContainer.appendChild(alert);
+            }
+            
+            // Auto-remover después de 5 segundos
+            setTimeout(() => {
+                alert.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => alert.remove(), 300);
+            }, 5000);
+        }
+
+        // Función para estado de carga (solo para login)
+        function setLoading(isLoading) {
+            if (loginButton) {
+                if (isLoading) {
+                    loginButton.classList.add('loading');
+                    loginButton.innerHTML = '<div class="spinner"></div>';
+                    loginButton.disabled = true;
+                } else {
+                    loginButton.classList.remove('loading');
+                    loginButton.innerHTML = '<span>🚀</span><span>Iniciar Sesión</span>';
+                    loginButton.disabled = false;
+                }
+            }
+        }
+
+        // Atajos de teclado
+        document.addEventListener('keydown', function(e) {
+            // Ctrl + Enter para enviar formulario de login
+            if (e.ctrlKey && e.key === 'Enter') {
+                const loginForm = document.querySelector('.login-form');
+                if (loginForm) {
+                    loginForm.requestSubmit();
+                }
+            }
+            
+            // Escape para limpiar formulario
+            if (e.key === 'Escape') {
+                const loginForm = document.querySelector('.login-form');
+                if (loginForm) {
+                    if (confirm('¿Deseas limpiar el formulario?')) {
+                        loginForm.reset();
+                        const usernameInput = document.getElementById('username');
+                        if (usernameInput) usernameInput.focus();
+                    }
+                }
+            }
+        });
+
+        // Auto-remover mensajes del servidor después de 5 segundos
+        setTimeout(() => {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                alert.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => alert.remove(), 300);
+            });
+        }, 5000);
+    </script>
+</body>
+</html>
+[file content end]

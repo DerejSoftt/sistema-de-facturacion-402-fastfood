@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Factura Térmica - {{ factura.numero_factura }}</title>
+    <style>
+        @media print {
+            body {
+                width: 80mm;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+                padding: 5px;
+                margin: 0;
+            }
+            .header { text-align: center; margin-bottom: 5px; }
+            .info { margin: 5px 0; }
+            .info-row { display: flex; justify-content: space-between; }
+            .items { width: 100%; margin: 10px 0; }
+            .items th { text-align: left; border-bottom: 1px dashed #000; }
+            .items td { padding: 2px 0; }
+            .item-name { width: 50%; }
+            .item-qty { width: 15%; text-align: center; }
+            .item-price { width: 20%; text-align: right; }
+            .item-total { width: 15%; text-align: right; }
+            .totals { margin-top: 10px; }
+            .total-row { display: flex; justify-content: space-between; }
+            .footer { text-align: center; margin-top: 15px; font-size: 10px; }
+            hr { border: none; border-top: 1px dashed #000; }
+        }
+        @page {
+            size: 80mm auto;
+            margin: 0;
+        }
+    </style>
+</head>
+<body onload="window.print(); setTimeout(window.close, 1000);">
+    <div class="header">
+        <h2>{{ empresa.nombre }}</h2>
+        <p>{{ empresa.direccion }}</p>
+        <p>Tel: {{ empresa.telefono }}</p>
+        <p>RUC: {{ empresa.ruc }}</p>
+        <hr>
+    </div>
+    
+    <div class="info">
+        <div class="info-row">
+            <span>FACTURA:</span>
+            <span>{{ factura.numero_factura }}</span>
+        </div>
+        <div class="info-row">
+            <span>FECHA:</span>
+            <span>{{ factura.fecha_factura|date:"d/m/Y H:i" }}</span>
+        </div>
+        <div class="info-row">
+            <span>PEDIDO:</span>
+            <span>{{ factura.pedido.codigo_pedido }}</span>
+        </div>
+        <div class="info-row">
+            <span>TIPO:</span>
+            <span>{{ factura.get_tipo_pedido_display }}</span>
+        </div>
+        <div class="info-row">
+            <span>{% if factura.tipo_pedido == 'mesa' %}MESA:{% else %}CÓDIGO:{% endif %}</span>
+            <span>{{ factura.numero_mesa_codigo|default:"N/A" }}</span>
+        </div>
+        <div class="info-row">
+            <span>ESTADO:</span>
+            <span>{{ factura.get_estado_display }}</span>
+        </div>
+        <div class="info-row">
+            <span>PAGO:</span>
+            <span>{{ factura.get_metodo_pago_display }}</span>
+        </div>
+        <hr>
+    </div>
+    
+    {% if factura.nombre_cliente %}
+    <div class="info">
+        <div class="info-row">
+            <span>CLIENTE:</span>
+            <span>{{ factura.nombre_cliente }}</span>
+        </div>
+        {% if factura.telefono_cliente %}
+        <div class="info-row">
+            <span>TELÉFONO:</span>
+            <span>{{ factura.telefono_cliente }}</span>
+        </div>
+        {% endif %}
+        {% if factura.direccion_entrega %}
+        <div class="info-row">
+            <span>DIRECCIÓN:</span>
+            <span>{{ factura.direccion_entrega }}</span>
+        </div>
+        {% endif %}
+        <hr>
+    </div>
+    {% endif %}
+    
+    <table class="items">
+        <thead>
+            <tr>
+                <th class="item-name">DESCRIPCIÓN</th>
+                <th class="item-qty">CANT</th>
+                <th class="item-price">PRECIO</th>
+                <th class="item-total">TOTAL</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td class="item-name">{{ item.name|truncatechars:20 }}</td>
+                <td class="item-qty">{{ item.quantity }}</td>
+                <td class="item-price">${{ item.price|floatformat:2 }}</td>
+                <td class="item-total">${{ item.total|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <div class="totals">
+        <hr>
+        <div class="total-row">
+            <span>Subtotal:</span>
+            <span>${{ factura.subtotal|floatformat:2 }}</span>
+        </div>
+        <!-- Opcional: Mostrar IVA si lo necesitas -->
+        <!--
+        <div class="total-row">
+            <span>IVA 12%:</span>
+            <span>${{ factura.iva|floatformat:2 }}</span>
+        </div>
+        -->
+        <div class="total-row">
+            <span>Envío:</span>
+            <span>${{ factura.envio|floatformat:2 }}</span>
+        </div>
+        <div class="total-row" style="font-weight: bold; margin-top: 5px; padding-top: 5px; border-top: 2px solid #000;">
+            <span>TOTAL:</span>
+            <span>${{ factura.subtotal|floatformat:2 }}</span>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <hr>
+        <p>¡GRACIAS POR SU VISITA!</p>
+        {% if factura.notas %}
+        <p>NOTAS: {{ factura.notas|truncatechars:60 }}</p>
+        {% endif %}
+        <hr>
+        <p>Factura generada electrónicamente</p>
+        <p>No válida como comprobante de crédito fiscal</p>
+    </div>
+    
+    <script>
+        // Auto-imprimir y cerrar
+        window.onload = function() {
+            window.print();
+            setTimeout(function() {
+                window.close();
+            }, 1000);
+        };
+    </script>
+</body>
+</html>

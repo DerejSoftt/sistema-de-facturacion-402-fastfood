@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Ticket Chef</title>
+    <style>
+        @media print {
+            body {
+                font-family: 'Courier New', monospace;
+                font-size: 10px;
+                width: 80mm;
+                margin: 0;
+                padding: 0;
+                line-height: 1.2;
+            }
+            .ticket {
+                width: 80mm;
+                padding: 3px;
+            }
+            .header {
+                text-align: center;
+                border-bottom: 1px dashed #000;
+                padding-bottom: 3px;
+                margin-bottom: 3px;
+            }
+            .item-row {
+                display: flex;
+                justify-content: space-between;
+                margin: 2px 0;
+                font-size: 9px;
+            }
+            .item-name {
+                flex: 3;
+                font-weight: bold;
+            }
+            .item-code {
+                flex: 1;
+                text-align: right;
+            }
+            .separator {
+                border-top: 1px dashed #000;
+                margin: 3px 0;
+            }
+            .footer {
+                text-align: center;
+                margin-top: 5px;
+                font-weight: bold;
+            }
+            @page {
+                size: 80mm auto;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="ticket">
+        <div class="header">
+            <h3>🍽️ 402 FASTFOOD</h3>
+            <p><strong>TICKET COCINA</strong></p>
+            <p>{{ fecha }}</p>
+            <p><strong>CÓDIGO: {{ codigo_display }}</strong></p>
+            <p>TIPO: {{ pedido.get_tipo_pedido_display|upper }}</p>
+        </div>
+        
+        <div class="separator"></div>
+        
+        <p><strong>PEDIDO:</strong></p>
+        {% for item in items %}
+        <div class="item-row">
+            <div class="item-name">{{ item.quantity }}x {{ item.name }}</div>
+            <div class="item-code">{{ item.codigo|default:"N/A" }}</div>
+        </div>
+        {% endfor %}
+        
+        <div class="separator"></div>
+        
+        <div class="footer">
+            <p>TOTAL ITEMS: {{ total_items }}</p>
+           <!--  <p>TIEMPO ESTIMADO: {{ tiempo_estimado }} min</p> -->
+            <p>***********************</p>
+            <!-- <p>¡PREPARAR CON AMOR!</p> -->
+        </div>
+    </div>
+    
+    <script>
+        // Imprimir automáticamente y cerrar
+        window.onload = function() {
+            window.print();
+            setTimeout(function() {
+                window.close();
+            }, 500);
+        };
+    </script>
+</body>
+</html>

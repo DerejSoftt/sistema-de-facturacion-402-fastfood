@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entrada de Platos - Restaurante</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            min-height: 100vh;
+        }
+        
+        /* App container */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar styles */
+        .sidebar {
+            width: 260px;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar-header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 1.5rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .sidebar-nav {
+            flex: 1;
+            padding: 1rem 0;
+        }
+        
+        .nav-item {
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #ecf0f1;
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+        }
+        
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-left-color: #ff7e5f;
+            color: #ff7e5f;
+            transform: translateX(5px);
+        }
+        
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            border-left-color: #ff7e5f;
+            color: #ff7e5f;
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 1.25rem;
+        }
+        
+        /* Mobile menu toggle */
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 1000;
+            background: #ff7e5f;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: white;
+            transition: all 0.3s;
+        }
+        
+        .menu-toggle:hover {
+            background: #ff6b4a;
+            transform: scale(1.05);
+        }
+        
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 998;
+        }
+        
+        /* Main content area */
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-x: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .form-container {
+            width: 100%;
+            max-width: 900px;
+            background: white;
+            border-radius: 25px;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 2.5rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.1)"/></svg>');
+            background-size: cover;
+        }
+        
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header p {
+            opacity: 0.95;
+            font-size: 1.1rem;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Content area */
+        .content {
+            padding: 2.5rem;
+        }
+        
+        /* Form Section */
+        .form-section {
+            background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+            padding: 2.5rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(255, 126, 95, 0.1);
+            border: 1px solid rgba(255, 126, 95, 0.1);
+        }
+        
+        .form-section h2 {
+            margin-bottom: 1.5rem;
+            color: #2c3e50;
+            font-size: 1.6rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-section h2::before {
+            content: "🍽️";
+            font-size: 1.4rem;
+        }
+        
+        /* Campo de código */
+        .codigo-field {
+            background-color: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 15px;
+            border: 2px dashed #dee2e6;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        
+        .codigo-label {
+            font-weight: 700;
+            color: #2c3e50;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 0.75rem;
+        }
+        
+        .codigo-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #ff7e5f;
+            letter-spacing: 2px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+        }
+        
+        .codigo-display {
+            display: inline-block;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 2.2rem;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        /* Form Grid para platos */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #2c3e50;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .form-group input,
+        .form-group select {
+            padding: 1rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: white;
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.05);
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        /* Botones */
+        .btn {
+            padding: 1rem 2.5rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            width: 100%;
+            box-shadow: 0 10px 20px rgba(255, 126, 95, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(255, 126, 95, 0.4);
+        }
+        
+        /* Confirmation message */
+        .confirmation-message {
+            display: none;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            margin-top: 2rem;
+            text-align: center;
+            animation: slideIn 0.5s ease-out;
+            box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .confirmation-message h3 {
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .confirmation-message p {
+            opacity: 0.9;
+        }
+        
+        /* Mini preview section */
+        .preview-section {
+            background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+            padding: 1.5rem;
+            border-radius: 15px;
+            margin-top: 2rem;
+            border: 2px dashed #e0e6ff;
+            display: none;
+        }
+        
+        .preview-section.active {
+            display: block;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        .preview-section h3 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.2rem;
+        }
+        
+        .preview-section h3::before {
+            content: "👁️";
+        }
+        
+        .preview-content {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        
+        .preview-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0.75rem;
+            background: white;
+            border-radius: 10px;
+            border: 1px solid #e0e6ff;
+        }
+        
+        .preview-label {
+            font-weight: 600;
+            color: #4a5568;
+            min-width: 120px;
+        }
+        
+        .preview-value {
+            color: #2c3e50;
+            font-weight: 500;
+        }
+        
+        .preview-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge-entrada { 
+            background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%); 
+            color: #7c2d12; 
+        }
+        .badge-principal { 
+            background: linear-gradient(135deg, #f687b3 0%, #ed64a6 100%); 
+            color: #702459; 
+        }
+        .badge-postre { 
+            background: linear-gradient(135deg, #fbd38d 0%, #f6ad55 100%); 
+            color: #7c2d12; 
+        }
+        .badge-bebida { 
+            background: linear-gradient(135deg, #bee3f8 0%, #90cdf4 100%); 
+            color: #2c5282; 
+        }
+        .badge-rapida { 
+            background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%); 
+            color: #22543d; 
+        }
+        .badge-especial { 
+            background: linear-gradient(135deg, #e9d8fd 0%, #d6bcfa 100%); 
+            color: #44337a; 
+        }
+        
+        /* Responsive design */
+        @media (max-width: 1024px) {
+            .form-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .preview-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .codigo-display {
+                font-size: 1.8rem;
+                padding: 0.6rem 1.5rem;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: block;
+            }
+            
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                z-index: 999;
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .sidebar-overlay.open {
+                display: block;
+            }
+            
+            .main-content {
+                padding: 5rem 1rem 1rem;
+            }
+            
+            .content {
+                padding: 1.5rem;
+            }
+            
+            .header {
+                padding: 2rem 1.5rem;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .form-section {
+                padding: 1.5rem;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .codigo-field {
+                padding: 1rem;
+            }
+            
+            .codigo-display {
+                font-size: 1.6rem;
+                padding: 0.5rem 1rem;
+            }
+            
+            .codigo-value {
+                font-size: 1.6rem;
+            }
+            
+            .preview-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+            
+            .preview-label {
+                min-width: auto;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .form-section h2 {
+                font-size: 1.3rem;
+            }
+            
+            .codigo-display {
+                font-size: 1.4rem;
+                padding: 0.4rem 0.8rem;
+            }
+            
+            .codigo-value {
+                font-size: 1.4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Mobile menu toggle -->
+    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    
+     <div class="app-container">
+    <!-- Sidebar navigation -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            🍽️ Mi Restaurante
+        </div>
+        <nav class="sidebar-nav">
+            <!-- Verificar grupos sin template tag -->
+            {% with user_groups=user.groups.all|join:"," %}
+            
+            <!-- Menú para Usuario Normal (excluye superusuarios) -->
+            {% if "Usuario Normal" in user_groups and not user.is_superuser %}
+            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                <span class="nav-icon">🛒</span>
+                <span>Pedidos</span>
+            </a>
+            <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                <span class="nav-icon">📋</span>
+                <span>Inventario</span>
+            </a>
+            <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                <span class="nav-icon">📋</span>
+                <span>Gestión de Pedidos</span>
+            </a>
+            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                <span class="nav-icon">🧾</span>
+                <span>Facturación</span>
+            </a>
+            <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                <span class="nav-icon">📤</span>
+                <span>Salida de Productos</span>
+            </a>
+            {% endif %}
+            
+            <!-- Menú para Administrador -->
+            {% if "Administrador" in user_groups and not user.is_superuser %}
+            <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                <span class="nav-icon">📦</span>
+                <span>Entrada de Productos</span>
+            </a>
+            <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                <span class="nav-icon">📋</span>
+                <span>Inventario</span>
+            </a>
+            <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                <span class="nav-icon">🍽️</span>
+                <span>Entrada de Platos</span>
+            </a>
+            <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                <span class="nav-icon">📊</span>
+                <span>Gestión de Platos</span>
+            </a>
+            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                <span class="nav-icon">🛒</span>
+                <span>Pedidos</span>
+            </a>
+            <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                <span class="nav-icon">📋</span>
+                <span>Gestión de Pedidos</span>
+            </a>
+            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                <span class="nav-icon">🧾</span>
+                <span>Facturación</span>
+            </a>
+            <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                <span class="nav-icon">📤</span>
+                <span>Salida de Productos</span>
+            </a>
+            <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                <span class="nav-icon">👥</span>
+                <span>Gestión de Usuarios</span>
+            </a>
+            {% endif %}
+            
+            <!-- Menú para otros grupos... -->
+            {% if "Gerente" in user_groups and not user.is_superuser %}
+            <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
+            {% endif %}
+            
+            {% if "Cajero" in user_groups and not user.is_superuser %}
+            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                <span class="nav-icon">🛒</span>
+                <span>Pedidos</span>
+            </a>
+            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                <span class="nav-icon">🧾</span>
+                <span>Facturación</span>
+            </a>
+            {% endif %}
+            
+            <!-- Menú EXCLUSIVO para superusuarios -->
+            {% if user.is_superuser %}
+            <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                <span class="nav-icon">📦</span>
+                <span>Entrada de Productos</span>
+            </a>
+            <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                <span class="nav-icon">📋</span>
+                <span>Inventario</span>
+            </a>
+            <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                <span class="nav-icon">🍽️</span>
+                <span>Entrada de Platos</span>
+            </a>
+            <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                <span class="nav-icon">📊</span>
+                <span>Gestión de Platos</span>
+            </a>
+            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                <span class="nav-icon">🛒</span>
+                <span>Pedidos</span>
+            </a>
+            <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                <span class="nav-icon">📋</span>
+                <span>Gestión de Pedidos</span>
+            </a>
+            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                <span class="nav-icon">🧾</span>
+                <span>Facturación</span>
+            </a>
+            <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                <span class="nav-icon">📤</span>
+                <span>Salida de Productos</span>
+            </a>
+            <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                <span class="nav-icon">👥</span>
+                <span>Gestión de Usuarios</span>
+            </a>
+            {% endif %}
+            
+            <!-- Cerrar sesión para todos -->
+            <a href="{% url 'logout' %}" class="nav-item">
+                <span class="nav-icon">🚪</span>
+                <span>Cerrar Sesión</span>
+            </a>
+            
+            {% endwith %}
+        </nav>
+    </div>
+    
+        <!-- Overlay for mobile sidebar -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+        
+        <div class="main-content">
+            <div class="form-container">
+                <div class="header">
+                    <h1>🍽️ Entrada de Platos</h1>
+                    <p>Agrega nuevos platos al menú de tu restaurante</p>
+                </div>
+                
+                <div class="content">
+                    <!-- Form Section -->
+                    <div class="form-section">
+                        <h2>Agregar Nuevo Plato</h2>
+                        
+                        <!-- Campo de código (solo lectura) -->
+                        <div class="codigo-field">
+                            <div class="codigo-label">
+                                <span>🔢 Código del Plato:</span>
+                            </div>
+                            <div class="codigo-value" id="codigoDisplay">
+                                <span class="codigo-display">{{ proximo_codigo|default:"COD001" }}</span>
+                            </div>
+                            <input type="hidden" id="codigoPlato" name="codigo" value="{{ proximo_codigo|default:'COD001' }}">
+                        </div>
+                        
+                        <!-- Añadir CSRF token para Django -->
+                        {% csrf_token %}
+                        
+                        <form id="platoForm" method="POST" action="{% url 'guardar_plato' %}">
+                            {% csrf_token %}
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="nombrePlato">🍽️ Nombre del Plato</label>
+                                    <input type="text" id="nombrePlato" name="nombre" placeholder="Ej: Pizza Pepperoni, Hamburguesa..." required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="categoriaPlato">🏷️ Categoría</label>
+                                    <select id="categoriaPlato" name="categoria" required>
+                                        <option value="">Seleccionar...</option>
+                                        <option value="entrada">Entrada</option>
+                                        <option value="principal">Plato Principal</option>
+                                        <option value="postre">Postre</option>
+                                        <option value="bebida">Bebida</option>
+                                        <option value="rapida">Comida Rápida</option>
+                                        <option value="especial">Especial del Chef</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="precioPlato">💰 Precio ($)</label>
+                                    <input type="number" id="precioPlato" name="precio" placeholder="0.00" min="0" step="0.01" required>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary">
+                                <span>➕ Agregar Plato al Menú</span>
+                            </button>
+                        </form>
+                        
+                        <!-- Confirmation message -->
+                        <div class="confirmation-message" id="confirmationMessage">
+                            <h3>✅ Plato agregado exitosamente</h3>
+                            <p id="confirmationText">El plato ha sido añadido al menú correctamente.</p>
+                        </div>
+                        
+                        <!-- Preview section -->
+                        <div class="preview-section" id="previewSection">
+                            <h3>Vista Previa del Plato</h3>
+                            <div class="preview-content" id="previewContent">
+                                <!-- Preview items will be added here by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Inicializar la aplicación
+        document.addEventListener('DOMContentLoaded', function() {
+            // Configurar evento del formulario
+            const form = document.getElementById('platoForm');
+            form.addEventListener('submit', handleFormSubmit);
+            
+            // Configurar eventos para vista previa en tiempo real
+            setupPreviewEvents();
+            
+            // Enfocar en el primer campo al cargar
+            document.getElementById('nombrePlato').focus();
+            
+            // Actualizar código actual
+            updateCurrentCode();
+        });
+        
+        // Configurar eventos para vista previa
+        function setupPreviewEvents() {
+            const inputs = ['nombrePlato', 'categoriaPlato', 'precioPlato'];
+            
+            inputs.forEach(inputId => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    input.addEventListener('input', updatePreview);
+                    input.addEventListener('change', updatePreview);
+                }
+            });
+        }
+        
+        // Actualizar vista previa
+        function updatePreview() {
+            const codigo = document.getElementById('codigoPlato').value;
+            const nombre = document.getElementById('nombrePlato').value;
+            const categoria = document.getElementById('categoriaPlato').value;
+            const precio = document.getElementById('precioPlato').value;
+            
+            const previewSection = document.getElementById('previewSection');
+            const previewContent = document.getElementById('previewContent');
+            
+            // Verificar si hay datos para mostrar
+            const hasData = codigo || nombre || categoria || precio;
+            
+            if (!hasData) {
+                previewSection.classList.remove('active');
+                return;
+            }
+            
+            // Mostrar vista previa
+            previewSection.classList.add('active');
+            
+            // Construir contenido de vista previa
+            let previewHTML = '';
+            
+            if (codigo) {
+                previewHTML += `
+                    <div class="preview-item">
+                        <span class="preview-label">🔢 Código:</span>
+                        <span class="preview-value" style="font-weight: 700; color: #2c3e50; font-family: 'Courier New', monospace; font-size: 1.2rem;">${codigo}</span>
+                    </div>
+                `;
+            }
+            
+            if (nombre) {
+                previewHTML += `
+                    <div class="preview-item">
+                        <span class="preview-label">🍽️ Plato:</span>
+                        <span class="preview-value" style="font-weight: 600; color: #2c3e50;">${nombre}</span>
+                    </div>
+                `;
+            }
+            
+            if (categoria) {
+                const categoriaLabel = getCategoriaLabel(categoria);
+                previewHTML += `
+                    <div class="preview-item">
+                        <span class="preview-label">🏷️ Categoría:</span>
+                        <span class="preview-badge badge-${categoria}">${categoriaLabel}</span>
+                    </div>
+                `;
+            }
+            
+            if (precio) {
+                previewHTML += `
+                    <div class="preview-item">
+                        <span class="preview-label">💰 Precio:</span>
+                        <span class="preview-value" style="font-weight: 700; color: #ff7e5f;">$${parseFloat(precio).toFixed(2)}</span>
+                    </div>
+                `;
+            }
+            
+            previewContent.innerHTML = previewHTML;
+        }
+        
+        // Manejar envío del formulario
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            const nombrePlato = document.getElementById('nombrePlato').value.trim();
+            const categoriaPlato = document.getElementById('categoriaPlato').value;
+            const precioPlato = parseFloat(document.getElementById('precioPlato').value);
+            
+            // Validar datos
+            if (!nombrePlato || !categoriaPlato || isNaN(precioPlato)) {
+                showNotification("❌ Por favor, complete todos los campos requeridos", "error");
+                return;
+            }
+            
+            if (precioPlato < 0) {
+                showNotification("❌ El precio debe ser mayor o igual a 0", "error");
+                return;
+            }
+            
+            // Enviar datos al servidor usando Fetch API
+            const formData = new FormData();
+            formData.append('nombre', nombrePlato);
+            formData.append('categoria', categoriaPlato);
+            formData.append('precio', precioPlato);
+            
+            // Obtener el CSRF token
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            
+            // Enviar la petición POST
+            fetch("{% url 'guardar_plato' %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Actualizar código en la interfaz
+                    document.getElementById('codigoDisplay').innerHTML = 
+                        `<span class="codigo-display">${data.proximo_codigo}</span>`;
+                    document.getElementById('codigoPlato').value = data.proximo_codigo;
+                    
+                    // Mostrar confirmación con código asignado
+                    document.getElementById('confirmationText').textContent = 
+                        `El plato "${nombrePlato}" (Código: ${data.codigo_asignado}) ha sido añadido al menú.`;
+                    
+                    showConfirmation();
+                    
+                    // Resetear formulario (excepto código)
+                    document.getElementById('nombrePlato').value = '';
+                    document.getElementById('categoriaPlato').value = '';
+                    document.getElementById('precioPlato').value = '';
+                    
+                    // Ocultar vista previa
+                    document.getElementById('previewSection').classList.remove('active');
+                    
+                    // Enfocar en el primer campo
+                    document.getElementById('nombrePlato').focus();
+                    
+                    // Mostrar notificación
+                    showNotification(`✅ "${nombrePlato}" (${data.codigo_asignado}) agregado al menú!`, "success");
+                } else {
+                    showNotification(`❌ Error: ${data.error}`, "error");
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification("❌ Error al guardar el plato", "error");
+            });
+        }
+        
+        // Actualizar código actual
+        function updateCurrentCode() {
+            // Esta función podría usarse para actualizar el código dinámicamente si es necesario
+            console.log("Código actual: ", document.getElementById('codigoPlato').value);
+        }
+        
+        // Mostrar confirmación
+        function showConfirmation() {
+            const confirmationMessage = document.getElementById('confirmationMessage');
+            confirmationMessage.style.display = 'block';
+            
+            setTimeout(() => {
+                confirmationMessage.style.display = 'none';
+            }, 4000);
+        }
+        
+        // Mostrar notificación
+        function showNotification(message, type = "success") {
+            // Crear elemento de notificación
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${type === 'error' ? 'linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)' : 'linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%)'};
+                color: white;
+                padding: 1rem 1.5rem;
+                border-radius: 12px;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+                z-index: 1000;
+                animation: slideIn 0.3s ease-out;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            `;
+            
+            notification.innerHTML = message;
+            document.body.appendChild(notification);
+            
+            // Remover después de 3 segundos
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+        
+        // Helper functions
+        function getCategoriaLabel(categoria) {
+            const labels = {
+                'entrada': 'Entrada',
+                'principal': 'Principal',
+                'postre': 'Postre',
+                'bebida': 'Bebida',
+                'rapida': 'Comida Rápida',
+                'especial': 'Especial'
+            };
+            return labels[categoria] || categoria;
+        }
+        
+        // Sidebar toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('open');
+        }
+        
+        // Añadir animación CSS para notificaciones
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
