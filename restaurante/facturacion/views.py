@@ -1714,6 +1714,9 @@ def crear_factura(request):
     
     return redirect('facturacion')
 
+
+
+
 @csrf_exempt
 @login_required
 def marcar_factura_pagada(request, factura_id):
@@ -1729,6 +1732,22 @@ def marcar_factura_pagada(request, factura_id):
         if factura.pedido:
             factura.pedido.estado = 'completado'
             factura.pedido.save()
+            
+            # IMPORTANTE: Liberar el código de delivery/para llevar si existe
+            if factura.pedido.tipo_pedido in ['delivery', 'llevar'] and factura.pedido.codigo_delivery:
+                try:
+                    # Buscar el código en DeliveryConfig
+                    config = DeliveryConfig.objects.get(
+                        tipo=factura.pedido.tipo_pedido,
+                        codigo=factura.pedido.codigo_delivery
+                    )
+                    config.estado = 'disponible'
+                    config.save()
+                    print(f"✅ Código {factura.pedido.codigo_delivery} liberado para {factura.pedido.tipo_pedido}")
+                except DeliveryConfig.DoesNotExist:
+                    print(f"⚠️ Código {factura.pedido.codigo_delivery} no encontrado en DeliveryConfig")
+                except Exception as e:
+                    print(f"❌ Error al liberar código: {e}")
         
         # Si es una petición AJAX (como fetch o XMLHttpRequest)
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
