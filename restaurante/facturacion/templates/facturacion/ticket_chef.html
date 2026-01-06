@@ -2,95 +2,345 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Ticket Chef</title>
+    <title>Ticket Chef - {{ codigo_pedido }}</title>
     <style>
+        /* ESTILOS PARA IMPRESORA TÉRMICA 80mm - MEJOR LEGIBILIDAD */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Courier New', monospace !important;
+            font-weight: bold !important; /* Hacer todo el texto en negrita */
+        }
+        
+        body {
+            width: 80mm !important;
+            max-width: 80mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            font-size: 14px !important; /* Aumentar tamaño de fuente */
+            line-height: 1.2 !important;
+            background: white !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        
+        @page {
+            size: 80mm auto;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .ticket {
+            width: 78mm !important;
+            max-width: 78mm !important;
+            margin: 0 auto !important;
+            padding: 1mm !important;
+        }
+        
+        /* ENCABEZADO */
+        .header {
+            text-align: center;
+            margin-bottom: 2mm;
+            padding-bottom: 1mm;
+            border-bottom: 2px solid #000; /* Línea más gruesa */
+        }
+        
+        .restaurant-name {
+            font-size: 16px !important; /* Más grande */
+            font-weight: 900 !important; /* Extra negrita */
+            margin: 0 0 1mm 0 !important;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        
+        .ticket-title {
+            font-size: 14px !important;
+            font-weight: 900 !important;
+            margin: 0 0 1mm 0 !important;
+        }
+        
+        .ticket-info {
+            font-size: 12px !important; /* Más grande */
+            margin: 0.5mm 0 !important;
+            line-height: 1.2 !important;
+        }
+        
+        .pedido-code {
+            font-size: 15px !important; /* Más grande */
+            font-weight: 900 !important;
+            margin: 2mm 0 !important;
+            padding: 2mm;
+            background: #000 !important;
+            color: white !important;
+            border-radius: 0 !important; /* Sin bordes redondeados para impresión más clara */
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .cliente-code {
+            font-size: 13px !important;
+            font-weight: 900 !important;
+            margin: 1mm 0 !important;
+            padding: 1mm;
+            background: #f0f0f0 !important;
+            color: #000 !important;
+            border-radius: 0 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        /* SEPARADORES */
+        .separator {
+            border-top: 2px dashed #000; /* Más grueso */
+            margin: 2mm 0;
+            height: 0;
+        }
+        
+        .double-separator {
+            border-top: 3px solid #000; /* Más grueso */
+            margin: 3mm 0;
+            height: 0;
+        }
+        
+        /* ITEMS */
+        .section-title {
+            font-weight: 900 !important;
+            font-size: 13px !important;
+            margin: 2mm 0 1mm 0;
+            text-transform: uppercase;
+            background: #f8f8f8 !important;
+            padding: 1mm;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .items-container {
+            margin: 1mm 0;
+        }
+        
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 1mm 0;
+            font-size: 12px !important;
+            line-height: 1.2 !important;
+        }
+        
+        .item-qty {
+            width: 10mm;
+            text-align: center;
+            font-weight: 900 !important;
+        }
+        
+        .item-name {
+            flex: 1;
+            padding: 0 1mm;
+            font-weight: 900 !important;
+        }
+        
+        .item-code {
+            width: 18mm;
+            text-align: right;
+            padding: 0 1mm;
+            font-weight: 900 !important;
+        }
+        
+        /* PIE DE PÁGINA */
+        .footer {
+            text-align: center;
+            margin-top: 3mm;
+            padding-top: 2mm;
+            font-size: 12px !important;
+            line-height: 1.2 !important;
+        }
+        
+        .total-info {
+            font-weight: 900 !important;
+            margin: 2mm 0;
+            padding: 2mm;
+            background: #f0f0f0 !important;
+            border-radius: 0 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        
+        .footer-mensaje {
+            font-weight: 900 !important;
+            margin: 2mm 0;
+            font-size: 13px !important;
+        }
+        
+        .stars {
+            letter-spacing: 2px;
+            color: #000;
+            margin: 2mm 0;
+            font-size: 14px !important;
+        }
+        
+        /* IMPRESIÓN */
         @media print {
             body {
-                font-family: 'Courier New', monospace;
-                font-size: 10px;
-                width: 80mm;
-                margin: 0;
-                padding: 0;
-                line-height: 1.2;
+                margin: 0 !important;
+                padding: 0 !important;
+                font-size: 14px !important;
+                font-weight: bold !important;
             }
+            
             .ticket {
-                width: 80mm;
-                padding: 3px;
+                padding: 0 !important;
+                width: 80mm !important;
+                max-width: 80mm !important;
             }
-            .header {
-                text-align: center;
-                border-bottom: 1px dashed #000;
-                padding-bottom: 3px;
-                margin-bottom: 3px;
+            
+            .no-print {
+                display: none !important;
             }
-            .item-row {
-                display: flex;
-                justify-content: space-between;
-                margin: 2px 0;
-                font-size: 9px;
+            
+            /* Asegurar que los fondos se impriman */
+            .pedido-code, .cliente-code, .section-title, .total-info {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
-            .item-name {
-                flex: 3;
-                font-weight: bold;
-            }
-            .item-code {
-                flex: 1;
-                text-align: right;
-            }
-            .separator {
-                border-top: 1px dashed #000;
-                margin: 3px 0;
-            }
-            .footer {
-                text-align: center;
-                margin-top: 5px;
-                font-weight: bold;
-            }
-            @page {
-                size: 80mm auto;
-                margin: 0;
-            }
+        }
+        
+        /* BOTONES SOLO PARA PANTALLA */
+        .no-print {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+        }
+        
+        .btn-print, .btn-close {
+            padding: 10px 20px;
+            border: 2px solid #000;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-left: 5px;
+            font-size: 14px;
+        }
+        
+        .btn-print {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-close {
+            background: #f44336;
+            color: white;
+        }
+        .section-title {
+            margin-left: 10px;
+        }
+
+        .items-container {
+            margin-left: 10px;
         }
     </style>
 </head>
 <body>
+    <div class="no-print">
+        <button class="btn-print" onclick="window.print()">🖨️ IMPRIMIR</button>
+        <button class="btn-close" onclick="window.close()">❌ CERRAR</button>
+    </div>
+    
     <div class="ticket">
+        <!-- ENCABEZADO -->
         <div class="header">
-            <h3>🍽️ 402 FASTFOOD</h3>
-            <p><strong>TICKET COCINA</strong></p>
-            <p>{{ fecha }}</p>
-            <p><strong>CÓDIGO: {{ codigo_display }}</strong></p>
-            <p>TIPO: {{ pedido.get_tipo_pedido_display|upper }}</p>
+            <div class="restaurant-name">402 FASTFOOD</div>
+            <div class="ticket-title">TICKET COCINA</div>
+            <div class="ticket-info">{{ fecha }}</div>
+            
+            <div class="pedido-code">
+                PEDIDO: {{ codigo_pedido|default:"N/A" }}
+            </div>
+            
+            <div class="cliente-code">
+                {% if pedido.tipo_pedido == 'mesa' and pedido.mesa %}
+                    MESA: {{ pedido.mesa.numero_display }}
+                {% elif pedido.tipo_pedido == 'delivery' %}
+                    DELIVERY: {{ pedido.codigo_delivery }}
+                {% elif pedido.tipo_pedido == 'llevar' %}
+                    PARA LLEVAR: {{ pedido.codigo_delivery }}
+                {% endif %}
+            </div>
+            
+            <div class="ticket-info">
+                Tipo: {{ pedido.get_tipo_pedido_display|upper }}
+            </div>
         </div>
         
         <div class="separator"></div>
         
-        <p><strong>PEDIDO:</strong></p>
-        {% for item in items %}
-        <div class="item-row">
-            <div class="item-name">{{ item.quantity }}x {{ item.name }}</div>
-            <div class="item-code">{{ item.codigo|default:"N/A" }}</div>
+        <!-- PLATOS -->
+        {% if platos_items %}
+        <div class="section-title">PLATOS</div>
+        <div class="items-container">
+            {% for item in platos_items %}
+            <div class="item-row">
+                <div class="item-qty">{{ item.quantity }}x</div>
+                <div class="item-name">{{ item.name|truncatechars:22 }}</div>
+                <div class="item-code">{{ item.codigo|default:"---" }}</div>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
+        {% endif %}
         
+        <!-- BEBIDAS -->
+        {% if bebidas_items %}
         <div class="separator"></div>
+        <div class="section-title">BEBIDAS</div>
+        <div class="items-container">
+            {% for item in bebidas_items %}
+            <div class="item-row">
+                <div class="item-qty">{{ item.quantity }}x</div>
+                <div class="item-name">{{ item.name|truncatechars:22 }}</div>
+                <div class="item-code">{{ item.codigo|default:"---" }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
         
+        <div class="double-separator"></div>
+        
+        <!-- PIE DE PÁGINA -->
         <div class="footer">
-            <p>TOTAL ITEMS: {{ total_items }}</p>
-           <!--  <p>TIEMPO ESTIMADO: {{ tiempo_estimado }} min</p> -->
-            <p>***********************</p>
-            <!-- <p>¡PREPARAR CON AMOR!</p> -->
+            <div class="total-info">
+                TOTAL ITEMS: {{ total_items }}
+            </div>
+            <div class="ticket-info">Hora: {{ pedido.fecha_pedido|time:"H:i" }}</div>
+            <div class="stars">✦✦✦✦✦✦✦✦✦✦✦✦</div>
+            <div class="footer-mensaje">¡PREPARAR CON AMOR!</div>
         </div>
     </div>
     
     <script>
-        // Imprimir automáticamente y cerrar
+        // Imprimir automáticamente después de cargar
         window.onload = function() {
-            window.print();
             setTimeout(function() {
-                window.close();
+                window.print();
             }, 500);
         };
+        
+        // Cerrar ventana después de imprimir
+        window.onafterprint = function() {
+            setTimeout(function() {
+                if (!document.hasFocus()) {
+                    window.close();
+                }
+            }, 3000);
+        };
+        
+        // También permitir cerrar con ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                window.close();
+            }
+        });
     </script>
 </body>
 </html>

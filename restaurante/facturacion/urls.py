@@ -26,14 +26,18 @@ urlpatterns = [
      path('gestiondepedidos/detalle/<int:pedido_id>/', views.detalle_pedido, name='detalle_pedido'),
     path('gestiondepedidos/cambiar-estado/<int:pedido_id>/', views.cambiar_estado_pedido, name='cambiar_estado_pedido'),
     path('gestiondepedidos/eliminar/<int:pedido_id>/', views.eliminar_pedido, name='eliminar_pedido'),
-    path('facturacion', views.facturacion, name='facturacion'),
+    path('facturacion/', views.facturacion, name='facturacion'),
     path('facturacion/crear/', views.crear_factura, name='crear_factura'),
     path('facturacion/detalle/<int:factura_id>/', views.detalle_factura, name='detalle_factura'),
     
 
-    path('imprimir-factura/<int:factura_id>/', views.imprimir_factura_termica, name='imprimir_factura_termica'),
+     path('facturacion/imprimir-termica/<int:factura_id>/', views.imprimir_factura_termica, name='imprimir_factura_termica'),
     path('detalle-factura/<int:factura_id>/', views.detalle_factura, name='detalle_factura'),
     path('exportar-facturas/', views.exportar_facturas, name='exportar_facturas'),
+   path('facturacion/marcar-como-pagada/<int:factura_id>/', views.marcar_factura_pagada, name='marcar_factura_pagada'),
+    # Solo necesitas esta URL para eliminar facturas
+    path('facturacion/eliminar-factura/<int:factura_id>/', views.eliminar_factura, name='eliminar_factura'),
+
     path('salida', views.salida, name='salida'),
      path('obtener-productos-salida/', views.obtener_productos_salida, name='obtener_productos_salida'),
      path('registrar-salida/', views.registrar_salida, name='registrar_salida'),

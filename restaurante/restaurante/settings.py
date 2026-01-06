@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-m8))quru4uo6-(e#rgth5p5$1qo*f)h9h&h23tdmxhiu-77udo
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['trinity-consultation-okay-fact.trycloudflare.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['hub-presence-friendly-spencer.trycloudflare.com', 'localhost', '127.0.0.1']
 # ALLOWED_HOSTS = []
 
 

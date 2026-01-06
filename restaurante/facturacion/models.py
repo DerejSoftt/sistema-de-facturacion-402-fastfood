@@ -618,7 +618,7 @@ class Factura(models.Model):
     estado = models.CharField(
         max_length=20,
         choices=ESTADO_FACTURA_CHOICES,
-        default='pagada',
+        default='pendiente',  # CAMBIADO: Ahora por defecto es 'pendiente'
         verbose_name="Estado de la Factura"
     )
     
@@ -715,6 +715,16 @@ class Factura(models.Model):
         items = self.get_items_detalle()
         return sum(item.get('quantity', 0) for item in items)
     
+    def marcar_como_pagada(self):
+        """Marcar la factura como pagada y actualizar el estado del pedido"""
+        self.estado = 'pagada'
+        self.save()
+        
+        # Actualizar el estado del pedido a completado
+        if self.pedido:
+            self.pedido.estado = 'completado'
+            self.pedido.save()
+    
     def marcar_impresa(self):
         """Marcar la factura como impresa"""
         self.impresa = True
@@ -725,9 +735,6 @@ class Factura(models.Model):
         verbose_name = "Factura"
         verbose_name_plural = "Facturas"
         ordering = ['-fecha_factura']
-
-
-
 
 
 # models.py - Agrega este modelo

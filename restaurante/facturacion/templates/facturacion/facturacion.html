@@ -1648,14 +1648,13 @@
         </div>
     </div>
 
-  <script>
+ <script>
     // Variables globales
     let invoices = [];
     let orders = [];
     let filteredOrders = [];
     let currentPage = 1;
     const itemsPerPage = 10;
-    let currentInvoiceForPrint = null;
     
     // Inicializar la aplicación
     document.addEventListener('DOMContentLoaded', function() {
@@ -1663,49 +1662,33 @@
         console.log('DOM completamente cargado, inicializando...');
         
         try {
-            // Intentar parsear los datos JSON
+            // Parsear los datos JSON desde Django
             const pedidosJsonElement = '{{ pedidos_json|safe|default:"[]" }}';
             const facturasJsonElement = '{{ facturas_json|safe|default:"[]" }}';
             
-            console.log('JSON de pedidos crudo:', pedidosJsonElement.substring(0, 200));
-            console.log('JSON de facturas crudo:', facturasJsonElement.substring(0, 200));
-            
             // Limpiar el JSON si tiene caracteres especiales
-            let pedidosJson = pedidosJsonElement;
-            let facturasJson = facturasJsonElement;
+            let pedidosJson = pedidosJsonElement.replace(/&quot;/g, '"');
+            let facturasJson = facturasJsonElement.replace(/&quot;/g, '"');
             
-            // Si el JSON viene con comillas HTML, las reemplazamos
-            pedidosJson = pedidosJson.replace(/&quot;/g, '"');
-            facturasJson = facturasJson.replace(/&quot;/g, '"');
-            
+            // Parsear JSON
             orders = JSON.parse(pedidosJson) || [];
             invoices = JSON.parse(facturasJson) || [];
             
-            console.log(`✅ Datos cargados: ${orders.length} pedidos, ${invoices.length} facturas`);
-            
-            // Verificar estructura de los pedidos
-            if (orders.length > 0) {
-                console.log('Estructura del primer pedido:', orders[0]);
-            }
+            console.log(`✅ Datos cargados: ${orders.length} registros, ${invoices.length} facturas en estadísticas`);
             
             // Actualizar estado de debug
             document.getElementById('debugStatus').textContent = 
-                `${orders.length} pedidos disponibles para facturar`;
-            document.getElementById('debugStatus').style.color = '#38a169';
+                `${orders.filter(o => !o.es_factura).length} pedidos sin facturar, ${orders.filter(o => o.es_factura).length} facturas pendientes`;
+            document.getElementById('debugStatus').style.color = orders.length > 0 ? '#38a169' : '#ff7e5f';
             
         } catch (error) {
             console.error('❌ Error parseando JSON:', error);
-            console.error('Error detallado:', error.message);
             
             orders = [];
             invoices = [];
             
             document.getElementById('debugStatus').textContent = 'Error cargando datos: ' + error.message;
             document.getElementById('debugStatus').style.color = '#e53e3e';
-            
-            // Cargar datos de prueba para desarrollo
-            console.log('Cargando datos de prueba...');
-            loadTestData();
         }
         
         // Inicializar filteredOrders con todos los pedidos
@@ -1721,136 +1704,6 @@
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('invoiceDate').value = today;
     });
-    
-    // Función para cargar datos de prueba (solo para desarrollo)
-    function loadTestData() {
-        console.log('Cargando datos de prueba...');
-        orders = [
-            {
-                id: 1,
-                codigo_pedido: 'ORD-202401-0001',
-                tipo_pedido: 'mesa',
-                estado: 'entregado',
-                total: 45.50,
-                subtotal: 45.50,
-                envio: 0,
-                nombre_cliente: 'Juan Pérez',
-                telefono_cliente: '0991234567',
-                numero_mesa_codigo: '01',
-                mesa: {
-                    numero_display: '01',
-                    numero: 'mesa 01'
-                },
-                fecha_pedido: '2024-01-15T12:30:00',
-                items: [
-                    {
-                        name: 'Hamburguesa Especial',
-                        quantity: 2,
-                        price: 12.50,
-                        total: 25.00
-                    },
-                    {
-                        name: 'Papas Fritas',
-                        quantity: 1,
-                        price: 3.50,
-                        total: 3.50
-                    },
-                    {
-                        name: 'Refresco',
-                        quantity: 2,
-                        price: 2.50,
-                        total: 5.00
-                    },
-                    {
-                        name: 'Postre',
-                        quantity: 1,
-                        price: 12.00,
-                        total: 12.00
-                    }
-                ]
-            },
-            {
-                id: 2,
-                codigo_pedido: 'ORD-202401-0002',
-                tipo_pedido: 'delivery',
-                estado: 'listo',
-                total: 32.75,
-                subtotal: 30.00,
-                envio: 2.75,
-                nombre_cliente: 'María González',
-                telefono_cliente: '0987654321',
-                codigo_delivery: 'D001',
-                direccion_entrega: 'Calle Principal 123',
-                fecha_pedido: '2024-01-15T13:45:00',
-                items: [
-                    {
-                        name: 'Pizza Familiar',
-                        quantity: 1,
-                        price: 25.00,
-                        total: 25.00
-                    },
-                    {
-                        name: 'Ensalada',
-                        quantity: 1,
-                        price: 5.00,
-                        total: 5.00
-                    }
-                ]
-            },
-            {
-                id: 3,
-                codigo_pedido: 'ORD-202401-0003',
-                tipo_pedido: 'mesa',
-                estado: 'entregado',
-                total: 28.50,
-                subtotal: 28.50,
-                envio: 0,
-                nombre_cliente: '',
-                telefono_cliente: '',
-                numero_mesa_codigo: '02',
-                mesa: {
-                    numero_display: '02',
-                    numero: 'mesa 02'
-                },
-                fecha_pedido: '2024-01-15T14:20:00',
-                items: [
-                    {
-                        name: 'Pasta Carbonara',
-                        quantity: 1,
-                        price: 15.00,
-                        total: 15.00
-                    },
-                    {
-                        name: 'Vino Tinto',
-                        quantity: 1,
-                        price: 8.50,
-                        total: 8.50
-                    },
-                    {
-                        name: 'Agua Mineral',
-                        quantity: 1,
-                        price: 2.00,
-                        total: 2.00
-                    },
-                    {
-                        name: 'Café',
-                        quantity: 1,
-                        price: 3.00,
-                        total: 3.00
-                    }
-                ]
-            }
-        ];
-        
-        invoices = [];
-        
-        console.log('Datos de prueba cargados:', orders.length, 'pedidos');
-        filteredOrders = [...orders];
-        
-        document.getElementById('debugStatus').textContent = 
-            `${orders.length} pedidos de prueba cargados`;
-        document.getElementById('debugStatus').style.color = '#ff7e5f';
-    }
     
     // Configurar event listeners
     function setupEventListeners() {
@@ -1873,6 +1726,12 @@
         
         if (dateFilter) {
             dateFilter.addEventListener('change', filterAndRender);
+        }
+        
+        // Event listener para el campo de envío
+        const envioInput = document.getElementById('envio');
+        if (envioInput) {
+            envioInput.addEventListener('input', calculateInvoiceTotal);
         }
     }
     
@@ -1906,7 +1765,10 @@
                     order.codigo_pedido,
                     order.nombre_cliente,
                     order.telefono_cliente,
-                    order.codigo_delivery
+                    order.codigo_delivery,
+                    order.numero_mesa_codigo,
+                    (order.mesa && order.mesa.numero_display) ? order.mesa.numero_display : '',
+                    order.numero_factura || ''
                 ].filter(field => field);
                 
                 matchesSearch = searchFields.some(field => 
@@ -1917,7 +1779,13 @@
             // 2. Filtrar por estado
             let matchesStatus = true;
             if (selectedStatus) {
-                matchesStatus = order.estado === selectedStatus;
+                if (order.es_factura) {
+                    // Para facturas: usar estado_factura
+                    matchesStatus = (order.estado_factura || order.estado) === selectedStatus;
+                } else {
+                    // Para pedidos: usar estado_pedido o estado
+                    matchesStatus = (order.estado_pedido || order.estado) === selectedStatus;
+                }
             }
             
             // 3. Filtrar por tipo
@@ -1961,7 +1829,7 @@
                             matchesDate = true;
                     }
                 } catch (e) {
-                    console.error(`Error procesando fecha del pedido ${order.id}:`, e);
+                    console.error(`Error procesando fecha:`, e);
                     matchesDate = true;
                 }
             }
@@ -2046,33 +1914,33 @@
                 console.error('Error procesando fecha:', e);
             }
             
-            // CORRECCIÓN 1: Determinar número de mesa o código CORRECTAMENTE
+            // Determinar número de mesa o código
             let numeroMesaCodigo = 'N/A';
+            let displayLabel = '';
+            
             if (order.tipo_pedido === 'mesa') {
-                // Verificar diferentes formas en que puede venir la información de la mesa
-                if (order.mesa) {
-                    // Si viene como objeto mesa
-                    if (order.mesa.numero_display) {
-                        numeroMesaCodigo = `Mesa ${order.mesa.numero_display}`;
-                    } else if (order.mesa.numero) {
-                        // Si solo viene el número
-                        numeroMesaCodigo = `Mesa ${order.mesa.numero}`;
-                    }
-                } else if (order.numero_mesa) {
-                    // Si viene como campo directo
-                    numeroMesaCodigo = `Mesa ${order.numero_mesa}`;
-                } else if (order.mesa_numero) {
-                    // Otra posible variación
-                    numeroMesaCodigo = `Mesa ${order.mesa_numero}`;
-                } else if (order.numero_mesa_codigo) {
-                    // Si viene en el campo general
-                    numeroMesaCodigo = `Mesa ${order.numero_mesa_codigo}`;
-                }
-            } else if (order.tipo_pedido === 'delivery' || order.tipo_pedido === 'llevar') {
-                if (order.codigo_delivery) {
-                    numeroMesaCodigo = order.codigo_delivery;
+                if (order.mesa && order.mesa.numero_display) {
+                    numeroMesaCodigo = order.mesa.numero_display;
+                    displayLabel = `Mesa ${numeroMesaCodigo}`;
                 } else if (order.numero_mesa_codigo) {
                     numeroMesaCodigo = order.numero_mesa_codigo;
+                    displayLabel = `Mesa ${numeroMesaCodigo}`;
+                }
+            } else if (order.tipo_pedido === 'delivery') {
+                if (order.codigo_delivery) {
+                    numeroMesaCodigo = order.codigo_delivery;
+                    displayLabel = `Delivery ${numeroMesaCodigo}`;
+                } else if (order.numero_mesa_codigo) {
+                    numeroMesaCodigo = order.numero_mesa_codigo;
+                    displayLabel = `Delivery ${numeroMesaCodigo}`;
+                }
+            } else if (order.tipo_pedido === 'llevar') {
+                if (order.codigo_delivery) {
+                    numeroMesaCodigo = order.codigo_delivery;
+                    displayLabel = `Para Llevar ${numeroMesaCodigo}`;
+                } else if (order.numero_mesa_codigo) {
+                    numeroMesaCodigo = order.numero_mesa_codigo;
+                    displayLabel = `Para Llevar ${numeroMesaCodigo}`;
                 }
             }
             
@@ -2082,10 +1950,75 @@
                 telefonoMostrar = `<span class="customer-phone">${order.telefono_cliente}</span>`;
             }
             
+            // Determinar estado a mostrar
+            let estadoMostrar = '';
+            let estadoClass = '';
+            
+            if (order.es_factura) {
+                // ES UNA FACTURA: mostrar estado de la factura
+                estadoMostrar = order.estado_factura || order.estado || 'pendiente';
+                estadoClass = getEstadoClass(estadoMostrar);
+            } else {
+                // ES UN PEDIDO: mostrar estado del pedido
+                estadoMostrar = order.estado_pedido || order.estado || 'pendiente';
+                estadoClass = getEstadoClass(estadoMostrar);
+            }
+            
+            // Determinar código a mostrar
+            let codigoMostrar = order.codigo_pedido;
+            if (order.es_factura && order.numero_factura) {
+                codigoMostrar = order.numero_factura;
+            }
+            
+            // Construir botones de acción
+            let actionButtons = '';
+            
+            if (order.es_factura) {
+                // Es una FACTURA existente
+                if (estadoMostrar === 'pendiente') {
+                    actionButtons = `
+                        <div class="action-buttons">
+                            <button class="btn-icon btn-view" onclick="viewOrderDetails('${order.id}')" title="Ver detalle">
+                                👁️
+                            </button>
+                            <button class="btn-icon btn-pagar" onclick="marcarComoPagada(${order.factura_id})" title="Marcar como pagada">
+                                ✅
+                            </button>
+                            <button class="btn-icon btn-eliminar" onclick="eliminarFactura(${order.factura_id})" title="Eliminar factura">
+                                🗑️
+                            </button>
+                        </div>
+                    `;
+                } else if (estadoMostrar === 'pagada') {
+                    actionButtons = `
+                        <div class="action-buttons">
+                            <button class="btn-icon btn-view" onclick="viewOrderDetails('${order.id}')" title="Ver detalle">
+                                👁️
+                            </button>
+                            <span style="color: #38a169; font-size: 0.8rem; font-weight: bold;">
+                                ✅ Pagada
+                            </span>
+                        </div>
+                    `;
+                }
+            } else {
+                // Es un PEDIDO sin facturar
+                actionButtons = `
+                    <div class="action-buttons">
+                        <button class="btn-icon btn-view" onclick="viewOrderDetails('${order.id}')" title="Ver detalle">
+                            👁️
+                        </button>
+                        <button class="btn-icon btn-pagar" onclick="pagarPedido('${order.id}')" title="Crear factura pendiente">
+                            🧾
+                        </button>
+                    </div>
+                `;
+            }
+            
             // Construir fila HTML
             htmlContent += `
                 <tr>
-                    <td style="font-weight: 700; color: #2c3e50;">${order.codigo_pedido || 'N/A'}</td>
+                    <td style="font-weight: 700; color: #2c3e50;">${codigoMostrar || 'N/A'}</td>
                     <td>
                         <span class="tipo-badge tipo-${order.tipo_pedido || 'mesa'}">
                             <span>${getTipoIcon(order.tipo_pedido)}</span>
@@ -2093,7 +2026,7 @@
                         </span>
                     </td>
                     <td>
-                        <div style="font-weight: 600;">${numeroMesaCodigo}</div>
+                        <div style="font-weight: 600;">${displayLabel || numeroMesaCodigo}</div>
                     </td>
                     <td>
                         <div class="customer-info">
@@ -2111,22 +2044,12 @@
                         <div class="invoice-total">$${(order.total || 0).toFixed(2)}</div>
                     </td>
                     <td>
-                        <span class="status-badge ${getEstadoClass(order.estado)}">
-                            ${order.estado || 'pendiente'}
+                        <span class="status-badge ${estadoClass}">
+                            ${estadoMostrar || 'pendiente'}
                         </span>
                     </td>
                     <td>
-                        <div class="action-buttons">
-                            <button class="btn-icon btn-view" onclick="viewOrderDetails('${order.id}')" title="Ver detalle">
-                                👁️
-                            </button>
-                            <button class="btn-icon btn-pagar" onclick="pagarPedido('${order.id}')" title="Pagar y facturar">
-                                💰
-                            </button>
-                            <button class="btn-icon btn-eliminar" onclick="eliminarPedido('${order.id}')" title="Eliminar">
-                                🗑️
-                            </button>
-                        </div>
+                        ${actionButtons}
                     </td>
                 </tr>
             `;
@@ -2138,31 +2061,34 @@
     
     // Actualizar estadísticas
     function updateStats() {
-        // Total de pedidos para facturar
-        const totalPedidosElement = document.getElementById('totalFacturas');
-        if (totalPedidosElement) {
-            totalPedidosElement.textContent = orders.length;
+        // Total de facturas (todas)
+        const totalFacturasElement = document.getElementById('totalFacturas');
+        if (totalFacturasElement) {
+            totalFacturasElement.textContent = invoices.length;
         }
         
-        // Ingresos del mes (de facturas pagadas)
+        // Ingresos del mes (solo facturas pagadas)
         const ingresosMesElement = document.getElementById('ingresosMes');
         if (ingresosMesElement) {
             const today = new Date();
             const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            
             const ingresosMes = invoices
                 .filter(invoice => {
                     try {
+                        if (invoice.status !== 'pagada') return false;
                         const invoiceDate = new Date(invoice.date);
-                        return invoiceDate >= firstDayOfMonth && invoice.status === 'pagada';
+                        return invoiceDate >= firstDayOfMonth;
                     } catch (e) {
                         return false;
                     }
                 })
                 .reduce((sum, invoice) => sum + (invoice.total || 0), 0);
+                
             ingresosMesElement.textContent = `$${ingresosMes.toFixed(2)}`;
         }
         
-        // Facturas pendientes
+        // Facturas pendientes (de la lista de estadísticas)
         const facturasPendientesElement = document.getElementById('facturasPendientes');
         if (facturasPendientesElement) {
             const facturasPendientes = invoices.filter(invoice => 
@@ -2171,11 +2097,12 @@
             facturasPendientesElement.textContent = facturasPendientes;
         }
         
-        // Promedio por factura
+        // Promedio por factura (solo pagadas)
         const promedioFacturaElement = document.getElementById('promedioFactura');
         if (promedioFacturaElement) {
-            const promedioFactura = invoices.length > 0 ? 
-                invoices.reduce((sum, invoice) => sum + (invoice.total || 0), 0) / invoices.length : 0;
+            const facturasPagadas = invoices.filter(invoice => invoice.status === 'pagada');
+            const promedioFactura = facturasPagadas.length > 0 ? 
+                facturasPagadas.reduce((sum, invoice) => sum + (invoice.total || 0), 0) / facturasPagadas.length : 0;
             promedioFacturaElement.textContent = `$${promedioFactura.toFixed(2)}`;
         }
     }
@@ -2191,16 +2118,25 @@
         }
     }
     
-    // Ver detalles del pedido
-    function viewOrderDetails(pedidoId) {
-        const order = orders.find(o => o.id == pedidoId);
-        if (!order) {
-            showNotification('Pedido no encontrado', 'error');
+    // Ver detalles del pedido o factura
+    function viewOrderDetails(registroId) {
+        let registro;
+        
+        // Verificar si es una factura (ID empieza con "factura_")
+        if (registroId.startsWith('factura_')) {
+            const facturaId = registroId.replace('factura_', '');
+            registro = orders.find(o => o.factura_id == facturaId);
+        } else {
+            registro = orders.find(o => o.id == registroId);
+        }
+        
+        if (!registro) {
+            showNotification('Registro no encontrado', 'error');
             return;
         }
         
         const modalBody = document.getElementById('modalBody');
-        const fecha = new Date(order.fecha_pedido || new Date());
+        const fecha = new Date(registro.fecha_pedido || new Date());
         const formattedDate = fecha.toLocaleDateString('es-ES', {
             weekday: 'long',
             year: 'numeric',
@@ -2210,37 +2146,41 @@
             minute: '2-digit'
         });
         
-        // Construir detalles del pedido
+        // Construir detalles
         let clienteInfo = '';
-        if (order.nombre_cliente) {
-            clienteInfo += `<div style="margin-bottom: 0.5rem;"><strong>Cliente:</strong> ${order.nombre_cliente}</div>`;
+        if (registro.nombre_cliente) {
+            clienteInfo += `<div style="margin-bottom: 0.5rem;"><strong>Cliente:</strong> ${registro.nombre_cliente}</div>`;
         }
-        if (order.telefono_cliente) {
-            clienteInfo += `<div style="margin-bottom: 0.5rem;"><strong>Teléfono:</strong> ${order.telefono_cliente}</div>`;
+        if (registro.telefono_cliente) {
+            clienteInfo += `<div style="margin-bottom: 0.5rem;"><strong>Teléfono:</strong> ${registro.telefono_cliente}</div>`;
         }
-        if (order.direccion_entrega) {
-            clienteInfo += `<div style="margin-bottom: 0.5rem;"><strong>Dirección:</strong> ${order.direccion_entrega}</div>`;
+        if (registro.direccion_entrega) {
+            clienteInfo += `<div style="margin-bottom: 0.5rem;"><strong>Dirección:</strong> ${registro.direccion_entrega}</div>`;
         }
         
-        // Construir items del pedido
+        // Construir items
         let itemsHTML = '';
-        if (order.items && order.items.length > 0) {
-            itemsHTML = order.items.map(item => `
+        if (registro.items && registro.items.length > 0) {
+            itemsHTML = registro.items.map(item => `
                 <tr>
-                    <td>${item.name || 'Producto'}</td>
-                    <td>${item.quantity || 1}</td>
-                    <td>$${(item.price || 0).toFixed(2)}</td>
-                    <td>$${(item.total || item.price || 0).toFixed(2)}</td>
+                    <td>${item.name || item.nombre || 'Producto'}</td>
+                    <td>${item.quantity || item.cantidad || 1}</td>
+                    <td>$${(item.price || item.precio || 0).toFixed(2)}</td>
+                    <td>$${(item.total || item.subtotal || 0).toFixed(2)}</td>
                 </tr>
             `).join('');
         } else {
             itemsHTML = `<tr><td colspan="4" style="text-align: center; padding: 20px;">No hay items disponibles</td></tr>`;
         }
         
+        // Determinar tipo de registro
+        const esFactura = registro.es_factura || registro.factura_id;
+        const titulo = esFactura ? `FACTURA ${registro.numero_factura || 'N/A'}` : `PEDIDO ${registro.codigo_pedido || 'N/A'}`;
+        
         modalBody.innerHTML = `
             <div class="invoice-header">
                 <div class="invoice-info">
-                    <h2>PEDIDO ${order.codigo_pedido || 'N/A'}</h2>
+                    <h2>${titulo}</h2>
                     <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
                         <div>
                             <div style="font-weight: 600; color: #4a5568;">Fecha:</div>
@@ -2248,28 +2188,38 @@
                         </div>
                         <div>
                             <div style="font-weight: 600; color: #4a5568;">Tipo:</div>
-                            <span class="tipo-badge tipo-${order.tipo_pedido}">
-                                ${getTipoIcon(order.tipo_pedido)} ${getTipoLabel(order.tipo_pedido)}
+                            <span class="tipo-badge tipo-${registro.tipo_pedido}">
+                                ${getTipoIcon(registro.tipo_pedido)} ${getTipoLabel(registro.tipo_pedido)}
                             </span>
                         </div>
+                        ${!esFactura ? `
                         <div>
-                            <div style="font-weight: 600; color: #4a5568;">Estado:</div>
-                            <span class="status-badge ${getEstadoClass(order.estado)}">
-                                ${order.estado || 'pendiente'}
+                            <div style="font-weight: 600; color: #4a5568;">Estado Pedido:</div>
+                            <span class="status-badge ${getEstadoClass(registro.estado_pedido || registro.estado)}">
+                                ${registro.estado_pedido || registro.estado || 'pendiente'}
                             </span>
                         </div>
+                        ` : ''}
+                        ${esFactura ? `
+                        <div>
+                            <div style="font-weight: 600; color: #4a5568;">Estado Factura:</div>
+                            <span class="status-badge ${getEstadoClass(registro.estado_factura || registro.estado)}">
+                                ${registro.estado_factura || registro.estado || 'pendiente'}
+                            </span>
+                        </div>
+                        ` : ''}
                     </div>
                 </div>
             </div>
             
             <div class="invoice-details">
                 <div class="invoice-company">
-                    <h4>INFORMACIÓN DEL PEDIDO</h4>
+                    <h4>INFORMACIÓN ${esFactura ? 'DE LA FACTURA' : 'DEL PEDIDO'}</h4>
                     <div style="margin-bottom: 0.5rem;">
-                        <strong>Tipo:</strong> ${getTipoLabel(order.tipo_pedido)}
+                        <strong>Tipo:</strong> ${getTipoLabel(registro.tipo_pedido)}
                     </div>
                     <div style="margin-bottom: 0.5rem;">
-                        <strong>${order.tipo_pedido === 'mesa' ? 'Mesa:' : 'Código:'}</strong> ${order.numero_mesa_codigo || order.codigo_delivery || 'N/A'}
+                        <strong>${registro.tipo_pedido === 'mesa' ? 'Mesa:' : 'Código:'}</strong> ${registro.numero_mesa_codigo || registro.codigo_delivery || 'N/A'}
                     </div>
                     ${clienteInfo}
                 </div>
@@ -2277,19 +2227,19 @@
                 <div class="invoice-client">
                     <h4>DETALLES FINANCIEROS</h4>
                     <div style="margin-bottom: 0.5rem;">
-                        <strong>Subtotal:</strong> $${(order.subtotal || order.total || 0).toFixed(2)}
+                        <strong>Subtotal:</strong> $${(registro.subtotal || 0).toFixed(2)}
                     </div>
                     <div style="margin-bottom: 0.5rem;">
-                        <strong>Envío:</strong> $${(order.envio || 0).toFixed(2)}
+                        <strong>Envío:</strong> $${(registro.envio || 0).toFixed(2)}
                     </div>
                     <div style="margin-bottom: 0.5rem;">
-                        <strong>Total:</strong> $${(order.total || 0).toFixed(2)}
+                        <strong>Total:</strong> $${(registro.total || 0).toFixed(2)}
                     </div>
                 </div>
             </div>
             
             <div class="invoice-items">
-                <h4 style="color: #2c3e50; margin-bottom: 1rem;">ITEMS DEL PEDIDO</h4>
+                <h4 style="color: #2c3e50; margin-bottom: 1rem;">ITEMS ${esFactura ? 'DE LA FACTURA' : 'DEL PEDIDO'}</h4>
                 <table class="invoice-table">
                     <thead>
                         <tr>
@@ -2306,10 +2256,18 @@
             </div>
             
             <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
-                <button class="btn btn-success" onclick="pagarPedido('${order.id}')">
-                    <span>💰</span>
-                    <span>Procesar Pago</span>
+                ${!esFactura ? `
+                <button class="btn btn-success" onclick="pagarPedido('${registro.id}')">
+                    <span>🧾</span>
+                    <span>Crear Factura Pendiente</span>
                 </button>
+                ` : ''}
+                ${esFactura && (registro.estado_factura === 'pendiente' || registro.estado === 'pendiente') ? `
+                <button class="btn btn-success" onclick="marcarComoPagada(${registro.factura_id})">
+                    <span>✅</span>
+                    <span>Marcar como Pagada</span>
+                </button>
+                ` : ''}
             </div>
         `;
         
@@ -2317,11 +2275,17 @@
         document.getElementById('invoiceModal').classList.add('active');
     }
     
-    // Pagar pedido
+    // Pagar pedido (crear factura pendiente)
     function pagarPedido(pedidoId) {
         const order = orders.find(o => o.id == pedidoId);
         if (!order) {
             showNotification('Pedido no encontrado', 'error');
+            return;
+        }
+        
+        // Verificar si ya tiene factura pendiente
+        if (order.es_factura || order.tiene_factura) {
+            showNotification('Este pedido ya tiene una factura pendiente', 'warning');
             return;
         }
         
@@ -2332,17 +2296,8 @@
         // Determinar número de mesa o código
         let numeroMesaCodigo = 'N/A';
         if (order.tipo_pedido === 'mesa') {
-            // Verificar diferentes formas en que puede venir la información de la mesa
-            if (order.mesa) {
-                if (order.mesa.numero_display) {
-                    numeroMesaCodigo = order.mesa.numero_display;
-                } else if (order.mesa.numero) {
-                    numeroMesaCodigo = order.mesa.numero;
-                }
-            } else if (order.numero_mesa) {
-                numeroMesaCodigo = order.numero_mesa;
-            } else if (order.mesa_numero) {
-                numeroMesaCodigo = order.mesa_numero;
+            if (order.mesa && order.mesa.numero_display) {
+                numeroMesaCodigo = order.mesa.numero_display;
             } else if (order.numero_mesa_codigo) {
                 numeroMesaCodigo = order.numero_mesa_codigo;
             }
@@ -2379,10 +2334,10 @@
         if (order.items && order.items.length > 0) {
             itemsBody.innerHTML = order.items.map(item => `
                 <tr>
-                    <td>${item.name || 'Producto'}</td>
-                    <td>${item.quantity || 1}</td>
-                    <td>$${(item.price || 0).toFixed(2)}</td>
-                    <td>$${(item.total || item.price || 0).toFixed(2)}</td>
+                    <td>${item.name || item.nombre || 'Producto'}</td>
+                    <td>${item.quantity || item.cantidad || 1}</td>
+                    <td>$${(item.price || item.precio || 0).toFixed(2)}</td>
+                    <td>$${(item.total || item.subtotal || 0).toFixed(2)}</td>
                 </tr>
             `).join('');
         } else {
@@ -2405,32 +2360,31 @@
         document.getElementById('createInvoiceModal').classList.add('active');
     }
     
-    // Calcular total de la factura (sin IVA)
+    // Calcular total de la factura
     function calculateInvoiceTotal(order = null) {
         let subtotal = 0;
         
         if (order) {
-            subtotal = order.subtotal || order.total || 0;
+            subtotal = order.subtotal || 0;
         } else {
             const rows = document.querySelectorAll('#invoiceItemsBody tr');
             rows.forEach(row => {
                 const cells = row.querySelectorAll('td');
                 if (cells.length >= 4) {
-                    const itemTotal = parseFloat(cells[3].textContent.replace('$', '')) || 0;
+                    const itemTotal = parseFloat(cells[3].textContent.replace('$', '').replace(',', '')) || 0;
                     subtotal += itemTotal;
                 }
             });
         }
         
         const envio = parseFloat(document.getElementById('envio').value) || 0;
-        // Sin IVA (comentado según requerimiento)
         const total = subtotal + envio;
         
         document.getElementById('subtotal').value = `$${subtotal.toFixed(2)}`;
         document.getElementById('total').value = `$${total.toFixed(2)}`;
     }
     
-    // CORRECCIÓN 2: Guardar factura - Versión mejorada que realmente funciona
+    // Guardar factura (estado pendiente)
     function saveInvoice() {
         const pedidoId = document.getElementById('pedidoId').value;
         const invoiceNumber = document.getElementById('invoiceNumber').value;
@@ -2447,8 +2401,8 @@
         }
         
         const paymentMethod = document.getElementById('paymentMethod').value;
-        const status = document.getElementById('invoiceStatus').value;
         const envio = parseFloat(document.getElementById('envio').value) || 0;
+        const invoiceDate = document.getElementById('invoiceDate').value;
         
         // Calcular items
         const items = [];
@@ -2475,21 +2429,9 @@
             return;
         }
         
-        // Calcular totales (sin IVA según requerimiento)
+        // Calcular totales
         const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-        const iva = 0; // Sin IVA - comentado según requerimiento
-        const total = subtotal + iva + envio;
-        
-        console.log('Generando factura con datos:', {
-            pedidoId,
-            invoiceNumber,
-            paymentMethod,
-            status,
-            subtotal,
-            envio,
-            total,
-            itemsCount: items.length
-        });
+        const total = subtotal + envio;
         
         // Crear un formulario dinámico para enviar a Django
         const form = document.createElement('form');
@@ -2517,10 +2459,11 @@
         // Agregar datos básicos
         addField('pedido_id', pedidoId);
         addField('metodo_pago', paymentMethod);
-        addField('estado', status);
+        addField('estado', 'pendiente'); // SIEMPRE pendiente al crear
         addField('subtotal', subtotal.toFixed(2));
         addField('envio', envio.toFixed(2));
         addField('total', total.toFixed(2));
+        addField('invoice_date', invoiceDate);
         
         // Agregar items como JSON string
         addField('items', JSON.stringify(items));
@@ -2554,15 +2497,16 @@
         
         // Enviar formulario
         document.body.appendChild(form);
-        showNotification(`✅ Generando factura ${invoiceNumber}...`, 'info');
+        showNotification(`🔄 Creando factura ${invoiceNumber}...`, 'info');
         
-        // Pequeño delay para que se vea la notificación
-        setTimeout(() => {
-            form.submit();
-        }, 500);
+        // Cerrar modal
+        closeCreateInvoiceModal();
+        
+        // Enviar formulario
+        form.submit();
     }
     
-    // Guardar e imprimir factura - VERSIÓN CORREGIDA
+    // Guardar e imprimir factura
     function saveAndPrintInvoice() {
         const pedidoId = document.getElementById('pedidoId').value;
         const invoiceNumber = document.getElementById('invoiceNumber').value;
@@ -2578,9 +2522,7 @@
             return;
         }
         
-        // Obtener los datos del formulario
         const paymentMethod = document.getElementById('paymentMethod').value;
-        const status = document.getElementById('invoiceStatus').value;
         const envio = parseFloat(document.getElementById('envio').value) || 0;
         const invoiceDate = document.getElementById('invoiceDate').value;
         
@@ -2611,19 +2553,7 @@
         
         // Calcular totales
         const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-        const iva = 0; // Sin IVA
-        const total = subtotal + iva + envio;
-        
-        console.log('Guardando e imprimiendo factura con datos:', {
-            pedidoId,
-            invoiceNumber,
-            paymentMethod,
-            status,
-            subtotal,
-            envio,
-            total,
-            itemsCount: items.length
-        });
+        const total = subtotal + envio;
         
         // Crear un formulario dinámico
         const form = document.createElement('form');
@@ -2651,7 +2581,7 @@
         // Agregar datos básicos
         addField('pedido_id', pedidoId);
         addField('metodo_pago', paymentMethod);
-        addField('estado', status);
+        addField('estado', 'pendiente'); // SIEMPRE pendiente al crear
         addField('subtotal', subtotal.toFixed(2));
         addField('envio', envio.toFixed(2));
         addField('total', total.toFixed(2));
@@ -2690,7 +2620,7 @@
         
         // Enviar formulario
         document.body.appendChild(form);
-        showNotification(`🖨️ Generando factura ${invoiceNumber} e imprimiendo...`, 'info');
+        showNotification(`🖨️ Creando factura ${invoiceNumber} e imprimiendo...`, 'info');
         
         // Cerrar el modal de creación
         closeCreateInvoiceModal();
@@ -2699,267 +2629,106 @@
         form.submit();
     }
     
-    // Eliminar pedido
-    function eliminarPedido(pedidoId) {
-        if (confirm('¿Estás seguro de eliminar este pedido? Esta acción no se puede deshacer.')) {
-            // Crear un formulario para eliminar
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = `/pedidos/eliminar/${pedidoId}/`;
-            
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-            const csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = 'csrfmiddlewaretoken';
-            csrfInput.value = csrfToken;
-            form.appendChild(csrfInput);
-            
-            document.body.appendChild(form);
-            form.submit();
-        }
-    }
-    
-    // Función para obtener clase CSS según estado del pedido
-    function getEstadoClass(estado) {
-        const clases = {
-            'pendiente': 'status-pendiente',
-            'confirmado': 'status-confirmado',
-            'preparacion': 'status-preparacion',
-            'listo': 'status-listo',
-            'entregado': 'status-entregado',
-            'completado': 'status-completado',
-            'cancelado': 'status-anulada'
-        };
-        return clases[estado] || 'status-pendiente';
-    }
-    
-    // Mostrar vista previa de impresión térmica
-    function showThermalPreview(invoiceId) {
-        const invoice = invoices.find(i => i.id == invoiceId);
-        if (!invoice) {
-            showNotification('Factura no encontrada', 'error');
+    // MARCADO COMO PAGADA - VERSIÓN ACTUALIZADA
+    function marcarComoPagada(facturaId) {
+        if (!confirm('¿Estás seguro de marcar esta factura como pagada?\n\nSe abrirá la ventana de impresión automáticamente.')) {
             return;
         }
         
-        currentInvoiceForPrint = invoice;
+        showNotification(`⏳ Marcando factura como pagada...`, 'info');
         
-        const invoiceDate = new Date(invoice.date);
-        const formattedDate = invoiceDate.toLocaleDateString('es-ES', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
+        // Usar fetch para hacer la petición AJAX
+        fetch(`/facturacion/marcar-como-pagada/${facturaId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message, 'success');
+                
+                // Si hay una URL de redirección, ir a ella después de 1 segundo
+                if (data.redirect_url) {
+                    setTimeout(() => {
+                        window.open(data.redirect_url, '_blank'); // Abrir en nueva pestaña
+                        // Recargar la página principal después de 2 segundos
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                    }, 1000);
+                } else {
+                    // Si no hay URL de redirección, solo recargar
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                }
+            } else {
+                showNotification(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error al marcar como pagada', 'error');
         });
-        const formattedTime = invoiceDate.toLocaleTimeString('es-ES', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-        
-        let clienteInfo = '';
-        if (invoice.tipoPedido === 'delivery' || invoice.tipoPedido === 'llevar') {
-            if (invoice.nombreCliente) {
-                clienteInfo += `CLIENTE: ${invoice.nombreCliente}\n`;
-            }
-            if (invoice.telefonoCliente) {
-                clienteInfo += `TELÉFONO: ${invoice.telefonoCliente}\n`;
-            }
-            if (invoice.direccionEntrega && invoice.tipoPedido === 'delivery') {
-                clienteInfo += `DIRECCIÓN: ${invoice.direccionEntrega}\n`;
-            }
+    }
+    
+    // Eliminar pedido
+    function eliminarPedido(pedidoId) {
+        if (!confirm('¿Estás seguro de eliminar este pedido? Esta acción no se puede deshacer.')) {
+            return;
         }
         
-        const thermalContent = document.getElementById('thermalContent');
-        thermalContent.innerHTML = `
-            <div class="thermal-header">
-                <h2>MI RESTAURANTE</h2>
-                <p>Av. Principal 123, Quito</p>
-                <p>Tel: (02) 222-2222</p>
-                <p>RUC: 1799999999001</p>
-                <p>--------------------------------</p>
-            </div>
-            
-            <div class="thermal-info">
-                <div class="thermal-info-row">
-                    <span>FACTURA:</span>
-                    <span>${invoice.invoiceNumber}</span>
-                </div>
-                <div class="thermal-info-row">
-                    <span>FECHA:</span>
-                    <span>${formattedDate} ${formattedTime}</span>
-                </div>
-                <div class="thermal-info-row">
-                    <span>PEDIDO:</span>
-                    <span>${invoice.codigoPedido}</span>
-                </div>
-                <div class="thermal-info-row">
-                    <span>TIPO:</span>
-                    <span>${getTipoLabel(invoice.tipoPedido)}</span>
-                </div>
-                <div class="thermal-info-row">
-                    <span>${invoice.tipoPedido === 'mesa' ? 'MESA:' : 'CÓDIGO:'}</span>
-                    <span>${invoice.numeroMesaCodigo || 'N/A'}</span>
-                </div>
-                <div class="thermal-info-row">
-                    <span>ESTADO:</span>
-                    <span>${getStatusLabel(invoice.status)}</span>
-                </div>
-                <div class="thermal-info-row">
-                    <span>PAGO:</span>
-                    <span>${getPaymentLabel(invoice.paymentMethod)}</span>
-                </div>
-                <p>--------------------------------</p>
-            </div>
-            
-            ${clienteInfo ? `
-            <div class="thermal-info">
-                ${clienteInfo}
-                <p>--------------------------------</p>
-            </div>
-            ` : ''}
-            
-            <table class="thermal-items">
-                <thead>
-                    <tr>
-                        <th class="item-name">DESCRIPCIÓN</th>
-                        <th class="item-qty">CANT</th>
-                        <th class="item-price">PRECIO</th>
-                        <th class="item-total">TOTAL</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${invoice.items.map(item => `
-                        <tr>
-                            <td class="item-name">${truncateText(item.name, 20)}</td>
-                            <td class="item-qty">${item.quantity}</td>
-                            <td class="item-price">$${item.price.toFixed(2)}</td>
-                            <td class="item-total">$${item.total.toFixed(2)}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-            
-            <div class="thermal-totals">
-                <p>--------------------------------</p>
-                <div class="thermal-total-row">
-                    <span>Subtotal:</span>
-                    <span>$${invoice.subtotal.toFixed(2)}</span>
-                </div>
-                <!-- Comentado: IVA 12% -->
-                <!--
-                <div class="thermal-total-row">
-                    <span>IVA 12%:</span>
-                    <span>$${invoice.iva.toFixed(2)}</span>
-                </div>
-                -->
-                <div class="thermal-total-row">
-                    <span>Envío:</span>
-                    <span>$${invoice.envio.toFixed(2)}</span>
-                </div>
-                <div class="thermal-total-row grand-total">
-                    <span>TOTAL:</span>
-                    <span>$${invoice.total.toFixed(2)}</span>
-                </div>
-            </div>
-            
-            <div class="thermal-footer">
-                <p>--------------------------------</p>
-                <p>¡GRACIAS POR SU VISITA!</p>
-                ${invoice.notes ? `<p>NOTAS: ${truncateText(invoice.notes, 60)}</p>` : ''}
-                <p>--------------------------------</p>
-                <p>Factura generada electrónicamente</p>
-                <p>No válida como comprobante de crédito fiscal</p>
-            </div>
-        `;
+        // Crear un formulario para eliminar
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/pedidos/eliminar/${pedidoId}/`;
         
-        // Mostrar modal de vista previa
-        document.getElementById('thermalPreviewModal').classList.add('active');
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        
+        document.body.appendChild(form);
+        form.submit();
     }
     
-    // Imprimir factura térmica
-    function printThermalInvoice() {
-        if (!currentInvoiceForPrint) return;
-        
-        // En un caso real, aquí se enviaría a la impresora térmica
-        // Esta es una simulación
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <html>
-            <head>
-                <title>Imprimir Factura</title>
-                <style>
-                    body {
-                        font-family: 'Courier New', monospace;
-                        font-size: 12px;
-                        width: 80mm;
-                        padding: 5px;
-                        margin: 0;
-                    }
-                    .header { text-align: center; margin-bottom: 5px; }
-                    .info { margin: 5px 0; }
-                    .info-row { display: flex; justify-content: space-between; }
-                    .items { width: 100%; margin: 10px 0; }
-                    .items th { text-align: left; border-bottom: 1px dashed #000; }
-                    .items td { padding: 2px 0; }
-                    .item-name { width: 50%; }
-                    .item-qty { width: 15%; text-align: center; }
-                    .item-price { width: 20%; text-align: right; }
-                    .item-total { width: 15%; text-align: right; }
-                    .totals { margin-top: 10px; }
-                    .total-row { display: flex; justify-content: space-between; }
-                    .footer { text-align: center; margin-top: 15px; font-size: 10px; }
-                    hr { border: none; border-top: 1px dashed #000; }
-                </style>
-            </head>
-            <body>
-                ${document.getElementById('thermalContent').innerHTML}
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
-        printWindow.focus();
-        
-        // Esperar a que se cargue el contenido antes de imprimir
-        setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-            showNotification(`🖨️ Factura ${currentInvoiceForPrint.invoiceNumber} enviada a impresión`, 'success');
-        }, 500);
-    }
-    
-    // Cerrar vista previa térmica
-    function closeThermalPreview() {
-        document.getElementById('thermalPreviewModal').classList.remove('active');
-        currentInvoiceForPrint = null;
-    }
-    
-    // Anular factura
-    function voidInvoice(invoiceId) {
-        const invoice = invoices.find(i => i.id == invoiceId);
-        if (!invoice) return;
-        
-        if (confirm(`¿Estás seguro de anular la factura ${invoice.invoiceNumber}? Esta acción no se puede deshacer.`)) {
-            // Crear un formulario para anular la factura
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = ""; // Ajusta esta URL según tu vista
-            
-            // Agregar token CSRF
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-            const csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = 'csrfmiddlewaretoken';
-            csrfInput.value = csrfToken;
-            form.appendChild(csrfInput);
-            
-            // Enviar formulario
-            document.body.appendChild(form);
-            form.submit();
+    // Eliminar factura pendiente
+    function eliminarFactura(facturaId) {
+        if (!confirm('¿Estás seguro de eliminar esta factura pendiente?')) {
+            return;
         }
+        
+        // Crear formulario para enviar petición
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/facturacion/eliminar-factura/${facturaId}/`;
+        form.style.display = 'none';
+        
+        // Agregar token CSRF
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        
+        document.body.appendChild(form);
+        
+        showNotification(`⏳ Eliminando factura pendiente...`, 'info');
+        
+        // Enviar formulario
+        form.submit();
     }
     
     // Exportar facturas
     function exportInvoices() {
         if (invoices.length === 0) {
-            showNotification('No hay facturas para exportar', 'error');
+            showNotification('No hay facturas para exportar', 'warning');
             return;
         }
         
@@ -2978,7 +2747,7 @@
             // Buscar el número más alto
             const numbers = invoices.map(inv => {
                 if (!inv.invoiceNumber) return 0;
-                const match = inv.invoiceNumber.match(/FAC-\d{4}-(\d{2})-(\d+)/);
+                const match = inv.invoiceNumber.match(/FAC-\d{4}(\d{2})-(\d+)/);
                 if (match && match[1] === month) {
                     return parseInt(match[2]);
                 }
@@ -2999,27 +2768,36 @@
         
         // Mostrar pedidos
         if (orders.length === 0) {
-            debugPedidos.innerHTML = '<p style="color: #999;">No hay pedidos disponibles</p>';
+            debugPedidos.innerHTML = '<p style="color: #999;">No hay registros disponibles</p>';
         } else {
+            const pedidosSinFacturar = orders.filter(o => !o.es_factura);
+            const facturasPendientes = orders.filter(o => o.es_factura && (o.estado_factura === 'pendiente' || o.estado === 'pendiente'));
+            
             debugPedidos.innerHTML = `
-                <p><strong>Total:</strong> ${orders.length} pedidos</p>
+                <p><strong>Total registros:</strong> ${orders.length}</p>
+                <p><strong>Pedidos sin facturar:</strong> ${pedidosSinFacturar.length}</p>
+                <p><strong>Facturas pendientes:</strong> ${facturasPendientes.length}</p>
                 <div style="max-height: 200px; overflow-y: auto; border: 1px solid #e0e0e0; padding: 10px; border-radius: 5px;">
                     ${orders.map(order => `
                         <div style="padding: 5px; border-bottom: 1px solid #f0f0f0;">
-                            <strong>${order.codigo_pedido || 'N/A'}</strong> - ${getTipoLabel(order.tipo_pedido)} - 
-                            ${order.estado || 'N/A'} - $${(order.total || 0).toFixed(2)}
+                            <strong>${order.es_factura ? 'FACTURA' : 'PEDIDO'}:</strong> ${order.codigo_pedido || order.numero_factura || 'N/A'} - 
+                            ${getTipoLabel(order.tipo_pedido)} - 
+                            Estado: ${order.es_factura ? (order.estado_factura || order.estado) : (order.estado_pedido || order.estado)} - 
+                            $${(order.total || 0).toFixed(2)}
                         </div>
                     `).join('')}
                 </div>
             `;
         }
         
-        // Mostrar facturas
+        // Mostrar facturas (todas para estadísticas)
         if (invoices.length === 0) {
             debugFacturas.innerHTML = '<p style="color: #999;">No hay facturas existentes</p>';
         } else {
             debugFacturas.innerHTML = `
-                <p><strong>Total:</strong> ${invoices.length} facturas</p>
+                <p><strong>Total facturas:</strong> ${invoices.length}</p>
+                <p><strong>Pagadas:</strong> ${invoices.filter(f => f.status === 'pagada').length}</p>
+                <p><strong>Pendientes:</strong> ${invoices.filter(f => f.status === 'pendiente').length}</p>
                 <div style="max-height: 200px; overflow-y: auto; border: 1px solid #e0e0e0; padding: 10px; border-radius: 5px;">
                     ${invoices.map(inv => `
                         <div style="padding: 5px; border-bottom: 1px solid #f0f0f0;">
@@ -3055,24 +2833,31 @@
     
     // Mostrar notificación
     function showNotification(message, type = 'success') {
+        // Remover notificaciones anteriores
+        const existingNotifications = document.querySelectorAll('.notification');
+        existingNotifications.forEach(notification => notification.remove());
+        
         const notification = document.createElement('div');
+        notification.className = 'notification';
         notification.style.cssText = `
             position: fixed;
             top: 20px;
             right: 20px;
             background: ${type === 'error' ? 'linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)' : 
                          type === 'warning' ? 'linear-gradient(135deg, #ffb347 0%, #ffcc33 100%)' :
-                         'linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%)'};
+                         type === 'info' ? 'linear-gradient(135deg, #2196F3 0%, #21CBF3 100%)' :
+                         'linear-gradient(135deg, #38a169 0%, #48bb78 100%)'};
             color: white;
             padding: 1rem 1.5rem;
             border-radius: 12px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            z-index: 1000;
+            z-index: 10000;
             animation: slideIn 0.3s ease-out;
             font-weight: 600;
             display: flex;
             align-items: center;
             gap: 10px;
+            max-width: 400px;
         `;
         
         notification.innerHTML = message;
@@ -3126,6 +2911,21 @@
         return icons[tipo] || '📦';
     }
     
+    function getEstadoClass(estado) {
+        const clases = {
+            'pendiente': 'status-pendiente',
+            'confirmado': 'status-confirmado',
+            'preparacion': 'status-preparacion',
+            'listo': 'status-listo',
+            'entregado': 'status-entregado',
+            'completado': 'status-completado',
+            'cancelado': 'status-anulada',
+            'pagada': 'status-pagada',
+            'anulada': 'status-anulada'
+        };
+        return clases[estado] || 'status-pendiente';
+    }
+    
     function getPaymentLabel(payment) {
         const labels = {
             'efectivo': 'Efectivo',
@@ -3142,12 +2942,6 @@
             'transferencia': '🏦'
         };
         return icons[payment] || '💵';
-    }
-    
-    function truncateText(text, maxLength) {
-        if (!text) return '';
-        if (text.length <= maxLength) return text;
-        return text.substring(0, maxLength - 3) + '...';
     }
     
     // Sidebar toggle

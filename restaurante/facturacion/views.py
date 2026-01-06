@@ -22,7 +22,9 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.models import User, Group, Permission
 from django.db import transaction
 from django.views.decorators.csrf import csrf_protect
-
+from django.template.loader import render_to_string
+from django.utils.timezone import now
+from django.http import HttpResponse
 
 @csrf_exempt 
 def index(request):
@@ -683,7 +685,10 @@ def pedidos(request):
         return render(request, 'facturacion/pedidos.html', context)
 
 
-from decimal import Decimal
+
+
+
+
 @csrf_exempt 
 def crear_pedido(request):
     """Vista para crear un nuevo pedido - funciona sin login"""
@@ -969,22 +974,48 @@ def crear_pedido(request):
                 traceback.print_exc()
                 # No interrumpimos el flujo principal por este error
             
-            # Generar ticket del lado del servidor
-            generar_ticket_chef_servidor(pedido, cart_items)
+            # 🔥 GENERAR TICKET DEL SERVIDOR Y DEVOLVERLO DIRECTAMENTE
+            # Determinar código según tipo
+            codigo_display = ""
+            if pedido.tipo_pedido == 'mesa' and pedido.mesa:
+                codigo_display = f"M{pedido.mesa.numero_display}"
+            elif pedido.codigo_delivery:
+                codigo_display = pedido.codigo_delivery
             
-            # Contar platos y bebidas
-            platos_count = sum(1 for item in cart_items if item.get('tipo') != 'bebida' and not item.get('es_bebida'))
-            bebidas_count = sum(1 for item in cart_items if item.get('tipo') == 'bebida' or item.get('es_bebida'))
+            # Separar platos y bebidas
+            platos_items = [item for item in cart_items if item.get('tipo') != 'bebida' and not item.get('es_bebida')]
+            bebidas_items = [item for item in cart_items if item.get('tipo') == 'bebida' or item.get('es_bebida')]
             
-            messages.success(
-                request, 
-                f'✅ Pedido {pedido.codigo_pedido} creado exitosamente! '
-                f'Platos: {platos_count} | Bebidas: {bebidas_count} | '
-                f'Total: ${total:.2f}'
-            )
+            # Crear contexto para el ticket
+            context = {
+                'pedido': pedido,
+                'items': cart_items,
+                'platos_items': platos_items,
+                'bebidas_items': bebidas_items,
+                'fecha': now().strftime('%d/%m/%Y %H:%M'),
+                'codigo_display': codigo_display,
+                'codigo_pedido': pedido.codigo_pedido,  # 🔥 ESTO ES CLAVE - número del pedido
+                'total_items': len(cart_items),
+                'platos_count': len(platos_items),
+                'bebidas_count': len(bebidas_items),
+                'tiempo_estimado': sum(item.get('prepTime', 15) for item in cart_items),
+            }
             
-            # Redirigir a la página de gestión de pedidos
-            return redirect('gestion_pedidos')
+            # Renderizar el template del ticket
+            ticket_html = render_to_string('facturacion/ticket_chef.html', context)
+            
+            # DEBUG: Mostrar información del ticket generado
+            print("=" * 80)
+            print("TICKET GENERADO:")
+            print(f"Código Pedido: {pedido.codigo_pedido}")
+            print(f"Código Display: {codigo_display}")
+            print(f"Total Items: {len(cart_items)}")
+            print(f"Platos: {len(platos_items)}")
+            print(f"Bebidas: {len(bebidas_items)}")
+            print("=" * 80)
+            
+            # 🔥 DEVOLVER EL TICKET HTML DIRECTAMENTE (no redirigir)
+            return HttpResponse(ticket_html)
             
         except Exception as e:
             import traceback
@@ -996,6 +1027,9 @@ def crear_pedido(request):
             return redirect('pedidos')
     
     return redirect('pedidos')
+
+
+
 @csrf_exempt 
 def generar_ticket_chef_servidor(pedido, cart_items):
     """Función para generar ticket del chef desde el servidor"""
@@ -1021,6 +1055,7 @@ def generar_ticket_chef_servidor(pedido, cart_items):
             'bebidas_items': bebidas_items,
             'fecha': now().strftime('%d/%m/%Y %H:%M'),
             'codigo_display': codigo_display,
+            'codigo_pedido': pedido.codigo_pedido,  # 🔥 AGREGAR ESTO
             'total_items': len(cart_items),
             'platos_count': len(platos_items),
             'bebidas_count': len(bebidas_items),
@@ -1029,18 +1064,22 @@ def generar_ticket_chef_servidor(pedido, cart_items):
         
         ticket_html = render_to_string('facturacion/ticket_chef.html', context)
         
-        # Guardar ticket en archivo o base de datos si es necesario
         print("=" * 50)
         print("TICKET COCINA GENERADO")
-        print(f"Código: {codigo_display}")
+        print(f"Código Pedido: {pedido.codigo_pedido}")
+        print(f"Código Display: {codigo_display}")
         print(f"Fecha: {context['fecha']}")
         print(f"Items totales: {len(cart_items)}")
         print(f"  - Platos: {len(platos_items)}")
         print(f"  - Bebidas: {len(bebidas_items)}")
         print("=" * 50)
         
+        return ticket_html  # 🔥 RETORNAR EL HTML
+        
     except Exception as e:
         print(f"Error generando ticket del chef: {e}")
+        return None
+
 @csrf_exempt 
 def limpiar_carrito(request):
     """Vista para limpiar el carrito (opcional)"""
@@ -1392,27 +1431,39 @@ def facturacion(request):
     try:
         print("=== DEBUG FACTURACIÓN ===")
         
-        # Obtener IDs de pedidos que ya tienen factura
-        pedidos_con_factura_ids = list(Factura.objects.values_list('pedido_id', flat=True))
-        print(f"Pedidos con factura (IDs): {pedidos_con_factura_ids}")
+        # Obtener IDs de pedidos que ya tienen factura PAGADA
+        pedidos_con_factura_pagada_ids = list(
+            Factura.objects.filter(estado='pagada').values_list('pedido_id', flat=True)
+        )
         
-        # Obtener pedidos listos para facturar (sin factura)
+        # Obtener IDs de pedidos que ya tienen factura PENDIENTE
+        pedidos_con_factura_pendiente_ids = list(
+            Factura.objects.filter(estado='pendiente').values_list('pedido_id', flat=True)
+        )
+        
+        print(f"Pedidos con factura pagada (IDs): {pedidos_con_factura_pagada_ids}")
+        print(f"Pedidos con factura pendiente (IDs): {pedidos_con_factura_pendiente_ids}")
+        
+        # Obtener pedidos listos para facturar (excluyendo los que ya tienen factura PAGADA o PENDIENTE)
         pedidos_pendientes = Pedido.objects.filter(
             estado__in=['entregado', 'listo', 'completado']
         ).exclude(
-            id__in=pedidos_con_factura_ids
+            id__in=pedidos_con_factura_pagada_ids  # EXCLUIR pedidos con facturas PAGADAS
+        ).exclude(
+            id__in=pedidos_con_factura_pendiente_ids  # EXCLUIR pedidos con facturas PENDIENTES
         ).select_related('mesa').order_by('-fecha_pedido')
         
-        print(f"Pedidos disponibles para facturar: {pedidos_pendientes.count()}")
+        print(f"Pedidos disponibles para facturar (sin factura pendiente): {pedidos_pendientes.count()}")
         
-        # Obtener TODAS las facturas (pendientes y pagadas)
-        facturas = Factura.objects.select_related('pedido').all().order_by('-fecha_factura')
-        print(f"Total facturas existentes: {facturas.count()}")
+        # Obtener facturas PENDIENTES (las pagadas NO se muestran)
+        facturas_pendientes = Factura.objects.filter(estado='pendiente').select_related('pedido').all().order_by('-fecha_factura')
+        
+        print(f"Facturas pendientes: {facturas_pendientes.count()}")
         
         # Preparar datos para JavaScript
         pedidos_json = []
         
-        # Añadir pedidos pendientes de facturar
+        # Añadir pedidos pendientes de facturar (sin factura pagada y sin factura pendiente)
         for pedido in pedidos_pendientes:
             # Obtener items del pedido
             items_data = []
@@ -1461,23 +1512,27 @@ def facturacion(request):
                 'subtotal': float(pedido.subtotal),
                 'envio': float(pedido.envio),
                 'fecha_pedido': pedido.fecha_pedido.isoformat() if pedido.fecha_pedido else None,
-                'tipo_registro': 'pedido',  # Nuevo campo para identificar tipo
-                'tiene_factura': False,     # Nuevo campo
+                'es_factura': False,  # Indica que es un pedido, no una factura
+                'factura_id': None,
+                'numero_factura': None,
+                'estado_factura': None,
+                'metodo_pago': None,
+                'fecha_factura': None,
             }
+            
             pedidos_json.append(pedido_dict)
         
-        # Añadir facturas existentes
-        for factura in facturas:
+        # Añadir facturas pendientes como registros separados
+        for factura in facturas_pendientes:
             try:
                 items_data = factura.get_items_detalle()
                 
-                # Para facturas, usamos el mismo formato que pedidos pero con información adicional
                 factura_dict = {
-                    'id': f"factura_{factura.id}",  # ID único para facturas
+                    'id': f"factura_{factura.id}",
                     'codigo_pedido': factura.pedido.codigo_pedido if factura.pedido else 'N/A',
                     'tipo_pedido': factura.tipo_pedido,
-                    'estado_factura': factura.estado,  # Estado de la factura (pagada/pendiente)
-                    'estado': 'facturado',  # Estado general
+                    'estado_factura': factura.estado,
+                    'estado': 'facturado',
                     'total': float(factura.total),
                     'mesa': {
                         'numero_display': factura.numero_mesa_codigo or '',
@@ -1490,22 +1545,21 @@ def facturacion(request):
                     'subtotal': float(factura.subtotal),
                     'envio': float(factura.envio),
                     'fecha_pedido': factura.fecha_factura.isoformat() if factura.fecha_factura else None,
-                    'tipo_registro': 'factura',  # Identifica que es una factura
-                    'tiene_factura': True,
+                    'es_factura': True,  # Indica que es una factura
                     'factura_id': factura.id,
                     'numero_factura': factura.numero_factura,
                     'metodo_pago': factura.metodo_pago,
-                    'fecha_factura': factura.fecha_factura.isoformat() if factura.fecha_factura else None,
                 }
                 pedidos_json.append(factura_dict)
             except Exception as e:
                 print(f"Error procesando factura {factura.id}: {e}")
         
-        print(f"Total registros (pedidos + facturas): {len(pedidos_json)}")
+        print(f"Total registros para mostrar: {len(pedidos_json)}")
         
-        # Preparar facturas para estadísticas
+        # Preparar facturas para estadísticas (todas, incluyendo pagadas)
         facturas_json = []
-        for factura in facturas:
+        todas_facturas = Factura.objects.all().order_by('-fecha_factura')
+        for factura in todas_facturas:
             try:
                 items_data = factura.get_items_detalle()
                 
@@ -1536,15 +1590,15 @@ def facturacion(request):
         hoy = datetime.now().date()
         inicio_mes = hoy.replace(day=1)
         
-        total_facturas = facturas.count()
-        facturas_mes = facturas.filter(fecha_factura__date__gte=inicio_mes)
+        total_facturas = todas_facturas.count()
+        facturas_mes = todas_facturas.filter(fecha_factura__date__gte=inicio_mes)
         ingresos_mes = sum(float(f.total) for f in facturas_mes.filter(estado='pagada'))
-        facturas_pendientes_count = facturas.filter(estado='pendiente').count()
+        facturas_pendientes_count = facturas_pendientes.count()
         
         promedio_factura = 0
-        if total_facturas > 0:
-            total_ingresos = sum(float(f.total) for f in facturas.filter(estado='pagada'))
-            promedio_factura = total_ingresos / total_facturas
+        if facturas_mes.filter(estado='pagada').count() > 0:
+            total_ingresos = sum(float(f.total) for f in facturas_mes.filter(estado='pagada'))
+            promedio_factura = total_ingresos / facturas_mes.filter(estado='pagada').count()
         
         context = {
             'pedidos_json': json.dumps(pedidos_json, default=str),
@@ -1558,7 +1612,7 @@ def facturacion(request):
         }
         
         print("=== CONTEXTO PREPARADO ===")
-        print(f"Total registros: {len(pedidos_json)}")
+        print(f"Total registros para mostrar: {len(pedidos_json)}")
         
         return render(request, 'facturacion/facturacion.html', context)
         
@@ -1601,12 +1655,12 @@ def crear_factura(request):
             except:
                 items = pedido.get_items_detalle()
             
-            # Crear la factura
+            # IMPORTANTE: Crear la factura con estado PENDIENTE por defecto
             factura = Factura(
                 pedido=pedido,
                 tipo_pedido=pedido.tipo_pedido,
                 metodo_pago=request.POST.get('metodo_pago', 'efectivo'),
-                estado=request.POST.get('estado', 'pagada'),
+                estado='pendiente',  # SIEMPRE crear como pendiente
                 subtotal=subtotal,
                 iva=iva,
                 envio=envio,
@@ -1642,9 +1696,9 @@ def crear_factura(request):
             # Guardar la factura
             factura.save()
             
-            # Actualizar estado del pedido
-            pedido.estado = 'completado'
-            pedido.save()
+            # IMPORTANTE: NO actualizar estado del pedido aquí
+            # El pedido mantiene su estado original (entregado, listo, etc.)
+            # Solo se actualizará cuando la factura se marque como PAGADA
             
             # Verificar si se debe imprimir
             if request.POST.get('imprimir') == 'true':
@@ -1659,6 +1713,83 @@ def crear_factura(request):
             return redirect('facturacion')
     
     return redirect('facturacion')
+
+@csrf_exempt
+@login_required
+def marcar_factura_pagada(request, factura_id):
+    """Marcar una factura como pagada y devolver URL para imprimir"""
+    try:
+        factura = get_object_or_404(Factura, id=factura_id)
+        
+        # Marcar como pagada
+        factura.estado = 'pagada'
+        factura.save()
+        
+        # Opcional: Actualizar estado del pedido a completado
+        if factura.pedido:
+            factura.pedido.estado = 'completado'
+            factura.pedido.save()
+        
+        # Si es una petición AJAX (como fetch o XMLHttpRequest)
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'message': f'Factura {factura.numero_factura} marcada como pagada',
+                'redirect_url': f'/facturacion/imprimir-termica/{factura.id}/'
+            })
+        
+        # Si no es AJAX, redirigir a impresión por defecto
+        return redirect('imprimir_factura_termica', factura_id=factura.id)
+        
+    except Exception as e:
+        # Si es AJAX, devolver JSON
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'message': f'Error: {str(e)}'
+            })
+        
+        # Si no es AJAX, mostrar error
+        messages.error(request, f'Error: {str(e)}')
+        return redirect('facturacion')
+
+
+@csrf_exempt
+@login_required
+def eliminar_factura(request, factura_id):
+    """Eliminar una factura (solo si es pendiente)"""
+    try:
+        factura = get_object_or_404(Factura, id=factura_id)
+        
+        # Solo permitir eliminar facturas pendientes
+        if factura.estado != 'pendiente':
+            return JsonResponse({
+                'success': False,
+                'message': 'Solo se pueden eliminar facturas pendientes'
+            })
+        
+        # Guardar referencia al pedido
+        pedido = factura.pedido
+        
+        # Eliminar la factura
+        factura.delete()
+        
+        # Si el pedido estaba marcado como completado por la factura, volver a un estado anterior
+        if pedido and pedido.estado == 'completado':
+            pedido.estado = 'entregado'
+            pedido.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Factura pendiente eliminada correctamente'
+        })
+        
+    except Exception as e:
+        print(f"Error al eliminar factura: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        })
 
 
 @login_required
@@ -1689,7 +1820,7 @@ def imprimir_factura_termica(request, factura_id):
             'nombre': '402 FASTFOOD',
             'direccion': 'Av. Principal 30 DE MAYO',
             'telefono': '849-362-1791',
-            
+            'ruc': '1799999999001'  # Añadir RUC aquí
         }
     }
     
