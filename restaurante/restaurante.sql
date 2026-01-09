@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 01-01-2026 a las 18:14:27
+-- Tiempo de generación: 09-01-2026 a las 03:37:43
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.0.30
 
@@ -18,16 +18,16 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Base de datos: `restaurantedb`
+-- Base de datos: `restaurante`
 --
 
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `jojo`
+-- Estructura de tabla para la tabla `jkl`
 --
 
-CREATE TABLE `jojo` (
+CREATE TABLE `jkl` (
   `id` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 COMMIT;

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1235,14 +1234,14 @@
                         <p>llevar_codes count: {{ llevar_codes|length }}</p>
                         <p>Delivery codes en template: 
                             {% for d in delivery_codes %}
-                                {{ d.codigo }}({{ d.estado }})
+                                {{ d.codigo }}({{ d.estado }}) 
                             {% empty %}
                                 NO HAY DELIVERY CODES
                             {% endfor %}
                         </p>
                         <p>Llevar codes en template: 
                             {% for l in llevar_codes %}
-                                {{ l.codigo }}({{ l.estado }})
+                                {{ l.codigo }}({{ l.estado }}) 
                             {% empty %}
                                 NO HAY LLEVAR CODES
                             {% endfor %}
@@ -1476,10 +1475,7 @@
                                         <span>Subtotal:</span>
                                         <span id="subtotalDisplay">$0.00</span>
                                     </div>
-                                    <div class="summary-row">
-                                        <span>Envío:</span>
-                                        <span id="shippingDisplay">$0.00</span>
-                                    </div>
+                                    <!-- 🔥 COMENTADO: Se eliminó la fila de envío -->
                                     <div class="summary-row total">
                                         <span>Total:</span>
                                         <span class="total-amount" id="totalAmountDisplay">$0.00</span>
@@ -1502,11 +1498,13 @@
     </div>
 
 
-
-  <script>
+<script>
     // Variables globales - COMBINAR PLATOS Y BEBIDAS
     let platosData = [];
     let bebidasData = [];
+    
+    // Variable para guardar el estado anterior de la página
+    let previousPageState = null;
     
     // Función para parsear datos de forma segura
     function parseJsonSafely(jsonString, defaultValue) {
@@ -1568,6 +1566,16 @@
         console.log("Bebidas:", bebidasData.length);
         console.log("Total items:", menuItems.length);
         
+        // Verificar si estamos en modo ticket
+        if (document.body.classList.contains('ticket-mode')) {
+            showTicketContent();
+        } else {
+            showPedidosContent();
+        }
+    });
+    
+    // Mostrar contenido de pedidos
+    function showPedidosContent() {
         renderMenu();
         renderCart();
         updateCartSummary();
@@ -1582,7 +1590,43 @@
         if (menuItems.length === 0) {
             showNotification('⚠️ No hay platos ni bebidas disponibles en el menú', 'warning');
         }
-    });
+    }
+    
+    // Mostrar contenido de ticket
+    function showTicketContent() {
+        // Modificar botones del ticket para que funcionen en esta página
+        const closeButton = document.querySelector('.btn-close');
+        if (closeButton) {
+            closeButton.onclick = function() {
+                // Limpiar carrito y recargar página de pedidos
+                localStorage.removeItem('restaurantCart');
+                window.location.href = '/pedidos/';
+            };
+        }
+        
+        const printButton = document.querySelector('.btn-print');
+        if (printButton) {
+            printButton.onclick = function() {
+                window.print();
+            };
+        }
+        
+        // Modificar el cierre automático después de imprimir
+        window.onafterprint = function() {
+            setTimeout(function() {
+                // No cerrar la ventana, solo mostrar mensaje
+                console.log("Impresión completada");
+            }, 3000);
+        };
+        
+        // También permitir cerrar con ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                localStorage.removeItem('restaurantCart');
+                window.location.href = '/pedidos/';
+            }
+        });
+    }
     
     // Inicializar selección de mesa automáticamente
     function initializeTableSelection() {
@@ -1661,23 +1705,135 @@
                     return false;
                 }
                 
-                // 🔥 ELIMINADO: No generamos ticket en frontend
-                // generarTicketChef();
+                // 🔥 MODIFICADO: Guardar el estado actual de la página
+                saveCurrentPageState();
                 
-                // 🔥 AGREGADO: Mostrar mensaje de procesamiento
+                // 🔥 MODIFICADO: Mostrar mensaje de procesamiento
                 showNotification('🔄 Procesando tu pedido...', 'success');
                 
-                // 🔥 Enviar formulario normalmente - El servidor devolverá el ticket
-                pedidoForm.submit();
+                // Obtener los datos del formulario
+                const formData = new FormData(pedidoForm);
                 
-                // 🔥 Opcional: Limpiar carrito después de enviar
-                setTimeout(() => {
+                // Enviar por AJAX
+                fetch(pedidoForm.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error en la respuesta del servidor');
+                    }
+                    return response.text();
+                })
+                .then(ticketHtml => {
+                    // 🔥 MODIFICADO: Reemplazar el contenido de la página con el ticket
+                    document.body.innerHTML = ticketHtml;
+                    
+                    // 🔥 AGREGADO: Marcar el body como modo ticket
+                    document.body.classList.add('ticket-mode');
+                    
+                    // 🔥 MODIFICADO: Ajustar el ticket para que funcione en esta página
+                    adjustTicketForCurrentPage();
+                    
+                    // 🔥 AGREGADO: Limpiar el carrito local
                     localStorage.removeItem('restaurantCart');
                     cart = [];
-                    // No redirigimos aquí, el servidor maneja la respuesta
-                }, 500);
+                    
+                    // 🔥 ELIMINADO: No recargamos la página aquí, se hará al cerrar el ticket
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('❌ Error al enviar el pedido', 'error');
+                    // 🔥 AGREGADO: Restaurar estado si hay error
+                    restorePageState();
+                });
             });
         }
+    }
+    
+    // Guardar estado actual de la página
+    function saveCurrentPageState() {
+        previousPageState = {
+            appContainer: document.querySelector('.app-container')?.outerHTML,
+            cart: [...cart]
+        };
+    }
+    
+    // Restaurar estado de la página
+    function restorePageState() {
+        if (previousPageState && previousPageState.appContainer) {
+            document.body.innerHTML = previousPageState.appContainer;
+            cart = previousPageState.cart || [];
+            saveCart();
+            showPedidosContent();
+        }
+    }
+    
+    // Ajustar el ticket para que funcione en la página actual
+    function adjustTicketForCurrentPage() {
+        // Modificar el botón de cerrar
+        const closeButton = document.querySelector('.btn-close');
+        if (closeButton) {
+            closeButton.onclick = function() {
+                // 🔥 REDIRIGIR a la página de pedidos (se recargará automáticamente)
+                window.location.href = 'pedidos';
+            };
+        }
+        
+        // Modificar el botón de imprimir
+        const printButton = document.querySelector('.btn-print');
+        if (printButton) {
+            printButton.onclick = function() {
+                window.print();
+            };
+        }
+        
+        // Modificar el cierre automático después de imprimir
+        window.onafterprint = function() {
+            setTimeout(function() {
+                // No cerrar la ventana, solo mostrar mensaje opcional
+                console.log("Impresión completada. Cierra el ticket para volver a pedidos.");
+            }, 3000);
+        };
+        
+        // Modificar el evento de tecla ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                window.location.href = 'pedidos';
+            }
+        });
+        
+        // 🔥 AGREGAR ESTILOS para que el ticket se vea bien en la página
+        const style = document.createElement('style');
+        style.textContent = `
+            body.ticket-mode {
+                background: white !important;
+                margin: 0 !important;
+                padding: 20px !important;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+            }
+            
+            body.ticket-mode .ticket {
+                box-shadow: 0 0 20px rgba(0,0,0,0.1);
+                border-radius: 10px;
+                padding: 20px;
+            }
+            
+            body.ticket-mode .no-print {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 1000;
+            }
+        `;
+        document.head.appendChild(style);
     }
     
     // Actualizar tipo de pedido
@@ -2216,30 +2372,28 @@
         }
     }
     
-    // Actualizar resumen del carrito
+    // 🔥 MODIFICADO: Actualizar resumen del carrito - SIN IVA NI ENVÍO
     function updateCartSummary() {
         const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
-        const shipping = calculateShipping();
-        const total = subtotal + shipping;
+        
+        const total = subtotal;
         
         document.getElementById('subtotalDisplay').textContent = `$${subtotal.toFixed(2)}`;
-        document.getElementById('shippingDisplay').textContent = `$${shipping.toFixed(2)}`;
+        
         document.getElementById('totalAmountDisplay').textContent = `$${total.toFixed(2)}`;
         
         document.getElementById('subtotalInput').value = subtotal.toFixed(2);
-        document.getElementById('envioInput').value = shipping.toFixed(2);
+        
+        document.getElementById('envioInput').value = "0.00";
+        
         document.getElementById('totalInput').value = total.toFixed(2);
         
         document.getElementById('cartItemsInput').value = JSON.stringify(cart);
     }
     
-    // Calcular costo de envío
+    // 🔥 MODIFICADO: Calcular costo de envío - SIEMPRE 0
     function calculateShipping() {
-        if (currentOrderType === 'delivery') {
-            return 2.50;
-        } else {
-            return 0;
-        }
+        return 0;
     }
     
     // Actualizar costo de envío cuando cambia el tipo de pedido
@@ -2351,9 +2505,6 @@
             return false;
         }
     }
-    
-    // 🔥 ELIMINADA: La función generarTicketChef() ya no se usa aquí
-    // El ticket lo genera el servidor en la vista crear_pedido
     
     // Mostrar notificación
     function showNotification(message, type = 'success') {

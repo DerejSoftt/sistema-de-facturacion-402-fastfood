@@ -7,7 +7,7 @@ from django.views.decorators.http import require_POST
 import json
 from .models import Producto, Plato, Pedido, Mesa, DeliveryConfig, HistorialEstadoPedido, DetalleItemPedido, Factura
 from django.core.paginator import Paginator
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, Exists, OuterRef
 from django.db.models.functions import Coalesce
 from django.db.models import DecimalField
 from decimal import Decimal
@@ -25,6 +25,7 @@ from django.views.decorators.csrf import csrf_protect
 from django.template.loader import render_to_string
 from django.utils.timezone import now
 from django.http import HttpResponse
+
 
 @csrf_exempt 
 def index(request):
@@ -687,8 +688,6 @@ def pedidos(request):
 
 
 
-
-
 @csrf_exempt 
 def crear_pedido(request):
     """Vista para crear un nuevo pedido - funciona sin login"""
@@ -799,14 +798,14 @@ def crear_pedido(request):
                     messages.error(request, error)
                 return redirect('pedidos')
             
-            # Crear el pedido - SIN usuario
+            # 🔥🔥🔥 CAMBIO PRINCIPAL: Crear el pedido con estado 'pendiente'
             pedido = Pedido(
                 tipo_pedido=tipo_pedido,
                 items=cart_items,
                 subtotal=subtotal,
                 envio=envio,
                 total=total,
-                estado='pendiente',
+                estado='pendiente',  # 🔥 CAMBIADO A 'pendiente'
             )
             
             # Asignar información según tipo de pedido
@@ -825,9 +824,10 @@ def crear_pedido(request):
                 pedido.mesa = mesa
                 pedido.nombre_cliente = f"Mesa {mesa.numero_display}"
                 
-                # Actualizar estado de la mesa
+                # 🔥🔥🔥 IMPORTANTE: OCUPAR LA MESA CUANDO SE CREA EL PEDIDO
                 mesa.estado = 'ocupada'
                 mesa.save()
+                print(f"✅ Mesa {mesa.numero_display} ocupada por el pedido")
                 
             elif tipo_pedido == 'delivery':
                 codigo_delivery = request.POST.get('codigo_delivery')
@@ -852,13 +852,17 @@ def crear_pedido(request):
                 pedido.telefono_cliente = telefono_cliente
                 pedido.direccion_entrega = direccion_entrega
                 
-                delivery_config = DeliveryConfig.objects.filter(
-                    tipo='delivery',
-                    codigo=codigo_delivery
-                ).first()
-                if delivery_config:
+                # 🔥 OCUPAR código de delivery
+                try:
+                    delivery_config = DeliveryConfig.objects.get(
+                        tipo='delivery',
+                        codigo=codigo_delivery
+                    )
                     delivery_config.estado = 'ocupado'
                     delivery_config.save()
+                    print(f"✅ Código delivery {codigo_delivery} ocupado")
+                except DeliveryConfig.DoesNotExist:
+                    print(f"⚠️ Código delivery {codigo_delivery} no encontrado")
                     
             elif tipo_pedido == 'llevar':
                 codigo_llevar = request.POST.get('codigo_llevar')
@@ -874,20 +878,24 @@ def crear_pedido(request):
                 
                 pedido.nombre_cliente = nombre_cliente
                 
-                llevar_config = DeliveryConfig.objects.filter(
-                    tipo='llevar',
-                    codigo=codigo_llevar
-                ).first()
-                if llevar_config:
+                # 🔥 OCUPAR código para llevar
+                try:
+                    llevar_config = DeliveryConfig.objects.get(
+                        tipo='llevar',
+                        codigo=codigo_llevar
+                    )
                     llevar_config.estado = 'ocupado'
                     llevar_config.save()
+                    print(f"✅ Código para llevar {codigo_llevar} ocupado")
+                except DeliveryConfig.DoesNotExist:
+                    print(f"⚠️ Código para llevar {codigo_llevar} no encontrado")
             else:
                 messages.error(request, 'Tipo de pedido no válido')
                 return redirect('pedidos')
             
             # Guardar el pedido (esto generará automáticamente el código_pedido)
             pedido.save()
-            print(f"✅ Pedido {pedido.codigo_pedido} creado con ID: {pedido.id}")
+            print(f"✅ Pedido {pedido.codigo_pedido} creado con ID: {pedido.id} y estado PENDIENTE")
             
             # 🔥 SOLUCIÓN: Crear DetalleItemPedido con IDs extraídos correctamente
             try:
@@ -994,7 +1002,7 @@ def crear_pedido(request):
                 'bebidas_items': bebidas_items,
                 'fecha': now().strftime('%d/%m/%Y %H:%M'),
                 'codigo_display': codigo_display,
-                'codigo_pedido': pedido.codigo_pedido,  # 🔥 ESTO ES CLAVE - número del pedido
+                'codigo_pedido': pedido.codigo_pedido,
                 'total_items': len(cart_items),
                 'platos_count': len(platos_items),
                 'bebidas_count': len(bebidas_items),
@@ -1008,13 +1016,14 @@ def crear_pedido(request):
             print("=" * 80)
             print("TICKET GENERADO:")
             print(f"Código Pedido: {pedido.codigo_pedido}")
+            print(f"Estado: PENDIENTE (mesa ocupada)")
             print(f"Código Display: {codigo_display}")
             print(f"Total Items: {len(cart_items)}")
             print(f"Platos: {len(platos_items)}")
             print(f"Bebidas: {len(bebidas_items)}")
             print("=" * 80)
             
-            # 🔥 DEVOLVER EL TICKET HTML DIRECTAMENTE (no redirigir)
+            # 🔥 DEVOLVER EL TICKET HTML DIRECTAMENTE
             return HttpResponse(ticket_html)
             
         except Exception as e:
@@ -1027,8 +1036,6 @@ def crear_pedido(request):
             return redirect('pedidos')
     
     return redirect('pedidos')
-
-
 
 @csrf_exempt 
 def generar_ticket_chef_servidor(pedido, cart_items):
@@ -1089,9 +1096,12 @@ def limpiar_carrito(request):
     messages.success(request, 'Carrito limpiado exitosamente')
     return redirect('pedidos')
 
+
+
+
 @csrf_exempt 
 def gestiondepedidos(request):
-    """Vista principal de gestión de pedidos"""
+    """Vista principal de gestión de pedidos - EXCLUYE PEDIDOS PAGADOS"""
     # Obtener parámetros de filtrado
     search = request.GET.get('search', '')
     estado = request.GET.get('estado', '')
@@ -1100,8 +1110,26 @@ def gestiondepedidos(request):
     sort_by = request.GET.get('sort', '-fecha_pedido')
     page = request.GET.get('page', 1)
     
-    # Construir query base
-    pedidos = Pedido.objects.all().select_related('mesa').order_by('-fecha_pedido')
+    # Construir query base - EXCLUIR PEDIDOS CON FACTURAS PAGADAS
+    from django.db.models import Q, Exists, OuterRef
+    
+    # Subconsulta para verificar si el pedido tiene facturas pagadas
+    facturas_pagadas = Factura.objects.filter(
+        pedido_id=OuterRef('pk'),
+        estado='pagada'
+    )
+    
+    # Consulta principal: todos los pedidos que NO tienen facturas pagadas
+    # Usamos un nombre diferente para la anotación para evitar conflicto con la propiedad
+    pedidos = Pedido.objects.annotate(
+        factura_pagada_annotated=Exists(facturas_pagadas)  # Cambiado el nombre
+    ).filter(
+        factura_pagada_annotated=False  # Solo pedidos SIN facturas pagadas
+    ).select_related('mesa').order_by('-fecha_pedido')
+    
+    # Si no se especifica estado, excluir cancelados por defecto
+    if not estado:
+        pedidos = pedidos.exclude(estado='cancelado')
     
     # Aplicar filtros
     if search:
@@ -1109,7 +1137,9 @@ def gestiondepedidos(request):
             Q(codigo_pedido__icontains=search) |
             Q(nombre_cliente__icontains=search) |
             Q(telefono_cliente__icontains=search) |
-            Q(mesa__numero__icontains=search)
+            Q(codigo_delivery__icontains=search) |
+            Q(mesa__numero__icontains=search) |
+            Q(mesa__numero_display__icontains=search)
         )
     
     if estado:
@@ -1143,42 +1173,81 @@ def gestiondepedidos(request):
     sort_field = sort_map.get(sort_by, '-fecha_pedido')
     pedidos = pedidos.order_by(sort_field)
     
+    # 🔥 ACTUALIZAR ESTADO DE MESAS SEGÚN PEDIDOS ACTIVOS
+    # Solo para pedidos que no tienen facturas pagadas
+    pedidos_activos = Pedido.objects.annotate(
+        factura_pagada_annotated=Exists(facturas_pagadas)  # Mismo nombre
+    ).filter(
+        factura_pagada_annotated=False,
+        tipo_pedido='mesa',
+        estado__in=['pendiente', 'confirmado', 'preparacion', 'listo', 'entregado']
+    ).select_related('mesa')
+    
+    for pedido in pedidos_activos:
+        if pedido.mesa and pedido.mesa.estado != 'ocupada':
+            pedido.mesa.estado = 'ocupada'
+            pedido.mesa.save()
+            print(f"✅ Mesa {pedido.mesa.numero_display} actualizada a OCUPADA por pedido activo (sin factura pagada)")
+    
     # Paginación
     paginator = Paginator(pedidos, 10)
     page_obj = paginator.get_page(page)
     
-    # Calcular estadísticas
+    # Procesar pedidos para template
+    pedidos_procesados = procesar_pedidos_para_template(page_obj)
+    
+    # Calcular estadísticas SOLO de pedidos NO pagados
     today = datetime.now().date()
     
-    # Total de pedidos
-    total_pedidos = Pedido.objects.count()
-    
-    # Pedidos pendientes/preparación
-    pedidos_pendientes = Pedido.objects.filter(
-        estado__in=['pendiente', 'confirmado', 'preparacion']
+    # Total de pedidos activos (sin factura pagada)
+    total_pedidos_activos = Pedido.objects.annotate(
+        factura_pagada_annotated=Exists(facturas_pagadas)  # Mismo nombre
+    ).filter(
+        factura_pagada_annotated=False
+    ).exclude(
+        estado='cancelado'
     ).count()
     
-    # Ingresos de hoy (excluyendo cancelados)
-    ingresos_hoy = Pedido.objects.filter(
-        fecha_pedido__date=today,
-        estado__in=['entregado', 'completado', 'listo']
-    ).aggregate(total=Sum('total'))['total'] or 0
-    
-    # Pedidos a domicilio (no cancelados)
-    pedidos_domicilio = Pedido.objects.filter(
-        tipo_pedido='delivery',
-        estado__in=['pendiente', 'confirmado', 'preparacion', 'listo', 'entregado', 'completado']
+    # Pedidos pendientes (sin factura pagada)
+    pedidos_pendientes_count = Pedido.objects.annotate(
+        factura_pagada_annotated=Exists(facturas_pagadas)
+    ).filter(
+        factura_pagada_annotated=False,
+        estado__in=['pendiente', 'confirmado']
     ).count()
+    
+    # Ingresos hoy (solo de pedidos con facturas pagadas - para mostrar diferencia)
+    facturas_hoy_pagadas = Factura.objects.filter(
+        fecha_factura__date=today,
+        estado='pagada'
+    )
+    ingresos_hoy = facturas_hoy_pagadas.aggregate(total=Sum('total'))['total'] or 0
+    
+    # Pedidos a domicilio activos (sin factura pagada)
+    pedidos_domicilio_activos = Pedido.objects.annotate(
+        factura_pagada_annotated=Exists(facturas_pagadas)
+    ).filter(
+        factura_pagada_annotated=False,
+        tipo_pedido='delivery'
+    ).exclude(
+        estado='cancelado'
+    ).count()
+    
+    # Obtener estadísticas adicionales para información
+    total_pedidos_completados = Factura.objects.filter(estado='pagada').count()
+    ingresos_totales = Factura.objects.filter(estado='pagada').aggregate(total=Sum('total'))['total'] or 0
     
     context = {
         'user': request.user,
-        'page_title': 'Gestión de Pedidos',
-        'pedidos': page_obj,
+        'page_title': 'Gestión de Pedidos Activos',
+        'pedidos': pedidos_procesados,
         'estadisticas': {
-            'total_pedidos': total_pedidos,
-            'pedidos_pendientes': pedidos_pendientes,
-            'ingresos_hoy': ingresos_hoy,
-            'pedidos_domicilio': pedidos_domicilio,
+            'total_pedidos': total_pedidos_activos,  # Solo pedidos activos (sin pagar)
+            'pedidos_pendientes': pedidos_pendientes_count,
+            'ingresos_hoy': ingresos_hoy,  # Solo ingresos de pedidos ya pagados hoy
+            'pedidos_domicilio': pedidos_domicilio_activos,
+            'total_pedidos_pagados': total_pedidos_completados,  # Para información
+            'ingresos_totales': ingresos_totales,  # Para información
         },
         'filtros': {
             'search': search,
@@ -1188,13 +1257,13 @@ def gestiondepedidos(request):
             'sort': sort_by,
         },
         'paginator': page_obj,
+        'mostrando_activos': True,  # Flag para mostrar que solo se ven activos
     }
     return render(request, 'facturacion/gestiondepedidos.html', context)
 
-
 @csrf_exempt 
 def procesar_pedidos_para_template(pedidos_queryset):
-    """Procesa los pedidos para ser usados en el template"""
+    """Procesa los pedidos para ser usados en el template - Incluye info de pago"""
     pedidos_procesados = []
     
     for pedido in pedidos_queryset:
@@ -1206,6 +1275,9 @@ def procesar_pedidos_para_template(pedidos_queryset):
                 items = pedido.items or []
         except:
             items = []
+        
+        # Usar la propiedad existente del modelo para verificar si tiene factura pagada
+        tiene_factura_pagada = pedido.tiene_factura_pagada
         
         # Determinar nombre del cliente basado en el tipo de pedido
         nombre_cliente = pedido.nombre_cliente
@@ -1233,6 +1305,8 @@ def procesar_pedidos_para_template(pedidos_queryset):
         pedido_procesado = {
             'id': pedido.id,
             'codigo_pedido': pedido.codigo_pedido,
+            'nombre_cliente': pedido.nombre_cliente or '',
+            'nombre_cliente_original': pedido.nombre_cliente or '',
             'customer_name': nombre_cliente,
             'customer_phone': pedido.telefono_cliente or '',
             'customer_address': pedido.direccion_entrega or '',
@@ -1250,6 +1324,7 @@ def procesar_pedidos_para_template(pedidos_queryset):
             'notas': pedido.notas or '',
             'cantidad_items': cantidad_items,
             'fecha_formateada': pedido.fecha_pedido.strftime('%d/%m/%Y %H:%M'),
+            'tiene_factura_pagada': tiene_factura_pagada,
         }
         
         pedidos_procesados.append(pedido_procesado)
@@ -1257,8 +1332,101 @@ def procesar_pedidos_para_template(pedidos_queryset):
     return pedidos_procesados
 
 
-
-
+@csrf_exempt 
+def historial_pedidos_pagados(request):
+    """Vista para ver el historial de pedidos ya pagados"""
+    # Obtener parámetros de filtrado
+    search = request.GET.get('search', '')
+    tipo_pedido = request.GET.get('tipo', '')
+    fecha = request.GET.get('fecha', '')
+    page = request.GET.get('page', 1)
+    
+    # Subconsulta para pedidos con facturas pagadas
+    facturas_pagadas = Factura.objects.filter(
+        pedido_id=OuterRef('pk'),
+        estado='pagada'
+    )
+    
+    # Consulta: solo pedidos CON facturas pagadas
+    pedidos = Pedido.objects.annotate(
+        factura_pagada_annotated=Exists(facturas_pagadas)  # Cambiado el nombre
+    ).filter(
+        factura_pagada_annotated=True  # Solo pedidos CON facturas pagadas
+    ).select_related('mesa').order_by('-fecha_pedido')
+    
+    # Aplicar filtros
+    if search:
+        pedidos = pedidos.filter(
+            Q(codigo_pedido__icontains=search) |
+            Q(nombre_cliente__icontains=search) |
+            Q(telefono_cliente__icontains=search) |
+            Q(codigo_delivery__icontains=search)
+        )
+    
+    if tipo_pedido:
+        pedidos = pedidos.filter(tipo_pedido=tipo_pedido)
+    
+    if fecha:
+        today = datetime.now().date()
+        if fecha == 'hoy':
+            pedidos = pedidos.filter(fecha_pedido__date=today)
+        elif fecha == 'ayer':
+            yesterday = today - timedelta(days=1)
+            pedidos = pedidos.filter(fecha_pedido__date=yesterday)
+        elif fecha == 'semana':
+            week_ago = today - timedelta(days=7)
+            pedidos = pedidos.filter(fecha_pedido__date__gte=week_ago)
+        elif fecha == 'mes':
+            month_ago = today - timedelta(days=30)
+            pedidos = pedidos.filter(fecha_pedido__date__gte=month_ago)
+    
+    # Paginación
+    paginator = Paginator(pedidos, 20)
+    page_obj = paginator.get_page(page)
+    
+    # Procesar pedidos para template
+    pedidos_procesados = []
+    for pedido in page_obj:
+        # Obtener la factura pagada asociada
+        factura = Factura.objects.filter(pedido=pedido, estado='pagada').first()
+        
+        pedido_procesado = {
+            'id': pedido.id,
+            'codigo_pedido': pedido.codigo_pedido,
+            'nombre_cliente': pedido.nombre_cliente or '',
+            'tipo_pedido': pedido.tipo_pedido,
+            'estado': 'pagado',
+            'estado_display': 'Pagado',
+            'total': float(pedido.total),
+            'fecha_formateada': pedido.fecha_pedido.strftime('%d/%m/%Y %H:%M'),
+            'mesa_numero': pedido.mesa.numero_display if pedido.mesa else '',
+            'factura_numero': factura.numero_factura if factura else '',
+            'factura_fecha': factura.fecha_factura if factura else pedido.fecha_pedido,
+            'metodo_pago': factura.metodo_pago if factura else '',
+        }
+        pedidos_procesados.append(pedido_procesado)
+    
+    # Estadísticas
+    total_pedidos_pagados = pedidos.count()
+    ingresos_totales = Factura.objects.filter(estado='pagada').aggregate(total=Sum('total'))['total'] or 0
+    
+    context = {
+        'user': request.user,
+        'page_title': 'Historial de Pedidos Pagados',
+        'pedidos': pedidos_procesados,
+        'estadisticas': {
+            'total_pedidos': total_pedidos_pagados,
+            'ingresos_totales': ingresos_totales,
+        },
+        'filtros': {
+            'search': search,
+            'tipo_pedido': tipo_pedido,
+            'fecha': fecha,
+        },
+        'paginator': page_obj,
+        'mostrando_pagados': True,
+    }
+    return render(request, 'facturacion/historial_pedidos.html', context)
 
 @csrf_exempt 
 def detalle_pedido(request, pedido_id):
@@ -1279,15 +1447,6 @@ def detalle_pedido(request, pedido_id):
     
     # Determinar información del cliente
     nombre_cliente = pedido.nombre_cliente
-    if not nombre_cliente:
-        if pedido.tipo_pedido == 'mesa' and pedido.mesa:
-            nombre_cliente = f"Mesa {pedido.mesa.numero_display}"
-        elif pedido.tipo_pedido == 'delivery':
-            nombre_cliente = f"Delivery {pedido.codigo_delivery}"
-        elif pedido.tipo_pedido == 'llevar':
-            nombre_cliente = f"Para Llevar {pedido.codigo_delivery}"
-        else:
-            nombre_cliente = "Cliente no especificado"
     
     data = {
         'id': pedido.id,
@@ -1301,30 +1460,68 @@ def detalle_pedido(request, pedido_id):
         'telefono_cliente': pedido.telefono_cliente or '',
         'direccion_entrega': pedido.direccion_entrega or '',
         'mesa_numero': pedido.mesa.numero_display if pedido.mesa else '',
-        'items': items,
+        'items': items,  # Asegúrate de que esto incluya todos los campos necesarios
         'subtotal': float(pedido.subtotal),
         'envio': float(pedido.envio),
         'total': float(pedido.total),
         'notas': pedido.notas or '',
-        'cantidad_items': pedido.get_cantidad_items(),
-        'tiempo_preparacion': pedido.get_tiempo_preparacion_estimado(),
+        'cantidad_items': len(items),
     }
     
     return JsonResponse(data)
 
-@csrf_exempt 
+@csrf_exempt
 def cambiar_estado_pedido(request, pedido_id):
-    """Cambiar estado de un pedido"""
+    """Cambiar estado de un pedido y agregar nuevos items si los hay"""
     if request.method != 'POST':
         return JsonResponse({'error': 'Método no permitido'}, status=405)
-    
+
     try:
         pedido = get_object_or_404(Pedido, id=pedido_id)
         nuevo_estado = request.POST.get('estado')
-        
+        nuevos_items_json = request.POST.get('nuevos_items')
+
         if not nuevo_estado:
             return JsonResponse({'error': 'Estado no especificado'}, status=400)
-        
+
+        # Procesar nuevos items si los hay
+        nuevos_items = []
+        if nuevos_items_json:
+            nuevos_items = json.loads(nuevos_items_json)
+
+        # Obtener los items actuales del pedido
+        try:
+            if isinstance(pedido.items, str):
+                items_actuales = json.loads(pedido.items)
+            else:
+                items_actuales = pedido.items or []
+        except:
+            items_actuales = []
+
+        # Agregar los nuevos items a la lista de items actuales
+        for item in nuevos_items:
+            # Buscar el plato para obtener su información completa (por si acaso)
+            plato = Plato.objects.filter(id=item.get('plato_id')).first()
+            if plato:
+                nuevo_item = {
+                    'id': plato.id,
+                    'name': plato.nombre,
+                    'price': float(plato.precio),
+                    'quantity': item.get('cantidad', 1),
+                    'total': float(plato.precio) * item.get('cantidad', 1)
+                }
+                items_actuales.append(nuevo_item)
+
+        # Actualizar el pedido con los nuevos items
+        pedido.items = json.dumps(items_actuales)
+
+        # Recalcular subtotal, total, etc.
+        subtotal = sum(item['total'] for item in items_actuales)
+        total = subtotal + float(pedido.envio)
+
+        pedido.subtotal = subtotal
+        pedido.total = total
+
         # Registrar cambio en historial
         HistorialEstadoPedido.objects.create(
             pedido=pedido,
@@ -1332,35 +1529,37 @@ def cambiar_estado_pedido(request, pedido_id):
             estado_nuevo=nuevo_estado,
             usuario=request.user
         )
-        
+
         # Actualizar pedido
         pedido.estado = nuevo_estado
-        
-        # Si se entrega/completa, registrar fecha de entrega
-        if nuevo_estado in ['entregado', 'completado']:
+
+        # Si se entrega, registrar fecha de entrega
+        if nuevo_estado == 'entregado':
             pedido.fecha_entrega = timezone.now()
         
-        # LIBERAR MESA SI ES NECESARIO (tanto para completado como cancelado)
-        if nuevo_estado in ['completado', 'cancelado', 'entregado'] and pedido.mesa:
-            pedido.mesa.estado = 'disponible'
-            pedido.mesa.save()
-            # También podrías limpiar la relación si quieres
-            # pedido.mesa = None
+        # IMPORTANTE: NO LIBERAR MESA AQUÍ
+        # La mesa solo se libera cuando la factura esté PAGADA
+        # o si el pedido se CANCELA
         
+        if nuevo_estado == 'cancelado':
+            # Liberar mesa si está cancelado
+            if pedido.mesa:
+                pedido.mesa.estado = 'disponible'
+                pedido.mesa.save()
+
         pedido.actualizado_por = request.user
         pedido.save()
-        
+
         return JsonResponse({
             'success': True,
-            'mensaje': f'Estado actualizado a {pedido.get_estado_display()}',
+            'mensaje': f'Estado actualizado a {pedido.get_estado_display()} y items agregados',
             'estado': pedido.estado,
             'estado_display': pedido.get_estado_display(),
             'codigo_pedido': pedido.codigo_pedido
         })
-        
+
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
-
 
 
 @csrf_exempt 
@@ -1375,14 +1574,24 @@ def eliminar_pedido(request, pedido_id):
         # Verificar si es para eliminar de la vista o cancelar
         eliminar_vista = request.POST.get('eliminar_vista', 'false') == 'true'
         
-        # LIBERAR MESA ANTES DE CUALQUIER OPERACIÓN SI EXISTE
-        if pedido.mesa:
+        # Verificar si tiene factura pagada
+        tiene_factura_pagada = pedido.facturas.filter(estado='pagada').exists()
+        
+        # LIBERAR MESA solo si NO tiene factura pagada
+        if pedido.mesa and not tiene_factura_pagada:
             pedido.mesa.estado = 'disponible'
             pedido.mesa.save()
         
         if eliminar_vista:
             # Eliminar permanentemente de la base de datos
             codigo_pedido = pedido.codigo_pedido
+            
+            # Verificar si tiene facturas antes de eliminar
+            if pedido.facturas.exists():
+                return JsonResponse({
+                    'error': 'No se puede eliminar el pedido porque tiene facturas asociadas'
+                }, status=400)
+            
             pedido.delete()
             
             return JsonResponse({
@@ -1403,23 +1612,159 @@ def eliminar_pedido(request, pedido_id):
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@csrf_exempt 
+def platos_disponibles(request):
+    """Obtener lista de productos disponibles (bebidas y platos) para agregar a un pedido"""
+    search = request.GET.get('search', '')
+    tipo = request.GET.get('tipo', 'todos')  # 'bebida', 'plato', 'todos'
     
+    try:
+        resultados = []
+        
+        # Si se solicita bebidas o todos
+        if tipo in ['bebida', 'todos']:
+            # Filtrar productos de categoría bebida
+            productos = Producto.objects.filter(categoria='bebida')
+            if search:
+                productos = productos.filter(nombre__icontains=search)
+            
+            for producto in productos:
+                resultados.append({
+                    'id': f"PROD-{producto.id}",
+                    'codigo': producto.codigo,
+                    'nombre': producto.nombre,
+                    'precio': float(producto.precio_compra),
+                    'tipo': 'bebida',
+                    'categoria': producto.get_category_label(),
+                    'cantidad_disponible': float(producto.cantidad),
+                    'stock_status': producto.get_stock_status(),
+                    'stock_label': producto.get_stock_label(),
+                    'stock_icon': producto.get_stock_icon(),
+                    'es_producto': True,
+                })
+        
+        # Si se solicita platos o todos
+        if tipo in ['plato', 'todos']:
+            # Filtrar platos activos
+            platos = Plato.objects.filter(activo=True)
+            if search:
+                platos = platos.filter(nombre__icontains=search)
+            
+            for plato in platos:
+                resultados.append({
+                    'id': f"PLATO-{plato.id}",
+                    'codigo': plato.codigo,
+                    'nombre': plato.nombre,
+                    'precio': float(plato.precio),
+                    'tipo': 'plato',
+                    'categoria': plato.get_categoria_display(),
+                    'cantidad_disponible': None,  # Platos no tienen inventario directo
+                    'stock_status': 'high',
+                    'stock_label': 'Disponible',
+                    'stock_icon': '🍽️',
+                    'es_producto': False,
+                })
+        
+        # Ordenar por tipo y nombre
+        resultados.sort(key=lambda x: (x['tipo'] != 'bebida', x['nombre']))
+        
+        return JsonResponse(resultados, safe=False)
+        
+    except Exception as e:
+        print(f"Error en platos_disponibles: {e}")
+        return JsonResponse([], safe=False)
 
 
 @csrf_exempt 
-# En el modelo Pedido
-def liberar_mesa_si_corresponde(self):
-    """Libera la mesa si el pedido está en un estado que requiere liberación"""
-    estados_que_liberan_mesa = ['completado', 'cancelado', 'entregado']
+def editar_pedido(request, pedido_id):
+    """Editar un pedido existente - agregar/eliminar items, cambiar estado"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
     
-    if self.estado in estados_que_liberan_mesa and self.mesa:
+    try:
+        pedido = get_object_or_404(Pedido, id=pedido_id)
+        
+        # Obtener datos del formulario
+        nuevos_items_json = request.POST.get('nuevos_items')
+        nombre_cliente = request.POST.get('nombre_cliente')
+        telefono_cliente = request.POST.get('telefono_cliente')
+        notas = request.POST.get('notas')
+        
+        if not nuevos_items_json:
+            return JsonResponse({'error': 'No se proporcionaron items'}, status=400)
+        
+        # Parsear los nuevos items
+        nuevos_items = json.loads(nuevos_items_json)
+        
+        # Actualizar información del cliente si se proporciona
+        if nombre_cliente:
+            pedido.nombre_cliente = nombre_cliente
+        if telefono_cliente:
+            pedido.telefono_cliente = telefono_cliente
+        if notas is not None:
+            pedido.notas = notas
+        
+        # Actualizar items del pedido
+        pedido.items = json.dumps(nuevos_items)
+        
+        # Recalcular subtotal y total
+        subtotal = sum(item.get('total', 0) for item in nuevos_items)
+        total = subtotal + float(pedido.envio)
+        
+        pedido.subtotal = subtotal
+        pedido.total = total
+        
+        # Guardar cambios
+        pedido.actualizado_por = request.user
+        pedido.save()
+        
+        return JsonResponse({
+            'success': True,
+            'mensaje': f'Pedido {pedido.codigo_pedido} actualizado correctamente',
+            'nuevo_total': total,
+            'cantidad_items': len(nuevos_items)
+        })
+        
+    except Exception as e:
+        print(f"Error al editar pedido: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def liberar_mesa_si_corresponde(self):
+    """Libera la mesa si la factura está pagada"""
+    # Estados que liberan mesa cuando hay factura PAGADA
+    estados_que_liberan_mesa = ['cancelado']  # Solo cancelado libera sin factura
+    
+    # Verificar si tiene factura PAGADA
+    tiene_factura_pagada = self.facturas.filter(estado='pagada').exists()
+    
+    if tiene_factura_pagada and self.mesa:
+        # Si tiene factura pagada, liberar mesa
         self.mesa.estado = 'disponible'
         self.mesa.save()
-        # Opcional: limpiar la relación
-        # self.mesa = None
-        # self.save()
         return True
+    elif self.estado in estados_que_liberan_mesa and self.mesa:
+        # Solo liberar mesa si está cancelado (sin factura)
+        self.mesa.estado = 'disponible'
+        self.mesa.save()
+        return True
+    
     return False
+
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from django.contrib import messages
+import json
+from datetime import datetime
+from decimal import Decimal
+
+from .models import Pedido, Factura, Mesa, DeliveryConfig, Producto
+from django.contrib.auth.models import User
+
 
 @csrf_exempt 
 @login_required
@@ -1436,24 +1781,16 @@ def facturacion(request):
             Factura.objects.filter(estado='pagada').values_list('pedido_id', flat=True)
         )
         
-        # Obtener IDs de pedidos que ya tienen factura PENDIENTE
-        pedidos_con_factura_pendiente_ids = list(
-            Factura.objects.filter(estado='pendiente').values_list('pedido_id', flat=True)
-        )
-        
         print(f"Pedidos con factura pagada (IDs): {pedidos_con_factura_pagada_ids}")
-        print(f"Pedidos con factura pendiente (IDs): {pedidos_con_factura_pendiente_ids}")
         
-        # Obtener pedidos listos para facturar (excluyendo los que ya tienen factura PAGADA o PENDIENTE)
+        # 🔥 Obtener pedidos que están ocupando mesa y NO tienen factura PAGADA
         pedidos_pendientes = Pedido.objects.filter(
-            estado__in=['entregado', 'listo', 'completado']
+            estado__in=['pendiente', 'confirmado', 'preparacion', 'listo', 'entregado', 'completado']
         ).exclude(
             id__in=pedidos_con_factura_pagada_ids  # EXCLUIR pedidos con facturas PAGADAS
-        ).exclude(
-            id__in=pedidos_con_factura_pendiente_ids  # EXCLUIR pedidos con facturas PENDIENTES
         ).select_related('mesa').order_by('-fecha_pedido')
         
-        print(f"Pedidos disponibles para facturar (sin factura pendiente): {pedidos_pendientes.count()}")
+        print(f"Pedidos disponibles para facturar (sin factura pagada): {pedidos_pendientes.count()}")
         
         # Obtener facturas PENDIENTES (las pagadas NO se muestran)
         facturas_pendientes = Factura.objects.filter(estado='pendiente').select_related('pedido').all().order_by('-fecha_factura')
@@ -1463,7 +1800,7 @@ def facturacion(request):
         # Preparar datos para JavaScript
         pedidos_json = []
         
-        # Añadir pedidos pendientes de facturar (sin factura pagada y sin factura pendiente)
+        # Añadir pedidos pendientes de facturar (sin factura pagada)
         for pedido in pedidos_pendientes:
             # Obtener items del pedido
             items_data = []
@@ -1476,6 +1813,7 @@ def facturacion(request):
                             'quantity': item.get('cantidad', item.get('quantity', 1)),
                             'price': float(item.get('precio', item.get('price', 0))),
                             'total': float(item.get('subtotal', item.get('total', 0))),
+                            'categoria': item.get('categoria', '')
                         })
             except Exception as e:
                 print(f"Error procesando items del pedido {pedido.id}: {e}")
@@ -1484,6 +1822,7 @@ def facturacion(request):
                     'quantity': 1,
                     'price': float(pedido.total),
                     'total': float(pedido.total),
+                    'categoria': ''
                 }]
             
             # Determinar número de mesa o código
@@ -1512,7 +1851,7 @@ def facturacion(request):
                 'subtotal': float(pedido.subtotal),
                 'envio': float(pedido.envio),
                 'fecha_pedido': pedido.fecha_pedido.isoformat() if pedido.fecha_pedido else None,
-                'es_factura': False,  # Indica que es un pedido, no una factura
+                'es_factura': False,
                 'factura_id': None,
                 'numero_factura': None,
                 'estado_factura': None,
@@ -1545,7 +1884,7 @@ def facturacion(request):
                     'subtotal': float(factura.subtotal),
                     'envio': float(factura.envio),
                     'fecha_pedido': factura.fecha_factura.isoformat() if factura.fecha_factura else None,
-                    'es_factura': True,  # Indica que es una factura
+                    'es_factura': True,
                     'factura_id': factura.id,
                     'numero_factura': factura.numero_factura,
                     'metodo_pago': factura.metodo_pago,
@@ -1576,7 +1915,7 @@ def facturacion(request):
                     'paymentMethod': factura.metodo_pago,
                     'status': factura.estado,
                     'subtotal': float(factura.subtotal),
-                    'iva': float(factura.iva),
+                    # 'iva': float(factura.iva),
                     'envio': float(factura.envio),
                     'total': float(factura.total),
                     'items': items_data,
@@ -1619,7 +1958,7 @@ def facturacion(request):
     except Exception as e:
         import traceback
         print(f"ERROR en facturación: {str(e)}")
-        print(traceback.format_exc())
+        traceback.print_exc()
         
         context = {
             'pedidos_json': json.dumps([], default=str),
@@ -1642,11 +1981,15 @@ def crear_factura(request):
             pedido_id = request.POST.get('pedido_id')
             pedido = get_object_or_404(Pedido, id=pedido_id)
             
-            # Calcular totales
+            # Calcular totales - SIN IVA NI ENVÍO (COMENTADOS COMO PIDES)
             subtotal = float(request.POST.get('subtotal', pedido.subtotal))
-            envio = float(request.POST.get('envio', pedido.envio))
-            iva = subtotal * 0.12  # 12% IVA
-            total = subtotal + iva + envio
+            # envio = float(request.POST.get('envio', pedido.envio))  # COMENTADO
+            envio = 0  # Establecer envío a 0 ya que no lo estamos usando
+            # iva = subtotal * 0.12  # 12% IVA - COMENTADO
+            iva = 0  # Establecer IVA a 0 ya que no lo estamos usando
+            
+            # TOTAL sin IVA ni envío - usar el total del pedido directamente
+            total = float(request.POST.get('total', pedido.total))
             
             # Obtener items del pedido
             items_json = request.POST.get('items', '[]')
@@ -1655,16 +1998,16 @@ def crear_factura(request):
             except:
                 items = pedido.get_items_detalle()
             
-            # IMPORTANTE: Crear la factura con estado PENDIENTE por defecto
+            # Crear la factura con estado PAGADA
             factura = Factura(
                 pedido=pedido,
                 tipo_pedido=pedido.tipo_pedido,
                 metodo_pago=request.POST.get('metodo_pago', 'efectivo'),
-                estado='pendiente',  # SIEMPRE crear como pendiente
+                estado='pagada',  # Estado PAGADA automáticamente
                 subtotal=subtotal,
-                iva=iva,
-                envio=envio,
-                total=total,
+                iva=iva,  # Ahora es 0
+                envio=envio,  # Ahora es 0
+                total=total,  # Usar el total del pedido directamente
                 items=items,
                 notas=request.POST.get('notas', ''),
                 creado_por=request.user,
@@ -1683,37 +2026,94 @@ def crear_factura(request):
             if pedido.tipo_pedido == 'delivery':
                 factura.direccion_entrega = pedido.direccion_entrega
             
-            # Si viene fecha específica
-            if request.POST.get('invoice_date'):
-                try:
-                    factura.fecha_factura = datetime.strptime(
-                        request.POST.get('invoice_date'), 
-                        '%Y-%m-%d'
-                    )
-                except:
-                    pass
-            
             # Guardar la factura
             factura.save()
             
-            # IMPORTANTE: NO actualizar estado del pedido aquí
-            # El pedido mantiene su estado original (entregado, listo, etc.)
-            # Solo se actualizará cuando la factura se marque como PAGADA
+            # IMPORTANTE: Actualizar estado del pedido a 'completado'
+            pedido.estado = 'completado'
+            pedido.fecha_entrega = timezone.now()  # Establecer fecha de entrega
+            pedido.save()
+            
+            # 🔥🔥🔥 LIBERAR MESA solo cuando la factura está PAGADA
+            if pedido.tipo_pedido == 'mesa' and pedido.mesa:
+                pedido.mesa.estado = 'disponible'
+                pedido.mesa.save()
+                print(f"✅ Mesa {pedido.mesa.numero_display} liberada al pagar factura")
+            
+            # Liberar código de delivery/para llevar si existe
+            if pedido.tipo_pedido in ['delivery', 'llevar'] and pedido.codigo_delivery:
+                try:
+                    config = DeliveryConfig.objects.get(
+                        tipo=pedido.tipo_pedido,
+                        codigo=pedido.codigo_delivery
+                    )
+                    config.estado = 'disponible'
+                    config.save()
+                    print(f"✅ Código {pedido.codigo_delivery} liberado para {pedido.tipo_pedido}")
+                except DeliveryConfig.DoesNotExist:
+                    pass
+            
+            # Descontar bebidas del inventario
+            descontar_bebidas_inventario(pedido)
             
             # Verificar si se debe imprimir
             if request.POST.get('imprimir') == 'true':
-                # Redirigir a la vista de impresión
                 return redirect('imprimir_factura_termica', factura_id=factura.id)
             
             return redirect('facturacion')
             
         except Exception as e:
             print(f"Error al crear factura: {str(e)}")
-            # En caso de error, redirigir con mensaje
+            import traceback
+            traceback.print_exc()
             return redirect('facturacion')
     
     return redirect('facturacion')
 
+def descontar_bebidas_inventario(pedido):
+    """Descontar bebidas del inventario cuando se pague la factura"""
+    try:
+        items = pedido.get_items_detalle()
+        bebidas_descontadas = []
+        
+        for item in items:
+            # Verificar si el item es de categoría 'bebida'
+            if item.get('categoria', '').lower() == 'bebida':
+                cantidad = item.get('cantidad', 1)
+                nombre_producto = item.get('nombre', 'Bebida')
+                
+                # Buscar el producto en el inventario por nombre y categoría bebida
+                productos = Producto.objects.filter(
+                    nombre__icontains=nombre_producto,
+                    categoria='bebida'
+                )
+                
+                if productos.exists():
+                    # Tomar el primer producto que coincida
+                    producto = productos.first()
+                    if producto.cantidad >= cantidad:
+                        # Descontar la cantidad
+                        producto.cantidad -= cantidad
+                        producto.save()
+                        
+                        # Actualizar subtotal
+                        producto.subtotal = producto.cantidad * producto.precio_compra
+                        producto.save()
+                        
+                        bebidas_descontadas.append(f"{nombre_producto} x{cantidad}")
+                        print(f"✅ Descontada bebida: {nombre_producto} x{cantidad} - Stock restante: {producto.cantidad}")
+                    else:
+                        print(f"⚠️ Stock insuficiente de {nombre_producto}: {producto.cantidad} disponible, se necesita {cantidad}")
+                else:
+                    print(f"⚠️ Producto de bebida no encontrado en inventario: {nombre_producto}")
+        
+        if bebidas_descontadas:
+            print(f"✅ Total bebidas descontadas del inventario: {', '.join(bebidas_descontadas)}")
+        else:
+            print("ℹ️ No se encontraron bebidas para descontar en este pedido")
+            
+    except Exception as e:
+        print(f"❌ Error al descontar bebidas del inventario: {e}")
 
 
 
@@ -1724,19 +2124,33 @@ def marcar_factura_pagada(request, factura_id):
     try:
         factura = get_object_or_404(Factura, id=factura_id)
         
+        # Verificar si la factura está pendiente
+        if factura.estado != 'pendiente':
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': 'La factura no está en estado pendiente'
+                })
+            return redirect('facturacion')
+        
         # Marcar como pagada
         factura.estado = 'pagada'
         factura.save()
         
-        # Opcional: Actualizar estado del pedido a completado
+        # Actualizar estado del pedido a completado
         if factura.pedido:
             factura.pedido.estado = 'completado'
             factura.pedido.save()
             
-            # IMPORTANTE: Liberar el código de delivery/para llevar si existe
+            # LIBERAR MESA si el pedido es de tipo mesa
+            if factura.pedido.tipo_pedido == 'mesa' and factura.pedido.mesa:
+                factura.pedido.mesa.estado = 'disponible'
+                factura.pedido.mesa.save()
+                print(f"✅ Mesa {factura.pedido.mesa.numero_display} liberada")
+            
+            # Liberar el código de delivery/para llevar si existe
             if factura.pedido.tipo_pedido in ['delivery', 'llevar'] and factura.pedido.codigo_delivery:
                 try:
-                    # Buscar el código en DeliveryConfig
                     config = DeliveryConfig.objects.get(
                         tipo=factura.pedido.tipo_pedido,
                         codigo=factura.pedido.codigo_delivery
@@ -1748,13 +2162,114 @@ def marcar_factura_pagada(request, factura_id):
                     print(f"⚠️ Código {factura.pedido.codigo_delivery} no encontrado en DeliveryConfig")
                 except Exception as e:
                     print(f"❌ Error al liberar código: {e}")
+            
+            # DESCONTAR BEBIDAS DEL INVENTARIO
+            descontar_bebidas_inventario(factura.pedido)
         
-        # Si es una petición AJAX (como fetch o XMLHttpRequest)
+        # Si es una petición AJAX, devolver datos actualizados
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # Obtener pedidos y facturas actualizados
+            pedidos_con_factura_pagada_ids = list(
+                Factura.objects.filter(estado='pagada').values_list('pedido_id', flat=True)
+            )
+            pedidos_con_factura_pendiente_ids = list(
+                Factura.objects.filter(estado='pendiente').values_list('pedido_id', flat=True)
+            )
+            
+            # Obtener pedidos listos para facturar
+            pedidos_pendientes = Pedido.objects.filter(
+                estado__in=['entregado', 'listo', 'completado']
+            ).exclude(
+                id__in=pedidos_con_factura_pagada_ids
+            ).exclude(
+                id__in=pedidos_con_factura_pendiente_ids
+            ).select_related('mesa').order_by('-fecha_pedido')
+            
+            # Preparar datos para JavaScript
+            pedidos_json = []
+            
+            for pedido in pedidos_pendientes:
+                items_data = []
+                try:
+                    items = pedido.get_items_detalle()
+                    if isinstance(items, list):
+                        for item in items:
+                            items_data.append({
+                                'name': item.get('nombre', item.get('name', 'Producto')),
+                                'quantity': item.get('cantidad', item.get('quantity', 1)),
+                                'price': float(item.get('precio', item.get('price', 0))),
+                                'total': float(item.get('subtotal', item.get('total', 0))),
+                            })
+                except:
+                    items_data = []
+                
+                numero_mesa_codigo = ''
+                if pedido.tipo_pedido == 'mesa' and pedido.mesa:
+                    numero_mesa_codigo = pedido.mesa.numero_display
+                elif pedido.codigo_delivery:
+                    numero_mesa_codigo = pedido.codigo_delivery
+                
+                pedido_dict = {
+                    'id': pedido.id,
+                    'codigo_pedido': pedido.codigo_pedido,
+                    'tipo_pedido': pedido.tipo_pedido,
+                    'estado': pedido.estado,
+                    'total': float(pedido.total),
+                    'mesa': {
+                        'id': pedido.mesa.id if pedido.mesa else None,
+                        'numero': pedido.mesa.numero if pedido.mesa else None,
+                        'numero_display': pedido.mesa.numero_display if pedido.mesa else None,
+                    } if pedido.mesa else None,
+                    'codigo_delivery': pedido.codigo_delivery or '',
+                    'nombre_cliente': pedido.nombre_cliente or '',
+                    'telefono_cliente': pedido.telefono_cliente or '',
+                    'direccion_entrega': pedido.direccion_entrega or '',
+                    'items': items_data,
+                    'subtotal': float(pedido.subtotal),
+                    'envio': float(pedido.envio),
+                    'fecha_pedido': pedido.fecha_pedido.isoformat() if pedido.fecha_pedido else None,
+                    'es_factura': False,
+                }
+                pedidos_json.append(pedido_dict)
+            
+            # Añadir facturas pendientes restantes
+            facturas_pendientes = Factura.objects.filter(estado='pendiente').select_related('pedido').all().order_by('-fecha_factura')
+            for factura_pendiente in facturas_pendientes:
+                try:
+                    items_data = factura_pendiente.get_items_detalle()
+                    
+                    factura_dict = {
+                        'id': f"factura_{factura_pendiente.id}",
+                        'codigo_pedido': factura_pendiente.pedido.codigo_pedido if factura_pendiente.pedido else 'N/A',
+                        'tipo_pedido': factura_pendiente.tipo_pedido,
+                        'estado_factura': factura_pendiente.estado,
+                        'estado': 'facturado',
+                        'total': float(factura_pendiente.total),
+                        'mesa': {
+                            'numero_display': factura_pendiente.numero_mesa_codigo or '',
+                        } if factura_pendiente.tipo_pedido == 'mesa' else None,
+                        'codigo_delivery': factura_pendiente.numero_mesa_codigo if factura_pendiente.tipo_pedido in ['delivery', 'llevar'] else '',
+                        'nombre_cliente': factura_pendiente.nombre_cliente or '',
+                        'telefono_cliente': factura_pendiente.telefono_cliente or '',
+                        'direccion_entrega': factura_pendiente.direccion_entrega or '',
+                        'items': items_data,
+                        'subtotal': float(factura_pendiente.subtotal),
+                        'envio': float(factura_pendiente.envio),
+                        'fecha_pedido': factura_pendiente.fecha_factura.isoformat() if factura_pendiente.fecha_factura else None,
+                        'es_factura': True,
+                        'factura_id': factura_pendiente.id,
+                        'numero_factura': factura_pendiente.numero_factura,
+                        'metodo_pago': factura_pendiente.metodo_pago,
+                    }
+                    pedidos_json.append(factura_dict)
+                except Exception as e:
+                    print(f"Error procesando factura {factura_pendiente.id}: {e}")
+            
             return JsonResponse({
                 'success': True,
                 'message': f'Factura {factura.numero_factura} marcada como pagada',
-                'redirect_url': f'/facturacion/imprimir-termica/{factura.id}/'
+                'pedidos_actualizados': pedidos_json,
+                'imprimir_url': f'/facturacion/imprimir-termica/{factura.id}/'
             })
         
         # Si no es AJAX, redirigir a impresión por defecto
@@ -1831,21 +2346,62 @@ def imprimir_factura_termica(request, factura_id):
     # Marcar como impresa
     factura.marcar_impresa()
     
+    # Obtener items de la factura
+    items_original = factura.get_items_detalle()
+    
+    # Normalizar items para tener ambas versiones (español e inglés)
+    items_normalizados = []
+    for item in items_original:
+        # Crear un nuevo diccionario con ambas versiones
+        normalized_item = {}
+        
+        # Si viene con claves en español, copiar y agregar versiones en inglés
+        if 'nombre' in item:
+            normalized_item['nombre'] = item['nombre']
+            normalized_item['name'] = item['nombre']  # Copia a inglés
+        elif 'name' in item:
+            normalized_item['name'] = item['name']
+            normalized_item['nombre'] = item['name']  # Copia a español
+        
+        # Hacer lo mismo para cantidad/quantity
+        if 'cantidad' in item:
+            normalized_item['cantidad'] = item['cantidad']
+            normalized_item['quantity'] = item['cantidad']
+        elif 'quantity' in item:
+            normalized_item['quantity'] = item['quantity']
+            normalized_item['cantidad'] = item['quantity']
+            
+        # Hacer lo mismo para precio/price
+        if 'precio' in item:
+            normalized_item['precio'] = item['precio']
+            normalized_item['price'] = item['precio']
+        elif 'price' in item:
+            normalized_item['price'] = item['price']
+            normalized_item['precio'] = item['price']
+            
+        # Hacer lo mismo para subtotal/total
+        if 'subtotal' in item:
+            normalized_item['subtotal'] = item['subtotal']
+            normalized_item['total'] = item['subtotal']
+        elif 'total' in item:
+            normalized_item['total'] = item['total']
+            normalized_item['subtotal'] = item['total']
+            
+        items_normalizados.append(normalized_item)
+    
     # Preparar datos para la plantilla térmica
     context = {
         'factura': factura,
-        'items': factura.get_items_detalle(),
+        'items': items_normalizados,  # Usar los items normalizados
         'empresa': {
             'nombre': '402 FASTFOOD',
             'direccion': 'Av. Principal 30 DE MAYO',
             'telefono': '849-362-1791',
-            'ruc': '1799999999001'  # Añadir RUC aquí
+            'ruc': ''
         }
     }
     
-    # Usar una plantilla específica para impresión térmica
     return render(request, 'facturacion/imprimir_termica.html', context)
-
 
 @login_required
 def imprimir_factura(request, factura_id):
@@ -1855,6 +2411,7 @@ def imprimir_factura(request, factura_id):
     
     # Redirigir de vuelta a la página de facturación
     return redirect('facturacion')
+
 
 @login_required
 def exportar_facturas(request):
@@ -2266,3 +2823,397 @@ def acceso_modulo_requerido(modulo):
                 return redirect('index')
         return wrapper
     return decorator
+
+
+
+from datetime import datetime, timedelta
+from django.utils import timezone
+from django.db.models import Sum
+from decimal import Decimal
+
+
+
+@login_required
+def dashbort(request):
+    # Obtener el inicio y fin del día actual en la zona horaria local
+    ahora_local = timezone.localtime()
+    hoy_local = ahora_local.date()
+    
+    # Crear datetime para inicio y fin del día en zona horaria local
+    inicio_dia = timezone.make_aware(
+        datetime.combine(hoy_local, datetime.min.time())
+    )
+    fin_dia = timezone.make_aware(
+        datetime.combine(hoy_local, datetime.max.time())
+    )
+    
+    # 1. VENTA DEL DÍA - Facturas del día de HOY usando rango de tiempo
+    facturas_hoy = Factura.objects.filter(
+        fecha_factura__gte=inicio_dia,
+        fecha_factura__lte=fin_dia,
+        estado='pagada'
+    )
+    
+    venta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))['total_dia'] or Decimal('0.00')
+    
+    # 2. VENTA DEL MES - Facturas del MES ACTUAL
+    primer_dia_mes = hoy_local.replace(day=1)
+    inicio_mes = timezone.make_aware(
+        datetime.combine(primer_dia_mes, datetime.min.time())
+    )
+    
+    facturas_mes = Factura.objects.filter(
+        fecha_factura__gte=inicio_mes,
+        fecha_factura__lte=fin_dia,
+        estado='pagada'
+    )
+    
+    venta_mes = facturas_mes.aggregate(total_mes=Sum('total'))['total_mes'] or Decimal('0.00')
+    
+    # 3. PEDIDOS HOY
+    total_pedidos = Pedido.objects.filter(
+        fecha_pedido__gte=inicio_dia,
+        fecha_pedido__lte=fin_dia
+    ).count()
+    
+    # 4. GASTOS TOTALES
+    gastos_totales = venta_mes * Decimal('0.60')
+    
+    # 5. GANANCIAS NETAS
+    ganancias_netas = venta_mes - gastos_totales
+    
+    # 6. NUEVOS CLIENTES
+    nuevos_clientes = Factura.objects.filter(
+        fecha_factura__gte=inicio_mes,
+        fecha_factura__lte=fin_dia
+    ).exclude(nombre_cliente='').values('nombre_cliente').distinct().count()
+    
+    # 7. ACTIVIDADES RECIENTES
+    actividades_recientes = Factura.objects.all().order_by('-fecha_factura')[:5]
+    
+    # 8. PRODUCTOS MÁS VENDIDOS
+    productos_vendidos = {}
+    
+    for factura in facturas_mes:
+        try:
+            items = factura.get_items_detalle()
+            if items and isinstance(items, list):
+                for item in items:
+                    nombre = item.get('name', '').strip()
+                    if not nombre:
+                        nombre = item.get('nombre', '').strip()
+                    
+                    if not nombre:
+                        continue
+                        
+                    cantidad = float(item.get('quantity', 0))
+                    if cantidad <= 0:
+                        continue
+                        
+                    precio = float(item.get('price', 0))
+                    
+                    if nombre in productos_vendidos:
+                        productos_vendidos[nombre]['cantidad'] += cantidad
+                        productos_vendidos[nombre]['ingresos'] += Decimal(str(cantidad * precio))
+                    else:
+                        productos_vendidos[nombre] = {
+                            'nombre': nombre,
+                            'cantidad': cantidad,
+                            'ingresos': Decimal(str(cantidad * precio))
+                        }
+        except Exception as e:
+            print(f"Error procesando items de factura {factura.numero_factura}: {e}")
+            continue
+    
+    productos_top = sorted(
+        productos_vendidos.values(), 
+        key=lambda x: x['cantidad'], 
+        reverse=True
+    )[:5]
+    
+    # 9. DATOS PARA GRÁFICO DE VENTAS - Últimos 7 días
+    ultimos_7_dias = []
+    ventas_7_dias = []
+    
+    for i in range(6, -1, -1):
+        dia = hoy_local - timedelta(days=i)
+        inicio_dia_grafico = timezone.make_aware(
+            datetime.combine(dia, datetime.min.time())
+        )
+        fin_dia_grafico = timezone.make_aware(
+            datetime.combine(dia, datetime.max.time())
+        )
+        
+        dia_str = dia.strftime('%a')
+        
+        venta_dia_grafico = Factura.objects.filter(
+            fecha_factura__gte=inicio_dia_grafico,
+            fecha_factura__lte=fin_dia_grafico,
+            estado='pagada'
+        ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+        
+        ultimos_7_dias.append(dia_str)
+        ventas_7_dias.append(float(venta_dia_grafico))
+    
+    # 10. DATOS PARA GRÁFICO DE CATEGORÍAS
+    categorias_data = []
+    ventas_categorias_data = []
+    
+    try:
+        categorias = Plato.objects.values_list('categoria', flat=True).distinct()
+        if categorias:
+            nombres_categorias = {
+                'entrada': 'Entradas',
+                'principal': 'Platos Fuertes', 
+                'postre': 'Postres',
+                'bebida': 'Bebidas',
+                'especial': 'Especiales',
+                'rapida': 'Comida Rápida'
+            }
+            
+            categorias_data = [nombres_categorias.get(cat, cat.capitalize()) for cat in categorias]
+            total_ventas = venta_mes if venta_mes > 0 else Decimal('10000')
+            ventas_por_categoria = total_ventas / len(categorias_data)
+            ventas_categorias_data = [float(ventas_por_categoria * Decimal(i+1)) for i in range(len(categorias_data))]
+    except:
+        categorias_data = ['Entradas', 'Platos Fuertes', 'Postres', 'Bebidas', 'Especiales']
+        ventas_categorias_data = [15, 40, 25, 12, 8]
+    
+    # Datos para depuración
+    facturas_hoy_todas = Factura.objects.filter(
+        fecha_factura__gte=inicio_dia,
+        fecha_factura__lte=fin_dia
+    ).order_by('-fecha_factura')
+    
+    todas_facturas = Factura.objects.all().order_by('-fecha_factura')[:10]
+    
+    context = {
+        'venta_dia': venta_dia,
+        'venta_mes': venta_mes,
+        'total_pedidos': total_pedidos,
+        'gastos_totales': gastos_totales,
+        'ganancias_netas': ganancias_netas,
+        'nuevos_clientes': nuevos_clientes,
+        'actividades': actividades_recientes,
+        'productos_top': productos_top,
+        'dias_grafico': json.dumps(ultimos_7_dias),
+        'ventas_grafico': json.dumps(ventas_7_dias),
+        'categorias_grafico': json.dumps(categorias_data),
+        'ventas_categorias_grafico': json.dumps(ventas_categorias_data),
+        'fecha_actual': ahora_local.strftime('%A, %d de %B de %Y'),
+        'hora_actual': ahora_local.strftime('%H:%M:%S'),
+        'hoy': hoy_local,
+        'now_utc': timezone.now(),
+        'total_facturas_hoy': facturas_hoy_todas.count(),
+        'total_facturas_mes': facturas_mes.count(),
+        'facturas_hoy_todas': facturas_hoy_todas,
+        'todas_facturas': todas_facturas,
+    }
+    
+    return render(request, 'facturacion/dashbort.html', context)
+
+
+@login_required
+def dashboard_stats(request):
+    """Vista para obtener estadísticas actualizadas (para AJAX)"""
+    ahora_local = timezone.localtime()
+    hoy_local = ahora_local.date()
+    
+    inicio_dia = timezone.make_aware(
+        datetime.combine(hoy_local, datetime.min.time())
+    )
+    fin_dia = timezone.make_aware(
+        datetime.combine(hoy_local, datetime.max.time())
+    )
+    
+    venta_dia = Factura.objects.filter(
+        fecha_factura__gte=inicio_dia,
+        fecha_factura__lte=fin_dia,
+        estado='pagada'
+    ).aggregate(total_dia=Sum('total'))['total_dia'] or Decimal('0.00')
+    
+    total_pedidos = Pedido.objects.filter(
+        fecha_pedido__gte=inicio_dia,
+        fecha_pedido__lte=fin_dia
+    ).count()
+    
+    return JsonResponse({
+        'venta_dia': float(venta_dia),
+        'total_pedidos': total_pedidos,
+        'timestamp': timezone.now().strftime('%H:%M:%S')
+    })
+
+
+
+
+
+import io
+import textwrap
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import mm, inch
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.lib import colors
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.utils import timezone
+from django.db.models import Sum
+from datetime import datetime
+from decimal import Decimal
+
+@login_required
+def generar_pdf_ticket_dia(request):
+    """Generar PDF del ticket de venta del día para impresora 80mm"""
+    # Obtener datos de venta del día
+    ahora_local = timezone.localtime()
+    hoy_local = ahora_local.date()
+    
+    inicio_dia = timezone.make_aware(
+        datetime.combine(hoy_local, datetime.min.time())
+    )
+    fin_dia = timezone.make_aware(
+        datetime.combine(hoy_local, datetime.max.time())
+    )
+    
+    facturas_hoy = Factura.objects.filter(
+        fecha_factura__gte=inicio_dia,
+        fecha_factura__lte=fin_dia,
+        estado='pagada'
+    )
+    
+    venta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))['total_dia'] or Decimal('0.00')
+    
+    # Crear un buffer para el PDF
+    buffer = io.BytesIO()
+    
+    # Configurar el tamaño de la página para impresora térmica 80mm
+    # Ancho: 80mm = 226.77 puntos (1mm = 2.83465 puntos)
+    # Alto: Variable, pero usaremos un tamaño estándar para ticket
+    ancho_pagina = 80 * mm  # 226.77 puntos
+    alto_pagina = 297 * mm  # Alto estándar para ticket continuo
+    
+    # Crear el documento PDF con tamaño personalizado
+    c = canvas.Canvas(buffer, pagesize=(ancho_pagina, alto_pagina))
+    
+    # Configurar fuentes y estilos para impresora térmica
+    c.setFont("Helvetica", 8)  # Fuente pequeña para impresora térmica
+    
+    # Coordenadas iniciales (de arriba hacia abajo)
+    y = alto_pagina - 10 * mm  # Comenzar 10mm desde el borde superior
+    
+    # 1. ENCABEZADO DEL RESTAURANTE
+    c.setFont("Helvetica-Bold", 12)
+    c.drawCentredString(ancho_pagina / 2, y, "MI RESTAURANTE")
+    y -= 6 * mm
+    
+    c.setFont("Helvetica", 9)
+    c.drawCentredString(ancho_pagina / 2, y, "TICKET DE VENTAS DEL DÍA")
+    y -= 5 * mm
+    
+    # Línea separadora
+    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+    y -= 4 * mm
+    
+    # 2. FECHA Y HORA
+    c.setFont("Helvetica", 8)
+    c.drawString(5 * mm, y, f"FECHA: {hoy_local.strftime('%d/%m/%Y')}")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"HORA: {ahora_local.strftime('%H:%M:%S')}")
+    y -= 4 * mm
+    
+    # Línea separadora
+    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+    y -= 4 * mm
+    
+    # 3. INFORMACIÓN DE VENTAS
+    c.setFont("Helvetica-Bold", 9)
+    c.drawCentredString(ancho_pagina / 2, y, "RESUMEN DE VENTAS")
+    y -= 4 * mm
+    
+    c.setFont("Helvetica", 8)
+    c.drawString(5 * mm, y, f"TOTAL FACTURAS:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"{facturas_hoy.count()}")
+    y -= 4 * mm
+    
+    # Línea separadora punteada
+    c.setDash(1, 2)  # Patrón punteado
+    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+    c.setDash()  # Restaurar línea continua
+    y -= 4 * mm
+    
+    # 4. DETALLE DE FACTURAS (si hay)
+    if facturas_hoy.exists():
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(5 * mm, y, "DETALLE DE FACTURAS:")
+        y -= 4 * mm
+        
+        c.setFont("Helvetica", 7)
+        for i, factura in enumerate(facturas_hoy, 1):
+            # Formatear número de factura
+            factura_text = f"#{factura.numero_factura}"
+            c.drawString(10 * mm, y, factura_text)
+            
+            # Formatear cliente (truncar si es muy largo)
+            cliente = factura.nombre_cliente or "CLIENTE"
+            if len(cliente) > 15:
+                cliente = cliente[:15] + "..."
+            c.drawString(25 * mm, y, cliente)
+            
+            # Total de la factura
+            c.drawRightString(ancho_pagina - 10 * mm, y, f"${factura.total:,.2f}")
+            y -= 3.5 * mm
+            
+            # Si nos quedamos sin espacio, crear nueva página
+            if y < 20 * mm:
+                c.showPage()
+                c.setFont("Helvetica", 8)
+                y = alto_pagina - 10 * mm
+        
+        # Línea separadora
+        c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+        y -= 4 * mm
+    
+    # 5. TOTAL DEL DÍA
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(5 * mm, y, "TOTAL DEL DÍA:")
+    c.setFont("Helvetica-Bold", 12)
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"${venta_dia:,.2f}")
+    y -= 6 * mm
+    
+    # Línea doble para énfasis
+    c.setLineWidth(0.5)
+    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+    y -= 1 * mm
+    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+    c.setLineWidth(1)
+    y -= 5 * mm
+    
+    # 6. PIE DE PÁGINA
+    c.setFont("Helvetica", 8)
+    c.drawCentredString(ancho_pagina / 2, y, "*** GRACIAS POR SU VISITA ***")
+    y -= 3 * mm
+    
+    c.setFont("Helvetica", 7)
+    c.drawCentredString(ancho_pagina / 2, y, "Sistema de Gestión de Restaurantes")
+    y -= 3 * mm
+    
+    c.drawCentredString(ancho_pagina / 2, y, "www.mirestaurante.com")
+    
+    # 7. CÓDIGO DE BARRAS (opcional, simulado)
+    y -= 8 * mm
+    c.setFont("Helvetica", 6)
+    c.drawCentredString(ancho_pagina / 2, y, "| | | | | | | | | | | | | | | |")
+    y -= 2 * mm
+    c.drawCentredString(ancho_pagina / 2, y, f"REF: {hoy_local.strftime('%Y%m%d')}")
+    
+    # Guardar el PDF
+    c.showPage()
+    c.save()
+    
+    # Obtener el valor del buffer y devolver como respuesta HTTP
+    buffer.seek(0)
+    
+    # Configurar respuesta HTTP
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="ticket_ventas_dia.pdf"'
+    return response

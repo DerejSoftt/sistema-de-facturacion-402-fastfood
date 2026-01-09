@@ -1,9 +1,13 @@
+{% load humanize %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Facturación - Restaurante</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Boxicons -->
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <style>
         /* Estilos mantenidos del original */
         * {
@@ -246,8 +250,7 @@
         }
         
         .controls-header h3::before {
-            content: "🔍";
-            font-size: 1.2rem;
+            display: none;
         }
         
         /* Botones */
@@ -593,21 +596,6 @@
             color: white;
         }
         
-        .btn-print:hover {
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-            color: white;
-        }
-        
-        .btn-email:hover {
-            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
-            color: white;
-        }
-        
-        .btn-anular:hover {
-            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
-            color: white;
-        }
-        
         /* Modal para ver detalles de pedido */
         .modal {
             display: none;
@@ -773,76 +761,6 @@
             font-size: 1.2rem;
         }
         
-        /* Pagination */
-        .pagination {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 0.5rem;
-            margin-top: 2rem;
-        }
-        
-        .page-btn {
-            padding: 0.75rem 1.25rem;
-            border: 2px solid #e0e6ff;
-            background: white;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-weight: 600;
-            color: #4a5568;
-        }
-        
-        .page-btn:hover {
-            background: #f8f9ff;
-            border-color: #ff7e5f;
-            color: #ff7e5f;
-        }
-        
-        .page-btn.active {
-            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
-            color: white;
-            border-color: #ff7e5f;
-        }
-        
-        .page-info {
-            padding: 0 1rem;
-            color: #4a5568;
-            font-weight: 600;
-        }
-        
-        /* Empty state */
-        .empty-state {
-            text-align: center;
-            padding: 4rem;
-            color: #a0aec0;
-        }
-        
-        .empty-state svg {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 1rem;
-            opacity: 0.5;
-        }
-        
-        .empty-state h3 {
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
-            color: #4a5568;
-        }
-        
-        /* Date badge */
-        .date-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: #f8f9ff;
-            border-radius: 10px;
-            font-size: 0.9rem;
-            color: #4a5568;
-        }
-        
         /* Modal para pagar/facturar pedido */
         .create-invoice-modal {
             display: none;
@@ -867,7 +785,7 @@
             background: white;
             border-radius: 20px;
             width: 100%;
-            max-width: 800px;
+            max-width: 500px;
             max-height: 90vh;
             overflow-y: auto;
             box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
@@ -899,113 +817,11 @@
             margin-bottom: 1.5rem;
         }
         
-        .form-full {
-            grid-column: span 2;
-        }
-        
         .form-actions {
             display: flex;
             gap: 1rem;
             justify-content: flex-end;
             margin-top: 2rem;
-        }
-        
-        /* Estilos para impresión térmica */
-        .thermal-receipt {
-            width: 80mm;
-            padding: 5px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.2;
-        }
-        
-        .thermal-header {
-            text-align: center;
-            margin-bottom: 5px;
-            padding-bottom: 5px;
-            border-bottom: 1px dashed #000;
-        }
-        
-        .thermal-header h2 {
-            font-size: 14px;
-            font-weight: bold;
-            margin: 0;
-        }
-        
-        .thermal-header p {
-            margin: 2px 0;
-            font-size: 10px;
-        }
-        
-        .thermal-info {
-            margin: 5px 0;
-        }
-        
-        .thermal-info-row {
-            display: flex;
-            justify-content: space-between;
-            margin: 2px 0;
-        }
-        
-        .thermal-items {
-            margin: 10px 0;
-            width: 100%;
-        }
-        
-        .thermal-items th {
-            text-align: left;
-            padding: 2px 0;
-            border-bottom: 1px dashed #000;
-        }
-        
-        .thermal-items td {
-            padding: 2px 0;
-        }
-        
-        .thermal-items .item-name {
-            width: 50%;
-        }
-        
-        .thermal-items .item-qty {
-            width: 15%;
-            text-align: center;
-        }
-        
-        .thermal-items .item-price {
-            width: 20%;
-            text-align: right;
-        }
-        
-        .thermal-items .item-total {
-            width: 15%;
-            text-align: right;
-        }
-        
-        .thermal-totals {
-            margin-top: 10px;
-            padding-top: 5px;
-            border-top: 1px dashed #000;
-        }
-        
-        .thermal-total-row {
-            display: flex;
-            justify-content: space-between;
-            margin: 2px 0;
-        }
-        
-        .thermal-total-row.grand-total {
-            font-weight: bold;
-            margin-top: 5px;
-            padding-top: 5px;
-            border-top: 2px solid #000;
-        }
-        
-        .thermal-footer {
-            text-align: center;
-            margin-top: 15px;
-            font-size: 10px;
-            padding-top: 10px;
-            border-top: 1px dashed #000;
         }
         
         /* Responsive design */
@@ -1099,19 +915,6 @@
             .form-row {
                 grid-template-columns: 1fr;
             }
-            
-            .form-full {
-                grid-column: span 1;
-            }
-            
-            .invoice-details {
-                grid-template-columns: 1fr;
-            }
-            
-            .invoice-header {
-                flex-direction: column;
-                gap: 1.5rem;
-            }
         }
         
         @media (max-width: 480px) {
@@ -1154,13 +957,13 @@
 <body>
     {% csrf_token %}
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
-    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
     
       <div class="app-container">
     <!-- Sidebar navigation -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            🍽️ Mi Restaurante
+            <i class="fas fa-utensils"></i> Mi Restaurante
         </div>
         <nav class="sidebar-nav">
             <!-- Verificar grupos sin template tag -->
@@ -1169,23 +972,23 @@
             <!-- Menú para Usuario Normal (excluye superusuarios) -->
             {% if "Usuario Normal" in user_groups and not user.is_superuser %}
             <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                 <span>Pedidos</span>
             </a>
             <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-list"></i></span>
                 <span>Inventario</span>
             </a>
             <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-list"></i></span>
                 <span>Gestión de Pedidos</span>
             </a>
             <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
+                <span class="nav-icon"><i class="fas fa-receipt"></i></span>
                 <span>Facturación</span>
             </a>
             <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
+                <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
                 <span>Salida de Productos</span>
             </a>
             {% endif %}
@@ -1193,39 +996,39 @@
             <!-- Menú para Administrador -->
             {% if "Administrador" in user_groups and not user.is_superuser %}
             <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                <span class="nav-icon">📦</span>
+                <span class="nav-icon"><i class="fas fa-box"></i></span>
                 <span>Entrada de Productos</span>
             </a>
             <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-list"></i></span>
                 <span>Inventario</span>
             </a>
             <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">🍽️</span>
+                <span class="nav-icon"><i class="fas fa-utensils"></i></span>
                 <span>Entrada de Platos</span>
             </a>
             <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">📊</span>
+                <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
                 <span>Gestión de Platos</span>
             </a>
             <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                 <span>Pedidos</span>
             </a>
             <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-list"></i></span>
                 <span>Gestión de Pedidos</span>
             </a>
             <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
+                <span class="nav-icon"><i class="fas fa-receipt"></i></span>
                 <span>Facturación</span>
             </a>
             <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
+                <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
                 <span>Salida de Productos</span>
             </a>
             <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                <span class="nav-icon">👥</span>
+                <span class="nav-icon"><i class="fas fa-users"></i></span>
                 <span>Gestión de Usuarios</span>
             </a>
             {% endif %}
@@ -1237,11 +1040,11 @@
             
             {% if "Cajero" in user_groups and not user.is_superuser %}
             <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                 <span>Pedidos</span>
             </a>
             <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
+                <span class="nav-icon"><i class="fas fa-receipt"></i></span>
                 <span>Facturación</span>
             </a>
             {% endif %}
@@ -1249,46 +1052,46 @@
             <!-- Menú EXCLUSIVO para superusuarios -->
             {% if user.is_superuser %}
             <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                <span class="nav-icon">📦</span>
+                <span class="nav-icon"><i class="fas fa-box"></i></span>
                 <span>Entrada de Productos</span>
             </a>
             <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-list"></i></span>
                 <span>Inventario</span>
             </a>
             <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">🍽️</span>
+                <span class="nav-icon"><i class="fas fa-utensils"></i></span>
                 <span>Entrada de Platos</span>
             </a>
             <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">📊</span>
+                <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
                 <span>Gestión de Platos</span>
             </a>
             <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                 <span>Pedidos</span>
             </a>
             <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-list"></i></span>
                 <span>Gestión de Pedidos</span>
             </a>
             <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
+                <span class="nav-icon"><i class="fas fa-receipt"></i></span>
                 <span>Facturación</span>
             </a>
             <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
+                <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
                 <span>Salida de Productos</span>
             </a>
             <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                <span class="nav-icon">👥</span>
+                <span class="nav-icon"><i class="fas fa-users"></i></span>
                 <span>Gestión de Usuarios</span>
             </a>
             {% endif %}
             
             <!-- Cerrar sesión para todos -->
             <a href="{% url 'logout' %}" class="nav-item">
-                <span class="nav-icon">🚪</span>
+                <span class="nav-icon"><i class="fas fa-door-open"></i></span>
                 <span>Cerrar Sesión</span>
             </a>
             
@@ -1302,7 +1105,7 @@
         <div class="main-content">
             <div class="container">
                 <div class="header">
-                    <h1>🧾 Facturación</h1>
+                    <h1><i class="fas fa-receipt"></i> Facturación</h1>
                     <p>Gestiona los pagos y facturación de los pedidos</p>
                 </div>
                 
@@ -1310,37 +1113,24 @@
                     <!-- Stats Cards -->
                     <div class="stats-container">
                         <div class="stat-card">
-                            <span class="stat-icon">🧾</span>
+                            <span class="stat-icon"><i class="fas fa-receipt"></i></span>
                             <div class="stat-value" id="totalFacturas">0</div>
                             <div class="stat-label">Total Facturas</div>
                         </div>
                         <div class="stat-card">
-                            <span class="stat-icon">💰</span>
+                            <span class="stat-icon"><i class="fas fa-money-bill"></i></span>
                             <div class="stat-value" id="ingresosMes">$0</div>
                             <div class="stat-label">Ingresos del Mes</div>
                         </div>
                         <div class="stat-card">
-                            <span class="stat-icon">⏱️</span>
+                            <span class="stat-icon"><i class="fas fa-hourglass-half"></i></span>
                             <div class="stat-value" id="facturasPendientes">0</div>
                             <div class="stat-label">Pendientes de Pago</div>
                         </div>
                         <div class="stat-card">
-                            <span class="stat-icon">📊</span>
+                            <span class="stat-icon"><i class="fas fa-chart-bar"></i></span>
                             <div class="stat-value" id="promedioFactura">$0</div>
                             <div class="stat-label">Promedio por Factura</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Debug info -->
-                    <div style="margin-bottom: 20px; padding: 10px; background: #f8f9ff; border-radius: 10px; border: 1px solid #e0e6ff;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <strong>Estado:</strong> 
-                                <span id="debugStatus" style="color: #ff7e5f;">Cargando datos...</span>
-                            </div>
-                            <button onclick="mostrarDebug()" class="btn btn-sm" style="background: #e0e6ff; color: #4a5568; padding: 5px 10px; font-size: 12px;">
-                                🔍 Ver Debug
-                            </button>
                         </div>
                     </div>
                     
@@ -1350,36 +1140,33 @@
                             <h3>Buscar y Filtrar Pedidos</h3>
                             <div style="display: flex; gap: 1rem;">
                                 <button class="btn btn-info btn-sm" onclick="exportInvoices()">
-                                    <span>📤</span>
+                                    <i class="fas fa-download"></i>
                                     <span>Exportar</span>
                                 </button>
                             </div>
                         </div>
                         
                         <div class="form-group">
-                            <label for="searchInput">🔍 Buscar Pedido</label>
+                            <label for="searchInput"><i class="fas fa-search"></i> Buscar Pedido</label>
                             <div class="search-box">
-                                <span class="search-icon">🔍</span>
+                                <span class="search-icon"><i class="fas fa-search"></i></span>
                                 <input type="text" id="searchInput" placeholder="Buscar por código, mesa, cliente...">
                             </div>
                         </div>
                         
                         <div class="filter-row">
                             <div class="form-group" style="flex: 1;">
-                                <label for="statusFilter">📊 Estado</label>
+                                <label for="statusFilter"><i class="fas fa-chart-bar"></i> Estado</label>
                                 <select class="filter-select" id="statusFilter">
                                     <option value="">Todos los estados</option>
-                                    <option value="pendiente">Pendiente</option>
-                                    <option value="confirmado">Confirmado</option>
-                                    <option value="preparacion">En Preparación</option>
-                                    <option value="listo">Listo</option>
                                     <option value="entregado">Entregado</option>
+                                    <option value="listo">Listo</option>
                                     <option value="completado">Completado</option>
                                 </select>
                             </div>
                             
                             <div class="form-group" style="flex: 1;">
-                                <label for="tipoFilter">📍 Tipo</label>
+                                <label for="tipoFilter"><i class="fas fa-map-pin"></i> Tipo</label>
                                 <select class="filter-select" id="tipoFilter">
                                     <option value="">Todos los tipos</option>
                                     <option value="mesa">Mesa</option>
@@ -1389,7 +1176,7 @@
                             </div>
                             
                             <div class="form-group" style="flex: 1;">
-                                <label for="dateFilter">📅 Fecha</label>
+                                <label for="dateFilter"><i class="fas fa-calendar"></i> Fecha</label>
                                 <select class="filter-select" id="dateFilter">
                                     <option value="">Todas las fechas</option>
                                     <option value="hoy">Hoy</option>
@@ -1430,13 +1217,6 @@
                             </tbody>
                         </table>
                     </div>
-                    
-                    <!-- Pagination -->
-                    <div class="pagination" id="pagination" style="display: none;">
-                        <button class="page-btn" onclick="changePage(-1)">← Anterior</button>
-                        <span class="page-info" id="pageInfo">Página 1 de 1</span>
-                        <button class="page-btn" onclick="changePage(1)">Siguiente →</button>
-                    </div>
                 </div>
             </div>
         </div>
@@ -1455,195 +1235,39 @@
         </div>
     </div>
     
-    <!-- Modal para pagar/facturar pedido -->
+    <!-- Modal para pagar pedido -->
     <div class="create-invoice-modal" id="createInvoiceModal">
         <div class="create-invoice-content">
             <div class="create-invoice-header">
-                <h3>Generar Factura y Pago</h3>
+                <h3>Pagar Pedido</h3>
                 <button class="modal-close" onclick="closeCreateInvoiceModal()">×</button>
             </div>
             <div class="create-invoice-body">
                 <input type="hidden" id="pedidoId">
                 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="invoiceNumber">🔢 Número de Factura</label>
-                        <input type="text" id="invoiceNumber" placeholder="FAC-001-001-000001" value="" readonly>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="invoiceDate">📅 Fecha de Factura</label>
-                        <input type="date" id="invoiceDate" value="">
-                    </div>
+                <div class="form-group">
+                    <label for="paymentMethod"><i class="fas fa-credit-card"></i> Método de Pago</label>
+                    <select class="filter-select" id="paymentMethod">
+                        <option value="efectivo">Efectivo</option>
+                        <option value="tarjeta">Tarjeta de Crédito/Débito</option>
+                        <option value="transferencia">Transferencia Bancaria</option>
+                    </select>
                 </div>
                 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="tipoPedido">📍 Tipo de Pedido</label>
-                        <input type="text" id="tipoPedido" readonly>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="numeroMesaCodigo">🏷️ Número/Código</label>
-                        <input type="text" id="numeroMesaCodigo" readonly>
-                    </div>
+                <div class="form-group">
+                    <label for="totalAmount"><i class="fas fa-dollar-sign"></i> Total a Pagar</label>
+                    <input type="text" id="totalAmount" readonly style="font-size: 1.2rem; font-weight: bold; color: #38a169;">
                 </div>
-                
-                <div class="form-row" id="clienteInfoRow" style="display: none;">
-                    <div class="form-group">
-                        <label for="nombreCliente">👤 Nombre del Cliente</label>
-                        <input type="text" id="nombreCliente" readonly>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="telefonoCliente">📱 Teléfono</label>
-                        <input type="text" id="telefonoCliente" readonly>
-                    </div>
-                </div>
-                
-                <div class="form-group" id="direccionRow" style="display: none;">
-                    <label for="direccionEntrega">📍 Dirección de Entrega</label>
-                    <input type="text" id="direccionEntrega" readonly>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="paymentMethod">💳 Método de Pago</label>
-                        <select class="filter-select" id="paymentMethod">
-                            <option value="efectivo">Efectivo</option>
-                            <option value="tarjeta">Tarjeta de Crédito/Débito</option>
-                            <option value="transferencia">Transferencia Bancaria</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="invoiceStatus">📊 Estado de Pago</label>
-                        <select class="filter-select" id="invoiceStatus">
-                            <option value="pagada">Pagada</option>
-                            <option value="pendiente">Pendiente</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <h4 style="color: #2c3e50; margin: 1.5rem 0 1rem; font-size: 1.2rem;">🍽️ Items del Pedido</h4>
-                <div class="table-container" style="margin-bottom: 1.5rem;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Descripción</th>
-                                <th>Cantidad</th>
-                                <th>Precio Unitario</th>
-                                <th>Subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody id="invoiceItemsBody">
-                            <!-- Los items se cargarán dinámicamente -->
-                            <tr id="noItemsMessage">
-                                <td colspan="4" style="text-align: center; color: #999; padding: 20px;">
-                                    Cargando items del pedido...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="subtotal">💰 Subtotal</label>
-                        <input type="text" id="subtotal" value="$0.00" readonly>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="envio">🚚 Envío</label>
-                        <input type="number" id="envio" min="0" step="0.01" value="0" onchange="calculateInvoiceTotal()">
-                    </div>
-                    
-                    <!-- Comentado: IVA 12% -->
-                    <!--
-                    <div class="form-group">
-                        <label for="iva">🏛️ IVA 12%</label>
-                        <input type="text" id="iva" value="$0.00" readonly>
-                    </div>
-                    -->
-                    
-                    <div class="form-group">
-                        <label for="total">💵 Total a Pagar</label>
-                        <input type="text" id="total" value="$0.00" readonly>
-                    </div>
-                </div>
-                
-                <!-- Comentado: Notas Adicionales -->
-                <!--
-                <div class="form-group form-full">
-                    <label for="notes">📝 Notas Adicionales</label>
-                    <textarea id="notes" rows="3" placeholder="Notas adicionales para la factura..." style="width: 100%; padding: 1rem; border: 2px solid #e0e6ff; border-radius: 12px; font-size: 1rem; transition: all 0.3s; resize: vertical;"></textarea>
-                </div>
-                -->
                 
                 <div class="form-actions">
                     <button class="btn" onclick="closeCreateInvoiceModal()" style="background: #f8f9ff; color: #4a5568;">
                         Cancelar
                     </button>
-                    <button class="btn btn-success" onclick="saveInvoice()" id="saveInvoiceBtn">
-                        <span>💾</span>
-                        <span>Guardar Factura</span>
-                    </button>
-                    <button class="btn btn-primary" onclick="saveAndPrintInvoice()" id="savePrintInvoiceBtn">
-                        <span>🖨️</span>
-                        <span>Guardar e Imprimir (80mm)</span>
+                    <button class="btn btn-success" onclick="pagarPedido()" id="pagarPedidoBtn">
+                        <span><i class="fas fa-credit-card"></i></span>
+                        <span>Pagar Ahora</span>
                     </button>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal para vista previa de impresión térmica -->
-    <div class="modal" id="thermalPreviewModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Vista Previa de Factura - Impresora Térmica (80mm)</h3>
-                <button class="modal-close" onclick="closeThermalPreview()">×</button>
-            </div>
-            <div class="modal-body">
-                <div class="thermal-receipt" id="thermalContent">
-                    <!-- Contenido térmico se cargará aquí -->
-                </div>
-                <div class="form-actions" style="margin-top: 20px;">
-                    <button class="btn" onclick="closeThermalPreview()">
-                        <span>✖️</span>
-                        <span>Cerrar</span>
-                    </button>
-                    <button class="btn btn-primary" onclick="printThermalInvoice()">
-                        <span>🖨️</span>
-                        <span>Imprimir Factura</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de debug -->
-    <div class="modal" id="debugModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>📊 Debug de Facturación</h3>
-                <button class="modal-close" onclick="closeDebugModal()">×</button>
-            </div>
-            <div class="modal-body">
-                <h4>Pedidos Disponibles para Facturar</h4>
-                <div id="debugPedidos" style="margin-bottom: 20px;">
-                    <!-- Se llenará dinámicamente -->
-                </div>
-                
-                <h4>Facturas Existentes</h4>
-                <div id="debugFacturas" style="margin-bottom: 20px;">
-                    <!-- Se llenará dinámicamente -->
-                </div>
-                
-                <button class="btn btn-info" onclick="recargarDatos()">
-                    <span>🔄</span>
-                    <span>Recargar Datos</span>
-                </button>
             </div>
         </div>
     </div>
@@ -1653,8 +1277,7 @@
     let invoices = [];
     let orders = [];
     let filteredOrders = [];
-    let currentPage = 1;
-    const itemsPerPage = 10;
+    let currentOrder = null;
     
     // Inicializar la aplicación
     document.addEventListener('DOMContentLoaded', function() {
@@ -1674,21 +1297,18 @@
             orders = JSON.parse(pedidosJson) || [];
             invoices = JSON.parse(facturasJson) || [];
             
-            console.log(`✅ Datos cargados: ${orders.length} registros, ${invoices.length} facturas en estadísticas`);
+            console.log(`✅ Datos cargados: ${orders.length} pedidos, ${invoices.length} facturas`);
             
-            // Actualizar estado de debug
-            document.getElementById('debugStatus').textContent = 
-                `${orders.filter(o => !o.es_factura).length} pedidos sin facturar, ${orders.filter(o => o.es_factura).length} facturas pendientes`;
-            document.getElementById('debugStatus').style.color = orders.length > 0 ? '#38a169' : '#ff7e5f';
+            // Filtrar solo pedidos que no tienen factura (estado: entregado, listo, completado)
+            orders = orders.filter(order => !order.es_factura);
+            
+            console.log(`✅ Pedidos disponibles para pagar: ${orders.length}`);
             
         } catch (error) {
             console.error('❌ Error parseando JSON:', error);
             
             orders = [];
             invoices = [];
-            
-            document.getElementById('debugStatus').textContent = 'Error cargando datos: ' + error.message;
-            document.getElementById('debugStatus').style.color = '#e53e3e';
         }
         
         // Inicializar filteredOrders con todos los pedidos
@@ -1698,11 +1318,6 @@
         filterAndRender();
         updateStats();
         setupEventListeners();
-        updateInvoiceNumber();
-        
-        // Establecer fecha actual por defecto
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('invoiceDate').value = today;
     });
     
     // Configurar event listeners
@@ -1726,12 +1341,6 @@
         
         if (dateFilter) {
             dateFilter.addEventListener('change', filterAndRender);
-        }
-        
-        // Event listener para el campo de envío
-        const envioInput = document.getElementById('envio');
-        if (envioInput) {
-            envioInput.addEventListener('input', calculateInvoiceTotal);
         }
     }
     
@@ -1768,7 +1377,6 @@
                     order.codigo_delivery,
                     order.numero_mesa_codigo,
                     (order.mesa && order.mesa.numero_display) ? order.mesa.numero_display : '',
-                    order.numero_factura || ''
                 ].filter(field => field);
                 
                 matchesSearch = searchFields.some(field => 
@@ -1779,13 +1387,7 @@
             // 2. Filtrar por estado
             let matchesStatus = true;
             if (selectedStatus) {
-                if (order.es_factura) {
-                    // Para facturas: usar estado_factura
-                    matchesStatus = (order.estado_factura || order.estado) === selectedStatus;
-                } else {
-                    // Para pedidos: usar estado_pedido o estado
-                    matchesStatus = (order.estado_pedido || order.estado) === selectedStatus;
-                }
+                matchesStatus = (order.estado_pedido || order.estado) === selectedStatus;
             }
             
             // 3. Filtrar por tipo
@@ -1847,36 +1449,19 @@
                 return 0;
             }
         });
-        
-        currentPage = 1; // Resetear a la primera página
     }
     
     // Renderizar pedidos
     function renderPedidos() {
         const pedidosBody = document.getElementById('pedidosBody');
-        const pagination = document.getElementById('pagination');
         
         if (!pedidosBody) {
             console.error('ERROR: No se encontró el elemento pedidosBody');
             return;
         }
         
-        // Calcular paginación
-        const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        const endIndex = startIndex + itemsPerPage;
-        const currentItems = filteredOrders.slice(startIndex, endIndex);
-        
-        // Mostrar/Ocultar paginación
-        if (filteredOrders.length > itemsPerPage) {
-            pagination.style.display = 'flex';
-            document.getElementById('pageInfo').textContent = `Página ${currentPage} de ${totalPages}`;
-        } else {
-            pagination.style.display = 'none';
-        }
-        
         // Mostrar estado vacío si no hay pedidos
-        if (currentItems.length === 0) {
+        if (filteredOrders.length === 0) {
             pedidosBody.innerHTML = `
                 <tr class="empty-state">
                     <td colspan="8">
@@ -1894,8 +1479,8 @@
         // Renderizar pedidos
         let htmlContent = '';
         
-        for (let i = 0; i < currentItems.length; i++) {
-            const order = currentItems[i];
+        for (let i = 0; i < filteredOrders.length; i++) {
+            const order = filteredOrders[i];
             
             // Procesar fecha
             let fecha = new Date();
@@ -1950,75 +1535,26 @@
                 telefonoMostrar = `<span class="customer-phone">${order.telefono_cliente}</span>`;
             }
             
-            // Determinar estado a mostrar
-            let estadoMostrar = '';
-            let estadoClass = '';
+            // Determinar estado a mostrar - SIEMPRE "pendiente" para facturación
+            let estadoMostrar = 'pendiente'; // Cambiado de order.estado_pedido || order.estado || 'pendiente'
+            let estadoClass = getEstadoClass(estadoMostrar);
             
-            if (order.es_factura) {
-                // ES UNA FACTURA: mostrar estado de la factura
-                estadoMostrar = order.estado_factura || order.estado || 'pendiente';
-                estadoClass = getEstadoClass(estadoMostrar);
-            } else {
-                // ES UN PEDIDO: mostrar estado del pedido
-                estadoMostrar = order.estado_pedido || order.estado || 'pendiente';
-                estadoClass = getEstadoClass(estadoMostrar);
-            }
-            
-            // Determinar código a mostrar
-            let codigoMostrar = order.codigo_pedido;
-            if (order.es_factura && order.numero_factura) {
-                codigoMostrar = order.numero_factura;
-            }
-            
-            // Construir botones de acción
-            let actionButtons = '';
-            
-            if (order.es_factura) {
-                // Es una FACTURA existente
-                if (estadoMostrar === 'pendiente') {
-                    actionButtons = `
-                        <div class="action-buttons">
-                            <button class="btn-icon btn-view" onclick="viewOrderDetails('${order.id}')" title="Ver detalle">
-                                👁️
-                            </button>
-                            <button class="btn-icon btn-pagar" onclick="marcarComoPagada(${order.factura_id})" title="Marcar como pagada">
-                                ✅
-                            </button>
-                            <button class="btn-icon btn-eliminar" onclick="eliminarFactura(${order.factura_id})" title="Eliminar factura">
-                                🗑️
-                            </button>
-                        </div>
-                    `;
-                } else if (estadoMostrar === 'pagada') {
-                    actionButtons = `
-                        <div class="action-buttons">
-                            <button class="btn-icon btn-view" onclick="viewOrderDetails('${order.id}')" title="Ver detalle">
-                                👁️
-                            </button>
-                            <span style="color: #38a169; font-size: 0.8rem; font-weight: bold;">
-                                ✅ Pagada
-                            </span>
-                        </div>
-                    `;
-                }
-            } else {
-                // Es un PEDIDO sin facturar
-                actionButtons = `
-                    <div class="action-buttons">
-                        <button class="btn-icon btn-view" onclick="viewOrderDetails('${order.id}')" title="Ver detalle">
-                            👁️
-                        </button>
-                        <button class="btn-icon btn-pagar" onclick="pagarPedido('${order.id}')" title="Crear factura pendiente">
-                            🧾
-                        </button>
-                    </div>
-                `;
-            }
+            // Construir botones de acción - SOLO UN BOTÓN DE PAGO
+            let actionButtons = `
+                <div class="action-buttons">
+                    <button class="btn-icon btn-view" onclick="viewOrderDetails('${order.id}')" title="Ver detalle">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn-icon btn-pagar" onclick="showPagarModal('${order.id}')" title="Pagar pedido">
+                        <i class="fas fa-credit-card"></i>
+                    </button>
+                </div>
+            `;
             
             // Construir fila HTML
             htmlContent += `
                 <tr>
-                    <td style="font-weight: 700; color: #2c3e50;">${codigoMostrar || 'N/A'}</td>
+                    <td style="font-weight: 700; color: #2c3e50;">${order.codigo_pedido || 'N/A'}</td>
                     <td>
                         <span class="tipo-badge tipo-${order.tipo_pedido || 'mesa'}">
                             <span>${getTipoIcon(order.tipo_pedido)}</span>
@@ -2036,7 +1572,7 @@
                     </td>
                     <td>
                         <div class="date-badge">
-                            <span>📅</span>
+                            <span><i class="fas fa-calendar"></i></span>
                             <span>${formattedDate}</span>
                         </div>
                     </td>
@@ -2045,7 +1581,7 @@
                     </td>
                     <td>
                         <span class="status-badge ${estadoClass}">
-                            ${estadoMostrar || 'pendiente'}
+                            ${estadoMostrar}
                         </span>
                     </td>
                     <td>
@@ -2076,7 +1612,6 @@
             const ingresosMes = invoices
                 .filter(invoice => {
                     try {
-                        if (invoice.status !== 'pagada') return false;
                         const invoiceDate = new Date(invoice.date);
                         return invoiceDate >= firstDayOfMonth;
                     } catch (e) {
@@ -2088,55 +1623,31 @@
             ingresosMesElement.textContent = `$${ingresosMes.toFixed(2)}`;
         }
         
-        // Facturas pendientes (de la lista de estadísticas)
+        // Facturas pendientes (ahora siempre 0)
         const facturasPendientesElement = document.getElementById('facturasPendientes');
         if (facturasPendientesElement) {
-            const facturasPendientes = invoices.filter(invoice => 
-                invoice.status === 'pendiente'
-            ).length;
-            facturasPendientesElement.textContent = facturasPendientes;
+            facturasPendientesElement.textContent = 0;
         }
         
-        // Promedio por factura (solo pagadas)
+        // Promedio por factura
         const promedioFacturaElement = document.getElementById('promedioFactura');
         if (promedioFacturaElement) {
-            const facturasPagadas = invoices.filter(invoice => invoice.status === 'pagada');
-            const promedioFactura = facturasPagadas.length > 0 ? 
-                facturasPagadas.reduce((sum, invoice) => sum + (invoice.total || 0), 0) / facturasPagadas.length : 0;
+            const promedioFactura = invoices.length > 0 ? 
+                invoices.reduce((sum, invoice) => sum + (invoice.total || 0), 0) / invoices.length : 0;
             promedioFacturaElement.textContent = `$${promedioFactura.toFixed(2)}`;
         }
     }
     
-    // Cambiar página
-    function changePage(direction) {
-        const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
-        const newPage = currentPage + direction;
-        
-        if (newPage >= 1 && newPage <= totalPages) {
-            currentPage = newPage;
-            renderPedidos();
-        }
-    }
-    
-    // Ver detalles del pedido o factura
-    function viewOrderDetails(registroId) {
-        let registro;
-        
-        // Verificar si es una factura (ID empieza con "factura_")
-        if (registroId.startsWith('factura_')) {
-            const facturaId = registroId.replace('factura_', '');
-            registro = orders.find(o => o.factura_id == facturaId);
-        } else {
-            registro = orders.find(o => o.id == registroId);
-        }
-        
-        if (!registro) {
-            showNotification('Registro no encontrado', 'error');
+    // Ver detalles del pedido
+    function viewOrderDetails(pedidoId) {
+        const order = orders.find(o => o.id == pedidoId);
+        if (!order) {
+            showNotification('Pedido no encontrado', 'error');
             return;
         }
         
         const modalBody = document.getElementById('modalBody');
-        const fecha = new Date(registro.fecha_pedido || new Date());
+        const fecha = new Date(order.fecha_pedido || new Date());
         const formattedDate = fecha.toLocaleDateString('es-ES', {
             weekday: 'long',
             year: 'numeric',
@@ -2148,20 +1659,20 @@
         
         // Construir detalles
         let clienteInfo = '';
-        if (registro.nombre_cliente) {
-            clienteInfo += `<div style="margin-bottom: 0.5rem;"><strong>Cliente:</strong> ${registro.nombre_cliente}</div>`;
+        if (order.nombre_cliente) {
+            clienteInfo += `<div style="margin-bottom: 0.5rem;"><strong>Cliente:</strong> ${order.nombre_cliente}</div>`;
         }
-        if (registro.telefono_cliente) {
-            clienteInfo += `<div style="margin-bottom: 0.5rem;"><strong>Teléfono:</strong> ${registro.telefono_cliente}</div>`;
+        if (order.telefono_cliente) {
+            clienteInfo += `<div style="margin-bottom: 0.5rem;"><strong>Teléfono:</strong> ${order.telefono_cliente}</div>`;
         }
-        if (registro.direccion_entrega) {
-            clienteInfo += `<div style="margin-bottom: 0.5rem;"><strong>Dirección:</strong> ${registro.direccion_entrega}</div>`;
+        if (order.direccion_entrega) {
+            clienteInfo += `<div style="margin-bottom: 0.5rem;"><strong>Dirección:</strong> ${order.direccion_entrega}</div>`;
         }
         
         // Construir items
         let itemsHTML = '';
-        if (registro.items && registro.items.length > 0) {
-            itemsHTML = registro.items.map(item => `
+        if (order.items && order.items.length > 0) {
+            itemsHTML = order.items.map(item => `
                 <tr>
                     <td>${item.name || item.nombre || 'Producto'}</td>
                     <td>${item.quantity || item.cantidad || 1}</td>
@@ -2173,14 +1684,11 @@
             itemsHTML = `<tr><td colspan="4" style="text-align: center; padding: 20px;">No hay items disponibles</td></tr>`;
         }
         
-        // Determinar tipo de registro
-        const esFactura = registro.es_factura || registro.factura_id;
-        const titulo = esFactura ? `FACTURA ${registro.numero_factura || 'N/A'}` : `PEDIDO ${registro.codigo_pedido || 'N/A'}`;
-        
+        // Cambiar el estado mostrado a "pendiente" también en el modal
         modalBody.innerHTML = `
             <div class="invoice-header">
                 <div class="invoice-info">
-                    <h2>${titulo}</h2>
+                    <h2>PEDIDO ${order.codigo_pedido || 'N/A'}</h2>
                     <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
                         <div>
                             <div style="font-weight: 600; color: #4a5568;">Fecha:</div>
@@ -2188,38 +1696,28 @@
                         </div>
                         <div>
                             <div style="font-weight: 600; color: #4a5568;">Tipo:</div>
-                            <span class="tipo-badge tipo-${registro.tipo_pedido}">
-                                ${getTipoIcon(registro.tipo_pedido)} ${getTipoLabel(registro.tipo_pedido)}
+                            <span class="tipo-badge tipo-${order.tipo_pedido}">
+                                ${getTipoIcon(order.tipo_pedido)} ${getTipoLabel(order.tipo_pedido)}
                             </span>
                         </div>
-                        ${!esFactura ? `
                         <div>
-                            <div style="font-weight: 600; color: #4a5568;">Estado Pedido:</div>
-                            <span class="status-badge ${getEstadoClass(registro.estado_pedido || registro.estado)}">
-                                ${registro.estado_pedido || registro.estado || 'pendiente'}
+                            <div style="font-weight: 600; color: #4a5568;">Estado:</div>
+                            <span class="status-badge ${getEstadoClass('pendiente')}">
+                                pendiente
                             </span>
                         </div>
-                        ` : ''}
-                        ${esFactura ? `
-                        <div>
-                            <div style="font-weight: 600; color: #4a5568;">Estado Factura:</div>
-                            <span class="status-badge ${getEstadoClass(registro.estado_factura || registro.estado)}">
-                                ${registro.estado_factura || registro.estado || 'pendiente'}
-                            </span>
-                        </div>
-                        ` : ''}
                     </div>
                 </div>
             </div>
             
             <div class="invoice-details">
                 <div class="invoice-company">
-                    <h4>INFORMACIÓN ${esFactura ? 'DE LA FACTURA' : 'DEL PEDIDO'}</h4>
+                    <h4>INFORMACIÓN DEL PEDIDO</h4>
                     <div style="margin-bottom: 0.5rem;">
-                        <strong>Tipo:</strong> ${getTipoLabel(registro.tipo_pedido)}
+                        <strong>Tipo:</strong> ${getTipoLabel(order.tipo_pedido)}
                     </div>
                     <div style="margin-bottom: 0.5rem;">
-                        <strong>${registro.tipo_pedido === 'mesa' ? 'Mesa:' : 'Código:'}</strong> ${registro.numero_mesa_codigo || registro.codigo_delivery || 'N/A'}
+                        <strong>${order.tipo_pedido === 'mesa' ? 'Mesa:' : 'Código:'}</strong> ${order.numero_mesa_codigo || order.codigo_delivery || 'N/A'}
                     </div>
                     ${clienteInfo}
                 </div>
@@ -2227,19 +1725,19 @@
                 <div class="invoice-client">
                     <h4>DETALLES FINANCIEROS</h4>
                     <div style="margin-bottom: 0.5rem;">
-                        <strong>Subtotal:</strong> $${(registro.subtotal || 0).toFixed(2)}
+                        <strong>Subtotal:</strong> $${(order.subtotal || 0).toFixed(2)}
                     </div>
                     <div style="margin-bottom: 0.5rem;">
-                        <strong>Envío:</strong> $${(registro.envio || 0).toFixed(2)}
+                        <strong>Envío:</strong> $${(order.envio || 0).toFixed(2)}
                     </div>
                     <div style="margin-bottom: 0.5rem;">
-                        <strong>Total:</strong> $${(registro.total || 0).toFixed(2)}
+                        <strong>Total:</strong> $${(order.total || 0).toFixed(2)}
                     </div>
                 </div>
             </div>
             
             <div class="invoice-items">
-                <h4 style="color: #2c3e50; margin-bottom: 1rem;">ITEMS ${esFactura ? 'DE LA FACTURA' : 'DEL PEDIDO'}</h4>
+                <h4 style="color: #2c3e50; margin-bottom: 1rem;">ITEMS DEL PEDIDO</h4>
                 <table class="invoice-table">
                     <thead>
                         <tr>
@@ -2256,18 +1754,10 @@
             </div>
             
             <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
-                ${!esFactura ? `
-                <button class="btn btn-success" onclick="pagarPedido('${registro.id}')">
-                    <span>🧾</span>
-                    <span>Crear Factura Pendiente</span>
+                <button class="btn btn-success" onclick="showPagarModal('${order.id}')">
+                    <span><i class="fas fa-credit-card"></i></span>
+                    <span>Pagar Pedido</span>
                 </button>
-                ` : ''}
-                ${esFactura && (registro.estado_factura === 'pendiente' || registro.estado === 'pendiente') ? `
-                <button class="btn btn-success" onclick="marcarComoPagada(${registro.factura_id})">
-                    <span>✅</span>
-                    <span>Marcar como Pagada</span>
-                </button>
-                ` : ''}
             </div>
         `;
         
@@ -2275,163 +1765,37 @@
         document.getElementById('invoiceModal').classList.add('active');
     }
     
-    // Pagar pedido (crear factura pendiente)
-    function pagarPedido(pedidoId) {
+    // Mostrar modal para pagar
+    function showPagarModal(pedidoId) {
         const order = orders.find(o => o.id == pedidoId);
         if (!order) {
             showNotification('Pedido no encontrado', 'error');
             return;
         }
         
-        // Verificar si ya tiene factura pendiente
-        if (order.es_factura || order.tiene_factura) {
-            showNotification('Este pedido ya tiene una factura pendiente', 'warning');
-            return;
-        }
-        
-        // Limpiar y llenar el modal
+        currentOrder = order;
         document.getElementById('pedidoId').value = pedidoId;
-        document.getElementById('tipoPedido').value = getTipoLabel(order.tipo_pedido);
-        
-        // Determinar número de mesa o código
-        let numeroMesaCodigo = 'N/A';
-        if (order.tipo_pedido === 'mesa') {
-            if (order.mesa && order.mesa.numero_display) {
-                numeroMesaCodigo = order.mesa.numero_display;
-            } else if (order.numero_mesa_codigo) {
-                numeroMesaCodigo = order.numero_mesa_codigo;
-            }
-        } else if (order.tipo_pedido === 'delivery' || order.tipo_pedido === 'llevar') {
-            if (order.codigo_delivery) {
-                numeroMesaCodigo = order.codigo_delivery;
-            } else if (order.numero_mesa_codigo) {
-                numeroMesaCodigo = order.numero_mesa_codigo;
-            }
-        }
-        
-        document.getElementById('numeroMesaCodigo').value = numeroMesaCodigo;
-        document.getElementById('envio').value = order.envio || 0;
-        
-        // Mostrar/ocultar campos de cliente según tipo
-        if (order.tipo_pedido === 'delivery' || order.tipo_pedido === 'llevar') {
-            document.getElementById('clienteInfoRow').style.display = 'flex';
-            document.getElementById('nombreCliente').value = order.nombre_cliente || 'Cliente no especificado';
-            document.getElementById('telefonoCliente').value = order.telefono_cliente || 'No especificado';
-            
-            if (order.tipo_pedido === 'delivery') {
-                document.getElementById('direccionRow').style.display = 'flex';
-                document.getElementById('direccionEntrega').value = order.direccion_entrega || 'No especificada';
-            } else {
-                document.getElementById('direccionRow').style.display = 'none';
-            }
-        } else {
-            document.getElementById('clienteInfoRow').style.display = 'none';
-            document.getElementById('direccionRow').style.display = 'none';
-        }
-        
-        // Cargar items
-        const itemsBody = document.getElementById('invoiceItemsBody');
-        if (order.items && order.items.length > 0) {
-            itemsBody.innerHTML = order.items.map(item => `
-                <tr>
-                    <td>${item.name || item.nombre || 'Producto'}</td>
-                    <td>${item.quantity || item.cantidad || 1}</td>
-                    <td>$${(item.price || item.precio || 0).toFixed(2)}</td>
-                    <td>$${(item.total || item.subtotal || 0).toFixed(2)}</td>
-                </tr>
-            `).join('');
-        } else {
-            itemsBody.innerHTML = `
-                <tr>
-                    <td colspan="4" style="text-align: center; color: #999; padding: 20px;">
-                        No hay items disponibles para este pedido
-                    </td>
-                </tr>
-            `;
-        }
-        
-        // Calcular totales
-        calculateInvoiceTotal(order);
-        
-        // Generar número de factura
-        updateInvoiceNumber();
+        document.getElementById('totalAmount').value = `$${(order.total || 0).toFixed(2)}`;
         
         // Mostrar modal
         document.getElementById('createInvoiceModal').classList.add('active');
     }
     
-    // Calcular total de la factura
-    function calculateInvoiceTotal(order = null) {
-        let subtotal = 0;
-        
-        if (order) {
-            subtotal = order.subtotal || 0;
-        } else {
-            const rows = document.querySelectorAll('#invoiceItemsBody tr');
-            rows.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                if (cells.length >= 4) {
-                    const itemTotal = parseFloat(cells[3].textContent.replace('$', '').replace(',', '')) || 0;
-                    subtotal += itemTotal;
-                }
-            });
-        }
-        
-        const envio = parseFloat(document.getElementById('envio').value) || 0;
-        const total = subtotal + envio;
-        
-        document.getElementById('subtotal').value = `$${subtotal.toFixed(2)}`;
-        document.getElementById('total').value = `$${total.toFixed(2)}`;
-    }
-    
-    // Guardar factura (estado pendiente)
-    function saveInvoice() {
+    // Pagar pedido (crear factura pagada)
+    function pagarPedido() {
         const pedidoId = document.getElementById('pedidoId').value;
-        const invoiceNumber = document.getElementById('invoiceNumber').value;
-        
-        if (!pedidoId) {
-            showNotification('No hay pedido seleccionado', 'error');
-            return;
-        }
-        
         const order = orders.find(o => o.id == pedidoId);
+        
         if (!order) {
             showNotification('Pedido no encontrado', 'error');
             return;
         }
         
         const paymentMethod = document.getElementById('paymentMethod').value;
-        const envio = parseFloat(document.getElementById('envio').value) || 0;
-        const invoiceDate = document.getElementById('invoiceDate').value;
-        
-        // Calcular items
-        const items = [];
-        const rows = document.querySelectorAll('#invoiceItemsBody tr');
-        rows.forEach(row => {
-            const cells = row.querySelectorAll('td');
-            if (cells.length >= 4 && cells[0].textContent.trim() !== 'No hay items disponibles para este pedido') {
-                const name = cells[0].textContent.trim();
-                const quantity = parseInt(cells[1].textContent) || 1;
-                const price = parseFloat(cells[2].textContent.replace('$', '').replace(',', '')) || 0;
-                const total = parseFloat(cells[3].textContent.replace('$', '').replace(',', '')) || 0;
-                
-                items.push({
-                    name: name,
-                    quantity: quantity,
-                    price: price,
-                    total: total
-                });
-            }
-        });
-        
-        if (items.length === 0) {
-            showNotification('El pedido debe tener al menos un item', 'error');
-            return;
-        }
-        
-        // Calcular totales
-        const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-        const total = subtotal + envio;
+        const total = order.total || 0;
+        const subtotal = order.subtotal || 0;
+        const envio = order.envio || 0;
+        // const iva = subtotal * 0.12;
         
         // Crear un formulario dinámico para enviar a Django
         const form = document.createElement('form');
@@ -2459,14 +1823,17 @@
         // Agregar datos básicos
         addField('pedido_id', pedidoId);
         addField('metodo_pago', paymentMethod);
-        addField('estado', 'pendiente'); // SIEMPRE pendiente al crear
+        addField('estado', 'pagada'); // Siempre pagada
         addField('subtotal', subtotal.toFixed(2));
         addField('envio', envio.toFixed(2));
         addField('total', total.toFixed(2));
-        addField('invoice_date', invoiceDate);
         
         // Agregar items como JSON string
-        addField('items', JSON.stringify(items));
+        if (order.items && order.items.length > 0) {
+            addField('items', JSON.stringify(order.items));
+        } else {
+            addField('items', '[]');
+        }
         
         // Agregar información adicional
         if (order.nombre_cliente) {
@@ -2484,8 +1851,8 @@
         if (order.tipo_pedido === 'mesa') {
             if (order.mesa && order.mesa.numero_display) {
                 numeroMesaCodigo = order.mesa.numero_display;
-            } else if (order.numero_mesa) {
-                numeroMesaCodigo = order.numero_mesa;
+            } else if (order.numero_mesa_codigo) {
+                numeroMesaCodigo = order.numero_mesa_codigo;
             }
         } else if (order.codigo_delivery) {
             numeroMesaCodigo = order.codigo_delivery;
@@ -2495,234 +1862,24 @@
             addField('numero_mesa_codigo', numeroMesaCodigo);
         }
         
-        // Enviar formulario
-        document.body.appendChild(form);
-        showNotification(`🔄 Creando factura ${invoiceNumber}...`, 'info');
+        // Agregar imprimir por defecto
+        addField('imprimir', 'true');
+        
+        // Deshabilitar el botón para evitar múltiples clics
+        const btn = document.getElementById('pagarPedidoBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳</span><span>Procesando...</span>';
+        
+        showNotification(`<i class="fas fa-credit-card"></i> Procesando pago de $${total.toFixed(2)}...`, 'info');
         
         // Cerrar modal
         closeCreateInvoiceModal();
         
-        // Enviar formulario
-        form.submit();
-    }
-    
-    // Guardar e imprimir factura
-    function saveAndPrintInvoice() {
-        const pedidoId = document.getElementById('pedidoId').value;
-        const invoiceNumber = document.getElementById('invoiceNumber').value;
-        
-        if (!pedidoId) {
-            showNotification('No hay pedido seleccionado', 'error');
-            return;
-        }
-        
-        const order = orders.find(o => o.id == pedidoId);
-        if (!order) {
-            showNotification('Pedido no encontrado', 'error');
-            return;
-        }
-        
-        const paymentMethod = document.getElementById('paymentMethod').value;
-        const envio = parseFloat(document.getElementById('envio').value) || 0;
-        const invoiceDate = document.getElementById('invoiceDate').value;
-        
-        // Calcular items
-        const items = [];
-        const rows = document.querySelectorAll('#invoiceItemsBody tr');
-        rows.forEach(row => {
-            const cells = row.querySelectorAll('td');
-            if (cells.length >= 4 && cells[0].textContent.trim() !== 'No hay items disponibles para este pedido') {
-                const name = cells[0].textContent.trim();
-                const quantity = parseInt(cells[1].textContent) || 1;
-                const price = parseFloat(cells[2].textContent.replace('$', '').replace(',', '')) || 0;
-                const total = parseFloat(cells[3].textContent.replace('$', '').replace(',', '')) || 0;
-                
-                items.push({
-                    name: name,
-                    quantity: quantity,
-                    price: price,
-                    total: total
-                });
-            }
-        });
-        
-        if (items.length === 0) {
-            showNotification('El pedido debe tener al menos un item', 'error');
-            return;
-        }
-        
-        // Calcular totales
-        const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-        const total = subtotal + envio;
-        
-        // Crear un formulario dinámico
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = "{% url 'crear_factura' %}";
-        form.style.display = 'none';
-        
-        // Agregar token CSRF
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrfmiddlewaretoken';
-        csrfInput.value = csrfToken;
-        form.appendChild(csrfInput);
-        
-        // Función para agregar campos
-        const addField = (name, value) => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = name;
-            input.value = value;
-            form.appendChild(input);
-        };
-        
-        // Agregar datos básicos
-        addField('pedido_id', pedidoId);
-        addField('metodo_pago', paymentMethod);
-        addField('estado', 'pendiente'); // SIEMPRE pendiente al crear
-        addField('subtotal', subtotal.toFixed(2));
-        addField('envio', envio.toFixed(2));
-        addField('total', total.toFixed(2));
-        addField('invoice_date', invoiceDate);
-        addField('imprimir', 'true'); // Bandera para indicar que debe imprimir
-        
-        // Agregar items como JSON string
-        addField('items', JSON.stringify(items));
-        
-        // Agregar información adicional
-        if (order.nombre_cliente) {
-            addField('nombre_cliente', order.nombre_cliente);
-        }
-        if (order.telefono_cliente) {
-            addField('telefono_cliente', order.telefono_cliente);
-        }
-        if (order.direccion_entrega) {
-            addField('direccion_entrega', order.direccion_entrega);
-        }
-        
-        // Determinar número de mesa o código para la factura
-        let numeroMesaCodigo = '';
-        if (order.tipo_pedido === 'mesa') {
-            if (order.mesa && order.mesa.numero_display) {
-                numeroMesaCodigo = order.mesa.numero_display;
-            } else if (order.numero_mesa) {
-                numeroMesaCodigo = order.numero_mesa;
-            }
-        } else if (order.codigo_delivery) {
-            numeroMesaCodigo = order.codigo_delivery;
-        }
-        
-        if (numeroMesaCodigo) {
-            addField('numero_mesa_codigo', numeroMesaCodigo);
-        }
-        
-        // Enviar formulario
-        document.body.appendChild(form);
-        showNotification(`🖨️ Creando factura ${invoiceNumber} e imprimiendo...`, 'info');
-        
-        // Cerrar el modal de creación
-        closeCreateInvoiceModal();
-        
-        // Enviar formulario
-        form.submit();
-    }
-    
-    // MARCADO COMO PAGADA - VERSIÓN ACTUALIZADA
-    function marcarComoPagada(facturaId) {
-        if (!confirm('¿Estás seguro de marcar esta factura como pagada?\n\nSe abrirá la ventana de impresión automáticamente.')) {
-            return;
-        }
-        
-        showNotification(`⏳ Marcando factura como pagada...`, 'info');
-        
-        // Usar fetch para hacer la petición AJAX
-        fetch(`/facturacion/marcar-como-pagada/${facturaId}/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification(data.message, 'success');
-                
-                // Si hay una URL de redirección, ir a ella después de 1 segundo
-                if (data.redirect_url) {
-                    setTimeout(() => {
-                        window.open(data.redirect_url, '_blank'); // Abrir en nueva pestaña
-                        // Recargar la página principal después de 2 segundos
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 2000);
-                    }, 1000);
-                } else {
-                    // Si no hay URL de redirección, solo recargar
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1000);
-                }
-            } else {
-                showNotification(data.message, 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('Error al marcar como pagada', 'error');
-        });
-    }
-    
-    // Eliminar pedido
-    function eliminarPedido(pedidoId) {
-        if (!confirm('¿Estás seguro de eliminar este pedido? Esta acción no se puede deshacer.')) {
-            return;
-        }
-        
-        // Crear un formulario para eliminar
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = `/pedidos/eliminar/${pedidoId}/`;
-        
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrfmiddlewaretoken';
-        csrfInput.value = csrfToken;
-        form.appendChild(csrfInput);
-        
-        document.body.appendChild(form);
-        form.submit();
-    }
-    
-    // Eliminar factura pendiente
-    function eliminarFactura(facturaId) {
-        if (!confirm('¿Estás seguro de eliminar esta factura pendiente?')) {
-            return;
-        }
-        
-        // Crear formulario para enviar petición
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = `/facturacion/eliminar-factura/${facturaId}/`;
-        form.style.display = 'none';
-        
-        // Agregar token CSRF
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrfmiddlewaretoken';
-        csrfInput.value = csrfToken;
-        form.appendChild(csrfInput);
-        
-        document.body.appendChild(form);
-        
-        showNotification(`⏳ Eliminando factura pendiente...`, 'info');
-        
-        // Enviar formulario
-        form.submit();
+        // Enviar formulario después de un breve retraso
+        setTimeout(() => {
+            document.body.appendChild(form);
+            form.submit();
+        }, 1000);
     }
     
     // Exportar facturas
@@ -2734,92 +1891,6 @@
         
         // Redirigir a la vista de exportación
         window.location.href = "{% url 'exportar_facturas' %}";
-    }
-    
-    // Actualizar número de factura
-    function updateInvoiceNumber() {
-        const year = new Date().getFullYear();
-        const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
-        
-        // Obtener el último número de factura de las facturas existentes
-        let lastNumber = 1;
-        if (invoices.length > 0) {
-            // Buscar el número más alto
-            const numbers = invoices.map(inv => {
-                if (!inv.invoiceNumber) return 0;
-                const match = inv.invoiceNumber.match(/FAC-\d{4}(\d{2})-(\d+)/);
-                if (match && match[1] === month) {
-                    return parseInt(match[2]);
-                }
-                return 0;
-            });
-            lastNumber = Math.max(...numbers) + 1;
-        }
-        
-        const sequential = lastNumber.toString().padStart(6, '0');
-        const invoiceNumber = `FAC-${year}${month}-${sequential}`;
-        document.getElementById('invoiceNumber').value = invoiceNumber;
-    }
-    
-    // Mostrar modal de debug
-    function mostrarDebug() {
-        const debugPedidos = document.getElementById('debugPedidos');
-        const debugFacturas = document.getElementById('debugFacturas');
-        
-        // Mostrar pedidos
-        if (orders.length === 0) {
-            debugPedidos.innerHTML = '<p style="color: #999;">No hay registros disponibles</p>';
-        } else {
-            const pedidosSinFacturar = orders.filter(o => !o.es_factura);
-            const facturasPendientes = orders.filter(o => o.es_factura && (o.estado_factura === 'pendiente' || o.estado === 'pendiente'));
-            
-            debugPedidos.innerHTML = `
-                <p><strong>Total registros:</strong> ${orders.length}</p>
-                <p><strong>Pedidos sin facturar:</strong> ${pedidosSinFacturar.length}</p>
-                <p><strong>Facturas pendientes:</strong> ${facturasPendientes.length}</p>
-                <div style="max-height: 200px; overflow-y: auto; border: 1px solid #e0e0e0; padding: 10px; border-radius: 5px;">
-                    ${orders.map(order => `
-                        <div style="padding: 5px; border-bottom: 1px solid #f0f0f0;">
-                            <strong>${order.es_factura ? 'FACTURA' : 'PEDIDO'}:</strong> ${order.codigo_pedido || order.numero_factura || 'N/A'} - 
-                            ${getTipoLabel(order.tipo_pedido)} - 
-                            Estado: ${order.es_factura ? (order.estado_factura || order.estado) : (order.estado_pedido || order.estado)} - 
-                            $${(order.total || 0).toFixed(2)}
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
-        
-        // Mostrar facturas (todas para estadísticas)
-        if (invoices.length === 0) {
-            debugFacturas.innerHTML = '<p style="color: #999;">No hay facturas existentes</p>';
-        } else {
-            debugFacturas.innerHTML = `
-                <p><strong>Total facturas:</strong> ${invoices.length}</p>
-                <p><strong>Pagadas:</strong> ${invoices.filter(f => f.status === 'pagada').length}</p>
-                <p><strong>Pendientes:</strong> ${invoices.filter(f => f.status === 'pendiente').length}</p>
-                <div style="max-height: 200px; overflow-y: auto; border: 1px solid #e0e0e0; padding: 10px; border-radius: 5px;">
-                    ${invoices.map(inv => `
-                        <div style="padding: 5px; border-bottom: 1px solid #f0f0f0;">
-                            <strong>${inv.invoiceNumber || 'N/A'}</strong> - ${inv.codigoPedido || 'N/A'} - 
-                            ${getStatusLabel(inv.status)} - $${(inv.total || 0).toFixed(2)}
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
-        
-        document.getElementById('debugModal').classList.add('active');
-    }
-    
-    // Cerrar modal de debug
-    function closeDebugModal() {
-        document.getElementById('debugModal').classList.remove('active');
-    }
-    
-    // Recargar datos
-    function recargarDatos() {
-        window.location.reload();
     }
     
     // Cerrar modales
@@ -2875,24 +1946,6 @@
     }
     
     // Helper functions
-    function getStatusLabel(status) {
-        const labels = {
-            'pagada': 'Pagada',
-            'pendiente': 'Pendiente',
-            'anulada': 'Anulada'
-        };
-        return labels[status] || status || 'Desconocido';
-    }
-    
-    function getStatusIcon(status) {
-        const icons = {
-            'pagada': '✅',
-            'pendiente': '⏱️',
-            'anulada': '❌'
-        };
-        return icons[status] || '📋';
-    }
-    
     function getTipoLabel(tipo) {
         const labels = {
             'mesa': 'Mesa',
@@ -2904,11 +1957,11 @@
     
     function getTipoIcon(tipo) {
         const icons = {
-            'mesa': '🪑',
-            'delivery': '🚚',
-            'llevar': '🥡'
+            'mesa': '<i class="fas fa-chair"></i>',
+            'delivery': '<i class="fas fa-truck"></i>',
+            'llevar': '<i class="fas fa-shopping-bag"></i>'
         };
-        return icons[tipo] || '📦';
+        return icons[tipo] || '<i class="fas fa-box"></i>';
     }
     
     function getEstadoClass(estado) {
@@ -2918,30 +1971,12 @@
             'preparacion': 'status-preparacion',
             'listo': 'status-listo',
             'entregado': 'status-entregado',
-            'completado': 'status-completado',
+            'pendiente': 'status-pendiente',
             'cancelado': 'status-anulada',
             'pagada': 'status-pagada',
             'anulada': 'status-anulada'
         };
         return clases[estado] || 'status-pendiente';
-    }
-    
-    function getPaymentLabel(payment) {
-        const labels = {
-            'efectivo': 'Efectivo',
-            'tarjeta': 'Tarjeta',
-            'transferencia': 'Transferencia'
-        };
-        return labels[payment] || payment || 'Desconocido';
-    }
-    
-    function getPaymentIcon(payment) {
-        const icons = {
-            'efectivo': '💰',
-            'tarjeta': '💳',
-            'transferencia': '🏦'
-        };
-        return icons[payment] || '💵';
     }
     
     // Sidebar toggle

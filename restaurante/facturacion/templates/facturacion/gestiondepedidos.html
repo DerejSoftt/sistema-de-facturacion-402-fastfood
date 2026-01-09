@@ -1,9 +1,11 @@
+{% load humanize %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión de Pedidos - Restaurante</title>
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -23,14 +25,16 @@
             min-height: 100vh;
         }
         
-        /* Sidebar styles - Mismo diseño */
+        /* Sidebar styles */
         .sidebar {
             width: 260px;
+            height: 900px;
             background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
             box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
             display: flex;
             flex-direction: column;
             transition: transform 0.3s ease;
+             position: fixed;
         }
         
         .sidebar-header {
@@ -116,11 +120,12 @@
             flex: 1;
             padding: 2rem;
             overflow-x: hidden;
+            margin-left: 260px;
         }
         
         .container {
             width: 100%;
-            max-width: 1600px;
+            max-width: 1500px;
             margin: 0 auto;
             background: white;
             border-radius: 25px;
@@ -134,7 +139,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
         
-        /* Header - Mismo diseño */
+        /* Header */
         .header {
             background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             color: white;
@@ -246,11 +251,13 @@
         }
         
         .controls-header h3::before {
-            content: "🔍";
+            content: "";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
             font-size: 1.2rem;
         }
         
-        /* Botones - Mismo estilo */
+        /* Botones */
         .btn {
             padding: 1rem 2.5rem;
             border: none;
@@ -333,7 +340,7 @@
             font-size: 0.875rem;
         }
         
-        /* Form inputs - Para filtros */
+        /* Form inputs */
         .form-group {
             display: flex;
             flex-direction: column;
@@ -781,6 +788,255 @@
             color: #2c3e50;
         }
         
+        /* Modal para editar pedido */
+        .edit-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1002;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        
+        .edit-modal.active {
+            display: flex;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .edit-modal-content {
+            background: white;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 900px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+        }
+        
+        .edit-modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .edit-modal-header h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .edit-modal-body {
+            padding: 2rem;
+        }
+        
+        /* Estilos para edición de items */
+        .order-item-edit {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            background: #f8f9ff;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .order-item-edit:hover {
+            background: #e6fffa;
+            transform: translateX(5px);
+        }
+        
+        /* Estilos para formularios en modal de edición */
+        .edit-form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .edit-form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        
+        .edit-form-group input,
+        .edit-form-group select,
+        .edit-form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 2px solid #e0e6ff;
+            transition: all 0.3s ease;
+        }
+        
+        .edit-form-group input:focus,
+        .edit-form-group select:focus,
+        .edit-form-group textarea:focus {
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.2);
+            outline: none;
+        }
+        
+        /* Barra de búsqueda en modal */
+        .search-bebidas {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+        
+        .search-bebidas input {
+            width: 100%;
+            padding: 0.75rem 0.75rem 0.75rem 2.5rem;
+            border-radius: 8px;
+            border: 2px solid #e0e6ff;
+            font-size: 0.95rem;
+        }
+        
+        .search-bebidas input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+            outline: none;
+        }
+        
+        .search-bebidas-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #667eea;
+            font-size: 1rem;
+        }
+        
+        .search-bebidas-btn {
+            position: absolute;
+            right: 0.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.25rem 0.75rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        
+        /* Select de bebidas */
+        .bebidas-select {
+            width: 100%;
+            height: 120px;
+            padding: 0.5rem;
+            border-radius: 8px;
+            border: 2px solid #e0e6ff;
+            overflow-y: auto;
+        }
+        
+        .bebidas-select option {
+            padding: 0.5rem;
+            border-bottom: 1px solid #f1f1f1;
+            cursor: pointer;
+        }
+        
+        .bebidas-select option:hover {
+            background: #f8f9ff;
+        }
+        
+        .bebidas-select option:checked {
+            background: #667eea;
+            color: white;
+        }
+        
+        /* Controles de cantidad */
+        .cantidad-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .cantidad-btn {
+            width: 35px;
+            height: 35px;
+            border-radius: 5px;
+            border: 2px solid #e0e6ff;
+            background: white;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .cantidad-btn:hover {
+            background: #f8f9ff;
+            border-color: #667eea;
+        }
+        
+        .cantidad-input {
+            width: 80px;
+            padding: 0.75rem;
+            text-align: center;
+            border-radius: 8px;
+            border: 2px solid #e0e6ff;
+        }
+        
+        /* Grid para formulario de agregar items */
+        .items-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto;
+            gap: 1rem;
+            align-items: end;
+        }
+        
+        /* Indicadores de stock */
+        .stock-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            margin-top: 0.25rem;
+        }
+        
+        .stock-icon {
+            font-size: 0.9rem;
+        }
+        
+        .stock-text {
+            font-size: 0.8rem;
+            color: #718096;
+        }
+        
+        .stock-high {
+            color: #38a169;
+        }
+        
+        .stock-medium {
+            color: #d69e2e;
+        }
+        
+        .stock-low {
+            color: #e53e3e;
+        }
+        
+        /* Checkbox personalizado */
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .checkbox-container input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
         /* Pagination */
         .pagination {
             display: flex;
@@ -861,6 +1117,10 @@
             .stats-container {
                 grid-template-columns: repeat(2, 1fr);
             }
+            
+            .items-grid {
+                grid-template-columns: 1fr;
+            }
         }
         
         @media (max-width: 768px) {
@@ -940,8 +1200,19 @@
             }
             
             .modal-content,
-            .status-modal-content {
+            .status-modal-content,
+            .edit-modal-content {
                 margin: 1rem;
+            }
+            
+            .items-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .order-item-edit {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
             }
         }
         
@@ -956,7 +1227,8 @@
             }
             
             .modal-body,
-            .status-modal-body {
+            .status-modal-body,
+            .edit-modal-body {
                 padding: 1.5rem;
             }
             
@@ -972,152 +1244,178 @@
                 font-size: 0.9rem;
             }
         }
+
+        /* Notificaciones personalizadas */
+        .custom-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            z-index: 10000;
+            animation: slideIn 0.3s ease-out;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 400px;
+            white-space: pre-line;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
     </style>
 </head>
 <body>
     <!-- Mobile menu toggle -->
-    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
     
-      <div class="app-container">
-    <!-- Sidebar navigation -->
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            🍽️ Mi Restaurante
+    <div class="app-container">
+        <!-- Sidebar navigation -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-utensils"></i> Mi Restaurante
+            </div>
+            <nav class="sidebar-nav">
+                {% with user_groups=user.groups.all|join:"," %}
+                
+                <!-- Menú para Usuario Normal -->
+                {% if "Usuario Normal" in user_groups and not user.is_superuser %}
+                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                {% endif %}
+                
+                <!-- Menú para Administrador -->
+                {% if "Administrador" in user_groups and not user.is_superuser %}
+                <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Gestión de Usuarios</span>
+                </a>
+                {% endif %}
+                
+                <!-- Menú para otros grupos... -->
+                {% if "Gerente" in user_groups and not user.is_superuser %}
+                <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
+                {% endif %}
+                
+                {% if "Cajero" in user_groups and not user.is_superuser %}
+                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                {% endif %}
+                
+                <!-- Menú EXCLUSIVO para superusuarios -->
+                {% if user.is_superuser %}
+                <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Gestión de Usuarios</span>
+                </a>
+                {% endif %}
+                
+                <!-- Cerrar sesión para todos -->
+                <a href="{% url 'logout' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
+                    <span>Cerrar Sesión</span>
+                </a>
+                
+                {% endwith %}
+            </nav>
         </div>
-        <nav class="sidebar-nav">
-            <!-- Verificar grupos sin template tag -->
-            {% with user_groups=user.groups.all|join:"," %}
-            
-            <!-- Menú para Usuario Normal (excluye superusuarios) -->
-            {% if "Usuario Normal" in user_groups and not user.is_superuser %}
-            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
-                <span>Pedidos</span>
-            </a>
-            <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
-                <span>Inventario</span>
-            </a>
-            <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
-                <span>Gestión de Pedidos</span>
-            </a>
-            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
-                <span>Facturación</span>
-            </a>
-            <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
-                <span>Salida de Productos</span>
-            </a>
-            {% endif %}
-            
-            <!-- Menú para Administrador -->
-            {% if "Administrador" in user_groups and not user.is_superuser %}
-            <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                <span class="nav-icon">📦</span>
-                <span>Entrada de Productos</span>
-            </a>
-            <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
-                <span>Inventario</span>
-            </a>
-            <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">🍽️</span>
-                <span>Entrada de Platos</span>
-            </a>
-            <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">📊</span>
-                <span>Gestión de Platos</span>
-            </a>
-            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
-                <span>Pedidos</span>
-            </a>
-            <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
-                <span>Gestión de Pedidos</span>
-            </a>
-            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
-                <span>Facturación</span>
-            </a>
-            <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
-                <span>Salida de Productos</span>
-            </a>
-            <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                <span class="nav-icon">👥</span>
-                <span>Gestión de Usuarios</span>
-            </a>
-            {% endif %}
-            
-            <!-- Menú para otros grupos... -->
-            {% if "Gerente" in user_groups and not user.is_superuser %}
-            <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
-            {% endif %}
-            
-            {% if "Cajero" in user_groups and not user.is_superuser %}
-            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
-                <span>Pedidos</span>
-            </a>
-            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
-                <span>Facturación</span>
-            </a>
-            {% endif %}
-            
-            <!-- Menú EXCLUSIVO para superusuarios -->
-            {% if user.is_superuser %}
-            <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                <span class="nav-icon">📦</span>
-                <span>Entrada de Productos</span>
-            </a>
-            <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
-                <span>Inventario</span>
-            </a>
-            <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">🍽️</span>
-                <span>Entrada de Platos</span>
-            </a>
-            <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">📊</span>
-                <span>Gestión de Platos</span>
-            </a>
-            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
-                <span>Pedidos</span>
-            </a>
-            <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
-                <span>Gestión de Pedidos</span>
-            </a>
-            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
-                <span>Facturación</span>
-            </a>
-            <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
-                <span>Salida de Productos</span>
-            </a>
-            <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                <span class="nav-icon">👥</span>
-                <span>Gestión de Usuarios</span>
-            </a>
-            {% endif %}
-            
-            <!-- Cerrar sesión para todos -->
-            <a href="{% url 'logout' %}" class="nav-item">
-                <span class="nav-icon">🚪</span>
-                <span>Cerrar Sesión</span>
-            </a>
-            
-            {% endwith %}
-        </nav>
-    </div>
-    
         
         <!-- Overlay for mobile sidebar -->
         <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
@@ -1125,30 +1423,34 @@
         <div class="main-content">
             <div class="container">
                 <div class="header">
-                    <h1>📋 Gestión de Pedidos</h1>
-                    <p>Administra y controla todos los pedidos del restaurante</p>
+                    <h1><i class="fas fa-clipboard-list"></i> Gestión de Pedidos Activos</h1>
+                    <p>Administra y controla todos los pedidos del restaurante que aún no están pagados</p>
+                    <div style="margin-top: 1rem; background: rgba(255, 255, 255, 0.2); padding: 0.5rem 1rem; border-radius: 10px; font-size: 0.9rem;">
+                        <strong><i class="fas fa-lightbulb"></i> Nota:</strong> Solo se muestran pedidos que no tienen facturas pagadas. 
+                        Los pedidos pagados están en el <a href="{% url 'historial_pedidos' %}" style="color: white; text-decoration: underline;">historial</a>.
+                    </div>
                 </div>
                 
                 <div class="content">
                     <!-- Stats Cards -->
                     <div class="stats-container">
                         <div class="stat-card">
-                            <span class="stat-icon">📋</span>
+                            <span class="stat-icon"><i class="fas fa-clipboard-list"></i></span>
                             <div class="stat-value" id="totalPedidos">{{ estadisticas.total_pedidos }}</div>
-                            <div class="stat-label">Total Pedidos</div>
+                            <div class="stat-label">Pedidos Activos</div>
                         </div>
                         <div class="stat-card">
-                            <span class="stat-icon">⏱️</span>
+                            <span class="stat-icon"><i class="fas fa-clock"></i></span>
                             <div class="stat-value" id="pedidosPendientes">{{ estadisticas.pedidos_pendientes }}</div>
                             <div class="stat-label">Pendientes</div>
                         </div>
                         <div class="stat-card">
-                            <span class="stat-icon">💰</span>
-                            <div class="stat-value" id="ingresosHoy">${{ estadisticas.ingresos_hoy|floatformat:2 }}</div>
+                            <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
+                            <div class="stat-value" id="ingresosHoy">${{ estadisticas.ingresos_hoy|floatformat:2|intcomma }}</div>
                             <div class="stat-label">Ingresos Hoy</div>
                         </div>
                         <div class="stat-card">
-                            <span class="stat-icon">📦</span>
+                            <span class="stat-icon"><i class="fas fa-truck"></i></span>
                             <div class="stat-value" id="pedidosDomicilio">{{ estadisticas.pedidos_domicilio }}</div>
                             <div class="stat-label">A Domicilio</div>
                         </div>
@@ -1157,18 +1459,24 @@
                     <!-- Controls Section -->
                     <div class="controls-section">
                         <div class="controls-header">
-                            <h3>Buscar y Filtrar Pedidos</h3>
-                            <button class="btn btn-primary btn-sm" onclick="exportOrders()" type="button">
-                                <span>📤</span>
-                                <span>Exportar Pedidos</span>
-                            </button>
+                            <h3>Buscar y Filtrar Pedidos Activos</h3>
+                            <div style="display: flex; gap: 1rem;">
+                                <button class="btn btn-success btn-sm" onclick="window.location.href='{% url 'historial_pedidos' %}'" type="button">
+                                    <span><i class="fas fa-history"></i></span>
+                                    <span>Ver Historial Pagados</span>
+                                </button>
+                                <button class="btn btn-primary btn-sm" onclick="exportOrders()" type="button">
+                                    <span><i class="fas fa-file-export"></i></span>
+                                    <span>Exportar Pedidos</span>
+                                </button>
+                            </div>
                         </div>
                         
                         <form method="get" id="filterForm">
                             <div class="form-group">
-                                <label for="searchInput">🔍 Buscar Pedido</label>
+                                <label for="searchInput"><i class="fas fa-search"></i> Buscar Pedido</label>
                                 <div class="search-box">
-                                    <span class="search-icon">🔍</span>
+                                    <span class="search-icon"><i class="fas fa-search"></i></span>
                                     <input type="text" id="searchInput" name="search" 
                                            value="{{ filtros.search }}"
                                            placeholder="Buscar por cliente, número de pedido o teléfono...">
@@ -1177,7 +1485,7 @@
                             
                             <div class="filter-row">
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="statusFilter">📊 Estado</label>
+                                    <label for="statusFilter"><i class="fas fa-chart-pie"></i> Estado</label>
                                     <select class="filter-select" id="statusFilter" name="estado">
                                         <option value="">Todos los estados</option>
                                         <option value="pendiente" {% if filtros.estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
@@ -1191,7 +1499,7 @@
                                 </div>
                                 
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="typeFilter">🚚 Tipo de Pedido</label>
+                                    <label for="typeFilter"><i class="fas fa-truck"></i> Tipo de Pedido</label>
                                     <select class="filter-select" id="typeFilter" name="tipo">
                                         <option value="">Todos los tipos</option>
                                         <option value="mesa" {% if filtros.tipo_pedido == 'mesa' %}selected{% endif %}>Comer en Restaurante</option>
@@ -1201,7 +1509,7 @@
                                 </div>
                                 
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="dateFilter">📅 Fecha</label>
+                                    <label for="dateFilter"><i class="fas fa-calendar"></i> Fecha</label>
                                     <select class="filter-select" id="dateFilter" name="fecha">
                                         <option value="">Todas las fechas</option>
                                         <option value="hoy" {% if filtros.fecha == 'hoy' %}selected{% endif %}>Hoy</option>
@@ -1212,7 +1520,7 @@
                                 </div>
                                 
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="sortFilter">🔃 Ordenar por</label>
+                                    <label for="sortFilter"><i class="fas fa-sort"></i> Ordenar por</label>
                                     <select class="filter-select" id="sortFilter" name="sort">
                                         <option value="fecha_desc" {% if filtros.sort == 'fecha_desc' %}selected{% endif %}>Más Reciente</option>
                                         <option value="fecha_asc" {% if filtros.sort == 'fecha_asc' %}selected{% endif %}>Más Antiguo</option>
@@ -1223,7 +1531,7 @@
                                 </div>
                                 
                                 <button type="submit" class="btn btn-primary" style="height: fit-content; margin-top: 1.5rem;">
-                                    <span>🔍</span>
+                                    <span><i class="fas fa-filter"></i></span>
                                     <span>Filtrar</span>
                                 </button>
                             </div>
@@ -1259,16 +1567,16 @@
                                                     {% endif %}
                                                 </div>
                                                 {% if pedido.customer_phone %}
-                                                    <div class="customer-phone">📱 {{ pedido.customer_phone }}</div>
+                                                    <div class="customer-phone"><i class="fas fa-phone"></i> {{ pedido.customer_phone }}</div>
                                                 {% endif %}
                                                 {% if pedido.customer_address %}
-                                                    <div class="customer-phone">📍 {{ pedido.customer_address|truncatechars:30 }}</div>
+                                                    <div class="customer-phone"><i class="fas fa-map-marker-alt"></i> {{ pedido.customer_address|truncatechars:30 }}</div>
                                                 {% endif %}
                                             </div>
                                         </td>
                                         <td>
                                             <div class="date-badge">
-                                                <span>📅</span>
+                                                <span><i class="fas fa-calendar-alt"></i></span>
                                                 <span>{{ pedido.fecha_formateada }}</span>
                                             </div>
                                         </td>
@@ -1280,10 +1588,10 @@
                                                             <div class="item-name">{{ item.name }}</div>
                                                             <div class="item-details">
                                                                 <span>{{ item.quantity }}x</span>
-                                                                <span>${{ item.price|floatformat:2 }} c/u</span>
+                                                                <span>${{ item.price|floatformat:2|intcomma }} c/u</span>
                                                             </div>
                                                         </div>
-                                                        <div class="item-total">${{ item.total|floatformat:2 }}</div>
+                                                        <div class="item-total">${{ item.total|floatformat:2|intcomma }}</div>
                                                     </div>
                                                 {% endfor %}
                                                 {% if pedido.cantidad_items > 2 %}
@@ -1296,48 +1604,48 @@
                                         <td>
                                             {% if pedido.tipo_pedido == 'restaurante' %}
                                                 <span class="order-type-badge type-restaurante">
-                                                    <span>🍽️</span>
+                                                    <span><i class="fas fa-utensils"></i></span>
                                                     Restaurante
                                                 </span>
                                             {% elif pedido.tipo_pedido == 'domicilio' %}
                                                 <span class="order-type-badge type-domicilio">
-                                                    <span>🚚</span>
+                                                    <span><i class="fas fa-truck"></i></span>
                                                     Domicilio
                                                 </span>
                                             {% else %}
                                                 <span class="order-type-badge type-recoger">
-                                                    <span>🏃‍♂️</span>
+                                                    <span><i class="fas fa-walking"></i></span>
                                                     Recoger
                                                 </span>
                                             {% endif %}
                                         </td>
                                         <td>
-                                            <div class="order-total">${{ pedido.total|floatformat:2 }}</div>
+                                            <div class="order-total">${{ pedido.total|floatformat:2|intcomma }}</div>
                                         </td>
                                         <td>
                                             {% if pedido.estado == 'pendiente' or pedido.estado == 'confirmado' %}
                                                 <span class="status-badge status-pendiente">
-                                                    <span class="status-icon">⏱️</span>
+                                                    <span class="status-icon"><i class="fas fa-clock"></i></span>
                                                     {{ pedido.estado_display }}
                                                 </span>
                                             {% elif pedido.estado == 'preparacion' %}
                                                 <span class="status-badge status-preparacion">
-                                                    <span class="status-icon">👨‍🍳</span>
+                                                    <span class="status-icon"><i class="fas fa-concierge-bell"></i></span>
                                                     {{ pedido.estado_display }}
                                                 </span>
                                             {% elif pedido.estado == 'listo' %}
                                                 <span class="status-badge status-listo">
-                                                    <span class="status-icon">✅</span>
+                                                    <span class="status-icon"><i class="fas fa-check-circle"></i></span>
                                                     {{ pedido.estado_display }}
                                                 </span>
                                             {% elif pedido.estado == 'entregado' or pedido.estado == 'completado' %}
                                                 <span class="status-badge status-entregado">
-                                                    <span class="status-icon">📦</span>
+                                                    <span class="status-icon"><i class="fas fa-box"></i></span>
                                                     {{ pedido.estado_display }}
                                                 </span>
                                             {% else %}
                                                 <span class="status-badge status-cancelado">
-                                                    <span class="status-icon">❌</span>
+                                                    <span class="status-icon"><i class="fas fa-times-circle"></i></span>
                                                     {{ pedido.estado_display }}
                                                 </span>
                                             {% endif %}
@@ -1345,13 +1653,13 @@
                                         <td>
                                             <div class="action-buttons">
                                                 <button class="btn-icon btn-view" onclick="viewOrderDetails({{ pedido.id }})" title="Ver detalles">
-                                                    👁️
+                                                    <i class="fas fa-eye"></i>
                                                 </button>
-                                                <button class="btn-icon btn-edit" onclick="openStatusModal({{ pedido.id }})" title="Cambiar estado">
-                                                    ✏️
+                                                <button class="btn-icon btn-edit" onclick="openEditModal({{ pedido.id }})" title="Editar pedido">
+                                                    <i class="fas fa-edit"></i>
                                                 </button>
                                                 <button class="btn-icon btn-danger" onclick="deleteOrder({{ pedido.id }})" title="Eliminar pedido de la vista">
-                                                    🗑️
+                                                    <i class="fas fa-trash"></i>
                                                 </button>
                                             </div>
                                         </td>
@@ -1363,8 +1671,14 @@
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                                             </svg>
-                                            <h3>No se encontraron pedidos</h3>
-                                            <p>Intenta con otros filtros de búsqueda</p>
+                                            <h3>No se encontraron pedidos activos</h3>
+                                            <p>Todos los pedidos están pagados o no hay pedidos con los filtros aplicados</p>
+                                            <div style="margin-top: 1rem;">
+                                                <a href="{% url 'historial_pedidos' %}" class="btn btn-success" style="text-decoration: none;">
+                                                    <span><i class="fas fa-history"></i></span>
+                                                    <span>Ver Historial de Pagados</span>
+                                                </a>
+                                            </div>
                                         </td>
                                     </tr>
                                 {% endif %}
@@ -1421,431 +1735,998 @@
         </div>
     </div>
     
+    <!-- Modal para editar pedido -->
+    <div class="edit-modal" id="editModal">
+        <div class="edit-modal-content">
+            <div class="edit-modal-header">
+                <h3>✏️ Editar Pedido</h3>
+                <button class="modal-close" onclick="closeEditModal()">×</button>
+            </div>
+            <div class="edit-modal-body" id="editModalBody">
+                <!-- El contenido se cargará dinámicamente -->
+            </div>
+        </div>
+    </div>
+    
     <!-- Agregar CSRF token para las peticiones AJAX -->
-    <meta name="csrf-token" content="{{ csrf_token }}">
+    {% csrf_token %}
 
     <script>
         // Variables globales
-        let currentOrderId = null;
-        let selectedStatus = null;
+        let currentOrder = null;
         
-        // Función para obtener detalles del pedido
-        async function viewOrderDetails(orderId) {
-            try {
-                const response = await fetch(`/gestiondepedidos/detalle/${orderId}/`);
-                if (response.ok) {
-                    const pedido = await response.json();
-                    
-                    const modalBody = document.getElementById('modalBody');
-                    modalBody.innerHTML = `
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
-                            <div>
-                                <h4 style="color: #2c3e50; margin-bottom: 1rem; font-size: 1.1rem;">📋 Información del Pedido</h4>
-                                <div style="background: #f8f9ff; padding: 1.5rem; border-radius: 15px;">
-                                    <div style="margin-bottom: 1rem;">
-                                        <div style="font-weight: 600; color: #4a5568; margin-bottom: 0.25rem;">Número de Pedido</div>
-                                        <div style="font-size: 1.2rem; font-weight: 700; color: #ff7e5f;">${pedido.codigo_pedido}</div>
-                                    </div>
-                                    <div style="margin-bottom: 1rem;">
-                                        <div style="font-weight: 600; color: #4a5568; margin-bottom: 0.25rem;">Fecha y Hora</div>
-                                        <div>${pedido.fecha_pedido}</div>
-                                    </div>
-                                    <div style="margin-bottom: 1rem;">
-                                        <div style="font-weight: 600; color: #4a5568; margin-bottom: 0.25rem;">Estado</div>
-                                        <span class="status-badge status-${pedido.estado}">
-                                            <span class="status-icon">${getStatusIcon(pedido.estado)}</span>
-                                            ${pedido.estado_display}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <div style="font-weight: 600; color: #4a5568; margin-bottom: 0.25rem;">Tipo de Pedido</div>
-                                        <span class="order-type-badge type-${getOrderTypeKey(pedido.tipo_pedido)}">
-                                            <span>${getOrderTypeIcon(pedido.tipo_pedido)}</span>
-                                            ${pedido.tipo_pedido_display}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 style="color: #2c3e50; margin-bottom: 1rem; font-size: 1.1rem;">👤 Información del Cliente</h4>
-                                <div style="background: #f8f9ff; padding: 1.5rem; border-radius: 15px;">
-                                    <div style="margin-bottom: 1rem;">
-                                        <div style="font-weight: 600; color: #4a5568; margin-bottom: 0.25rem;">Nombre</div>
-                                        <div style="font-size: 1.1rem; font-weight: 600; color: #2c3e50;">${pedido.nombre_cliente}</div>
-                                        ${pedido.mesa_numero ? `<div style="color: #718096; margin-top: 0.25rem;">Mesa: ${pedido.mesa_numero}</div>` : ''}
-                                    </div>
-                                    ${pedido.telefono_cliente ? `
-                                        <div style="margin-bottom: 1rem;">
-                                            <div style="font-weight: 600; color: #4a5568; margin-bottom: 0.25rem;">Teléfono</div>
-                                            <div>📱 ${pedido.telefono_cliente}</div>
-                                        </div>
-                                    ` : ''}
-                                    ${pedido.direccion_entrega ? `
-                                        <div>
-                                            <div style="font-weight: 600; color: #4a5568; margin-bottom: 0.25rem;">Dirección de Entrega</div>
-                                            <div>📍 ${pedido.direccion_entrega}</div>
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <h4 style="color: #2c3e50; margin-bottom: 1rem; font-size: 1.1rem;">🍽️ Items del Pedido</h4>
-                        <div style="background: #f8f9ff; padding: 1.5rem; border-radius: 15px; margin-bottom: 2rem;">
-                            ${pedido.items.map(item => `
-                                <div class="order-item" style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #e2e8f0;">
-                                    <div style="flex: 1;">
-                                        <div style="font-weight: 600; color: #2c3e50; margin-bottom: 0.5rem; font-size: 1.1rem;">${item.name}</div>
-                                        <div style="display: flex; gap: 2rem; color: #718096;">
-                                            <div>Cantidad: ${item.quantity}</div>
-                                            <div>Precio unitario: $${parseFloat(item.price).toFixed(2)}</div>
-                                            <div>Tiempo estimado: ${item.prepTime || 15} min</div>
-                                        </div>
-                                    </div>
-                                    <div style="font-weight: 700; color: #ff7e5f; font-size: 1.2rem;">$${parseFloat(item.total).toFixed(2)}</div>
-                                </div>
-                            `).join('')}
-                            
-                            <div style="display: flex; justify-content: space-between; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px solid #e2e8f0;">
-                                <div>
-                                    <div style="font-weight: 600; color: #4a5568; margin-bottom: 0.5rem;">Subtotal</div>
-                                    <div style="font-weight: 600; color: #4a5568;">Costo de Envío</div>
-                                </div>
-                                <div style="text-align: right;">
-                                    <div style="font-weight: 600; color: #4a5568; margin-bottom: 0.5rem;">$${parseFloat(pedido.subtotal).toFixed(2)}</div>
-                                    <div style="font-weight: 600; color: #4a5568;">$${parseFloat(pedido.envio).toFixed(2)}</div>
-                                </div>
-                            </div>
-                            
-                            <div style="display: flex; justify-content: space-between; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px solid #e2e8f0;">
-                                <div style="font-size: 1.3rem; font-weight: 700; color: #2c3e50;">Total</div>
-                                <div style="font-size: 1.5rem; font-weight: 700; color: #ff7e5f;">$${parseFloat(pedido.total).toFixed(2)}</div>
-                            </div>
-                        </div>
-                        
-                        <div style="display: flex; gap: 1rem; justify-content: flex-end;">
-                            <button class="btn btn-warning" onclick="openStatusModal(${pedido.id})">
-                                <span>✏️</span>
-                                <span>Cambiar Estado</span>
-                            </button>
-                            <button class="btn btn-info" onclick="printOrder(${pedido.id})">
-                                <span>🖨️</span>
-                                <span>Imprimir Pedido</span>
-                            </button>
-                            <button class="btn btn-danger" onclick="deleteOrderFromModal(${pedido.id})">
-                                <span>🗑️</span>
-                                <span>Eliminar de la Vista</span>
-                            </button>
-                        </div>
-                    `;
-                    
-                    // Mostrar modal
-                    document.getElementById('orderModal').classList.add('active');
-                }
-            } catch (error) {
-                showNotification('Error al cargar detalles del pedido', 'error');
+        // Inicializar la aplicación
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('=== INICIANDO GESTIÓN DE PEDIDOS ===');
+            
+            setupEventListeners();
+            
+            // Si hay filtros aplicados, restaurarlos
+            restoreFilters();
+        });
+        
+        // Configurar event listeners
+        function setupEventListeners() {
+            // Botón para exportar pedidos
+            const exportBtn = document.querySelector('.btn-primary[onclick*="exportOrders"]');
+            if (exportBtn) {
+                exportBtn.onclick = exportOrders;
+            }
+            
+            // Formulario de filtros - enviar al cambiar
+            const filterSelects = document.querySelectorAll('.filter-select');
+            filterSelects.forEach(select => {
+                select.addEventListener('change', function() {
+                    // Actualizar la URL con los filtros
+                    updateURLFilters();
+                });
+            });
+            
+            // Buscar al presionar Enter
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        updateURLFilters();
+                    }
+                });
             }
         }
         
-        // Abrir modal para cambiar estado
-        async function openStatusModal(orderId) {
-            try {
-                const response = await fetch(`/gestiondepedidos/detalle/${orderId}/`);
-                if (response.ok) {
-                    const pedido = await response.json();
-                    currentOrderId = orderId;
-                    
-                    const statusOptions = [
-                        { value: 'pendiente', label: 'Pendiente', icon: '⏱️', color: '#d69e2e' },
-                        { value: 'confirmado', label: 'Confirmado', icon: '✓', color: '#3182ce' },
-                        { value: 'preparacion', label: 'En Preparación', icon: '👨‍🍳', color: '#3182ce' },
-                        { value: 'listo', label: 'Listo para Servir', icon: '✅', color: '#38a169' },
-                        { value: 'entregado', label: 'Entregado', icon: '📦', color: '#805ad5' },
-                        { value: 'completado', label: 'Completado', icon: '🏁', color: '#805ad5' },
-                        { value: 'cancelado', label: 'Cancelado', icon: '❌', color: '#e53e3e' }
-                    ];
-                    
-                    const statusModalBody = document.getElementById('statusModalBody');
-                    statusModalBody.innerHTML = `
-                        <p style="margin-bottom: 1.5rem; color: #4a5568;">
-                            Selecciona el nuevo estado para el pedido <strong>${pedido.codigo_pedido}</strong>:
-                        </p>
-                        <div id="statusOptions">
-                            ${statusOptions.map(option => `
-                                <div class="status-option ${pedido.estado === option.value ? 'selected' : ''}" 
-                                     onclick="selectStatus('${option.value}')"
-                                     data-value="${option.value}">
-                                    <div class="status-option-icon" style="background: ${option.color}20; color: ${option.color};">
-                                        ${option.icon}
-                                    </div>
-                                    <div class="status-option-label">${option.label}</div>
-                                </div>
-                            `).join('')}
-                        </div>
-                        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                            <button class="btn" onclick="closeStatusModal()" style="flex: 1; background: #f8f9ff; color: #4a5568;">
-                                Cancelar
-                            </button>
-                            <button class="btn btn-primary" onclick="confirmStatusChange()" style="flex: 1;">
-                                Confirmar Cambio
-                            </button>
-                        </div>
-                    `;
-                    
-                    // Mostrar modal
-                    document.getElementById('statusModal').classList.add('active');
-                }
-            } catch (error) {
-                showNotification('Error al cargar opciones de estado', 'error');
-            }
-        }
-        
-        // Seleccionar un estado
-        function selectStatus(status) {
-            const options = document.querySelectorAll('.status-option');
-            options.forEach(option => {
-                option.classList.remove('selected');
-                if (option.getAttribute('data-value') === status) {
-                    option.classList.add('selected');
+        // Restaurar filtros desde URL
+        function restoreFilters() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            const filters = {
+                'search': urlParams.get('search') || '',
+                'estado': urlParams.get('estado') || '',
+                'tipo': urlParams.get('tipo') || '',
+                'fecha': urlParams.get('fecha') || '',
+                'sort': urlParams.get('sort') || 'fecha_desc'
+            };
+            
+            // Establecer valores en los inputs
+            Object.keys(filters).forEach(key => {
+                const element = document.querySelector(`[name="${key}"]`);
+                if (element && filters[key]) {
+                    element.value = filters[key];
                 }
             });
-            selectedStatus = status;
         }
         
-        // Confirmar cambio de estado
-        async function confirmStatusChange() {
-            if (!selectedStatus || !currentOrderId) {
-                showNotification('Por favor selecciona un estado', 'error');
-                return;
-            }
+        // Actualizar URL con filtros
+        function updateURLFilters() {
+            const form = document.getElementById('filterForm');
+            const formData = new FormData(form);
+            const params = new URLSearchParams();
             
-            try {
-                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-                const formData = new FormData();
-                formData.append('estado', selectedStatus);
-                
-                const response = await fetch(`/gestiondepedidos/cambiar-estado/${currentOrderId}/`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken
-                    },
-                    body: formData
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    showNotification(data.mensaje, 'success');
-                    
-                    // Recargar la página para ver los cambios
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
-                    
-                    // Cerrar modales
-                    closeStatusModal();
-                    closeModal();
-                } else {
-                    const error = await response.json();
-                    showNotification('Error: ' + error.error, 'error');
+            for (const [key, value] of formData.entries()) {
+                if (value) {
+                    params.append(key, value);
                 }
-            } catch (error) {
-                showNotification('Error de conexión', 'error');
+            }
+            
+            // Mantener el parámetro de página si existe
+            const currentParams = new URLSearchParams(window.location.search);
+            const page = currentParams.get('page');
+            if (page) {
+                params.append('page', page);
+            }
+            
+            // Actualizar URL y recargar
+            window.location.href = `${window.location.pathname}?${params.toString()}`;
+        }
+        
+        // Función para exportar pedidos
+        function exportOrders() {
+            showNotification('Funcionalidad de exportación en desarrollo', 'info');
+        }
+        
+        // Función para ver detalles del pedido
+        function viewOrderDetails(pedidoId) {
+            console.log('Cargando detalles del pedido:', pedidoId);
+            
+            fetch(`/gestiondepedidos/detalle/${pedidoId}/`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error ${response.status}: Pedido no encontrado`);
+                    }
+                    return response.json();
+                })
+                .then(pedido => {
+                    console.log('Detalles cargados:', pedido);
+                    cargarDetallesPedido(pedido);
+                    document.getElementById('orderModal').classList.add('active');
+                })
+                .catch(error => {
+                    console.error('Error al cargar pedido:', error);
+                    showNotification('Error: ' + error.message, 'error');
+                });
+        }
+        
+        // Función para cargar detalles en el modal
+        function cargarDetallesPedido(pedido) {
+            const modalBody = document.getElementById('modalBody');
+            
+            // Formatear items
+            let itemsHTML = '';
+            if (pedido.items && pedido.items.length > 0) {
+                itemsHTML = pedido.items.map(item => `
+                    <tr>
+                        <td>${item.name || item.nombre}</td>
+                        <td>${item.quantity || item.cantidad}</td>
+                        <td>$${(item.price || item.precio || 0).toFixed(2)}</td>
+                        <td>$${(item.total || item.subtotal || 0).toFixed(2)}</td>
+                    </tr>
+                `).join('');
+            }
+            
+            // Determinar icono y color según estado
+            const estadoInfo = getEstadoInfo(pedido.estado);
+            const tipoInfo = getTipoInfo(pedido.tipo_pedido);
+            
+            modalBody.innerHTML = `
+                <div style="background: white; border-radius: 15px; padding: 2rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
+                        <div>
+                            <h2 style="color: #2c3e50; margin-bottom: 0.5rem;">Pedido #${pedido.codigo_pedido}</h2>
+                            <div style="color: #718096;">${pedido.fecha_pedido}</div>
+                        </div>
+                        <span class="status-badge ${estadoInfo.class}">
+                            <span class="status-icon">${estadoInfo.icon}</span>
+                            ${pedido.estado_display}
+                        </span>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                        <div>
+                            <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-user"></i> Información del Cliente</h4>
+                            <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
+                                <div style="margin-bottom: 0.5rem;">
+                                    <strong>Nombre:</strong> ${pedido.nombre_cliente || 'No especificado'}
+                                </div>
+                                ${pedido.telefono_cliente ? `
+                                    <div style="margin-bottom: 0.5rem;">
+                                        <strong>Teléfono:</strong> ${pedido.telefono_cliente}
+                                    </div>
+                                ` : ''}
+                                ${pedido.direccion_entrega ? `
+                                    <div style="margin-bottom: 0.5rem;">
+                                        <strong>Dirección:</strong> ${pedido.direccion_entrega}
+                                    </div>
+                                ` : ''}
+                                <div style="margin-bottom: 0.5rem;">
+                                    <strong>Tipo:</strong> ${tipoInfo.icon} ${pedido.tipo_pedido_display}
+                                </div>
+                                ${pedido.mesa_numero ? `
+                                    <div style="margin-bottom: 0.5rem;">
+                                        <strong>Mesa:</strong> ${pedido.mesa_numero}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-dollar-sign"></i> Resumen de Pago</h4>
+                            <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span>Subtotal:</span>
+                                    <span>$${pedido.subtotal.toFixed(2)}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span>Envío:</span>
+                                    <span>$${pedido.envio.toFixed(2)}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; color: #ff7e5f; padding-top: 0.5rem; border-top: 1px solid #e0e6ff;">
+                                    <span>Total:</span>
+                                    <span>$${pedido.total.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-utensils"></i> Items del Pedido (${pedido.cantidad_items || pedido.items?.length || 0})</h4>
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); color: white;">
+                                        <th style="padding: 1rem; text-align: left;">Producto</th>
+                                        <th style="padding: 1rem; text-align: center;">Cantidad</th>
+                                        <th style="padding: 1rem; text-align: right;">Precio Unitario</th>
+                                        <th style="padding: 1rem; text-align: right;">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${itemsHTML || `
+                                        <tr>
+                                            <td colspan="4" style="padding: 2rem; text-align: center; color: #718096;">
+                                                No hay items en este pedido
+                                            </td>
+                                        </tr>
+                                    `}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    ${pedido.notas ? `
+                        <div style="margin-top: 2rem;">
+                            <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-sticky-note"></i> Notas</h4>
+                            <div style="background: #fff7ed; padding: 1rem; border-radius: 10px; border-left: 4px solid #ed8936;">
+                                ${pedido.notas}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${pedido.tiempo_preparacion ? `
+                        <div style="margin-top: 1rem; padding: 1rem; background: #e6fffa; border-radius: 10px; border-left: 4px solid #38a169;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span><i class="fas fa-clock"></i></span>
+                                <span><strong>Tiempo estimado de preparación:</strong> ${pedido.tiempo_preparacion}</span>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+                        <button class="btn btn-warning" onclick="closeModal()">Cerrar</button>
+                        <button class="btn btn-info" onclick="openStatusModal(${pedido.id})">
+                            <span><i class="fas fa-sync-alt"></i></span>
+                            <span>Cambiar Estado</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Función para abrir modal de edición
+        function openEditModal(pedidoId) {
+            console.log('Abriendo modal para editar pedido:', pedidoId);
+            
+            fetch(`/gestiondepedidos/detalle/${pedidoId}/`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error ${response.status}: Pedido no encontrado`);
+                    }
+                    return response.json();
+                })
+                .then(pedido => {
+                    console.log('Pedido cargado para edición:', pedido);
+                    cargarDatosEdicion(pedido);
+                    document.getElementById('editModal').classList.add('active');
+                })
+                .catch(error => {
+                    console.error('Error al cargar pedido:', error);
+                    showNotification('Error: ' + error.message, 'error');
+                });
+        }
+        
+        // Función para cargar datos en el modal de edición
+        function cargarDatosEdicion(pedido) {
+            const modalBody = document.getElementById('editModalBody');
+            
+            // Formatear items actuales
+            let itemsHTML = '';
+            if (pedido.items && pedido.items.length > 0) {
+                itemsHTML = pedido.items.map((item, index) => `
+                    <div class="order-item-edit" data-index="${index}" data-id="${item.id || ''}">
+                        <div style="flex: 2;">
+                            <strong>${item.name || item.nombre}</strong>
+                            <div style="font-size: 0.9rem; color: #718096;">
+                                Precio: $${(item.price || item.precio || 0).toFixed(2)}
+                            </div>
+                        </div>
+                        <div class="cantidad-controls">
+                            <button type="button" class="cantidad-btn" onclick="cambiarCantidad(${index}, -1)">-</button>
+                            <input type="number" class="cantidad-input" 
+                                   value="${item.quantity || item.cantidad || 1}" 
+                                   min="1" 
+                                   onchange="actualizarTotalItem(${index}, this.value)"
+                                   data-precio="${item.price || item.precio || 0}"
+                                   id="cantidad-${index}">
+                            <button type="button" class="cantidad-btn" onclick="cambiarCantidad(${index}, 1)">+</button>
+                        </div>
+                        <div style="font-weight: bold; color: #ff7e5f; min-width: 80px; text-align: right;" id="total-item-${index}">
+                            $${(item.total || item.subtotal || 0).toFixed(2)}
+                        </div>
+                        <button type="button" class="btn-icon btn-danger" onclick="eliminarItem(${index})" title="Eliminar item">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `).join('');
+            }
+            
+            modalBody.innerHTML = `
+                <input type="hidden" id="editPedidoId" value="${pedido.id}">
+                
+                <div class="edit-form-group">
+                    <label><i class="fas fa-clipboard"></i> Información del Pedido</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <div style="font-weight: 600;">Código:</div>
+                            <div>${pedido.codigo_pedido}</div>
+                        </div>
+                        <div>
+                            <div style="font-weight: 600;">Estado Actual:</div>
+                            <div>
+                                <span class="status-badge ${getEstadoClass(pedido.estado)}">
+                                    ${pedido.estado_display}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="edit-form-group">
+                    <label><i class="fas fa-user"></i> Información del Cliente</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <label for="editNombreCliente">Nombre *</label>
+                            <input type="text" id="editNombreCliente" 
+                                   value="${pedido.nombre_cliente || ''}" 
+                                   placeholder="Nombre del cliente"
+                                   required>
+                        </div>
+                        <div>
+                            <label for="editTelefonoCliente">Teléfono</label>
+                            <input type="tel" id="editTelefonoCliente" 
+                                   value="${pedido.telefono_cliente || ''}" 
+                                   placeholder="Teléfono">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="edit-form-group">
+                    <label><i class="fas fa-utensils"></i> Items del Pedido</label>
+                    <div id="itemsContainer" style="max-height: 300px; overflow-y: auto; padding: 0.5rem; border: 1px solid #e0e6ff; border-radius: 8px;">
+                        ${itemsHTML || '<p style="color: #718096; text-align: center; padding: 2rem;">No hay items en este pedido</p>'}
+                    </div>
+                </div>
+                
+                <!-- Sección para agregar nuevos productos -->
+                <div class="edit-form-group">
+                    <label><i class="fas fa-plus-circle"></i> Agregar Nuevos Productos</label>
+                    
+                    <div class="search-bebidas" style="margin-bottom: 1rem;">
+                        <span class="search-bebidas-icon"><i class="fas fa-search"></i></span>
+                        <input type="text" id="buscarProducto" placeholder="Buscar bebidas, platos..." 
+                               oninput="buscarProductosDisponibles()">
+                        <button type="button" class="search-bebidas-btn" onclick="buscarProductosDisponibles()">Buscar</button>
+                    </div>
+                    
+                    <div style="margin-bottom: 1rem;">
+                        <label for="tipoProducto">Tipo de Producto:</label>
+                        <select id="tipoProducto" onchange="buscarProductosDisponibles()" style="width: 100%; padding: 0.75rem;">
+                            <option value="todos">Todos</option>
+                            <option value="bebida">Bebidas</option>
+                            <option value="plato">Platos</option>
+                        </select>
+                    </div>
+                    
+                    <div id="productosDisponibles" style="max-height: 200px; overflow-y: auto; border: 1px solid #e0e6ff; border-radius: 8px; padding: 0.5rem;">
+                        <p style="color: #718096; text-align: center; padding: 1rem;">Busca productos para agregar</p>
+                    </div>
+                </div>
+                
+                <div class="edit-form-group">
+                    <label><i class="fas fa-sticky-note"></i> Notas Adicionales</label>
+                    <textarea id="editNotas" rows="3" placeholder="Notas del pedido...">${pedido.notas || ''}</textarea>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e0e6ff;">
+                    <div>
+                        <strong style="font-size: 1.2rem;">Total: $</strong>
+                        <span id="totalPedidoEdit" style="font-size: 1.5rem; font-weight: bold; color: #ff7e5f;">
+                            ${pedido.total.toFixed(2)}
+                        </span>
+                    </div>
+                    <div style="display: flex; gap: 1rem;">
+                        <button type="button" class="btn btn-warning" onclick="closeEditModal()">Cancelar</button>
+                        <button type="button" class="btn btn-primary" onclick="guardarCambiosPedido()">
+                            <span><i class="fas fa-save"></i></span>
+                            <span>Guardar Cambios</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Inicializar búsqueda de productos
+            buscarProductosDisponibles();
+        }
+        
+        // Función para buscar productos disponibles
+        function buscarProductosDisponibles() {
+            const searchTerm = document.getElementById('buscarProducto')?.value || '';
+            const tipoProducto = document.getElementById('tipoProducto')?.value || 'todos';
+            
+            console.log('Buscando productos:', searchTerm, tipoProducto);
+            
+            fetch(`/gestiondepedidos/platos-disponibles/?search=${encodeURIComponent(searchTerm)}&tipo=${tipoProducto}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error en la respuesta del servidor');
+                    }
+                    return response.json();
+                })
+                .then(productos => {
+                    const container = document.getElementById('productosDisponibles');
+                    if (!container) return;
+                    
+                    if (!productos || productos.length === 0) {
+                        container.innerHTML = '<p style="color: #718096; text-align: center; padding: 1rem;">No se encontraron productos</p>';
+                        return;
+                    }
+                    
+                    container.innerHTML = productos.map(producto => `
+                        <div class="producto-item" style="padding: 0.75rem; border-bottom: 1px solid #f1f1f1; cursor: pointer; transition: background-color 0.2s;" 
+                             onclick="agregarProductoAPedido(${JSON.stringify(producto).replace(/"/g, '&quot;')})"
+                             onmouseover="this.style.backgroundColor='#f8f9ff'"
+                             onmouseout="this.style.backgroundColor='transparent'">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="flex: 1;">
+                                    <strong>${producto.nombre}</strong>
+                                    <div style="font-size: 0.85rem; color: #718096;">
+                                        ${producto.categoria || producto.tipo} - $${producto.precio.toFixed(2)}
+                                    </div>
+                                </div>
+                                <div style="margin-left: 1rem;">
+                                    <span style="color: #38a169; font-size: 1.2rem;"><i class="fas fa-plus-circle"></i></span>
+                                </div>
+                            </div>
+                            ${producto.cantidad_disponible !== null && producto.cantidad_disponible !== undefined ? `
+                                <div class="stock-indicator" style="margin-top: 0.25rem;">
+                                    <span class="stock-icon ${producto.stock_status === 'high' ? 'stock-high' : producto.stock_status === 'medium' ? 'stock-medium' : 'stock-low'}">
+                                        ${producto.stock_icon || '<i class="fas fa-box"></i>'}
+                                    </span>
+                                    <span class="stock-text">${producto.stock_label || 'Disponible'}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `).join('');
+                })
+                .catch(error => {
+                    console.error('Error al buscar productos:', error);
+                    const container = document.getElementById('productosDisponibles');
+                    if (container) {
+                        container.innerHTML = '<p style="color: #e53e3e; text-align: center; padding: 1rem;">Error al cargar productos</p>';
+                    }
+                });
+        }
+        
+        // Función para agregar producto al pedido
+        function agregarProductoAPedido(producto) {
+            const itemsContainer = document.getElementById('itemsContainer');
+            
+            // Si el contenedor está vacío, limpiar el mensaje
+            if (itemsContainer.innerHTML.includes('No hay items')) {
+                itemsContainer.innerHTML = '';
+            }
+            
+            // Crear nuevo item con ID único
+            const itemId = `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const precio = parseFloat(producto.precio) || 0;
+            const cantidad = 1;
+            const total = precio * cantidad;
+            
+            const nuevoItemHTML = `
+                <div class="order-item-edit" data-id="${producto.id}" data-unique-id="${itemId}">
+                    <div style="flex: 2;">
+                        <strong>${producto.nombre}</strong>
+                        <div style="font-size: 0.9rem; color: #718096;">
+                            Precio: $${precio.toFixed(2)}
+                        </div>
+                    </div>
+                    <div class="cantidad-controls">
+                        <button type="button" class="cantidad-btn" onclick="cambiarCantidadEdit('${itemId}', -1)">-</button>
+                        <input type="number" class="cantidad-input" 
+                               value="${cantidad}" 
+                               min="1" 
+                               onchange="actualizarTotalItemEdit('${itemId}', this.value)"
+                               data-precio="${precio}"
+                               id="cantidad-input-${itemId}">
+                        <button type="button" class="cantidad-btn" onclick="cambiarCantidadEdit('${itemId}', 1)">+</button>
+                    </div>
+                    <div style="font-weight: bold; color: #ff7e5f; min-width: 80px; text-align: right;" id="total-item-${itemId}">
+                        $${total.toFixed(2)}
+                    </div>
+                    <button type="button" class="btn-icon btn-danger" onclick="eliminarItemEdit('${itemId}')" title="Eliminar item">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+            
+            itemsContainer.innerHTML += nuevoItemHTML;
+            calcularTotalPedidoEdit();
+            
+            showNotification(`<i class="fas fa-check-circle"></i> ${producto.nombre} agregado al pedido`, 'success');
+        }
+        
+        // Función para cambiar cantidad (edición)
+        function cambiarCantidadEdit(itemId, cambio) {
+            const input = document.getElementById(`cantidad-input-${itemId}`);
+            if (!input) return;
+            
+            let nuevaCantidad = parseInt(input.value) + cambio;
+            if (nuevaCantidad < 1) nuevaCantidad = 1;
+            
+            input.value = nuevaCantidad;
+            actualizarTotalItemEdit(itemId, nuevaCantidad);
+        }
+        
+        // Función para actualizar total de item (edición)
+        function actualizarTotalItemEdit(itemId, cantidad) {
+            const input = document.getElementById(`cantidad-input-${itemId}`);
+            if (!input) return;
+            
+            const precio = parseFloat(input.dataset.precio) || 0;
+            const total = precio * parseInt(cantidad);
+            
+            const totalElement = document.getElementById(`total-item-${itemId}`);
+            if (totalElement) {
+                totalElement.textContent = `$${total.toFixed(2)}`;
+            }
+            
+            calcularTotalPedidoEdit();
+        }
+        
+        // Función para eliminar item (edición)
+        function eliminarItemEdit(itemId) {
+            const itemDiv = document.querySelector(`.order-item-edit[data-unique-id="${itemId}"]`);
+            if (itemDiv && confirm('¿Estás seguro de eliminar este item?')) {
+                itemDiv.remove();
+                calcularTotalPedidoEdit();
+                
+                // Si no quedan items, mostrar mensaje
+                const itemsContainer = document.getElementById('itemsContainer');
+                if (itemsContainer.children.length === 0) {
+                    itemsContainer.innerHTML = '<p style="color: #718096; text-align: center; padding: 2rem;">No hay items en este pedido</p>';
+                }
             }
         }
         
-        // Eliminar pedido del frontend (eliminar fila de la tabla)
-        async function deleteOrder(orderId) {
-            if (!confirm('¿Estás seguro de eliminar este pedido de la vista? El pedido se eliminará de esta lista.')) {
+        // Función para calcular total del pedido (edición)
+        function calcularTotalPedidoEdit() {
+            let total = 0;
+            
+            document.querySelectorAll('.order-item-edit').forEach(item => {
+                const totalText = item.querySelector('div[style*="color: #ff7e5f"]').textContent;
+                const itemTotal = parseFloat(totalText.replace('$', '')) || 0;
+                total += itemTotal;
+            });
+            
+            const totalElement = document.getElementById('totalPedidoEdit');
+            if (totalElement) {
+                totalElement.textContent = total.toFixed(2);
+            }
+            
+            return total;
+        }
+        
+        // Función para cambiar cantidad (items originales)
+        function cambiarCantidad(index, cambio) {
+            const input = document.getElementById(`cantidad-${index}`);
+            if (!input) return;
+            
+            let nuevaCantidad = parseInt(input.value) + cambio;
+            if (nuevaCantidad < 1) nuevaCantidad = 1;
+            
+            input.value = nuevaCantidad;
+            actualizarTotalItem(index, nuevaCantidad);
+        }
+        
+        // Función para actualizar total de item (items originales)
+        function actualizarTotalItem(index, cantidad) {
+            const input = document.getElementById(`cantidad-${index}`);
+            if (!input) return;
+            
+            const precio = parseFloat(input.dataset.precio) || 0;
+            const total = precio * parseInt(cantidad);
+            
+            const totalElement = document.getElementById(`total-item-${index}`);
+            if (totalElement) {
+                totalElement.textContent = `$${total.toFixed(2)}`;
+            }
+            
+            calcularTotalPedidoEdit();
+        }
+        
+        // Función para eliminar item (items originales)
+        function eliminarItem(index) {
+            const itemDiv = document.querySelector(`.order-item-edit[data-index="${index}"]`);
+            if (itemDiv && confirm('¿Estás seguro de eliminar este item?')) {
+                itemDiv.remove();
+                calcularTotalPedidoEdit();
+            }
+        }
+        
+        // Función para guardar cambios del pedido
+        function guardarCambiosPedido() {
+            const pedidoId = document.getElementById('editPedidoId').value;
+            const nombreCliente = document.getElementById('editNombreCliente').value;
+            const telefonoCliente = document.getElementById('editTelefonoCliente').value;
+            const notas = document.getElementById('editNotas').value;
+            
+            // Validar nombre del cliente
+            if (!nombreCliente.trim()) {
+                showNotification('<i class="fas fa-exclamation-circle"></i> El nombre del cliente es obligatorio', 'error');
+                document.getElementById('editNombreCliente').focus();
                 return;
             }
             
-            try {
-                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            // Recopilar todos los items
+            const items = [];
+            document.querySelectorAll('.order-item-edit').forEach(itemDiv => {
+                const nombre = itemDiv.querySelector('strong').textContent;
+                const cantidadInput = itemDiv.querySelector('.cantidad-input');
+                const cantidad = parseInt(cantidadInput.value) || 1;
+                const precio = parseFloat(cantidadInput.dataset.precio) || 0;
+                const total = precio * cantidad;
                 
-                const response = await fetch(`/gestiondepedidos/eliminar/${orderId}/`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken,
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: 'eliminar_vista=true'
+                items.push({
+                    name: nombre,
+                    quantity: cantidad,
+                    price: precio,
+                    total: total
                 });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.success) {
-                    showNotification(data.mensaje, 'success');
+            });
+            
+            // Validar que haya al menos un item
+            if (items.length === 0) {
+                showNotification('<i class="fas fa-exclamation-circle"></i> El pedido debe tener al menos un item', 'error');
+                return;
+            }
+            
+            // Preparar datos para enviar
+            const formData = new FormData();
+            formData.append('nuevos_items', JSON.stringify(items));
+            formData.append('nombre_cliente', nombreCliente);
+            formData.append('telefono_cliente', telefonoCliente);
+            formData.append('notas', notas);
+            
+            // Agregar CSRF token
+            const csrfToken = getCSRFToken();
+            if (csrfToken) {
+                formData.append('csrfmiddlewaretoken', csrfToken);
+            }
+            
+            console.log('Enviando datos para editar pedido:', {
+                pedidoId,
+                nombreCliente,
+                telefonoCliente,
+                cantidadItems: items.length,
+                total: calcularTotalPedidoEdit()
+            });
+            
+            // Mostrar indicador de carga
+            const saveBtn = document.querySelector('.btn-primary[onclick="guardarCambiosPedido()"]');
+            const originalText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<span><i class="fas fa-hourglass-half"></i></span><span>Guardando...</span>';
+            saveBtn.disabled = true;
+            
+            // Enviar datos al servidor
+            fetch(`/gestiondepedidos/editar/${pedidoId}/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    showNotification(`<i class="fas fa-check-circle"></i> ${data.mensaje}`, 'success');
+                    closeEditModal();
                     
-                    // Eliminar la fila de la tabla inmediatamente
-                    const row = document.querySelector(`tr[data-order-id="${orderId}"]`);
+                    // Recargar la página después de un breve retraso
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    throw new Error(data.error || 'Error desconocido');
+                }
+            })
+            .catch(error => {
+                console.error('Error al guardar cambios:', error);
+                showNotification(`<i class="fas fa-exclamation-circle"></i> Error: ${error.message}`, 'error');
+                
+                // Restaurar botón
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+            });
+        }
+        
+        // Función para abrir modal de cambio de estado
+        function openStatusModal(pedidoId) {
+            currentOrder = pedidoId;
+            
+            const estados = [
+                { value: 'pendiente', label: 'Pendiente', icon: '<i class="fas fa-clock"></i>', description: 'El pedido está pendiente de confirmación' },
+                { value: 'confirmado', label: 'Confirmado', icon: '<i class="fas fa-check"></i>', description: 'El pedido ha sido confirmado' },
+                { value: 'preparacion', label: 'En Preparación', icon: '<i class="fas fa-concierge-bell"></i>', description: 'El pedido está siendo preparado' },
+                { value: 'listo', label: 'Listo', icon: '<i class="fas fa-rocket"></i>', description: 'El pedido está listo para servir/entregar' },
+                { value: 'entregado', label: 'Entregado', icon: '<i class="fas fa-box"></i>', description: 'El pedido ha sido entregado' },
+                { value: 'completado', label: 'Completado', icon: '<i class="fas fa-flag-checkered"></i>', description: 'El pedido ha sido completado' },
+                { value: 'cancelado', label: 'Cancelado', icon: '<i class="fas fa-times-circle"></i>', description: 'El pedido ha sido cancelado' }
+            ];
+            
+            const modalBody = document.getElementById('statusModalBody');
+            modalBody.innerHTML = `
+                <input type="hidden" id="statusPedidoId" value="${pedidoId}">
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <p>Selecciona el nuevo estado para el pedido:</p>
+                </div>
+                
+                <div id="statusOptions">
+                    ${estados.map(estado => `
+                        <div class="status-option" data-value="${estado.value}" onclick="seleccionarEstado('${estado.value}')">
+                            <div class="status-option-icon">
+                                ${estado.icon}
+                            </div>
+                            <div class="status-option-label">
+                                <div>${estado.label}</div>
+                                <div style="font-size: 0.85rem; color: #718096; font-weight: normal;">${estado.description}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+                    <button class="btn btn-warning" onclick="closeStatusModal()">Cancelar</button>
+                    <button class="btn btn-primary" id="confirmStatusBtn" onclick="confirmarCambioEstado()" disabled>
+                        <span><i class="fas fa-save"></i></span>
+                        <span>Confirmar Cambio</span>
+                    </button>
+                </div>
+            `;
+            
+            document.getElementById('statusModal').classList.add('active');
+        }
+        
+        // Función para seleccionar estado
+        function seleccionarEstado(estadoValue) {
+            // Remover selección anterior
+            document.querySelectorAll('.status-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            
+            // Marcar como seleccionado
+            const selectedOption = document.querySelector(`.status-option[data-value="${estadoValue}"]`);
+            if (selectedOption) {
+                selectedOption.classList.add('selected');
+            }
+            
+            // Habilitar botón de confirmación
+            document.getElementById('confirmStatusBtn').disabled = false;
+        }
+        
+        // Función para confirmar cambio de estado
+        function confirmarCambioEstado() {
+            const pedidoId = currentOrder;
+            const selectedOption = document.querySelector('.status-option.selected');
+            
+            if (!selectedOption) {
+                showNotification('<i class="fas fa-times-circle"></i> Por favor selecciona un estado', 'error');
+                return;
+            }
+            
+            const nuevoEstado = selectedOption.dataset.value;
+            
+            if (!confirm(`¿Estás seguro de cambiar el estado del pedido a "${selectedOption.querySelector('.status-option-label div').textContent}"?`)) {
+                return;
+            }
+            
+            // Preparar datos
+            const formData = new FormData();
+            formData.append('estado', nuevoEstado);
+            
+            const csrfToken = getCSRFToken();
+            if (csrfToken) {
+                formData.append('csrfmiddlewaretoken', csrfToken);
+            }
+            
+            // Mostrar indicador de carga
+            const confirmBtn = document.getElementById('confirmStatusBtn');
+            const originalText = confirmBtn.innerHTML;
+            confirmBtn.innerHTML = '<span><i class="fas fa-hourglass-half"></i></span><span>Cambiando...</span>';
+            confirmBtn.disabled = true;
+            
+            // Enviar solicitud
+            fetch(`/gestiondepedidos/cambiar-estado/${pedidoId}/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(`<i class="fas fa-check-circle"></i> Estado cambiado a ${data.estado_display}`, 'success');
+                    closeStatusModal();
+                    
+                    // Actualizar la fila en la tabla
+                    const row = document.querySelector(`tr[data-order-id="${pedidoId}"]`);
                     if (row) {
-                        // Agregar animación de desvanecimiento
-                        row.style.transition = 'all 0.3s ease';
-                        row.style.opacity = '0';
-                        row.style.transform = 'translateX(-100%)';
-                        
-                        // Esperar a que termine la animación y eliminar la fila
-                        setTimeout(() => {
-                            row.remove();
-                            
-                            // Actualizar estadísticas
-                            updateStatsAfterDelete();
-                            
-                            // Verificar si la tabla quedó vacía
-                            checkIfTableEmpty();
-                        }, 300);
-                    } else {
-                        // Si no encontramos la fila, recargar la página
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1500);
+                        const estadoCell = row.querySelector('td:nth-child(7)');
+                        if (estadoCell) {
+                            const estadoInfo = getEstadoInfo(nuevoEstado);
+                            estadoCell.innerHTML = `
+                                <span class="status-badge ${estadoInfo.class}">
+                                    <span class="status-icon">${estadoInfo.icon}</span>
+                                    ${data.estado_display}
+                                </span>
+                            `;
+                        }
+                    }
+                    
+                    // Actualizar estadísticas
+                    updateStats();
+                } else {
+                    throw new Error(data.error || 'Error desconocido');
+                }
+            })
+            .catch(error => {
+                console.error('Error al cambiar estado:', error);
+                showNotification(`<i class="fas fa-exclamation-circle"></i> Error: ${error.message}`, 'error');
+                
+                // Restaurar botón
+                confirmBtn.innerHTML = originalText;
+                confirmBtn.disabled = false;
+            });
+        }
+        
+        // Función para eliminar pedido
+        function deleteOrder(pedidoId) {
+            if (!confirm('¿Estás seguro de eliminar este pedido? Esta acción no se puede deshacer.')) {
+                return;
+            }
+            
+            // Preparar datos
+            const formData = new FormData();
+            formData.append('eliminar_vista', 'true');
+            
+            const csrfToken = getCSRFToken();
+            if (csrfToken) {
+                formData.append('csrfmiddlewaretoken', csrfToken);
+            }
+            
+            // Enviar solicitud
+            fetch(`/gestiondepedidos/eliminar/${pedidoId}/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(`<i class="fas fa-check-circle"></i> ${data.mensaje}`, 'success');
+                    
+                    // Eliminar la fila de la tabla
+                    const row = document.querySelector(`tr[data-order-id="${pedidoId}"]`);
+                    if (row) {
+                        row.remove();
+                    }
+                    
+                    // Actualizar estadísticas
+                    updateStats();
+                    
+                    // Mostrar mensaje si no hay pedidos
+                    const tbody = document.querySelector('#pedidosBody');
+                    if (tbody && tbody.children.length === 0) {
+                        tbody.innerHTML = `
+                            <tr class="empty-state">
+                                <td colspan="8">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                    </svg>
+                                    <h3>No se encontraron pedidos</h3>
+                                    <p>Todos los pedidos están pagados o no hay pedidos con los filtros aplicados</p>
+                                    <div style="margin-top: 1rem;">
+                                        <a href="{% url 'historial_pedidos' %}" class="btn btn-success" style="text-decoration: none;">
+                                            <span><i class="fas fa-history"></i></span>
+                                            <span>Ver Historial de Pagados</span>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
                     }
                 } else {
-                    showNotification('Error: ' + (data.error || 'Error desconocido'), 'error');
+                    throw new Error(data.error || 'Error al eliminar el pedido');
                 }
-            } catch (error) {
-                showNotification('Error de conexión: ' + error.message, 'error');
-            }
-        }
-        
-        // Función para eliminar pedido desde el modal
-        function deleteOrderFromModal(orderId) {
-            closeModal();
-            deleteOrder(orderId);
-        }
-        
-        // Actualizar estadísticas después de eliminar
-        function updateStatsAfterDelete() {
-            // Actualizar contador de pedidos pendientes
-            const pedidosPendientesEl = document.getElementById('pedidosPendientes');
-            if (pedidosPendientesEl) {
-                let current = parseInt(pedidosPendientesEl.textContent);
-                if (!isNaN(current) && current > 0) {
-                    pedidosPendientesEl.textContent = current - 1;
-                }
-            }
-            
-            // Actualizar contador total de pedidos
-            const totalPedidosEl = document.getElementById('totalPedidos');
-            if (totalPedidosEl) {
-                let total = parseInt(totalPedidosEl.textContent);
-                if (!isNaN(total) && total > 0) {
-                    totalPedidosEl.textContent = total - 1;
-                }
-            }
-        }
-        
-        // Verificar si la tabla quedó vacía
-        function checkIfTableEmpty() {
-            const tbody = document.getElementById('pedidosBody');
-            const rows = tbody.querySelectorAll('tr:not(.empty-state)');
-            
-            if (rows.length === 0) {
-                // Mostrar estado vacío
-                const emptyState = tbody.querySelector('.empty-state');
-                if (!emptyState) {
-                    tbody.innerHTML = `
-                        <tr class="empty-state">
-                            <td colspan="8">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                </svg>
-                                <h3>No se encontraron pedidos</h3>
-                                <p>Intenta con otros filtros de búsqueda</p>
-                            </td>
-                        </tr>
-                    `;
-                }
-            }
-        }
-        
-        // Helper functions
-        function getStatusIcon(status) {
-            const icons = {
-                'pendiente': '⏱️',
-                'confirmado': '✓',
-                'preparacion': '👨‍🍳',
-                'listo': '✅',
-                'entregado': '📦',
-                'completado': '🏁',
-                'cancelado': '❌'
-            };
-            return icons[status] || '📋';
-        }
-        
-        function getOrderTypeKey(tipo) {
-            const map = {
-                'mesa': 'restaurante',
-                'delivery': 'domicilio',
-                'llevar': 'recoger'
-            };
-            return map[tipo] || tipo;
-        }
-        
-        function getOrderTypeIcon(tipo) {
-            const icons = {
-                'mesa': '🍽️',
-                'delivery': '🚚',
-                'llevar': '🏃‍♂️'
-            };
-            return icons[tipo] || '📦';
-        }
-        
-        // Exportar pedidos
-        function exportOrders() {
-            const searchParams = new URLSearchParams(window.location.search);
-            const filtros = {};
-            
-            // Obtener filtros actuales
-            ['search', 'estado', 'tipo', 'fecha', 'sort'].forEach(param => {
-                const value = searchParams.get(param);
-                if (value) filtros[param] = value;
+            })
+            .catch(error => {
+                console.error('Error al eliminar pedido:', error);
+                showNotification(`<i class="fas fa-exclamation-circle"></i> ${error.message}`, 'error');
             });
+        }
+        
+        // Función para actualizar estadísticas
+        function updateStats() {
+            // Contar pedidos en la tabla
+            const totalRows = document.querySelectorAll('#pedidosTable tbody tr:not(.empty-state)').length;
+            const totalElement = document.getElementById('totalPedidos');
+            if (totalElement) {
+                totalElement.textContent = totalRows;
+            }
             
-            // Construir URL para exportar (necesitarías crear esta vista)
-            const exportUrl = '/gestiondepedidos/exportar/?' + new URLSearchParams(filtros).toString();
-            
-            // Descargar archivo
-            window.open(exportUrl, '_blank');
-            showNotification('Exportando pedidos...', 'success');
+            // Contar pedidos pendientes
+            const pendientes = document.querySelectorAll('.status-pendiente').length;
+            const pendientesElement = document.getElementById('pedidosPendientes');
+            if (pendientesElement) {
+                pendientesElement.textContent = pendientes;
+            }
         }
         
-        // Imprimir pedido
-        function printOrder(orderId) {
-            window.open(`/gestiondepedidos/imprimir/${orderId}/`, '_blank');
-            showNotification('Generando impresión del pedido...', 'success');
+        // Funciones de utilidad
+        function getCSRFToken() {
+            const token = document.querySelector('[name=csrfmiddlewaretoken]');
+            return token ? token.value : '';
         }
         
-        // Cerrar modales
-        function closeModal() {
-            document.getElementById('orderModal').classList.remove('active');
-        }
-        
-        function closeStatusModal() {
-            document.getElementById('statusModal').classList.remove('active');
-            selectedStatus = null;
-            currentOrderId = null;
-        }
-        
-        // Mostrar notificación
         function showNotification(message, type = 'success') {
+            // Remover notificaciones anteriores
+            const existing = document.querySelectorAll('.custom-notification');
+            existing.forEach(n => n.remove());
+            
+            // Crear notificación
             const notification = document.createElement('div');
+            notification.className = 'custom-notification';
+            
+            const colors = {
+                success: { bg: '#38a169', color: '#ffffff' },
+                error: { bg: '#e53e3e', color: '#ffffff' },
+                info: { bg: '#3182ce', color: '#ffffff' },
+                warning: { bg: '#d69e2e', color: '#ffffff' }
+            };
+            
+            const color = colors[type] || colors.success;
+            
             notification.style.cssText = `
                 position: fixed;
                 top: 20px;
                 right: 20px;
-                background: ${type === 'error' ? 'linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)' : 'linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%)'};
-                color: white;
+                background: ${color.bg};
+                color: ${color.color};
                 padding: 1rem 1.5rem;
-                border-radius: 12px;
+                border-radius: 10px;
                 box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-                z-index: 1000;
+                z-index: 10000;
                 animation: slideIn 0.3s ease-out;
                 font-weight: 600;
                 display: flex;
                 align-items: center;
                 gap: 10px;
+                max-width: 400px;
+                white-space: pre-line;
             `;
             
             notification.innerHTML = message;
@@ -1858,7 +2739,59 @@
             }, 5000);
         }
         
-        // Sidebar toggle
+        function getEstadoClass(estado) {
+            const clases = {
+                'pendiente': 'status-pendiente',
+                'confirmado': 'status-pendiente',
+                'preparacion': 'status-preparacion',
+                'listo': 'status-listo',
+                'entregado': 'status-entregado',
+                'completado': 'status-entregado',
+                'cancelado': 'status-cancelado'
+            };
+            return clases[estado] || 'status-pendiente';
+        }
+        
+        function getEstadoInfo(estado) {
+            const info = {
+                'pendiente': { class: 'status-pendiente', icon: '<i class="fas fa-clock"></i>' },
+                'confirmado': { class: 'status-pendiente', icon: '<i class="fas fa-check"></i>' },
+                'preparacion': { class: 'status-preparacion', icon: '<i class="fas fa-concierge-bell"></i>' },
+                'listo': { class: 'status-listo', icon: '<i class="fas fa-rocket"></i>' },
+                'entregado': { class: 'status-entregado', icon: '<i class="fas fa-box"></i>' },
+                'completado': { class: 'status-entregado', icon: '<i class="fas fa-flag-checkered"></i>' },
+                'cancelado': { class: 'status-cancelado', icon: '<i class="fas fa-times-circle"></i>' }
+            };
+            return info[estado] || { class: 'status-pendiente', icon: '<i class="fas fa-question-circle"></i>' };
+        }
+        
+        function getTipoInfo(tipo) {
+            const info = {
+                'restaurante': { icon: '<i class="fas fa-utensils"></i>', label: 'Restaurante' },
+                'domicilio': { icon: '<i class="fas fa-truck"></i>', label: 'Domicilio' },
+                'recoger': { icon: '<i class="fas fa-walking"></i>', label: 'Recoger' },
+                'mesa': { icon: '<i class="fas fa-utensils"></i>', label: 'Mesa' },
+                'delivery': { icon: '<i class="fas fa-truck"></i>', label: 'Delivery' },
+                'llevar': { icon: '<i class="fas fa-walking"></i>', label: 'Para llevar' }
+            };
+            return info[tipo] || { icon: '<i class="fas fa-box"></i>', label: tipo };
+        }
+        
+        // Funciones para cerrar modales
+        function closeModal() {
+            document.getElementById('orderModal').classList.remove('active');
+        }
+        
+        function closeStatusModal() {
+            document.getElementById('statusModal').classList.remove('active');
+            currentOrder = null;
+        }
+        
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+        }
+        
+        // Función para alternar sidebar
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebarOverlay');
@@ -1866,33 +2799,8 @@
             overlay.classList.toggle('open');
         }
         
-        // Cerrar sidebar al hacer clic fuera en móvil
-        document.addEventListener('click', function(event) {
-            const sidebar = document.getElementById('sidebar');
-            const menuToggle = document.querySelector('.menu-toggle');
-            
-            if (window.innerWidth <= 768 && 
-                sidebar.classList.contains('open') &&
-                !sidebar.contains(event.target) &&
-                event.target !== menuToggle &&
-                !menuToggle.contains(event.target)) {
-                toggleSidebar();
-            }
-        });
-        
-        // Agregar animación CSS para notificaciones
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-            }
-            @keyframes slideOut {
-                from { transform: translateX(0); opacity: 1; }
-                to { transform: translateX(100%); opacity: 0; }
-            }
-        `;
-        document.head.appendChild(style);
+        // Cerrar sidebar al hacer clic en overlay
+        document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
     </script>
 </body>
 </html>

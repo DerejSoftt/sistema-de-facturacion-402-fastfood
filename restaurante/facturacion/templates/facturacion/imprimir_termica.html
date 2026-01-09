@@ -11,30 +11,58 @@
                 font-family: 'Courier New', monospace;
                 font-size: 12px;
                 padding: 5px;
-                
             }
-            .header { text-align: center; margin-bottom: 5px; }
-            .info { margin: 0px 0;  }
+            .header { text-align: center; margin-bottom: 5px; font-size: 17px;}
+            .info { margin: 0px 0;  font-size: 17px;}
             .info-row { display: flex; justify-content: space-between; }
             .items { width: 100%; margin: 10px 0; }
             .items th { text-align: left; border-bottom: 1px dashed #000; }
             .items td { padding: 2px 0; }
-            .item-name { width: 50%; }
-            .item-qty { width: 15%; text-align: center; }
-            .item-price { width: 20%; text-align: right; }
-            .item-total { width: 15%; text-align: right; }
+            .item-name { width: 50%; font-size: 17px;}
+            .item-qty { width: 15%; text-align: center; font-size: 17px;}
+            .item-price { width: 20%; text-align: right; font-size: 17px;}
+            .item-total { width: 15%; text-align: right; font-size: 17px;}
             .totals { margin-top: 10px; }
-            .total-row { display: flex; justify-content: space-between; }
-            .footer { text-align: center; margin-top: 15px; font-size: 10px; }
+            .total-row { display: flex; justify-content: space-between; font-size: 17px;}
+            .footer { text-align: center; margin-top: 15px; font-size: 14px; }
             hr { border: none; border-top: 1px dashed #000; }
         }
         @page {
             size: 80mm auto;
             margin: 0;
         }
+        /* Estilos para pantalla (no impresión) */
+        .no-print {
+            text-align: center;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+        .boton-volver {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 10px;
+        }
+        .boton-imprimir {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 10px;
+            cursor: pointer;
+        }
     </style>
 </head>
-<body onload="window.print(); setTimeout(window.close, 1000);">
+<body>
     <div class="header">
         <h2>{{ empresa.nombre }}</h2>
         <p>{{ empresa.direccion }}</p>
@@ -54,23 +82,53 @@
         </div>
         <div class="info-row">
             <span>PEDIDO:</span>
-            <span>{{ factura.pedido.codigo_pedido }}</span>
+            <span>
+                {% if factura.pedido and factura.pedido.codigo_pedido %}
+                    {{ factura.pedido.codigo_pedido }}
+                {% else %}
+                    N/A
+                {% endif %}
+            </span>
         </div>
         <div class="info-row">
             <span>TIPO:</span>
-            <span>{{ factura.get_tipo_pedido_display }}</span>
+            <span>
+                {% if factura.tipo_pedido == 'mesa' %}
+                    MESA
+                {% elif factura.tipo_pedido == 'delivery' %}
+                    DELIVERY
+                {% elif factura.tipo_pedido == 'llevar' %}
+                    PARA LLEVAR
+                {% else %}
+                    {{ factura.tipo_pedido }}
+                {% endif %}
+            </span>
         </div>
+        {% if factura.numero_mesa_codigo %}
         <div class="info-row">
-            <span>{% if factura.tipo_pedido == 'mesa' %}MESA:{% else %}CÓDIGO:{% endif %}</span>
-            <span>{{ factura.numero_mesa_codigo|default:"N/A" }}</span>
+            <span>
+                {% if factura.tipo_pedido == 'mesa' %}MESA:
+                {% elif factura.tipo_pedido == 'delivery' %}CÓDIGO:
+                {% elif factura.tipo_pedido == 'llevar' %}CÓDIGO:
+                {% else %}REF:
+                {% endif %}
+            </span>
+            <span>{{ factura.numero_mesa_codigo }}</span>
         </div>
+        {% endif %}
         <div class="info-row">
             <span>ESTADO:</span>
-            <span>{{ factura.get_estado_display }}</span>
+            <span>{{ factura.estado|upper }}</span>
         </div>
         <div class="info-row">
             <span>PAGO:</span>
-            <span>{{ factura.get_metodo_pago_display }}</span>
+            <span>
+                {% if factura.metodo_pago == 'efectivo' %}EFECTIVO
+                {% elif factura.metodo_pago == 'tarjeta' %}TARJETA
+                {% elif factura.metodo_pago == 'transferencia' %}TRANSFERENCIA
+                {% else %}{{ factura.metodo_pago|upper }}
+                {% endif %}
+            </span>
         </div>
         <hr>
     </div>
@@ -124,17 +182,19 @@
             <span>Subtotal:</span>
             <span>${{ factura.subtotal|floatformat:2 }}</span>
         </div>
-        <!-- Opcional: Mostrar IVA si lo necesitas -->
-        <!--
-        <div class="total-row">
+        <!-- Mostrar IVA si es mayor a 0 -->
+        {% if factura.iva > 0 %}
+        <!-- <div class="total-row">
             <span>IVA 12%:</span>
             <span>${{ factura.iva|floatformat:2 }}</span>
-        </div>
-        -->
+        </div> -->
+        {% endif %}
+        {% if factura.envio > 0 %}
         <div class="total-row">
             <span>Envío:</span>
             <span>${{ factura.envio|floatformat:2 }}</span>
         </div>
+        {% endif %}
         <div class="total-row" style="font-weight: bold; margin-top: 5px; padding-top: 5px; border-top: 2px solid #000;">
             <span>TOTAL:</span>
             <span>${{ factura.subtotal|floatformat:2 }}</span>
@@ -150,15 +210,37 @@
         <hr>
         <p>Factura generada electrónicamente</p>
         <p>No válida como comprobante de crédito fiscal</p>
+        {% if factura.creado_por %}
+        <p>Atendido por: {{ factura.creado_por.get_full_name|default:factura.creado_por.username }}</p>
+        {% endif %}
+    </div>
+    
+    <!-- Controles para pantalla (no se imprimen) -->
+    <div class="no-print" style="text-align: center; margin-top: 30px;">
+        <a href="{% url 'facturacion' %}?de_impresion=true" class="boton-volver">
+            ✅ Volver a Facturación
+        </a>
+        <button onclick="window.print()" class="boton-imprimir">
+            🖨️ Imprimir Factura
+        </button>
     </div>
     
     <script>
-        // Auto-imprimir y cerrar
+        // Imprimir automáticamente al cargar (solo en modo impresión)
         window.onload = function() {
-            window.print();
-            setTimeout(function() {
-                window.close();
-            }, 1000);
+            // Verificar si estamos en una vista previa de impresión
+            if (window.location.search.indexOf('noprint') === -1) {
+                setTimeout(function() {
+                    window.print();
+                }, 500);
+            }
+        };
+        
+        // Redirigir después de imprimir si el usuario lo desea
+        window.onafterprint = function() {
+            console.log('Impresión completada');
+            // Mostrar opción para volver
+            document.querySelector('.no-print').style.display = 'block';
         };
     </script>
 </body>

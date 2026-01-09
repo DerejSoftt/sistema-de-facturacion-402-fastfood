@@ -4,252 +4,328 @@
     <meta charset="UTF-8">
     <title>Ticket Chef - {{ codigo_pedido }}</title>
     <style>
-        /* ESTILOS PARA IMPRESORA TÉRMICA 80mm - MEJOR LEGIBILIDAD */
+        /* ESTILOS PARA AKOIA 3850 CON TEXTO 15px */
         * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Courier New', monospace !important;
-            font-weight: bold !important; /* Hacer todo el texto en negrita */
-        }
-        
-        body {
-            width: 80mm !important;
-            max-width: 80mm !important;
             margin: 0 !important;
             padding: 0 !important;
-            font-size: 14px !important; /* Aumentar tamaño de fuente */
-            line-height: 1.2 !important;
+            box-sizing: border-box !important;
+            font-family: 'Courier New', Courier, monospace !important;
+            font-weight: bold !important;
+        }
+        
+        html, body {
+            width: 80mm !important;
+            max-width: 80mm !important;
+            min-height: 0 !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            font-size: 15px !important; /* TEXTO EN 15px COMO SOLICITADO */
+            line-height: 1 !important; /* SIN ESPACIADO */
             background: white !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+            overflow: hidden !important;
         }
         
         @page {
             size: 80mm auto;
-            margin: 0;
-            padding: 0;
+            margin: 0mm !important;
+            padding: 0mm !important;
         }
         
         .ticket {
             width: 78mm !important;
             max-width: 78mm !important;
             margin: 0 auto !important;
-            padding: 1mm !important;
+            padding: 0 !important;
         }
         
-        /* ENCABEZADO */
+        /* ENCABEZADO CON TEXTO 15px */
         .header {
             text-align: center;
-            margin-bottom: 2mm;
-            padding-bottom: 1mm;
-            border-bottom: 2px solid #000; /* Línea más gruesa */
+            margin: 0 0 0.5mm 0 !important;
+            padding: 0 !important;
         }
         
         .restaurant-name {
-            font-size: 16px !important; /* Más grande */
-            font-weight: 900 !important; /* Extra negrita */
-            margin: 0 0 1mm 0 !important;
-            letter-spacing: 0.5px;
+            font-size: 17px !important; /* Un poco más grande para destacar */
+            font-weight: 900 !important;
+            margin: 0 0 0.3mm 0 !important;
+            padding: 0 !important;
             text-transform: uppercase;
         }
         
         .ticket-title {
-            font-size: 14px !important;
+            font-size: 16px !important; /* Cercano a 15px */
             font-weight: 900 !important;
-            margin: 0 0 1mm 0 !important;
+            margin: 0 0 0.3mm 0 !important;
+            padding: 0 !important;
         }
         
         .ticket-info {
-            font-size: 12px !important; /* Más grande */
-            margin: 0.5mm 0 !important;
-            line-height: 1.2 !important;
+            font-size: 14px !important; /* Cercano a 15px */
+            margin: 0 0 0.3mm 0 !important;
+            padding: 0 !important;
         }
         
         .pedido-code {
-            font-size: 15px !important; /* Más grande */
+            font-size: 16px !important; /* Destacado */
             font-weight: 900 !important;
-            margin: 2mm 0 !important;
-            padding: 2mm;
+            margin: 0.5mm 0 !important;
+            padding: 0.5mm 0 !important;
             background: #000 !important;
             color: white !important;
-            border-radius: 0 !important; /* Sin bordes redondeados para impresión más clara */
             text-transform: uppercase;
-            letter-spacing: 1px;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
         
         .cliente-code {
-            font-size: 13px !important;
+            font-size: 15px !important; /* Igual a 15px */
             font-weight: 900 !important;
-            margin: 1mm 0 !important;
-            padding: 1mm;
+            margin: 0.5mm 0 !important;
+            padding: 0.5mm 0 !important;
             background: #f0f0f0 !important;
             color: #000 !important;
-            border-radius: 0 !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
         
-        /* SEPARADORES */
+        /* SEPARADORES DELGADOS */
         .separator {
-            border-top: 2px dashed #000; /* Más grueso */
-            margin: 2mm 0;
+            border-top: 0.5px dashed #000 !important;
+            margin: 0.3mm 0 !important;
             height: 0;
         }
         
         .double-separator {
-            border-top: 3px solid #000; /* Más grueso */
-            margin: 3mm 0;
+            border-top: 1px solid #000 !important;
+            margin: 0.5mm 0 !important;
             height: 0;
         }
         
-        /* ITEMS */
+        /* ITEMS CON TEXTO 15px */
         .section-title {
             font-weight: 900 !important;
-            font-size: 13px !important;
-            margin: 2mm 0 1mm 0;
+            font-size: 16px !important; /* Un poco más para destacar secciones */
+            margin: 0.3mm 0 0.2mm 0 !important;
+            padding: 0.2mm 0 !important;
             text-transform: uppercase;
             background: #f8f8f8 !important;
-            padding: 1mm;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
         
         .items-container {
-            margin: 1mm 0;
+            margin: 0 !important;
+            padding: 0 !important;
         }
         
         .item-row {
             display: flex;
-            justify-content: space-between;
-            margin: 1mm 0;
-            font-size: 12px !important;
-            line-height: 1.2 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            font-size: 15px !important; /* TEXTO EN 15px */
+            height: auto !important;
+            min-height: 0 !important;
+            line-height: 1 !important;
         }
         
         .item-qty {
-            width: 10mm;
-            text-align: center;
+            width: 8mm !important; /* Un poco más ancho para 15px */
+            text-align: left;
             font-weight: 900 !important;
+            white-space: nowrap;
         }
         
         .item-name {
             flex: 1;
-            padding: 0 1mm;
             font-weight: 900 !important;
+            font-size: 15px !important; /* TEXTO EN 15px */
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            padding: 0 1mm !important;
         }
         
         .item-code {
-            width: 18mm;
+            width: 12mm !important; /* Un poco más ancho para 15px */
             text-align: right;
-            padding: 0 1mm;
             font-weight: 900 !important;
+            white-space: nowrap;
         }
         
-        /* PIE DE PÁGINA */
+        /* PIE DE PÁGINA CON TEXTO 15px */
         .footer {
             text-align: center;
-            margin-top: 3mm;
-            padding-top: 2mm;
-            font-size: 12px !important;
-            line-height: 1.2 !important;
+            margin: 0.5mm 0 0 0 !important;
+            padding: 0 !important;
+            font-size: 14px !important; /* Cercano a 15px */
         }
         
         .total-info {
             font-weight: 900 !important;
-            margin: 2mm 0;
-            padding: 2mm;
+            margin: 0.3mm 0 !important;
+            padding: 0.3mm 0 !important;
             background: #f0f0f0 !important;
-            border-radius: 0 !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
         
         .footer-mensaje {
             font-weight: 900 !important;
-            margin: 2mm 0;
-            font-size: 13px !important;
+            font-size: 15px !important; /* TEXTO EN 15px */
+            margin: 0.3mm 0 !important;
+            padding: 0 !important;
         }
         
         .stars {
-            letter-spacing: 2px;
+            letter-spacing: 0.5px;
             color: #000;
-            margin: 2mm 0;
-            font-size: 14px !important;
+            font-size: 15px !important; /* TEXTO EN 15px */
+            margin: 0.3mm 0 !important;
+            padding: 0 !important;
         }
         
-        /* IMPRESIÓN */
+        /* IMPRESIÓN - CONFIGURACIÓN ESPECÍFICA PARA AKOIA CON 15px */
         @media print {
-            body {
+            html, body {
+                width: 80mm !important;
+                height: auto !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                font-size: 14px !important;
-                font-weight: bold !important;
+                font-size: 15px !important; /* MANTENER 15px AL IMPRIMIR */
+                line-height: 0.95 !important; /* COMPACTO */
+            }
+            
+            body * {
+                line-height: 0.95 !important;
+                max-height: none !important;
+                float: none !important;
             }
             
             .ticket {
-                padding: 0 !important;
                 width: 80mm !important;
-                max-width: 80mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                transform: scale(0.96) !important; /* Un poco más de escalado para 15px */
+                transform-origin: top left !important;
             }
             
             .no-print {
                 display: none !important;
             }
             
-            /* Asegurar que los fondos se impriman */
-            .pedido-code, .cliente-code, .section-title, .total-info {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
+            /* COMPRIMIR AL MÁXIMO EN IMPRESIÓN */
+            .header {
+                margin-bottom: 0.2mm !important;
+            }
+            
+            .restaurant-name {
+                font-size: 16px !important;
+            }
+            
+            .item-row {
+                font-size: 14px !important; /* Reducir un poco al imprimir para ajuste */
+                margin: 0.1mm 0 !important;
+            }
+            
+            .item-name {
+                font-size: 15px !important;
+            }
+            
+            .pedido-code, .cliente-code {
+                padding: 0.3mm 0 !important;
+                margin: 0.3mm 0 !important;
+            }
+            
+            .separator, .double-separator {
+                margin: 0.2mm 0 !important;
+            }
+            
+            .footer {
+                margin-top: 0.2mm !important;
+            }
+            
+            /* FORZAR SALTO DE PÁGINA EVITADO */
+            .ticket {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
             }
         }
         
-        /* BOTONES SOLO PARA PANTALLA */
+        /* BOTONES MÁS GRANDES COMO SOLICITADO */
         .no-print {
             position: fixed;
             top: 10px;
             right: 10px;
             z-index: 1000;
+            background: white;
+            padding: 10px;
+            border: 2px solid #000;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            font-size: 16px;
         }
         
         .btn-print, .btn-close {
-            padding: 10px 20px;
-            border: 2px solid #000;
-            border-radius: 5px;
-            font-weight: bold;
+            padding: 12px 24px !important; /* BOTONES MÁS GRANDES */
+            border: 2px solid #000 !important;
             cursor: pointer;
-            margin-left: 5px;
-            font-size: 14px;
+            margin-left: 10px !important;
+            font-size: 16px !important; /* TEXTO MÁS GRANDE EN BOTONES */
+            font-weight: bold !important;
+            border-radius: 6px !important;
+            transition: all 0.3s ease !important;
+            min-width: 120px !important; /* ANCHO MÍNIMO */
         }
         
         .btn-print {
-            background: #4CAF50;
-            color: white;
+            background: #4CAF50 !important;
+            color: white !important;
+        }
+        
+        .btn-print:hover {
+            background: #45a049 !important;
+            transform: translateY(-2px) !important;
         }
         
         .btn-close {
-            background: #f44336;
-            color: white;
+            background: #f44336 !important;
+            color: white !important;
         }
-        .section-title {
-            margin-left: 10px;
+        
+        .btn-close:hover {
+            background: #d32f2f !important;
+            transform: translateY(-2px) !important;
         }
-
-        .items-container {
-            margin-left: 10px;
+        
+        /* Para pantallas pequeñas, ajustar botones */
+        @media (max-width: 600px) {
+            .no-print {
+                top: 5px;
+                right: 5px;
+                padding: 8px;
+            }
+            
+            .btn-print, .btn-close {
+                padding: 10px 20px !important;
+                font-size: 14px !important;
+                min-width: 100px !important;
+                margin-left: 5px !important;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- BOTONES MÁS GRANDES Y VISIBLES -->
     <div class="no-print">
-        <button class="btn-print" onclick="window.print()">🖨️ IMPRIMIR</button>
-        <button class="btn-close" onclick="window.close()">❌ CERRAR</button>
+        <button class="btn-print" onclick="window.print()">🖨️ IMPRIMIR TICKET</button>
+        <button class="btn-close" onclick="window.close()">❌ CERRAR VENTANA</button>
     </div>
     
     <div class="ticket">
-        <!-- ENCABEZADO -->
+        <!-- ENCABEZADO CON TEXTO 15px -->
         <div class="header">
             <div class="restaurant-name">402 FASTFOOD</div>
             <div class="ticket-title">TICKET COCINA</div>
@@ -276,21 +352,21 @@
         
         <div class="separator"></div>
         
-        <!-- PLATOS -->
+        <!-- PLATOS CON TEXTO 15px -->
         {% if platos_items %}
         <div class="section-title">PLATOS</div>
         <div class="items-container">
             {% for item in platos_items %}
             <div class="item-row">
                 <div class="item-qty">{{ item.quantity }}x</div>
-                <div class="item-name">{{ item.name|truncatechars:22 }}</div>
+                <div class="item-name">{{ item.name|truncatechars:25 }}</div>
                 <div class="item-code">{{ item.codigo|default:"---" }}</div>
             </div>
             {% endfor %}
         </div>
         {% endif %}
         
-        <!-- BEBIDAS -->
+        <!-- BEBIDAS CON TEXTO 15px -->
         {% if bebidas_items %}
         <div class="separator"></div>
         <div class="section-title">BEBIDAS</div>
@@ -298,7 +374,7 @@
             {% for item in bebidas_items %}
             <div class="item-row">
                 <div class="item-qty">{{ item.quantity }}x</div>
-                <div class="item-name">{{ item.name|truncatechars:22 }}</div>
+                <div class="item-name">{{ item.name|truncatechars:25 }}</div>
                 <div class="item-code">{{ item.codigo|default:"---" }}</div>
             </div>
             {% endfor %}
@@ -307,7 +383,7 @@
         
         <div class="double-separator"></div>
         
-        <!-- PIE DE PÁGINA -->
+        <!-- PIE DE PÁGINA CON TEXTO 15px -->
         <div class="footer">
             <div class="total-info">
                 TOTAL ITEMS: {{ total_items }}
@@ -319,26 +395,83 @@
     </div>
     
     <script>
-        // Imprimir automáticamente después de cargar
-        window.onload = function() {
+        // AJUSTE DINÁMICO PARA TEXTO 15px
+        document.addEventListener('DOMContentLoaded', function() {
+            // Calcular si necesitamos ajustar por muchos items
+            const platosCount = {{ platos_items|length|default:0 }};
+            const bebidasCount = {{ bebidas_items|length|default:0 }};
+            const totalItems = platosCount + bebidasCount;
+            
+            console.log(`Items totales: ${totalItems}`);
+            
+            // Si hay muchos items, ajustar truncado
+            if (totalItems > 15) {
+                // Reducir truncado para más items
+                document.querySelectorAll('.item-name').forEach(name => {
+                    name.style.maxWidth = '40mm';
+                });
+            }
+            
+            // Ajuste específico para Aokia 3850 con texto 15px
+            const isAokia = true;
+            if (isAokia) {
+                // Ajustar para mejor impresión con texto 15px
+                document.querySelectorAll('.item-row').forEach(row => {
+                    row.style.lineHeight = '0.9';
+                });
+                
+                // Asegurar que no haya desbordamiento
+                document.querySelectorAll('.item-name').forEach(name => {
+                    name.style.overflow = 'hidden';
+                    name.style.textOverflow = 'ellipsis';
+                });
+            }
+            
+            // Imprimir automáticamente con retardo
             setTimeout(function() {
                 window.print();
-            }, 500);
-        };
+            }, 800);
+        });
         
-        // Cerrar ventana después de imprimir
+        // Cerrar después de imprimir
         window.onafterprint = function() {
             setTimeout(function() {
-                if (!document.hasFocus()) {
-                    window.close();
-                }
-            }, 3000);
+                window.close();
+            }, 2000);
         };
         
-        // También permitir cerrar con ESC
+        // Cerrar con ESC
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                window.close();
+            if (e.key === 'Escape') window.close();
+        });
+        
+        // Ajustes previos a la impresión para texto 15px
+        window.addEventListener('beforeprint', function() {
+            // Optimizaciones para impresión con texto grande
+            document.body.style.lineHeight = '0.92';
+            
+            // Asegurar que todo el contenido esté visible
+            document.querySelectorAll('*').forEach(el => {
+                el.style.maxHeight = 'none';
+                el.style.overflow = 'visible';
+            });
+        });
+        
+        // Botón adicional para vista previa (solo en pantalla)
+        document.addEventListener('DOMContentLoaded', function() {
+            // Agregar botón de vista previa si estamos en pantalla
+            if (!window.matchMedia('print').matches) {
+                const noPrintDiv = document.querySelector('.no-print');
+                const previewBtn = document.createElement('button');
+                previewBtn.className = 'btn-print';
+                previewBtn.innerHTML = '👁️ VISTA PREVIA';
+                previewBtn.style.backgroundColor = '#2196F3';
+                previewBtn.style.marginLeft = '10px';
+                previewBtn.onclick = function() {
+                    // Mostrar mensaje de ayuda
+                    alert('Vista previa del ticket. Para imprimir, use el botón IMPRIMIR TICKET.');
+                };
+                noPrintDiv.appendChild(previewBtn);
             }
         });
     </script>

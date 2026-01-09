@@ -298,6 +298,7 @@ class DeliveryConfig(models.Model):
         tipo_display = "Delivery" if self.tipo == 'delivery' else "Para Llevar"
         return f"{tipo_display} {self.codigo}"
 
+
 class Pedido(models.Model):
     """Modelo principal para los pedidos"""
     TIPO_PEDIDO_CHOICES = [
@@ -330,11 +331,12 @@ class Pedido(models.Model):
     
     # Información específica por tipo
     mesa = models.ForeignKey(
-        Mesa, 
+        'Mesa', 
         on_delete=models.SET_NULL, 
         null=True, 
         blank=True,
-        verbose_name="Mesa"
+        verbose_name="Mesa",
+        related_name='pedidos'
     )
     codigo_delivery = models.CharField(
         max_length=10, 
@@ -422,6 +424,23 @@ class Pedido(models.Model):
     def __str__(self):
         return f"Pedido {self.codigo_pedido} - {self.get_tipo_pedido_display()}"
     
+    def liberar_mesa_si_corresponde(self):
+        """Libera la mesa si la factura está pagada o el pedido está cancelado"""
+        if self.tipo_pedido == 'mesa' and self.mesa:
+            # Verificar si tiene factura pagada
+            if self.facturas.filter(estado='pagada').exists():
+                self.mesa.estado = 'disponible'
+                self.mesa.save()
+                print(f"✅ Mesa {self.mesa.numero_display} liberada por factura pagada")
+                return True
+            # Si el pedido está cancelado, también liberar mesa
+            elif self.estado == 'cancelado':
+                self.mesa.estado = 'disponible'
+                self.mesa.save()
+                print(f"✅ Mesa {self.mesa.numero_display} liberada por pedido cancelado")
+                return True
+        return False
+    
     def save(self, *args, **kwargs):
         # Generar código de pedido automático si no existe
         if not self.codigo_pedido:
@@ -439,7 +458,44 @@ class Pedido(models.Model):
             
             self.codigo_pedido = f'ORD-{timestamp}-{new_num:04d}'
         
+        # Guardar el pedido
         super().save(*args, **kwargs)
+        
+        # Si es un pedido de mesa, manejar el estado de la mesa
+        if self.tipo_pedido == 'mesa' and self.mesa:
+            if self.estado in ['pendiente', 'confirmado', 'preparacion', 'listo', 'entregado']:
+                # Si el pedido está activo, ocupar la mesa
+                if self.mesa.estado != 'ocupada':
+                    self.mesa.estado = 'ocupada'
+                    self.mesa.save()
+                    print(f"✅ Mesa {self.mesa.numero_display} ocupada por pedido {self.codigo_pedido} (estado: {self.estado})")
+            elif self.estado in ['completado', 'cancelado']:
+                # Solo liberar si tiene factura pagada o está cancelado
+                self.liberar_mesa_si_corresponde()
+    
+    # Propiedad para verificar si tiene factura pagada
+    @property
+    def tiene_factura_pagada(self):
+        """Verifica si el pedido tiene una factura con estado 'pagada'"""
+        return self.facturas.filter(estado='pagada').exists()
+    
+    # Propiedad para verificar si la mesa debe estar ocupada
+    @property
+    def mesa_debe_estar_ocupada(self):
+        """Determina si la mesa debe estar ocupada basándose en el estado y facturas"""
+        if not self.mesa:
+            return False
+        
+        # Si tiene factura pagada, la mesa debe estar libre
+        if self.tiene_factura_pagada:
+            return False
+        
+        # Si el pedido está cancelado, la mesa debe estar libre
+        if self.estado == 'cancelado':
+            return False
+        
+        # Para todos los otros casos, la mesa debe estar ocupada
+        return True
     
     def get_items_detalle(self):
         """Obtener los items del pedido como lista"""
@@ -474,6 +530,72 @@ class Pedido(models.Model):
             models.Index(fields=['tipo_pedido']),
             models.Index(fields=['fecha_pedido']),
         ]
+
+class DetalleItemPedido(models.Model):
+    """Modelo auxiliar para desnormalizar los items del pedido (opcional)"""
+    TIPOS_ITEM = [
+        ('plato', 'Plato'),
+        ('bebida', 'Bebida'),
+    ]
+    
+    pedido = models.ForeignKey(
+        Pedido, 
+        on_delete=models.CASCADE,
+        related_name='detalles_items'
+    )
+    id_plato = models.IntegerField(verbose_name="ID del Plato/Bebida")
+    nombre_plato = models.CharField(max_length=200, verbose_name="Nombre del Plato/Bebida")
+    cantidad = models.IntegerField(verbose_name="Cantidad")
+    precio_unitario = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,
+        verbose_name="Precio Unitario"
+    )
+    subtotal_item = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,
+        verbose_name="Subtotal Item"
+    )
+    tipo_item = models.CharField(
+        max_length=20, 
+        choices=TIPOS_ITEM, 
+        default='plato',
+        verbose_name="Tipo de Item"
+    )
+    notas = models.TextField(blank=True, verbose_name="Notas del Item")
+    
+    def __str__(self):
+        return f"{self.nombre_plato} x{self.cantidad}"
+    
+    class Meta:
+        verbose_name = "Detalle Item Pedido"
+        verbose_name_plural = "Detalles Items Pedido"
+
+
+class HistorialEstadoPedido(models.Model):
+    """Modelo para rastrear cambios de estado del pedido"""
+    pedido = models.ForeignKey(
+        Pedido, 
+        on_delete=models.CASCADE,
+        related_name='historial_estados'
+    )
+    estado_anterior = models.CharField(max_length=20)
+    estado_nuevo = models.CharField(max_length=20)
+    usuario = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True
+    )
+    fecha_cambio = models.DateTimeField(auto_now_add=True)
+    motivo = models.TextField(blank=True)
+    
+    def __str__(self):
+        return f"Cambio de {self.estado_anterior} a {self.estado_nuevo}"
+    
+    class Meta:
+        verbose_name = "Historial Estado Pedido"
+        verbose_name_plural = "Historial Estados Pedido"
+        ordering = ['-fecha_cambio']
 
 class DetalleItemPedido(models.Model):
     """Modelo auxiliar para desnormalizar los items del pedido (opcional)"""
@@ -677,6 +799,7 @@ class Factura(models.Model):
         verbose_name="Creado por"
     )
     fecha_creacion = models.DateTimeField(auto_now_add=True)
+    
     
     def __str__(self):
         return f"Factura {self.numero_factura} - Pedido: {self.pedido.codigo_pedido}"
