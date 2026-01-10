@@ -16,6 +16,7 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             min-height: 100vh;
+            overflow-x: hidden;
         }
         
         /* App container */
@@ -24,14 +25,20 @@
             min-height: 100vh;
         }
         
-        /* Sidebar styles - Mismo diseño */
+        /* Sidebar styles - FIJADO */
         .sidebar {
             width: 260px;
+            height: 100vh;
             background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
             box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
             display: flex;
             flex-direction: column;
             transition: transform 0.3s ease;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 1000;
+            overflow-y: auto;
         }
         
         .sidebar-header {
@@ -41,11 +48,15 @@
             font-size: 1.25rem;
             font-weight: bold;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 1001;
         }
         
         .sidebar-nav {
             flex: 1;
             padding: 1rem 0;
+            overflow-y: auto;
         }
         
         .nav-item {
@@ -84,7 +95,7 @@
             position: fixed;
             top: 1rem;
             left: 1rem;
-            z-index: 1000;
+            z-index: 1002;
             background: #ff7e5f;
             border: none;
             padding: 0.75rem;
@@ -117,6 +128,8 @@
             flex: 1;
             padding: 2rem;
             overflow-x: hidden;
+            margin-left: 260px;
+            width: calc(100% - 260px);
         }
         
         .container {
@@ -135,7 +148,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
         
-        /* Header - Mismo diseño */
+        /* Header */
         .header {
             background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             color: white;
@@ -250,7 +263,7 @@
             font-size: 1.2rem;
         }
         
-        /* Botones - Mismo estilo */
+        /* Botones */
         .btn {
             padding: 1rem 2.5rem;
             border: none;
@@ -307,7 +320,7 @@
             font-size: 0.875rem;
         }
         
-        /* Form inputs - Para filtros */
+        /* Form inputs */
         .form-group {
             display: flex;
             flex-direction: column;
@@ -435,7 +448,7 @@
             color: #4a5568;
         }
         
-        /* Category badges - Mismo estilo */
+        /* Category badges */
         .category-badge {
             display: inline-block;
             padding: 0.5rem 1rem;
@@ -597,6 +610,8 @@
             
             .main-content {
                 padding: 5rem 1rem 1rem;
+                margin-left: 0;
+                width: 100%;
             }
             
             .content {
