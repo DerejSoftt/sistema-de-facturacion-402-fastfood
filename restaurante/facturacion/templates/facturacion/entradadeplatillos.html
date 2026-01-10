@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Entrada de Platos - Restaurante</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -220,7 +221,9 @@
         }
         
         .form-section h2::before {
-            content: "🍽️";
+            content: "\f2e7";
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
             font-size: 1.4rem;
         }
         
@@ -393,7 +396,9 @@
         }
         
         .preview-section h3::before {
-            content: "👁️";
+            content: "\f06e";
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
         }
         
         .preview-content {
@@ -569,13 +574,13 @@
 </head>
 <body>
     <!-- Mobile menu toggle -->
-    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
     
      <div class="app-container">
     <!-- Sidebar navigation -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            🍽️ Mi Restaurante
+            <i class="fas fa-utensils"></i> 402 FASTFOOD
         </div>
         <nav class="sidebar-nav">
             <!-- Verificar grupos sin template tag -->
@@ -584,23 +589,23 @@
             <!-- Menú para Usuario Normal (excluye superusuarios) -->
             {% if "Usuario Normal" in user_groups and not user.is_superuser %}
             <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                 <span>Pedidos</span>
             </a>
             <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                 <span>Inventario</span>
             </a>
             <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
                 <span>Gestión de Pedidos</span>
             </a>
             <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
+                <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                 <span>Facturación</span>
             </a>
             <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
+                <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
                 <span>Salida de Productos</span>
             </a>
             {% endif %}
@@ -608,46 +613,41 @@
             <!-- Menú para Administrador -->
             {% if "Administrador" in user_groups and not user.is_superuser %}
             <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                <span class="nav-icon">📦</span>
+                <span class="nav-icon"><i class="fas fa-box"></i></span>
                 <span>Entrada de Productos</span>
             </a>
             <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                 <span>Inventario</span>
             </a>
             <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">🍽️</span>
+                <span class="nav-icon"><i class="fas fa-utensils"></i></span>
                 <span>Entrada de Platos</span>
             </a>
             <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">📊</span>
+                <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
                 <span>Gestión de Platos</span>
             </a>
             <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                 <span>Pedidos</span>
             </a>
             <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
                 <span>Gestión de Pedidos</span>
             </a>
             <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
+                <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                 <span>Facturación</span>
             </a>
             <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
+                <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
                 <span>Salida de Productos</span>
             </a>
             <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                <span class="nav-icon">👥</span>
+                <span class="nav-icon"><i class="fas fa-users"></i></span>
                 <span>Gestión de Usuarios</span>
             </a>
-
-             <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
-                    <span class="nav-icon">📊</span>
-                    <span>Dashboard</span>
-                </a>
             {% endif %}
             
             <!-- Menú para otros grupos... -->
@@ -657,11 +657,11 @@
             
             {% if "Cajero" in user_groups and not user.is_superuser %}
             <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                 <span>Pedidos</span>
             </a>
             <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
+                <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                 <span>Facturación</span>
             </a>
             {% endif %}
@@ -669,53 +669,54 @@
             <!-- Menú EXCLUSIVO para superusuarios -->
             {% if user.is_superuser %}
             <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                <span class="nav-icon">📦</span>
+                <span class="nav-icon"><i class="fas fa-box"></i></span>
                 <span>Entrada de Productos</span>
             </a>
             <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                 <span>Inventario</span>
             </a>
             <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">🍽️</span>
+                <span class="nav-icon"><i class="fas fa-utensils"></i></span>
                 <span>Entrada de Platos</span>
             </a>
             <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">📊</span>
+                <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
                 <span>Gestión de Platos</span>
             </a>
             <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                 <span>Pedidos</span>
             </a>
             <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
                 <span>Gestión de Pedidos</span>
             </a>
             <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
+                <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                 <span>Facturación</span>
             </a>
             <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
+                <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
                 <span>Salida de Productos</span>
             </a>
             <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                <span class="nav-icon">👥</span>
+                <span class="nav-icon"><i class="fas fa-users"></i></span>
                 <span>Gestión de Usuarios</span>
+            </a>
+            
+            <!-- Dashboard solo para superusuario -->
+            <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                <span>Dashboard</span>
             </a>
             {% endif %}
             
             <!-- Cerrar sesión para todos -->
             <a href="{% url 'logout' %}" class="nav-item">
-                <span class="nav-icon">🚪</span>
+                <span class="nav-icon"><i class="fas fa-door-open"></i></span>
                 <span>Cerrar Sesión</span>
             </a>
-
-              <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
-                    <span class="nav-icon">📊</span>
-                    <span>Dashboard</span>
-                </a>
             
             {% endwith %}
         </nav>
@@ -727,7 +728,7 @@
         <div class="main-content">
             <div class="form-container">
                 <div class="header">
-                    <h1>🍽️ Entrada de Platos</h1>
+                    <h1><i class="fas fa-utensils"></i> Entrada de Platos</h1>
                     <p>Agrega nuevos platos al menú de tu restaurante</p>
                 </div>
                 
@@ -739,7 +740,7 @@
                         <!-- Campo de código (solo lectura) -->
                         <div class="codigo-field">
                             <div class="codigo-label">
-                                <span>🔢 Código del Plato:</span>
+                                <span><i class="fas fa-barcode"></i> Código del Plato:</span>
                             </div>
                             <div class="codigo-value" id="codigoDisplay">
                                 <span class="codigo-display">{{ proximo_codigo|default:"COD001" }}</span>
@@ -754,12 +755,12 @@
                             {% csrf_token %}
                             <div class="form-grid">
                                 <div class="form-group">
-                                    <label for="nombrePlato">🍽️ Nombre del Plato</label>
+                                    <label for="nombrePlato"><i class="fas fa-utensils"></i> Nombre del Plato</label>
                                     <input type="text" id="nombrePlato" name="nombre" placeholder="Ej: Pizza Pepperoni, Hamburguesa..." required>
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="categoriaPlato">🏷️ Categoría</label>
+                                    <label for="categoriaPlato"><i class="fas fa-tags"></i> Categoría</label>
                                     <select id="categoriaPlato" name="categoria" required>
                                         <option value="">Seleccionar...</option>
                                         <option value="entrada">Entrada</option>
@@ -772,19 +773,19 @@
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="precioPlato">💰 Precio ($)</label>
+                                    <label for="precioPlato"><i class="fas fa-dollar-sign"></i> Precio ($)</label>
                                     <input type="number" id="precioPlato" name="precio" placeholder="0.00" min="0" step="0.01" required>
                                 </div>
                             </div>
                             
                             <button type="submit" class="btn btn-primary">
-                                <span>➕ Agregar Plato al Menú</span>
+                                <span><i class="fas fa-plus"></i> Agregar Plato al Menú</span>
                             </button>
                         </form>
                         
                         <!-- Confirmation message -->
                         <div class="confirmation-message" id="confirmationMessage">
-                            <h3>✅ Plato agregado exitosamente</h3>
+                            <h3><i class="fas fa-check-circle"></i> Plato agregado exitosamente</h3>
                             <p id="confirmationText">El plato ha sido añadido al menú correctamente.</p>
                         </div>
                         
@@ -858,7 +859,7 @@
             if (codigo) {
                 previewHTML += `
                     <div class="preview-item">
-                        <span class="preview-label">🔢 Código:</span>
+                        <span class="preview-label"><i class="fas fa-barcode"></i> Código:</span>
                         <span class="preview-value" style="font-weight: 700; color: #2c3e50; font-family: 'Courier New', monospace; font-size: 1.2rem;">${codigo}</span>
                     </div>
                 `;
@@ -867,7 +868,7 @@
             if (nombre) {
                 previewHTML += `
                     <div class="preview-item">
-                        <span class="preview-label">🍽️ Plato:</span>
+                        <span class="preview-label"><i class="fas fa-utensils"></i> Plato:</span>
                         <span class="preview-value" style="font-weight: 600; color: #2c3e50;">${nombre}</span>
                     </div>
                 `;
@@ -877,7 +878,7 @@
                 const categoriaLabel = getCategoriaLabel(categoria);
                 previewHTML += `
                     <div class="preview-item">
-                        <span class="preview-label">🏷️ Categoría:</span>
+                        <span class="preview-label"><i class="fas fa-tags"></i> Categoría:</span>
                         <span class="preview-badge badge-${categoria}">${categoriaLabel}</span>
                     </div>
                 `;
@@ -886,7 +887,7 @@
             if (precio) {
                 previewHTML += `
                     <div class="preview-item">
-                        <span class="preview-label">💰 Precio:</span>
+                        <span class="preview-label"><i class="fas fa-dollar-sign"></i> Precio:</span>
                         <span class="preview-value" style="font-weight: 700; color: #ff7e5f;">$${parseFloat(precio).toFixed(2)}</span>
                     </div>
                 `;
@@ -905,12 +906,12 @@
             
             // Validar datos
             if (!nombrePlato || !categoriaPlato || isNaN(precioPlato)) {
-                showNotification("❌ Por favor, complete todos los campos requeridos", "error");
+                showNotification("<i class='fas fa-times-circle'></i> Por favor, complete todos los campos requeridos", "error");
                 return;
             }
             
             if (precioPlato < 0) {
-                showNotification("❌ El precio debe ser mayor o igual a 0", "error");
+                showNotification("<i class='fas fa-times-circle'></i> El precio debe ser mayor o igual a 0", "error");
                 return;
             }
             
@@ -958,14 +959,14 @@
                     document.getElementById('nombrePlato').focus();
                     
                     // Mostrar notificación
-                    showNotification(`✅ "${nombrePlato}" (${data.codigo_asignado}) agregado al menú!`, "success");
+                    showNotification(`<i class='fas fa-check-circle'></i> "${nombrePlato}" (${data.codigo_asignado}) agregado al menú!`, "success");
                 } else {
-                    showNotification(`❌ Error: ${data.error}`, "error");
+                    showNotification(`<i class='fas fa-times-circle'></i> Error: ${data.error}`, "error");
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showNotification("❌ Error al guardar el plato", "error");
+                showNotification("<i class='fas fa-times-circle'></i> Error al guardar el plato", "error");
             });
         }
         

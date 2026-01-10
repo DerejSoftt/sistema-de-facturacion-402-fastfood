@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión de Platos - Restaurante</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -258,8 +259,7 @@
             gap: 10px;
         }
         
-        .controls-header h3::before {
-            content: "🔍";
+        .controls-header h3 i {
             font-size: 1.2rem;
         }
         
@@ -677,147 +677,146 @@
 <body>
      {% csrf_token %}
     <!-- Mobile menu toggle -->
-    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
     
-       <div class="app-container">
-    <!-- Sidebar navigation -->
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            🍽️ 402 FASTFOOD
+    <div class="app-container">
+        <!-- Sidebar navigation -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-utensils"></i> Mi Restaurante
+            </div>
+            <nav class="sidebar-nav">
+                {% with user_groups=user.groups.all|join:"," %}
+                
+                <!-- Menú para Usuario Normal -->
+                {% if "Usuario Normal" in user_groups and not user.is_superuser %}
+                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                {% endif %}
+                
+                <!-- Menú para Administrador -->
+                {% if "Administrador" in user_groups and not user.is_superuser %}
+                <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Gestión de Usuarios</span>
+                </a>
+                {% endif %}
+                
+                <!-- Menú para otros grupos... -->
+                {% if "Gerente" in user_groups and not user.is_superuser %}
+                <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
+                {% endif %}
+                
+                {% if "Cajero" in user_groups and not user.is_superuser %}
+                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                {% endif %}
+                
+                <!-- Menú EXCLUSIVO para superusuarios -->
+                {% if user.is_superuser %}
+                <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Gestión de Usuarios</span>
+                </a>
+                {% endif %}
+                
+                <!-- Cerrar sesión para todos -->
+                <a href="{% url 'logout' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
+                    <span>Cerrar Sesión</span>
+                </a>
+                
+                {% endwith %}
+            </nav>
         </div>
-        <nav class="sidebar-nav">
-            <!-- Verificar grupos sin template tag -->
-            {% with user_groups=user.groups.all|join:"," %}
-            
-            <!-- Menú para Usuario Normal (excluye superusuarios) -->
-            {% if "Usuario Normal" in user_groups and not user.is_superuser %}
-            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
-                <span>Pedidos</span>
-            </a>
-            <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
-                <span>Inventario</span>
-            </a>
-            <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
-                <span>Gestión de Pedidos</span>
-            </a>
-            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
-                <span>Facturación</span>
-            </a>
-            <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
-                <span>Salida de Productos</span>
-            </a>
-            {% endif %}
-            
-            <!-- Menú para Administrador -->
-            {% if "Administrador" in user_groups and not user.is_superuser %}
-            <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                <span class="nav-icon">📦</span>
-                <span>Entrada de Productos</span>
-            </a>
-            <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
-                <span>Inventario</span>
-            </a>
-            <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">🍽️</span>
-                <span>Entrada de Platos</span>
-            </a>
-            <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">📊</span>
-                <span>Gestión de Platos</span>
-            </a>
-            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
-                <span>Pedidos</span>
-            </a>
-            <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
-                <span>Gestión de Pedidos</span>
-            </a>
-            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
-                <span>Facturación</span>
-            </a>
-            <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
-                <span>Salida de Productos</span>
-            </a>
-            <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                <span class="nav-icon">👥</span>
-                <span>Gestión de Usuarios</span>
-            </a>
-            {% endif %}
-            
-            <!-- Menú para otros grupos... -->
-            {% if "Gerente" in user_groups and not user.is_superuser %}
-            <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
-            {% endif %}
-            
-            {% if "Cajero" in user_groups and not user.is_superuser %}
-            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
-                <span>Pedidos</span>
-            </a>
-            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
-                <span>Facturación</span>
-            </a>
-            {% endif %}
-            
-            <!-- Menú EXCLUSIVO para superusuarios -->
-            {% if user.is_superuser %}
-            <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                <span class="nav-icon">📦</span>
-                <span>Entrada de Productos</span>
-            </a>
-            <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
-                <span>Inventario</span>
-            </a>
-            <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">🍽️</span>
-                <span>Entrada de Platos</span>
-            </a>
-            <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">📊</span>
-                <span>Gestión de Platos</span>
-            </a>
-            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
-                <span>Pedidos</span>
-            </a>
-            <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
-                <span>Gestión de Pedidos</span>
-            </a>
-            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
-                <span>Facturación</span>
-            </a>
-            <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
-                <span>Salida de Productos</span>
-            </a>
-            <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                <span class="nav-icon">👥</span>
-                <span>Gestión de Usuarios</span>
-            </a>
-            {% endif %}
-            
-            <!-- Cerrar sesión para todos -->
-            <a href="{% url 'logout' %}" class="nav-item">
-                <span class="nav-icon">🚪</span>
-                <span>Cerrar Sesión</span>
-            </a>
-            
-            {% endwith %}
-        </nav>
-    </div>
     
         <!-- Overlay for mobile sidebar -->
         <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
@@ -825,7 +824,7 @@
         <div class="main-content">
             <div class="container">
                 <div class="header">
-                    <h1>📊 Gestión de Platos</h1>
+                    <h1><i class="fas fa-chart-bar"></i> Gestión de Platos</h1>
                     <p>Administra y controla el menú de tu restaurante</p>
                 </div>
                 
@@ -833,22 +832,22 @@
                     <!-- Stats Cards -->
                     <div class="stats-container">
                         <div class="stat-card">
-                            <span class="stat-icon">🍽️</span>
+                            <span class="stat-icon"><i class="fas fa-utensils"></i></span>
                             <div class="stat-value" id="totalPlatos">0</div>
                             <div class="stat-label">Total de Platos</div>
                         </div>
                         <div class="stat-card">
-                            <span class="stat-icon">💰</span>
+                            <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
                             <div class="stat-value" id="precioPromedio">$0</div>
                             <div class="stat-label">Precio Promedio</div>
                         </div>
                         <div class="stat-card">
-                            <span class="stat-icon">🏷️</span>
+                            <span class="stat-icon"><i class="fas fa-tags"></i></span>
                             <div class="stat-value" id="totalCategorias">0</div>
                             <div class="stat-label">Categorías</div>
                         </div>
                         <div class="stat-card">
-                            <span class="stat-icon">📅</span>
+                            <span class="stat-icon"><i class="fas fa-calendar-day"></i></span>
                             <div class="stat-value" id="platosHoy">0</div>
                             <div class="stat-label">Hoy</div>
                         </div>
@@ -857,24 +856,24 @@
                     <!-- Controls Section -->
                     <div class="controls-section">
                         <div class="controls-header">
-                            <h3>Buscar y Filtrar Platos</h3>
+                            <h3><i class="fas fa-search"></i> Buscar y Filtrar Platos</h3>
                             <a href="{% url 'entrada_platos' %}" class="btn btn-primary btn-sm">
-                                <span>➕</span>
+                                <i class="fas fa-plus"></i>
                                 <span>Agregar Nuevo Plato</span>
                             </a>
                         </div>
                         
                         <div class="form-group">
-                            <label for="searchInput">🔍 Buscar Plato</label>
+                            <label for="searchInput"><i class="fas fa-search"></i> Buscar Plato</label>
                             <div class="search-box">
-                                <span class="search-icon">🔍</span>
+                                <span class="search-icon"><i class="fas fa-search"></i></span>
                                 <input type="text" id="searchInput" placeholder="Buscar por nombre o código...">
                             </div>
                         </div>
                         
                         <div class="filter-row">
                             <div class="form-group" style="flex: 1;">
-                                <label for="categoryFilter">🏷️ Categoría</label>
+                                <label for="categoryFilter"><i class="fas fa-tags"></i> Categoría</label>
                                 <select class="filter-select" id="categoryFilter">
                                     <option value="">Todas las categorías</option>
                                     <option value="entrada">Entrada</option>
@@ -887,7 +886,7 @@
                             </div>
                             
                             <div class="form-group" style="flex: 1;">
-                                <label for="sortFilter">🔃 Ordenar por</label>
+                                <label for="sortFilter"><i class="fas fa-sort"></i> Ordenar por</label>
                                 <select class="filter-select" id="sortFilter">
                                     <option value="codigo">Código</option>
                                     <option value="nombre">Nombre (A-Z)</option>
@@ -930,18 +929,18 @@
                                     <td>{{ plato.fecha_creacion|date:"d/m/Y" }}</td>
                                     <td>
                                         {% if plato.activo %}
-                                        <span style="color: #38a169; font-weight: 600;">✅ Activo</span>
+                                        <span style="color: #38a169; font-weight: 600;"><i class="fas fa-check-circle"></i> Activo</span>
                                         {% else %}
-                                        <span style="color: #e53e3e; font-weight: 600;">❌ Inactivo</span>
+                                        <span style="color: #e53e3e; font-weight: 600;"><i class="fas fa-times-circle"></i> Inactivo</span>
                                         {% endif %}
                                     </td>
                                     <td>
                                         <div class="action-buttons">
                                             <button class="btn-icon btn-edit" onclick="editarPlato({{ plato.id }})" title="Editar plato">
-                                                ✏️
+                                                <i class="fas fa-edit"></i>
                                             </button>
                                             <button class="btn-icon btn-delete" onclick="eliminarPlato({{ plato.id }})" title="Eliminar plato">
-                                                🗑️
+                                                <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
                                     </td>
@@ -1133,15 +1132,15 @@
         const precioActual = row.cells[3].textContent.replace('$', '');
         
         // Mostrar formulario de edición
-        const nuevoNombre = prompt("🍽️ Nuevo nombre del plato:", nombreActual);
+        const nuevoNombre = prompt("Nuevo nombre del plato:", nombreActual);
         if (!nuevoNombre) return;
         
-        const nuevaCategoria = prompt("🏷️ Nueva categoría (entrada/principal/postre/bebida/rapida/especial):", categoriaActual);
+        const nuevaCategoria = prompt("Nueva categoría (entrada/principal/postre/bebida/rapida/especial):", categoriaActual);
         if (!nuevaCategoria) return;
         
-        const nuevoPrecio = parseFloat(prompt("💰 Nuevo precio:", precioActual));
+        const nuevoPrecio = parseFloat(prompt("Nuevo precio:", precioActual));
         if (isNaN(nuevoPrecio) || nuevoPrecio < 0) {
-            showNotification("❌ El precio debe ser un número válido mayor o igual a 0", "error");
+            showNotification("El precio debe ser un número válido mayor o igual a 0", "error");
             return;
         }
         
@@ -1185,15 +1184,15 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                showNotification(`✅ "${nuevoNombre}" actualizado exitosamente!`);
+                showNotification(`"${nuevoNombre}" actualizado exitosamente!`);
                 updateStats();
             } else {
-                showNotification(`❌ Error: ${data.error}`, "error");
+                showNotification(`Error: ${data.error}`, "error");
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showNotification("❌ Error al actualizar el plato", "error");
+            showNotification("Error al actualizar el plato", "error");
         });
     }
     
@@ -1202,7 +1201,7 @@
         const row = document.querySelector(`button[onclick="eliminarPlato(${platoId})"]`).closest('tr');
         const nombrePlato = row.cells[1].textContent;
         
-        if (confirm(`⚠️ ¿Estás seguro de eliminar "${nombrePlato}" del menú?`)) {
+        if (confirm(`¿Estás seguro de eliminar "${nombrePlato}" del menú?`)) {
             fetch(`/eliminar-plato/${platoId}/`, {
                 method: 'DELETE',
                 headers: {
@@ -1214,7 +1213,7 @@
                 if (data.success) {
                     row.remove();
                     updateStats();
-                    showNotification(`🗑️ "${nombrePlato}" eliminado exitosamente!`);
+                    showNotification(`"${nombrePlato}" eliminado exitosamente!`);
                     
                     // Verificar si quedan platos
                     const filasRestantes = document.querySelectorAll('#platosBody tr');
@@ -1222,12 +1221,12 @@
                         filasRestantes[0].style.display = '';
                     }
                 } else {
-                    showNotification(`❌ Error: ${data.error}`, "error");
+                    showNotification(`Error: ${data.error}`, "error");
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showNotification("❌ Error al eliminar el plato", "error");
+                showNotification("Error al eliminar el plato", "error");
             });
         }
     }

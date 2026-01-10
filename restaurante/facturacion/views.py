@@ -2826,13 +2826,6 @@ def acceso_modulo_requerido(modulo):
 
 
 
-from datetime import datetime, timedelta
-from django.utils import timezone
-from django.db.models import Sum
-from decimal import Decimal
-
-
-
 @login_required
 def dashbort(request):
     # Obtener hora local actual
