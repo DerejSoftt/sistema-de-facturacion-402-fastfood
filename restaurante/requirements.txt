@@ -1,5 +1,8 @@
 asgiref==3.11.0
+charset-normalizer==3.4.4
 Django==4.2.20
 mysqlclient==2.2.7
+pillow==12.1.0
+reportlab==4.4.7
 sqlparse==0.5.5
 tzdata==2025.3

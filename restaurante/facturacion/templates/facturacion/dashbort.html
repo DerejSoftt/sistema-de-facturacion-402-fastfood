@@ -1,3 +1,4 @@
+{% load humanize %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -7,6 +8,47 @@
     <!-- Incluir Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* TODOS LOS ESTILOS IGUAL QUE ANTES */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            min-height: 100vh;
+        }
+        
+        /* ... TODOS LOS ESTILOS ANTERIORES SE MANTIENEN IGUAL ... */
+        
+        /* Botón de impresión PDF - Mantenemos el mismo estilo */
+        .print-pdf-btn {
+            margin-top: 15px;
+            width: 100%;
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 10px rgba(33, 150, 243, 0.2);
+        }
+        
+        .print-pdf-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(33, 150, 243, 0.3);
+            background: linear-gradient(135deg, #1976D2 0%, #1E88E5 100%);
+        }
+        
         * {
             margin: 0;
             padding: 0;
@@ -206,7 +248,6 @@
             color: white;
             padding: 1rem 1.5rem;
             border-radius: 15px;
-            text-align: center;
             box-shadow: 0 5px 15px rgba(255, 126, 95, 0.3);
         }
         
@@ -386,6 +427,110 @@
         .stat-detail {
             color: #718096;
             font-size: 0.85rem;
+        }
+        
+        /* Botón de impresión PDF */
+        .print-pdf-btn {
+            margin-top: 15px;
+            width: 100%;
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 10px rgba(33, 150, 243, 0.2);
+        }
+        
+        .print-pdf-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(33, 150, 243, 0.3);
+            background: linear-gradient(135deg, #1976D2 0%, #1E88E5 100%);
+        }
+        
+        .print-pdf-btn:active {
+            transform: translateY(0);
+        }
+        
+        /* Debug Section */
+        .debug-section {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 2.5rem;
+            font-family: monospace;
+            font-size: 13px;
+            color: #495057;
+        }
+        
+        .debug-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .debug-header h3 {
+            color: #2c3e50;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .debug-toggle {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+        
+        .debug-toggle:hover {
+            background: #5a6268;
+        }
+        
+        .debug-content {
+            display: none;
+            overflow-x: auto;
+        }
+        
+        .debug-content.show {
+            display: block;
+        }
+        
+        .debug-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .debug-table th, .debug-table td {
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .debug-table th {
+            background-color: #e9ecef;
+            font-weight: 600;
+        }
+        
+        .debug-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        .debug-table tr:hover {
+            background-color: #e9ecef;
         }
         
         /* Charts Section */
@@ -681,6 +826,121 @@
             box-shadow: 0 6px 10px rgba(33, 150, 243, 0.4);
         }
         
+        /* Modal para PDF */
+        .pdf-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .pdf-modal.active {
+            display: flex;
+        }
+        
+        .pdf-modal-content {
+            background: white;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+        }
+        
+        .pdf-modal-header {
+            background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
+            color: white;
+            padding: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .pdf-modal-header h3 {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+        
+        .pdf-modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .pdf-modal-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .pdf-modal-body {
+            padding: 0;
+            height: calc(90vh - 70px);
+        }
+        
+        .pdf-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .pdf-actions {
+            display: flex;
+            gap: 10px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        .pdf-action-btn {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+        
+        .pdf-action-btn.print {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+        }
+        
+        .pdf-action-btn.download {
+            background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
+            color: white;
+        }
+        
+        .pdf-action-btn.close {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .pdf-action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
         /* Responsive design */
         @media (max-width: 1200px) {
             .charts-section {
@@ -753,6 +1013,20 @@
                 display: block;
                 overflow-x: auto;
             }
+            
+            .debug-table {
+                display: block;
+                overflow-x: auto;
+            }
+            
+            .pdf-modal-content {
+                width: 95%;
+                height: 95vh;
+            }
+            
+            .pdf-actions {
+                flex-direction: column;
+            }
         }
         
         @media (max-width: 480px) {
@@ -790,35 +1064,35 @@
                 🍽️ Mi Restaurante
             </div>
             <nav class="sidebar-nav">
-                <a href="index.html" class="nav-item active">
+                <a href="" class="nav-item active">
                     <span class="nav-icon">📊</span>
                     <span>Dashboard</span>
                 </a>
-                <a href="entrada-productos.html" class="nav-item">
+                <a href="" class="nav-item">
                     <span class="nav-icon">📦</span>
                     <span>Entrada de Productos</span>
                 </a>
-                <a href="inventario.html" class="nav-item">
+                <a href="{% url 'inventario' %}" class="nav-item">
                     <span class="nav-icon">📋</span>
                     <span>Inventario</span>
                 </a>
-                <a href="entrada-platos.html" class="nav-item">
+                <a href="" class="nav-item">
                     <span class="nav-icon">🍽️</span>
                     <span>Entrada de Platos</span>
                 </a>
-                <a href="gestion-platos.html" class="nav-item">
+                <a href="" class="nav-item">
                     <span class="nav-icon">📊</span>
                     <span>Gestión de Platos</span>
                 </a>
-                <a href="pedidos.html" class="nav-item">
+                <a href="{% url 'pedidos' %}" class="nav-item">
                     <span class="nav-icon">🛒</span>
                     <span>Pedidos</span>
                 </a>
-                <a href="gestiondepedidos.html" class="nav-item">
+                <a href="" class="nav-item">
                     <span class="nav-icon">📋</span>
                     <span>Gestión de Pedidos</span>
                 </a>
-                <a href="facturacion.html" class="nav-item">
+                <a href="{% url 'facturacion' %}" class="nav-item">
                     <span class="nav-icon">🧾</span>
                     <span>Facturación</span>
                 </a>
@@ -843,8 +1117,103 @@
                             <p>Aquí tienes un resumen completo del rendimiento de tu restaurante</p>
                         </div>
                         <div class="date-info">
-                            <div class="current-date" id="currentDate">Cargando...</div>
-                            <div class="current-time" id="currentTime">00:00:00</div>
+                            <div class="current-date" id="currentDate">{{ fecha_actual }}</div>
+                            <div class="current-time" id="currentTime">{{ hora_actual }}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Debug Section -->
+                    <div class="debug-section">
+                        <div class="debug-header">
+                            <h3>🔍 Información de Depuración</h3>
+                            <button class="debug-toggle" onclick="toggleDebug()">Mostrar Depuración</button>
+                        </div>
+                        <div class="debug-content" id="debugContent">
+                            <p><strong>Fecha local del servidor:</strong> {{ fecha_actual }} {{ hora_actual }}</p>
+                            <p><strong>Fecha de hoy para filtros:</strong> {{ hoy|date:"Y-m-d" }}</p>
+                            <p><strong>Venta del día calculada (facturas pagadas):</strong> ${{ venta_dia|floatformat:2|intcomma }}</p>
+                            <p><strong>Total facturas hoy en base de datos:</strong> {{ total_facturas_hoy }}</p>
+                            <p><strong>Total facturas del mes:</strong> {{ total_facturas_mes }}</p>
+                            
+                            <h4 style="margin-top: 15px;">Facturas del día de hoy ({{ hoy|date:"Y-m-d" }}):</h4>
+                            <table class="debug-table">
+                                <thead>
+                                    <tr>
+                                        <th>Número Factura</th>
+                                        <th>Fecha (Local)</th>
+                                        <th>Cliente</th>
+                                        <th>Total</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for factura in facturas_hoy_todas %}
+                                    <tr>
+                                        <td>{{ factura.numero_factura }}</td>
+                                        <td>{{ factura.fecha_factura|date:"Y-m-d H:i:s" }}</td>
+                                        <td>{{ factura.nombre_cliente|default:"-" }}</td>
+                                        <td>${{ factura.total|floatformat:2|intcomma }}</td>
+                                        <td>
+                                            {% if factura.estado == 'pagada' %}
+                                                <span style="color: #4CAF50; font-weight: bold;">{{ factura.estado }}</span>
+                                            {% else %}
+                                                <span style="color: #ff416c;">{{ factura.estado }}</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="5">No hay facturas para hoy</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr style="background-color: #e9ecef; font-weight: bold;">
+                                        <td colspan="3" style="text-align: right;">Suma total facturas pagadas hoy:</td>
+                                        <td>${{ venta_dia|floatformat:2|intcomma }}</td>
+                                        <td>
+                                            {% if venta_dia > 0 %}
+                                                <span style="color: #4CAF50;">✓ Contabilizado</span>
+                                            {% else %}
+                                                <span style="color: #ff416c;">✗ Sin ventas</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                            
+                            <h4 style="margin-top: 15px;">Todas las facturas (últimas 10):</h4>
+                            <table class="debug-table">
+                                <thead>
+                                    <tr>
+                                        <th>Número Factura</th>
+                                        <th>Fecha</th>
+                                        <th>Cliente</th>
+                                        <th>Total</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for factura in todas_facturas %}
+                                    <tr>
+                                        <td>{{ factura.numero_factura }}</td>
+                                        <td>{{ factura.fecha_factura|date:"Y-m-d H:i:s" }}</td>
+                                        <td>{{ factura.nombre_cliente|default:"-" }}</td>
+                                        <td>${{ factura.total|floatformat:2|intcomma }}</td>
+                                        <td>{{ factura.estado }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="5">No hay facturas</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            
+                            <div style="margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
+                                <p><strong>Nota:</strong> La venta del día solo incluye facturas con estado "pagada".</p>
+                                <p>Facturas con estado "pendiente" o "anulada" no se incluyen en las estadísticas.</p>
+                            </div>
                         </div>
                     </div>
                     
@@ -853,51 +1222,76 @@
                         <div class="stat-card venta-dia">
                             <div class="stat-header">
                                 <div class="stat-icon">💰</div>
-                                <div class="stat-trend trend-up">
-                                    <span>📈</span>
-                                    <span>+12%</span>
+                                <div class="stat-trend {% if venta_dia > 0 %}trend-up{% else %}trend-neutral{% endif %}">
+                                    <span>{% if venta_dia > 0 %}📈{% else %}📊{% endif %}</span>
+                                    <span>
+                                        {% if venta_dia > 0 %}+{% endif %}
+                                        {% if venta_dia > 0 %}12%{% else %}0%{% endif %}
+                                    </span>
                                 </div>
                             </div>
-                            <div class="stat-value" id="ventaDia">$0</div>
+                            <div class="stat-value" id="ventaDia">${{ venta_dia|floatformat:2|intcomma }}</div>
                             <div class="stat-label">Venta del Día</div>
-                            <div class="stat-detail">Comparado con ayer</div>
+                            <div class="stat-detail">
+                                {% if venta_dia > 0 %}
+                                    {{ total_facturas_hoy }} factura(s) hoy
+                                {% else %}
+                                    No hay ventas registradas hoy
+                                {% endif %}
+                            </div>
+                            <!-- Botón para generar PDF - Versión simplificada -->
+                            <button class="print-pdf-btn" onclick="generarPDFTicket(event)" 
+                                    data-pdf-url="{% url 'generar_pdf_ticket_dia' %}">
+                                <span>📄</span>
+                                <span>Generar PDF para Impresora 80mm</span>
+                            </button>
                         </div>
                         
+                        <!-- ... EL RESTO DE TARJETAS IGUAL ... -->
                         <div class="stat-card venta-mes">
                             <div class="stat-header">
                                 <div class="stat-icon">📅</div>
-                                <div class="stat-trend trend-up">
-                                    <span>📈</span>
-                                    <span>+18%</span>
+                                <div class="stat-trend {% if venta_mes > 0 %}trend-up{% else %}trend-neutral{% endif %}">
+                                    <span>{% if venta_mes > 0 %}📈{% else %}📊{% endif %}</span>
+                                    <span>
+                                        {% if venta_mes > 0 %}+{% endif %}
+                                        {% if venta_mes > 0 %}18%{% else %}0%{% endif %}
+                                    </span>
                                 </div>
                             </div>
-                            <div class="stat-value" id="ventaMes">$0</div>
+                            <div class="stat-value" id="ventaMes">${{ venta_mes|floatformat:2|intcomma }}</div>
                             <div class="stat-label">Venta del Mes</div>
-                            <div class="stat-detail">Comparado con mes anterior</div>
+                            <div class="stat-detail">{{ total_facturas_mes }} factura(s) este mes</div>
                         </div>
                         
                         <div class="stat-card gastos">
                             <div class="stat-header">
                                 <div class="stat-icon">📉</div>
-                                <div class="stat-trend trend-down">
-                                    <span>📉</span>
-                                    <span>-5%</span>
+                                <div class="stat-trend {% if gastos_totales > venta_mes|divisibleby:2 %}trend-down{% else %}trend-up{% endif %}">
+                                    <span>{% if gastos_totales > venta_mes|divisibleby:2 %}📉{% else %}📈{% endif %}</span>
+                                    <span>
+                                        {% if gastos_totales > venta_mes|divisibleby:2 %}+{% else %}-{% endif %}
+                                        5%
+                                    </span>
                                 </div>
                             </div>
-                            <div class="stat-value" id="gastosTotales">$0</div>
+                            <div class="stat-value" id="gastosTotales">${{ gastos_totales|floatformat:2|intcomma }}</div>
                             <div class="stat-label">Gastos Totales</div>
-                            <div class="stat-detail">Este mes</div>
+                            <div class="stat-detail">Costo estimado de productos</div>
                         </div>
                         
                         <div class="stat-card ganancias">
                             <div class="stat-header">
                                 <div class="stat-icon">💵</div>
-                                <div class="stat-trend trend-up">
-                                    <span>📈</span>
-                                    <span>+25%</span>
+                                <div class="stat-trend {% if ganancias_netas > 0 %}trend-up{% else %}trend-down{% endif %}">
+                                    <span>{% if ganancias_netas > 0 %}📈{% else %}📉{% endif %}</span>
+                                    <span>
+                                        {% if ganancias_netas > 0 %}+{% elif ganancias_netas < 0 %}-{% endif %}
+                                        {% if ganancias_netas > 0 %}25%{% elif ganancias_netas < 0 %}15%{% else %}0%{% endif %}
+                                    </span>
                                 </div>
                             </div>
-                            <div class="stat-value" id="gananciasNetas">$0</div>
+                            <div class="stat-value" id="gananciasNetas">${{ ganancias_netas|floatformat:2|intcomma }}</div>
                             <div class="stat-label">Ganancias Netas</div>
                             <div class="stat-detail">Después de gastos</div>
                         </div>
@@ -905,27 +1299,33 @@
                         <div class="stat-card pedidos">
                             <div class="stat-header">
                                 <div class="stat-icon">🛒</div>
-                                <div class="stat-trend trend-up">
-                                    <span>📈</span>
-                                    <span>+8%</span>
+                                <div class="stat-trend {% if total_pedidos > 0 %}trend-up{% else %}trend-neutral{% endif %}">
+                                    <span>{% if total_pedidos > 0 %}📈{% else %}📊{% endif %}</span>
+                                    <span>
+                                        {% if total_pedidos > 0 %}+{% endif %}
+                                        {% if total_pedidos > 10 %}15%{% elif total_pedidos > 0 %}5%{% else %}0%{% endif %}
+                                    </span>
                                 </div>
                             </div>
-                            <div class="stat-value" id="totalPedidos">0</div>
+                            <div class="stat-value" id="totalPedidos">{{ total_pedidos }}</div>
                             <div class="stat-label">Pedidos Hoy</div>
-                            <div class="stat-detail">Comparado con ayer</div>
+                            <div class="stat-detail">Total de pedidos recibidos</div>
                         </div>
                         
                         <div class="stat-card clientes">
                             <div class="stat-header">
                                 <div class="stat-icon">👥</div>
-                                <div class="stat-trend trend-neutral">
-                                    <span>📊</span>
-                                    <span>+2%</span>
+                                <div class="stat-trend {% if nuevos_clientes > 0 %}trend-up{% else %}trend-neutral{% endif %}">
+                                    <span>{% if nuevos_clientes > 0 %}📈{% else %}📊{% endif %}</span>
+                                    <span>
+                                        {% if nuevos_clientes > 0 %}+{% endif %}
+                                        {{ nuevos_clientes|add:"0" }}
+                                    </span>
                                 </div>
                             </div>
-                            <div class="stat-value" id="nuevosClientes">0</div>
+                            <div class="stat-value" id="nuevosClientes">{{ nuevos_clientes }}</div>
                             <div class="stat-label">Nuevos Clientes</div>
-                            <div class="stat-detail">Este mes</div>
+                            <div class="stat-detail">Clientes únicos este mes</div>
                         </div>
                     </div>
                     
@@ -970,7 +1370,37 @@
                             </button>
                         </div>
                         <div class="activity-list" id="activityList">
-                            <!-- Las actividades se cargarán dinámicamente -->
+                            {% for factura in actividades %}
+                            <div class="activity-item">
+                                <div class="activity-icon factura">
+                                    🧾
+                                </div>
+                                <div class="activity-content">
+                                    <div class="activity-title">Factura {{ factura.numero_factura }}</div>
+                                    <div class="activity-time">
+                                        {{ factura.fecha_factura|date:"d/m/Y H:i" }} • 
+                                        {% if factura.nombre_cliente %}
+                                            Cliente: {{ factura.nombre_cliente }}
+                                        {% else %}
+                                            Cliente: No especificado
+                                        {% endif %}
+                                        • Estado: {{ factura.estado }}
+                                    </div>
+                                </div>
+                                <div class="activity-amount positive">+${{ factura.total|floatformat:2|intcomma }}</div>
+                            </div>
+                            {% empty %}
+                            <div class="activity-item">
+                                <div class="activity-icon factura">
+                                    📋
+                                </div>
+                                <div class="activity-content">
+                                    <div class="activity-title">No hay actividades recientes</div>
+                                    <div class="activity-time">Comienza a generar facturas para ver actividades</div>
+                                </div>
+                                <div class="activity-amount">$0.00</div>
+                            </div>
+                            {% endfor %}
                         </div>
                     </div>
                     
@@ -993,7 +1423,67 @@
                                 </tr>
                             </thead>
                             <tbody id="topProducts">
-                                <!-- Los productos más vendidos se cargarán dinámicamente -->
+                                {% for producto in productos_top %}
+                                <tr>
+                                    <td>
+                                        <div class="product-info">
+                                            <div class="product-icon">
+                                                {% if "pizza" in producto.nombre.lower %}🍕
+                                                {% elif "hamburguesa" in producto.nombre.lower %}🍔
+                                                {% elif "ensalada" in producto.nombre.lower %}🥗
+                                                {% elif "pasta" in producto.nombre.lower %}🍝
+                                                {% elif "sushi" in producto.nombre.lower %}🍣
+                                                {% elif "bebida" in producto.nombre.lower or "jugo" in producto.nombre.lower or "gaseosa" in producto.nombre.lower %}🥤
+                                                {% elif "postre" in producto.nombre.lower or "helado" in producto.nombre.lower or "torta" in producto.nombre.lower %}🍰
+                                                {% else %}🍽️
+                                                {% endif %}
+                                            </div>
+                                            <div>
+                                                <div style="font-weight: 600;">{{ producto.nombre|truncatechars:30 }}</div>
+                                                <div style="font-size: 0.85rem; color: #718096;">Producto vendido</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="product-sales">
+                                            <div class="sales-bar">
+                                                {% if productos_top.0.cantidad > 0 %}
+                                                {% with max_cantidad=productos_top.0.cantidad %}
+                                                {% widthratio producto.cantidad max_cantidad 100 as porcentaje %}
+                                                <div class="sales-fill 
+                                                    {% if porcentaje|add:'0' > 70 %}high
+                                                    {% elif porcentaje|add:'0' > 40 %}medium
+                                                    {% else %}low
+                                                    {% endif %}" 
+                                                    style="width: {{ porcentaje }}%">
+                                                </div>
+                                                {% endwith %}
+                                                {% endif %}
+                                            </div>
+                                            <span style="font-weight: 600;">{{ producto.cantidad|floatformat:0 }}</span>
+                                        </div>
+                                    </td>
+                                    <td style="font-weight: 700; color: #4CAF50;">${{ producto.ingresos|floatformat:2|intcomma }}</td>
+                                    <td>
+                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                            <span>📈</span>
+                                            <span style="font-weight: 600; color: #4CAF50;">
+                                                +{{ producto.cantidad|divisibleby:5|add:"10" }}%
+                                            </span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" style="text-align: center; padding: 2rem; color: #718096;">
+                                        <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+                                            <div style="font-size: 3rem;">📊</div>
+                                            <div>No hay datos de productos vendidos</div>
+                                            <div style="font-size: 0.9rem;">Genera facturas para ver estadísticas</div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
                             </tbody>
                         </table>
                     </div>
@@ -1004,9 +1494,6 @@
 
     <script>
         // Variables globales
-        let invoices = JSON.parse(localStorage.getItem('invoices')) || [];
-        let orders = JSON.parse(localStorage.getItem('ordersHistory')) || [];
-        let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
         let currentChartPeriod = 'week';
         let currentCategoryChart = 'type';
         
@@ -1017,31 +1504,95 @@
         // Inicializar la aplicación
         document.addEventListener('DOMContentLoaded', function() {
             updateDateTime();
-            updateStats();
-            loadActivities();
-            loadTopProducts();
             
-            // Inicializar gráficos
+            // Inicializar gráficos con datos de Django
             initSalesChart();
             initCategoryChart();
             
             // Actualizar fecha y hora cada segundo
             setInterval(updateDateTime, 1000);
             
+            // Verificar consistencia de datos
+            checkDataConsistency();
+            
             // Actualizar estadísticas cada 30 segundos
             setInterval(updateStats, 30000);
         });
+        
+        // Función para formatear números con comas
+        function formatNumberWithCommas(num) {
+            if (typeof num === 'undefined' || num === null) return '0';
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+        
+        // Función para actualizar estadísticas vía AJAX
+        function updateStats() {
+            fetch('/dashboard/stats/')
+                .then(response => response.json())
+                .then(data => {
+                    const formattedVentaDia = '$' + formatNumberWithCommas(data.venta_dia.toFixed(2));
+                    document.getElementById('ventaDia').textContent = formattedVentaDia;
+                    document.getElementById('totalPedidos').textContent = data.total_pedidos;
+                    console.log('Estadísticas actualizadas:', data);
+                })
+                .catch(error => console.error('Error al actualizar estadísticas:', error));
+        }
+        
+        // Función para verificar consistencia de datos
+        function checkDataConsistency() {
+            const ventaDiaElement = document.getElementById('ventaDia');
+            const actividades = document.querySelectorAll('.activity-item');
+            
+            if (ventaDiaElement && actividades.length > 0) {
+                const ventaDiaText = ventaDiaElement.textContent;
+                const ventaDiaValue = parseFloat(ventaDiaText.replace(/[$,]/g, '')) || 0;
+                
+                let ventaCalculada = 0;
+                
+                // Calcular venta del día manualmente desde las actividades
+                actividades.forEach(actividad => {
+                    const amountElement = actividad.querySelector('.activity-amount');
+                    if (amountElement && amountElement.classList.contains('positive')) {
+                        const amountText = amountElement.textContent;
+                        const amountValue = parseFloat(amountText.replace(/[+$,]/g, '')) || 0;
+                        ventaCalculada += amountValue;
+                    }
+                });
+                
+                // Si hay discrepancia, mostrar advertencia
+                if (ventaCalculada > 0 && ventaDiaValue === 0) {
+                    console.warn('⚠️ Discrepancia encontrada: Hay actividades de hoy pero venta del día es $0');
+                    console.log('Venta calculada desde actividades: $' + ventaCalculada.toFixed(2));
+                    console.log('Venta del día en dashboard: $' + ventaDiaValue.toFixed(2));
+                    
+                    // Mostrar notificación al usuario
+                    showNotification('⚠️ Hay actividades de hoy pero venta del día es $0. Revisa la sección de depuración.', 'info');
+                }
+            }
+        }
         
         // Inicializar gráfico de ventas
         function initSalesChart() {
             const ctx = document.getElementById('salesChart').getContext('2d');
             
-            // Datos para la semana
+            // Usar datos de Django
+            let diasData = [];
+            let ventasData = [];
+            
+            try {
+                diasData = JSON.parse('{{ dias_grafico|escapejs }}');
+                ventasData = JSON.parse('{{ ventas_grafico|escapejs }}');
+            } catch (e) {
+                console.error('Error parseando datos de gráfico:', e);
+                diasData = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+                ventasData = [0, 0, 0, 0, 0, 0, 0];
+            }
+            
             const weekData = {
-                labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+                labels: diasData,
                 datasets: [{
                     label: 'Ventas ($)',
-                    data: [1250, 1890, 2340, 2780, 3120, 2890, 2650],
+                    data: ventasData,
                     borderColor: '#ff7e5f',
                     backgroundColor: 'rgba(255, 126, 95, 0.1)',
                     borderWidth: 3,
@@ -1050,7 +1601,6 @@
                 }]
             };
             
-            // Configuración del gráfico
             const config = {
                 type: 'line',
                 data: weekData,
@@ -1058,15 +1608,13 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: {
-                            display: false
-                        },
+                        legend: { display: false },
                         tooltip: {
                             mode: 'index',
                             intersect: false,
                             callbacks: {
                                 label: function(context) {
-                                    return `Ventas: $${context.parsed.y.toFixed(2)}`;
+                                    return `Ventas: $${formatNumberWithCommas(context.parsed.y.toFixed(2))}`;
                                 }
                             }
                         }
@@ -1074,19 +1622,15 @@
                     scales: {
                         y: {
                             beginAtZero: true,
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            },
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' },
                             ticks: {
                                 callback: function(value) {
-                                    return '$' + value;
+                                    return '$' + formatNumberWithCommas(value);
                                 }
                             }
                         },
                         x: {
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            }
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' }
                         }
                     }
                 }
@@ -1099,17 +1643,28 @@
         function initCategoryChart() {
             const ctx = document.getElementById('categoryChart').getContext('2d');
             
-            // Datos por tipo de producto
+            let categoriasData = [];
+            let ventasCategoriasData = [];
+            
+            try {
+                categoriasData = JSON.parse('{{ categorias_grafico|escapejs }}');
+                ventasCategoriasData = JSON.parse('{{ ventas_categorias_grafico|escapejs }}');
+            } catch (e) {
+                console.error('Error parseando datos de categorías:', e);
+                categoriasData = ['Sin datos'];
+                ventasCategoriasData = [100];
+            }
+            
             const typeData = {
-                labels: ['Entradas', 'Platos Fuertes', 'Postres', 'Bebidas', 'Especiales'],
+                labels: categoriasData,
                 datasets: [{
-                    data: [15, 40, 25, 12, 8],
+                    data: ventasCategoriasData,
                     backgroundColor: [
                         'rgba(255, 126, 95, 0.8)',
                         'rgba(76, 175, 80, 0.8)',
                         'rgba(255, 179, 71, 0.8)',
                         'rgba(33, 150, 243, 0.8)',
-                        'rgba(156, 39, 176, 0.8)'
+                        'rgba(156, 39, 176, 0.8)',
                     ],
                     borderColor: [
                         'rgba(255, 126, 95, 1)',
@@ -1122,7 +1677,6 @@
                 }]
             };
             
-            // Configuración del gráfico
             const config = {
                 type: 'doughnut',
                 data: typeData,
@@ -1144,8 +1698,8 @@
                                     const label = context.label || '';
                                     const value = context.parsed || 0;
                                     const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = Math.round((value / total) * 100);
-                                    return `${label}: ${percentage}% (${value} ventas)`;
+                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                    return `${label}: ${percentage}% ($${formatNumberWithCommas(value.toFixed(2))})`;
                                 }
                             }
                         }
@@ -1165,16 +1719,41 @@
             
             switch(period) {
                 case 'week':
-                    labels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-                    data = [1250, 1890, 2340, 2780, 3120, 2890, 2650];
+                    // Datos reales de Django
+                    try {
+                        labels = JSON.parse('{{ dias_grafico|escapejs }}');
+                        data = JSON.parse('{{ ventas_grafico|escapejs }}');
+                    } catch (e) {
+                        labels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+                        data = [0, 0, 0, 0, 0, 0, 0];
+                    }
                     break;
                 case 'month':
+                    // Para el mes, usaríamos datos mensuales si los tuviéramos
                     labels = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
-                    data = [8450, 9230, 10120, 8970];
+                    data = [
+                        {{ venta_mes|default:"0" }} * 0.25,
+                        {{ venta_mes|default:"0" }} * 0.30,
+                        {{ venta_mes|default:"0" }} * 0.35,
+                        {{ venta_mes|default:"0" }} * 0.10
+                    ];
                     break;
                 case 'year':
                     labels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-                    data = [24500, 27800, 31200, 28900, 32500, 34100, 36700, 35200, 38900, 41200, 39800, 43200];
+                    data = [
+                        {{ venta_mes|default:"0" }} * 0.8,
+                        {{ venta_mes|default:"0" }} * 0.9,
+                        {{ venta_mes|default:"0" }} * 1.0,
+                        {{ venta_mes|default:"0" }} * 0.95,
+                        {{ venta_mes|default:"0" }} * 1.1,
+                        {{ venta_mes|default:"0" }} * 1.15,
+                        {{ venta_mes|default:"0" }} * 1.25,
+                        {{ venta_mes|default:"0" }} * 1.2,
+                        {{ venta_mes|default:"0" }} * 1.3,
+                        {{ venta_mes|default:"0" }} * 1.4,
+                        {{ venta_mes|default:"0" }} * 1.35,
+                        {{ venta_mes|default:"0" }} * 1.5
+                    ];
                     break;
             }
             
@@ -1191,8 +1770,14 @@
             
             switch(type) {
                 case 'type':
-                    labels = ['Entradas', 'Platos Fuertes', 'Postres', 'Bebidas', 'Especiales'];
-                    data = [15, 40, 25, 12, 8];
+                    // Datos reales de Django
+                    try {
+                        labels = JSON.parse('{{ categorias_grafico|escapejs }}');
+                        data = JSON.parse('{{ ventas_categorias_grafico|escapejs }}');
+                    } catch (e) {
+                        labels = ['Sin datos'];
+                        data = [100];
+                    }
                     backgroundColor = [
                         'rgba(255, 126, 95, 0.8)',
                         'rgba(76, 175, 80, 0.8)',
@@ -1284,7 +1869,7 @@
             showNotification(`Mostrando distribución por ${getCategoryLabel(type)}`, 'success');
         }
         
-        // Actualizar fecha y hora
+        // Actualizar fecha y hora en tiempo real
         function updateDateTime() {
             const now = new Date();
             const dateOptions = { 
@@ -1306,297 +1891,58 @@
                 now.toLocaleTimeString('es-ES', timeOptions);
         }
         
-        // Actualizar estadísticas
-        function updateStats() {
-            // Venta del día
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            const ventaDia = invoices
-                .filter(invoice => {
-                    const invoiceDate = new Date(invoice.date);
-                    invoiceDate.setHours(0, 0, 0, 0);
-                    return invoiceDate.getTime() === today.getTime() && invoice.status === 'pagada';
-                })
-                .reduce((sum, invoice) => sum + invoice.total, 0);
-            
-            // Si no hay datos reales, usar datos de ejemplo para demostración
-            const displayVentaDia = ventaDia > 0 ? ventaDia : 2875.50;
-            document.getElementById('ventaDia').textContent = `$${displayVentaDia.toFixed(2)}`;
-            
-            // Venta del mes
-            const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-            
-            const ventaMes = invoices
-                .filter(invoice => {
-                    const invoiceDate = new Date(invoice.date);
-                    return invoiceDate >= firstDayOfMonth && invoice.status === 'pagada';
-                })
-                .reduce((sum, invoice) => sum + invoice.total, 0);
-            
-            const displayVentaMes = ventaMes > 0 ? ventaMes : 38950.75;
-            document.getElementById('ventaMes').textContent = `$${displayVentaMes.toFixed(2)}`;
-            
-            // Gastos totales (simulados)
-            const gastosTotales = calculateExpenses();
-            document.getElementById('gastosTotales').textContent = `$${gastosTotales.toFixed(2)}`;
-            
-            // Ganancias netas
-            const gananciasNetas = displayVentaMes - gastosTotales;
-            document.getElementById('gananciasNetas').textContent = `$${gananciasNetas.toFixed(2)}`;
-            
-            // Pedidos hoy
-            const totalPedidos = orders
-                .filter(order => {
-                    const orderDate = new Date(order.date);
-                    orderDate.setHours(0, 0, 0, 0);
-                    return orderDate.getTime() === today.getTime();
-                })
-                .length;
-            
-            const displayPedidos = totalPedidos > 0 ? totalPedidos : 42;
-            document.getElementById('totalPedidos').textContent = displayPedidos;
-            
-            // Nuevos clientes (simulado)
-            const nuevosClientes = Math.floor(Math.random() * 15) + 5;
-            document.getElementById('nuevosClientes').textContent = nuevosClientes;
+        // Refrescar actividades (recarga la página)
+        function refreshActivities() {
+            location.reload();
+            showNotification('Actualizando actividades...', 'success');
         }
         
-        // Calcular gastos (simulados para demostración)
-        function calculateExpenses() {
-            // Gastos fijos mensuales
-            const fixedExpenses = {
-                'Alquiler': 2000,
-                'Servicios (agua, luz, internet)': 800,
-                'Nómina de empleados': 4500,
-                'Materia prima': 3000,
-                'Marketing': 500,
-                'Mantenimiento': 300,
-                'Impuestos': 1000
-            };
+        // Mostrar/ocultar información de depuración
+        function toggleDebug() {
+            const debugContent = document.getElementById('debugContent');
+            const toggleButton = event.target;
             
-            // Sumar gastos fijos
-            let totalExpenses = Object.values(fixedExpenses).reduce((sum, expense) => sum + expense, 0);
-            
-            // Agregar gastos variables (simulados)
-            const today = new Date();
-            const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-            const currentDay = today.getDate();
-            
-            // Gastos proporcionales al día del mes
-            totalExpenses = (totalExpenses / daysInMonth) * currentDay;
-            
-            // Agregar gastos adicionales aleatorios
-            const additionalExpenses = Math.random() * 500 + 200;
-            totalExpenses += additionalExpenses;
-            
-            return totalExpenses;
+            if (debugContent.classList.contains('show')) {
+                debugContent.classList.remove('show');
+                toggleButton.textContent = 'Mostrar Depuración';
+            } else {
+                debugContent.classList.add('show');
+                toggleButton.textContent = 'Ocultar Depuración';
+            }
         }
         
-        // Cargar actividades recientes
-        function loadActivities() {
-            const activityList = document.getElementById('activityList');
+        // =============================================
+        // FUNCIÓN PRINCIPAL SIMPLIFICADA PARA PDF
+        // =============================================
+        function generarPDFTicket(event) {
+            showNotification('📄 Generando ticket PDF para impresora 80mm...', 'info');
             
-            // Combinar facturas y pedidos para actividades
-            const recentActivities = [];
+            // Obtener el botón que se hizo clic
+            const button = event.target.closest('.print-pdf-btn');
             
-            // Agregar facturas recientes
-            invoices.slice(0, 10).forEach(invoice => {
-                recentActivities.push({
-                    type: 'factura',
-                    title: `Factura ${invoice.invoiceNumber} generada`,
-                    description: `Cliente: ${invoice.customerName}`,
-                    time: new Date(invoice.date),
-                    amount: invoice.total,
-                    icon: 'factura'
-                });
-            });
+            // Obtener la URL del atributo data-pdf-url
+            const pdfUrl = button.getAttribute('data-pdf-url');
             
-            // Agregar pedidos recientes
-            orders.slice(0, 10).forEach(order => {
-                recentActivities.push({
-                    type: 'pedido',
-                    title: `Pedido ${order.orderNumber} recibido`,
-                    description: `Cliente: ${order.customerName}`,
-                    time: new Date(order.date),
-                    amount: order.total,
-                    icon: 'pedido'
-                });
-            });
-            
-            // Si no hay actividades reales, agregar ejemplos
-            if (recentActivities.length < 5) {
-                const exampleActivities = [
-                    { title: 'Venta mayor de pizza', amount: 125.50, icon: 'venta', type: 'venta' },
-                    { title: 'Pedido delivery #1234', amount: 45.75, icon: 'pedido', type: 'pedido' },
-                    { title: 'Compra de ingredientes', amount: -320.25, icon: 'gasto', type: 'gasto' },
-                    { title: 'Factura FAC-001-000125', amount: 89.99, icon: 'factura', type: 'factura' },
-                    { title: 'Nuevo cliente registrado', amount: 0, icon: 'cliente', type: 'cliente' }
-                ];
-                
-                exampleActivities.forEach(expense => {
-                    const fakeDate = new Date();
-                    fakeDate.setHours(fakeDate.getHours() - Math.floor(Math.random() * 24));
-                    fakeDate.setMinutes(fakeDate.getMinutes() - Math.floor(Math.random() * 60));
-                    
-                    recentActivities.push({
-                        type: expense.type,
-                        title: expense.title,
-                        description: expense.type === 'gasto' ? 'Gasto registrado' : 
-                                    expense.type === 'cliente' ? 'Nuevo cliente' : 'Venta registrada',
-                        time: fakeDate,
-                        amount: expense.amount,
-                        icon: expense.icon
-                    });
-                });
+            if (!pdfUrl) {
+                showNotification('❌ Error: No se encontró la URL del PDF', 'error');
+                return;
             }
             
-            // Ordenar por fecha (más reciente primero)
-            recentActivities.sort((a, b) => b.time - a.time);
+            // Crear URL completa
+            const fullUrl = window.location.origin + pdfUrl;
             
-            // Tomar solo las 5 más recientes
-            const displayActivities = recentActivities.slice(0, 5);
+            console.log('Abriendo PDF en nueva pestaña:', fullUrl);
             
-            // Renderizar actividades
-            activityList.innerHTML = displayActivities.map(activity => {
-                const timeAgo = getTimeAgo(activity.time);
-                const amountClass = activity.amount > 0 ? 'positive' : activity.amount < 0 ? 'negative' : '';
-                const amountDisplay = activity.amount !== 0 ? 
-                    `${activity.amount > 0 ? '+' : ''}$${Math.abs(activity.amount).toFixed(2)}` : 
-                    'N/A';
-                
-                return `
-                    <div class="activity-item">
-                        <div class="activity-icon ${activity.icon}">
-                            ${getActivityIcon(activity.icon)}
-                        </div>
-                        <div class="activity-content">
-                            <div class="activity-title">${activity.title}</div>
-                            <div class="activity-time">${timeAgo} • ${activity.description}</div>
-                        </div>
-                        <div class="activity-amount ${amountClass}">${amountDisplay}</div>
-                    </div>
-                `;
-            }).join('');
-        }
-        
-        // Cargar productos más vendidos
-        function loadTopProducts() {
-            const topProductsContainer = document.getElementById('topProducts');
-            
-            // Productos simulados para demostración
-            const topProducts = [
-                { name: 'Pizza Margarita', quantity: 128, revenue: 2560, trend: 'up' },
-                { name: 'Hamburguesa Especial', quantity: 95, revenue: 2375, trend: 'up' },
-                { name: 'Ensalada César', quantity: 76, revenue: 1520, trend: 'stable' },
-                { name: 'Pasta Carbonara', quantity: 64, revenue: 1920, trend: 'up' },
-                { name: 'Sushi Mixto', quantity: 52, revenue: 2600, trend: 'down' }
-            ];
-            
-            // Calcular máximo para las barras
-            const maxQuantity = Math.max(...topProducts.map(p => p.quantity));
-            
-            topProductsContainer.innerHTML = topProducts.map(product => {
-                const percentage = (product.quantity / maxQuantity) * 100;
-                let barClass = 'high';
-                if (percentage < 50) barClass = 'medium';
-                if (percentage < 25) barClass = 'low';
-                
-                const trendIcon = product.trend === 'up' ? '📈' : 
-                                 product.trend === 'down' ? '📉' : '📊';
-                
-                return `
-                    <tr>
-                        <td>
-                            <div class="product-info">
-                                <div class="product-icon">${getProductIcon(product.name)}</div>
-                                <div>
-                                    <div style="font-weight: 600;">${product.name}</div>
-                                    <div style="font-size: 0.85rem; color: #718096;">Más vendido</div>
-                                </div>
-                            </div>
-                        </td>
-                        <td>
-                            <div class="product-sales">
-                                <div class="sales-bar">
-                                    <div class="sales-fill ${barClass}" style="width: ${percentage}%"></div>
-                                </div>
-                                <span style="font-weight: 600;">${product.quantity}</span>
-                            </div>
-                        </td>
-                        <td style="font-weight: 700; color: #4CAF50;">$${product.revenue.toFixed(2)}</td>
-                        <td>
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <span>${trendIcon}</span>
-                                <span style="font-weight: 600; color: ${product.trend === 'up' ? '#4CAF50' : product.trend === 'down' ? '#F44336' : '#9E9E9E'}">
-                                    ${product.trend === 'up' ? '+12%' : product.trend === 'down' ? '-5%' : '0%'}
-                                </span>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
-        
-        // Refrescar actividades
-        function refreshActivities() {
-            loadActivities();
-            showNotification('Actividades actualizadas', 'success');
+            // Abrir en nueva pestaña (evita problemas de iframe)
+            window.open(fullUrl, '_blank');
         }
         
         // Ver todos los productos
         function viewAllProducts() {
             showNotification('Redirigiendo a gestión de productos...', 'info');
-            // En una implementación real, aquí se redirigiría a la página de productos
         }
         
         // Helper functions
-        function getTimeAgo(date) {
-            const now = new Date();
-            const diffMs = now - date;
-            const diffMins = Math.floor(diffMs / 60000);
-            const diffHours = Math.floor(diffMs / 3600000);
-            const diffDays = Math.floor(diffMs / 86400000);
-            
-            if (diffMins < 1) return 'Hace unos segundos';
-            if (diffMins < 60) return `Hace ${diffMins} min`;
-            if (diffHours < 24) return `Hace ${diffHours} horas`;
-            if (diffDays === 1) return 'Ayer';
-            if (diffDays < 7) return `Hace ${diffDays} días`;
-            
-            return date.toLocaleDateString('es-ES', { 
-                day: '2-digit', 
-                month: 'short' 
-            });
-        }
-        
-        function getActivityIcon(type) {
-            const icons = {
-                'venta': '💰',
-                'pedido': '🛒',
-                'gasto': '📉',
-                'factura': '🧾',
-                'cliente': '👤'
-            };
-            return icons[type] || '📋';
-        }
-        
-        function getProductIcon(productName) {
-            const icons = {
-                'Pizza': '🍕',
-                'Hamburguesa': '🍔',
-                'Ensalada': '🥗',
-                'Pasta': '🍝',
-                'Sushi': '🍣'
-            };
-            
-            for (const [key, icon] of Object.entries(icons)) {
-                if (productName.includes(key)) return icon;
-            }
-            
-            return '🍽️';
-        }
-        
         function getPeriodLabel(period) {
             const labels = {
                 'week': 'la semana',
@@ -1625,7 +1971,8 @@
                 right: 20px;
                 background: ${type === 'error' ? 'linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)' : 
                            type === 'info' ? 'linear-gradient(135deg, #2196F3 0%, #21CBF3 100%)' : 
-                           'linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%)'};
+                           type === 'warning' ? 'linear-gradient(135deg, #ffb347 0%, #ffcc33 100%)' :
+                           'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)'};
                 color: white;
                 padding: 1rem 1.5rem;
                 border-radius: 12px;
@@ -1636,6 +1983,7 @@
                 display: flex;
                 align-items: center;
                 gap: 10px;
+                max-width: 400px;
             `;
             
             notification.innerHTML = message;
@@ -1669,6 +2017,14 @@
             }
         `;
         document.head.appendChild(style);
+        
+        // Función de respaldo si algo falla
+        function generarPDFRespaldo() {
+            const url = '/facturacion/generar-pdf-ticket-dia/';
+            const fullUrl = window.location.origin + url;
+            window.open(fullUrl, '_blank');
+            showNotification('📄 Abriendo PDF...', 'info');
+        }
     </script>
 </body>
 </html>

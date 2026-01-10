@@ -618,6 +618,11 @@
                 <span class="nav-icon">👥</span>
                 <span>Gestión de Usuarios</span>
             </a>
+
+             <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon">📊</span>
+                    <span>Dashboard</span>
+                </a>
             {% endif %}
             
             <!-- Menú para otros grupos... -->
@@ -681,6 +686,11 @@
                 <span class="nav-icon">🚪</span>
                 <span>Cerrar Sesión</span>
             </a>
+
+              <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon">📊</span>
+                    <span>Dashboard</span>
+                </a>
             
             {% endwith %}
         </nav>

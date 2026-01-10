@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial de Pedidos Pagados - Restaurante</title>
+    <style>
+        /* Usa los mismos estilos que gestiondepedidos.html o crea un CSS específico */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            min-height: 100vh;
+        }
+        
+        /* App container */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar (usa el mismo que gestiondepedidos) */
+        .sidebar {
+            width: 260px;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar-header {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 1.5rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .sidebar-nav {
+            flex: 1;
+            padding: 1rem 0;
+        }
+        
+        .nav-item {
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #ecf0f1;
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+        }
+        
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-left-color: #4CAF50;
+            color: #4CAF50;
+            transform: translateX(5px);
+        }
+        
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            border-left-color: #4CAF50;
+            color: #4CAF50;
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 1.25rem;
+        }
+        
+        /* Mobile menu toggle */
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 1000;
+            background: #4CAF50;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: white;
+            transition: all 0.3s;
+        }
+        
+        .menu-toggle:hover {
+            background: #45a049;
+            transform: scale(1.05);
+        }
+        
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 998;
+        }
+        
+        /* Main content area */
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 25px;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 2.5rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.1)"/></svg>');
+            background-size: cover;
+        }
+        
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header p {
+            opacity: 0.95;
+            font-size: 1.1rem;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .content {
+            padding: 2.5rem;
+        }
+        
+        /* Stats Cards */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+            padding: 1.5rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(76, 175, 80, 0.1);
+            border: 1px solid rgba(76, 175, 80, 0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(76, 175, 80, 0.2);
+        }
+        
+        .stat-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #4CAF50;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: #4a5568;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+        
+        /* Controls Section */
+        .controls-section {
+            background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(76, 175, 80, 0.1);
+            border: 1px solid rgba(76, 175, 80, 0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .controls-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .controls-header h3 {
+            color: #2c3e50;
+            font-size: 1.4rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .controls-header h3::before {
+            content: "📋";
+            font-size: 1.2rem;
+        }
+        
+        /* Botones */
+        .btn {
+            padding: 1rem 2.5rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(76, 175, 80, 0.4);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
+            color: #2c3e50;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            box-shadow: 0 4px 6px rgba(255, 179, 71, 0.3);
+        }
+        
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(255, 179, 71, 0.4);
+        }
+        
+        .btn-info {
+            background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            box-shadow: 0 4px 6px rgba(33, 150, 243, 0.3);
+        }
+        
+        .btn-info:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(33, 150, 243, 0.4);
+        }
+        
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+        
+        /* Form inputs */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #2c3e50;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .form-group input,
+        .form-group select {
+            padding: 1rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: white;
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.05);
+        }
+        
+        .search-box {
+            flex: 1;
+            min-width: 300px;
+            position: relative;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 1rem 1rem 1rem 3.5rem;
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            color: #4CAF50;
+        }
+        
+        .filter-select {
+            padding: 1rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            font-size: 1rem;
+            background: white;
+            min-width: 180px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.05);
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        
+        /* Pedidos Table */
+        .table-container {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(76, 175, 80, 0.1);
+            border: 1px solid rgba(76, 175, 80, 0.1);
+            margin-bottom: 2rem;
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1000px;
+        }
+        
+        thead {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+        }
+        
+        thead th {
+            padding: 1.5rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        tbody tr {
+            border-bottom: 1px solid rgba(76, 175, 80, 0.1);
+            transition: all 0.2s;
+        }
+        
+        tbody tr:hover {
+            background: #f8f9ff;
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.1);
+        }
+        
+        tbody td {
+            padding: 1.5rem;
+            color: #4a5568;
+        }
+        
+        /* Status badge para pagado */
+        .status-pagado {
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(69, 160, 73, 0.1) 100%);
+            color: #38a169;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Order type badges */
+        .order-type-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .type-restaurante {
+            background: linear-gradient(135deg, rgba(255, 126, 95, 0.1) 0%, rgba(254, 180, 123, 0.1) 100%);
+            color: #ff7e5f;
+        }
+        
+        .type-domicilio {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            color: #667eea;
+        }
+        
+        .type-recoger {
+            background: linear-gradient(135deg, rgba(72, 187, 120, 0.1) 0%, rgba(56, 161, 105, 0.1) 100%);
+            color: #48bb78;
+        }
+        
+        /* Customer info */
+        .customer-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        
+        .customer-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .customer-phone {
+            font-size: 0.9rem;
+            color: #4a5568;
+        }
+        
+        /* Order total */
+        .order-total {
+            font-weight: 700;
+            color: #2c3e50;
+            font-size: 1.1rem;
+        }
+        
+        /* Factura badge */
+        .factura-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: #f0f9ff;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            color: #3182ce;
+        }
+        
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 4rem;
+            color: #a0aec0;
+        }
+        
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1rem;
+            opacity: 0.5;
+        }
+        
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: #4a5568;
+        }
+        
+        /* Date badge */
+        .date-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: #f8f9ff;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            color: #4a5568;
+        }
+        
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+        
+        .page-btn {
+            padding: 0.75rem 1.25rem;
+            border: 2px solid #e0e6ff;
+            background: white;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            color: #4a5568;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .page-btn:hover {
+            background: #f8f9ff;
+            border-color: #4CAF50;
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        
+        .page-btn.active {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            border-color: #4CAF50;
+        }
+        
+        .page-info {
+            padding: 0 1rem;
+            color: #4a5568;
+            font-weight: 600;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 1400px) {
+            .stats-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: block;
+            }
+            
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                z-index: 999;
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .sidebar-overlay.open {
+                display: block;
+            }
+            
+            .main-content {
+                padding: 5rem 1rem 1rem;
+            }
+            
+            .content {
+                padding: 1.5rem;
+            }
+            
+            .header {
+                padding: 2rem 1.5rem;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .stats-container {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .controls-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .filter-row {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .search-box {
+                min-width: 100%;
+            }
+            
+            .filter-select {
+                width: 100%;
+            }
+            
+            .table-container {
+                border-radius: 15px;
+            }
+            
+            table {
+                min-width: 1200px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Mobile menu toggle -->
+    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    
+    <div class="app-container">
+        <!-- Sidebar navigation (mismo que gestiondepedidos) -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                🍽️ Mi Restaurante
+            </div>
+            <nav class="sidebar-nav">
+                {% with user_groups=user.groups.all|join:"," %}
+                
+                <!-- Menú para Usuario Normal -->
+                {% if "Usuario Normal" in user_groups and not user.is_superuser %}
+                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon">🛒</span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon">📋</span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon">📋</span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon">🧾</span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon">📤</span>
+                    <span>Salida de Productos</span>
+                </a>
+                {% endif %}
+                
+                <!-- Menú para Administrador -->
+                {% if "Administrador" in user_groups and not user.is_superuser %}
+                <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon">📦</span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon">📋</span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon">🍽️</span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon">📊</span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon">🛒</span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item active">
+                    <span class="nav-icon">📋</span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon">🧾</span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon">📤</span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                    <span class="nav-icon">👥</span>
+                    <span>Gestión de Usuarios</span>
+                </a>
+                {% endif %}
+                
+                <!-- Menú EXCLUSIVO para superusuarios -->
+                {% if user.is_superuser %}
+                <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon">📦</span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon">📋</span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon">🍽️</span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon">📊</span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon">🛒</span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item active">
+                    <span class="nav-icon">📋</span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon">🧾</span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon">📤</span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                    <span class="nav-icon">👥</span>
+                    <span>Gestión de Usuarios</span>
+                </a>
+                {% endif %}
+                
+                <!-- Cerrar sesión para todos -->
+                <a href="{% url 'logout' %}" class="nav-item">
+                    <span class="nav-icon">🚪</span>
+                    <span>Cerrar Sesión</span>
+                </a>
+                
+                {% endwith %}
+            </nav>
+        </div>
+        
+        <!-- Overlay for mobile sidebar -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+        
+        <div class="main-content">
+            <div class="container">
+                <div class="header">
+                    <h1>📋 Historial de Pedidos Pagados</h1>
+                    <p>Consulta todos los pedidos que ya han sido pagados y facturados</p>
+                    <div style="margin-top: 1rem; background: rgba(255, 255, 255, 0.2); padding: 0.5rem 1rem; border-radius: 10px; font-size: 0.9rem;">
+                        <strong>💡 Nota:</strong> Estos pedidos ya no aparecen en la gestión activa. 
+                        <a href="{% url 'gestiondepedidos' %}" style="color: white; text-decoration: underline;">Volver a gestión activa</a>
+                    </div>
+                </div>
+                
+                <div class="content">
+                    <!-- Stats Cards -->
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <span class="stat-icon">💰</span>
+                            <div class="stat-value">{{ estadisticas.total_pedidos }}</div>
+                            <div class="stat-label">Total Pagados</div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">📈</span>
+                            <div class="stat-value">${{ estadisticas.ingresos_totales|floatformat:2 }}</div>
+                            <div class="stat-label">Ingresos Totales</div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">📅</span>
+                            <div class="stat-value">${{ estadisticas.ingresos_mes_actual|floatformat:2 }}</div>
+                            <div class="stat-label">Ingresos Este Mes</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Controls Section -->
+                    <div class="controls-section">
+                        <div class="controls-header">
+                            <h3>Buscar en el Historial</h3>
+                            <div style="display: flex; gap: 1rem;">
+                                <button class="btn btn-warning btn-sm" onclick="window.location.href='{% url 'gestiondepedidos' %}'" type="button">
+                                    <span>↩️</span>
+                                    <span>Volver a Activos</span>
+                                </button>
+                                <button class="btn btn-primary btn-sm" onclick="exportHistorial()" type="button">
+                                    <span>📤</span>
+                                    <span>Exportar Historial</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <form method="get" id="filterForm">
+                            <div class="form-group">
+                                <label for="searchInput">🔍 Buscar Pedido</label>
+                                <div class="search-box">
+                                    <span class="search-icon">🔍</span>
+                                    <input type="text" id="searchInput" name="search" 
+                                           value="{{ filtros.search }}"
+                                           placeholder="Buscar por cliente, número de pedido, factura...">
+                                </div>
+                            </div>
+                            
+                            <div class="filter-row">
+                                <div class="form-group" style="flex: 1;">
+                                    <label for="typeFilter">🚚 Tipo de Pedido</label>
+                                    <select class="filter-select" id="typeFilter" name="tipo_pedido">
+                                        <option value="">Todos los tipos</option>
+                                        <option value="mesa" {% if filtros.tipo_pedido == 'mesa' %}selected{% endif %}>Comer en Restaurante</option>
+                                        <option value="delivery" {% if filtros.tipo_pedido == 'delivery' %}selected{% endif %}>Domicilio</option>
+                                        <option value="llevar" {% if filtros.tipo_pedido == 'llevar' %}selected{% endif %}>Recoger en Local</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group" style="flex: 1;">
+                                    <label for="dateFilter">📅 Fecha</label>
+                                    <select class="filter-select" id="dateFilter" name="fecha">
+                                        <option value="">Todas las fechas</option>
+                                        <option value="hoy" {% if filtros.fecha == 'hoy' %}selected{% endif %}>Hoy</option>
+                                        <option value="ayer" {% if filtros.fecha == 'ayer' %}selected{% endif %}>Ayer</option>
+                                        <option value="semana" {% if filtros.fecha == 'semana' %}selected{% endif %}>Esta Semana</option>
+                                        <option value="mes" {% if filtros.fecha == 'mes' %}selected{% endif %}>Este Mes</option>
+                                    </select>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary" style="height: fit-content; margin-top: 1.5rem;">
+                                    <span>🔍</span>
+                                    <span>Filtrar</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- Pedidos Table -->
+                    <div class="table-container">
+                        <table id="pedidosTable">
+                            <thead>
+                                <tr>
+                                    <th>Pedido #</th>
+                                    <th>Factura #</th>
+                                    <th>Cliente</th>
+                                    <th>Fecha</th>
+                                    <th>Tipo</th>
+                                    <th>Total</th>
+                                    <th>Estado</th>
+                                    <th>Método Pago</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pedidosBody">
+                                {% if pedidos %}
+                                    {% for pedido in pedidos %}
+                                    <tr data-order-id="{{ pedido.id }}">
+                                        <td style="font-weight: 700; color: #2c3e50;">{{ pedido.codigo_pedido }}</td>
+                                        <td>
+                                            <div class="factura-badge">
+                                                <span>🧾</span>
+                                                <span>{{ pedido.factura_numero|default:"Sin factura" }}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="customer-info">
+                                                <div class="customer-name">
+                                                    {{ pedido.nombre_cliente|default:"Cliente no registrado" }}
+                                                    {% if pedido.mesa_numero %}
+                                                        <div style="font-size: 0.85rem; color: #718096;">Mesa {{ pedido.mesa_numero }}</div>
+                                                    {% endif %}
+                                                </div>
+                                                {% if pedido.telefono_cliente %}
+                                                    <div class="customer-phone">📱 {{ pedido.telefono_cliente }}</div>
+                                                {% endif %}
+                                                {% if pedido.direccion_entrega %}
+                                                    <div class="customer-phone">📍 {{ pedido.direccion_entrega|truncatechars:30 }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="date-badge">
+                                                <span>📅</span>
+                                                <span>{{ pedido.fecha_formateada }}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if pedido.tipo_pedido == 'mesa' %}
+                                                <span class="order-type-badge type-restaurante">
+                                                    <span>🍽️</span>
+                                                    {{ pedido.tipo_pedido_display }}
+                                                </span>
+                                            {% elif pedido.tipo_pedido == 'delivery' %}
+                                                <span class="order-type-badge type-domicilio">
+                                                    <span>🚚</span>
+                                                    {{ pedido.tipo_pedido_display }}
+                                                </span>
+                                            {% else %}
+                                                <span class="order-type-badge type-recoger">
+                                                    <span>🏃‍♂️</span>
+                                                    {{ pedido.tipo_pedido_display }}
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="order-total">${{ pedido.total|floatformat:2 }}</div>
+                                        </td>
+                                        <td>
+                                            <span class="status-pagado">
+                                                <span class="status-icon">✅</span>
+                                                {{ pedido.estado_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div style="font-weight: 600; color: #4a5568;">
+                                                {{ pedido.metodo_pago|default:"No especificado" }}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr class="empty-state">
+                                        <td colspan="8">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                            </svg>
+                                            <h3>No se encontraron pedidos pagados</h3>
+                                            <p>No hay pedidos pagados con los filtros aplicados</p>
+                                            <div style="margin-top: 1rem;">
+                                                <a href="{% url 'gestiondepedidos' %}" class="btn btn-primary" style="text-decoration: none;">
+                                                    <span>↩️</span>
+                                                    <span>Volver a Gestión Activa</span>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    {% if paginator.num_pages > 1 %}
+                    <div class="pagination" id="pagination">
+                        {% if paginator.has_previous %}
+                            <a href="?page={{ paginator.previous_page_number }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                               class="page-btn">← Anterior</a>
+                        {% endif %}
+                        
+                        <span class="page-info" id="pageInfo">
+                            Página {{ paginator.number }} de {{ paginator.num_pages }}
+                        </span>
+                        
+                        {% if paginator.has_next %}
+                            <a href="?page={{ paginator.next_page_number }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                               class="page-btn">Siguiente →</a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Agregar CSRF token para las peticiones AJAX -->
+    {% csrf_token %}
+
+    <script>
+        // Función para alternar sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('open');
+        }
+        
+        // Cerrar sidebar al hacer clic en overlay
+        document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
+        
+        // Función para exportar historial
+        function exportHistorial() {
+            alert('Funcionalidad de exportación en desarrollo');
+        }
+        
+        // Filtrar al presionar Enter
+        document.getElementById('searchInput')?.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('filterForm').submit();
+            }
+        });
+        
+        // Mostrar detalles del pedido al hacer clic en la fila
+        document.querySelectorAll('#pedidosTable tbody tr').forEach(row => {
+            row.addEventListener('click', function(e) {
+                // Evitar que se active al hacer clic en enlaces o botones
+                if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') {
+                    return;
+                }
+                
+                const pedidoId = this.getAttribute('data-order-id');
+                if (pedidoId) {
+                    window.location.href = `/gestiondepedidos/detalle/${pedidoId}/`;
+                }
+            });
+        });
+    </script>
+</body>
+</html>

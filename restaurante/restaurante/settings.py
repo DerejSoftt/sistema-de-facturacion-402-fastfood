@@ -12,11 +12,9 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
-from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-load_dotenv()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -25,11 +23,10 @@ load_dotenv()
 SECRET_KEY = 'django-insecure-m8))quru4uo6-(e#rgth5p5$1qo*f)h9h&h23tdmxhiu-77udo'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = True
-# ALLOWED_HOSTS = ['hub-presence-friendly-spencer.trycloudflare.com', 'localhost', '127.0.0.1']
+DEBUG = True
 
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
+ALLOWED_HOSTS = ['cottaged-willy-delorse.ngrok-free.dev', 'localhost', '127.0.0.1']
+# ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -42,11 +39,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -77,9 +74,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'restaurante.wsgi.application'
 
 
-
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
@@ -88,20 +82,25 @@ USE_TZ = True
 
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DB_NAME'),
-        'USER': os.environ.get('DB_USER'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-        'HOST': os.environ.get('DB_HOST'),
-        'PORT': os.environ.get('DB_PORT'),
-        'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'; SET time_zone = '-04:00';",
-            'charset': 'utf8mb4',
-            'use_unicode': True,
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": "restaurante",
+        "USER": "root",
+        "PASSWORD": "",
+        "HOST": "localhost",
+        "PORT": "3306",
+        "OPTIONS": {
+            # Usar offset numérico en lugar de nombre de zona
+            "init_command": "SET time_zone = '-04:00'",  # Para República Dominicana (UTC-4)
+            # Otras opciones importantes
+            "charset": "utf8mb4",
+            "use_unicode": True,
         },
+        # Esto es crucial para MySQL con Django
+        "TIME_ZONE": TIME_ZONE,
     }
 }
+
 # En tu settings.py, agrega esto:
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -132,8 +131,8 @@ STATIC_ROOT = BASE_DIR / "staticfiles"   # aquí se copiará todo
 
 
 
-# MEDIA_URL = '/media/'
-# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 
 
