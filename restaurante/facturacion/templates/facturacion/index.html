@@ -1,4 +1,4 @@
-
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -11,6 +11,7 @@
             Iniciar Sesión - 402 FASTFOOD
         {% endif %}
     </title>
+    <link rel="icon" href="{% static 'img/fasfoot1.ico' %}">
     <style>
         * {
             margin: 0;
@@ -508,7 +509,7 @@
             </div>
 
             <form class="login-form" method="POST" action="{% url 'index' %}">
-              <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
                 
                 <div class="form-group">
                     <label class="form-label">Usuario</label>
@@ -554,22 +555,22 @@
         {% if not user.is_authenticated %}
         // Elementos del DOM
         const loginForm = document.querySelector('.login-form');
-        const usernameInput = document.getElementById('username');
-        const passwordInput = document.getElementById('password');
-        const loginButton = document.getElementById('loginButton');
-        const rememberCheckbox = document.getElementById('remember');
+        const usernameInput = document.querySelector('#username');
+        const passwordInput = document.querySelector('#password');
+        const loginButton = document.querySelector('#loginButton');
+        const rememberCheckbox = document.querySelector('#remember');
 
         // Cargar usuario recordado al iniciar
         document.addEventListener('DOMContentLoaded', function() {
             const rememberedUser = localStorage.getItem('rememberedUser');
-            if (rememberedUser) {
+            if (rememberedUser && usernameInput) {
                 try {
                     const user = JSON.parse(rememberedUser);
                     if (user && user.username) {
                         usernameInput.value = user.username;
-                        rememberCheckbox.checked = true;
+                        if (rememberCheckbox) rememberCheckbox.checked = true;
                         showNotification(`👋 ¡Hola ${user.username}! Completa tu contraseña.`, 'info');
-                        passwordInput.focus();
+                        if (passwordInput) passwordInput.focus();
                     }
                 } catch (e) {
                     localStorage.removeItem('rememberedUser');
@@ -587,20 +588,22 @@
         });
 
         // Manejar envío del formulario
-        loginForm.addEventListener('submit', function(e) {
-            // Mostrar estado de carga
-            setLoading(true);
-            
-            // Guardar en localStorage si se seleccionó "Recordar"
-            if (rememberCheckbox.checked && usernameInput.value.trim()) {
-                localStorage.setItem('rememberedUser', JSON.stringify({
-                    username: usernameInput.value.trim(),
-                    timestamp: new Date().toISOString()
-                }));
-            } else if (!rememberCheckbox.checked) {
-                localStorage.removeItem('rememberedUser');
-            }
-        });
+        if (loginForm) {
+            loginForm.addEventListener('submit', function(e) {
+                // Mostrar estado de carga
+                setLoading(true);
+                
+                // Guardar en localStorage si se seleccionó "Recordar"
+                if (rememberCheckbox && rememberCheckbox.checked && usernameInput && usernameInput.value.trim()) {
+                    localStorage.setItem('rememberedUser', JSON.stringify({
+                        username: usernameInput.value.trim(),
+                        timestamp: new Date().toISOString()
+                    }));
+                } else if (rememberCheckbox && !rememberCheckbox.checked) {
+                    localStorage.removeItem('rememberedUser');
+                }
+            });
+        }
 
         // Función para mostrar/ocultar contraseña
         function togglePassword() {
@@ -648,7 +651,7 @@
             }
             
             alert.style.background = bgColor;
-            alert.innerHTML = message;
+            alert.textContent = message;
             
             // Agregar al contenedor de mensajes
             const messagesContainer = document.querySelector('.messages');
@@ -671,15 +674,16 @@
 
         // Función para estado de carga (solo para login)
         function setLoading(isLoading) {
-            if (loginButton) {
+            const btn = document.querySelector('#loginButton');
+            if (btn) {
                 if (isLoading) {
-                    loginButton.classList.add('loading');
-                    loginButton.innerHTML = '<div class="spinner"></div>';
-                    loginButton.disabled = true;
+                    btn.classList.add('loading');
+                    btn.innerHTML = '<div class="spinner"></div>';
+                    btn.disabled = true;
                 } else {
-                    loginButton.classList.remove('loading');
-                    loginButton.innerHTML = '<span>🚀</span><span>Iniciar Sesión</span>';
-                    loginButton.disabled = false;
+                    btn.classList.remove('loading');
+                    btn.innerHTML = '<span>🚀</span><span>Iniciar Sesión</span>';
+                    btn.disabled = false;
                 }
             }
         }
@@ -718,4 +722,3 @@
     </script>
 </body>
 </html>
-[file content end]

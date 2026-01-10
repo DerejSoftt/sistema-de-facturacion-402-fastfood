@@ -54,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 ROOT_URLCONF = 'restaurante.urls'
 
@@ -126,7 +127,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / "facturacion" / "static"]
+STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"   # aquí se copiará todo
 
 
@@ -151,4 +152,4 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+# STATIC_URL = 'static/'
