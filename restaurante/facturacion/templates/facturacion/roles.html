@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestión de Usuarios - Restaurante</title>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-           <style>
         * {
             margin: 0;
             padding: 0;
@@ -204,7 +205,9 @@
         }
         
         .form-section h2::before {
-            content: "👤";
+            content: "\f007";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
             font-size: 1.4rem;
         }
         
@@ -348,7 +351,9 @@
         }
         
         .users-section h2::before {
-            content: "📋";
+            content: "\f0c9";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
             font-size: 1.4rem;
         }
         
@@ -607,50 +612,168 @@
 </head>
 <body>
     <!-- Mobile menu toggle -->
-    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
     
     <div class="app-container">
         <!-- Sidebar navigation -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                🍽️ 402 FASTFOOD
+                402 FASTFOOD
             </div>
             <nav class="sidebar-nav">
+                {% with user_groups=user.groups.all|join:"," %}
+                <!-- Usuario Normal -->
+                {% if 'Usuario Normal' in user_groups %}
+                <a href="{% url 'pedidos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                {% endif %}
+
+                <!-- Administrador -->
+                {% if 'Administrador' in user_groups %}
                 <a href="{% url 'entradadeproductos' %}" class="nav-item">
-                    <span class="nav-icon">📦</span>
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
                     <span>Entrada de Productos</span>
                 </a>
                 <a href="{% url 'inventario' %}" class="nav-item">
-                    <span class="nav-icon">📋</span>
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                     <span>Inventario</span>
                 </a>
                 <a href="{% url 'entradadeplatillos' %}" class="nav-item">
-                    <span class="nav-icon">🍽️</span>
-                    <span>Entrada de Platos</span>
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platillos</span>
                 </a>
                 <a href="{% url 'listadeplatillos' %}" class="nav-item">
-                    <span class="nav-icon">📊</span>
-                    <span>Gestión de Platos</span>
+                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span>Lista de Platillos</span>
                 </a>
                 <a href="{% url 'pedidos' %}" class="nav-item">
-                    <span class="nav-icon">🛒</span>
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                     <span>Pedidos</span>
                 </a>
                 <a href="{% url 'gestiondepedidos' %}" class="nav-item">
-                    <span class="nav-icon">📋</span>
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
                     <span>Gestión de Pedidos</span>
                 </a>
                 <a href="{% url 'facturacion' %}" class="nav-item">
-                    <span class="nav-icon">🧾</span>
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
                     <span>Facturación</span>
                 </a>
                 <a href="{% url 'salida' %}" class="nav-item">
-                    <span class="nav-icon">📤</span>
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
                     <span>Salida de Productos</span>
                 </a>
-                <a href="#" class="nav-item active">
-                    <span class="nav-icon">👥</span>
-                    <span>Gestión de Usuarios</span>
+                <a href="{% url 'roles' %}" class="nav-item active">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Gestión de Roles</span>
+                </a>
+                {% endif %}
+
+                <!-- Cajero -->
+                {% if 'Cajero' in user_groups %}
+                <a href="{% url 'pedidos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                {% endif %}
+
+                <!-- Gerente -->
+                {% if 'Gerente' in user_groups %}
+                <a href="{% url 'entradadeproductos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platillos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span>Lista de Platillos</span>
+                </a>
+                <a href="{% url 'pedidos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'roles' %}" class="nav-item active">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Gestión de Roles</span>
+                </a>
+                {% endif %}
+
+                <!-- Superusuario -->
+                {% if user.is_superuser %}
+                <a href="{% url 'dashbort' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{% url 'entradadeproductos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platillos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span>Lista de Platillos</span>
+                </a>
+                <a href="{% url 'pedidos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'roles' %}" class="nav-item active">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Gestión de Roles</span>
+                </a>
+                {% endif %}
+                {% endwith %}
+
+                <a href="{% url 'logout' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-door-open"></i></span>
+                    <span>Cerrar Sesión</span>
                 </a>
             </nav>
         </div>
@@ -671,7 +794,7 @@
                     <div style="margin-bottom: 2rem;">
                         {% for message in messages %}
                         <div class="confirmation-message" style="display: block; background: {% if message.tags == 'success' %}linear-gradient(135deg, #4CAF50 0%, #45a049 100%){% elif message.tags == 'error' %}linear-gradient(135deg, #e74c3c 0%, #c0392b 100%){% else %}linear-gradient(135deg, #3498db 0%, #2980b9 100%){% endif %};">
-                            <h3>{% if message.tags == 'success' %}✅{% elif message.tags == 'error' %}❌{% else %}ℹ️{% endif %} {{ message }}</h3>
+                            <h3>{% if message.tags == 'success' %}<i class="fas fa-check-circle"></i>{% elif message.tags == 'error' %}<i class="fas fa-times-circle"></i>{% else %}<i class="fas fa-info-circle"></i>{% endif %} {{ message }}</h3>
                         </div>
                         {% endfor %}
                     </div>
@@ -686,12 +809,12 @@
                             
                             <div class="form-grid">
                                 <div class="form-group">
-                                    <label for="username">🔑 Nombre de Usuario</label>
+                                    <label for="username"><i class="fas fa-key"></i> Nombre de Usuario</label>
                                     <input type="text" id="username" name="username" placeholder="Ej: mesero01" required>
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="role">👔 Rol</label>
+                                    <label for="role"><i class="fas fa-user-tie"></i> Rol</label>
                                     <select id="role" name="role" required>
                                         <option value="">Seleccionar...</option>
                                         {% for group in groups %}
@@ -701,7 +824,7 @@
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="password">🔒 Contraseña</label>
+                                    <label for="password"><i class="fas fa-lock"></i> Contraseña</label>
                                     <input type="password" id="password" name="password" placeholder="Mínimo 8 caracteres" required>
                                     <div class="password-strength">
                                         <div class="password-strength-bar" id="passwordStrengthBar"></div>
@@ -710,13 +833,13 @@
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="confirmPassword">✅ Confirmar Contraseña</label>
+                                    <label for="confirmPassword"><i class="fas fa-check-circle"></i> Confirmar Contraseña</label>
                                     <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Repite la contraseña" required>
                                     <small id="passwordMatch" style="margin-top: 0.5rem; display: none; color: #e74c3c; font-size: 0.8rem;">Las contraseñas no coinciden</small>
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="status">🟢 Estado</label>
+                                    <label for="status"><i class="fas fa-circle"></i> Estado</label>
                                     <select id="status" name="status" required>
                                         <option value="active">Activo</option>
                                         <option value="inactive">Inactivo</option>
@@ -726,17 +849,17 @@
                             
                             <div style="display: flex; gap: 1rem; margin-top: 2rem;">
                                 <button type="submit" class="btn btn-primary">
-                                    <span>➕ Crear Usuario</span>
+                                    <span><i class="fas fa-plus"></i> Crear Usuario</span>
                                 </button>
                                 <button type="reset" class="btn btn-secondary" onclick="resetForm()">
-                                    <span>🔄 Limpiar Formulario</span>
+                                    <span><i class="fas fa-sync-alt"></i> Limpiar Formulario</span>
                                 </button>
                             </div>
                         </form>
                         
                         <!-- Confirmation message for JavaScript -->
                         <div class="confirmation-message" id="confirmationMessage">
-                            <h3>✅ Usuario creado exitosamente</h3>
+                            <h3><i class="fas fa-check-circle"></i> Usuario creado exitosamente</h3>
                             <p id="confirmationDetails">El usuario ha sido registrado en el sistema correctamente.</p>
                         </div>
                     </div>
@@ -778,9 +901,9 @@
                                         </td>
                                         <td>
                                             {% if user.is_active %}
-                                            🟢 Activo
+                                            <i class="fas fa-circle" style="color: #4CAF50;"></i> Activo
                                             {% else %}
-                                            🔴 Inactivo
+                                            <i class="fas fa-circle" style="color: #e74c3c;"></i> Inactivo
                                             {% endif %}
                                         </td>
                                         <td>{{ user.date_joined|date:"d/m/Y" }}</td>
@@ -789,18 +912,18 @@
                                                 <button class="action-btn edit-btn" 
                                                         onclick="openEditModal({{ user.id }}, '{{ user.username }}', '{{ user.groups.first.id|default:"" }}', '{{ user.is_active|yesno:"active,inactive" }}')"
                                                         title="Editar usuario">
-                                                    ✏️
+                                                    <i class="fas fa-edit"></i>
                                                 </button>
                                                 {% if user.id != request.user.id and not user.is_superuser %}
                                                 <form method="POST" action="{% url 'delete_user' user.id %}" style="display: inline;" onsubmit="return confirmDelete()">
                                                     {% csrf_token %}
                                                     <button type="submit" class="action-btn delete-btn" title="Eliminar usuario">
-                                                        🗑️
+                                                        <i class="fas fa-trash"></i>
                                                     </button>
                                                 </form>
                                                 {% else %}
                                                 <button class="action-btn delete-btn" style="opacity: 0.5; cursor: not-allowed;" title="No se puede eliminar este usuario">
-                                                    🗑️
+                                                    <i class="fas fa-trash"></i>
                                                 </button>
                                                 {% endif %}
                                             </div>
@@ -830,12 +953,12 @@
                     
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="editUsername">🔑 Nombre de Usuario</label>
+                            <label for="editUsername"><i class="fas fa-key"></i> Nombre de Usuario</label>
                             <input type="text" id="editUsername" name="editUsername" placeholder="Ej: mesero01" required>
                         </div>
                         
                         <div class="form-group">
-                            <label for="editRole">👔 Rol</label>
+                            <label for="editRole"><i class="fas fa-user-tie"></i> Rol</label>
                             <select id="editRole" name="editRole" required>
                                 <option value="">Seleccionar...</option>
                                 {% for group in groups %}
@@ -845,7 +968,7 @@
                         </div>
                         
                         <div class="form-group">
-                            <label for="editStatus">🟢 Estado</label>
+                            <label for="editStatus"><i class="fas fa-circle"></i> Estado</label>
                             <select id="editStatus" name="editStatus" required>
                                 <option value="active">Activo</option>
                                 <option value="inactive">Inactivo</option>
@@ -855,10 +978,10 @@
                     
                     <div style="display: flex; gap: 1rem; margin-top: 2rem;">
                         <button type="submit" class="btn btn-primary">
-                            <span>💾 Guardar Cambios</span>
+                            <span><i class="fas fa-save"></i> Guardar Cambios</span>
                         </button>
                         <button type="button" class="btn btn-secondary" onclick="closeEditModal()">
-                            <span>❌ Cancelar</span>
+                            <span><i class="fas fa-times"></i> Cancelar</span>
                         </button>
                     </div>
                 </form>

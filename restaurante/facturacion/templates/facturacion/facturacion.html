@@ -1145,8 +1145,8 @@
                             <h3>Buscar y Filtrar Pedidos</h3>
                             <div style="display: flex; gap: 1rem;">
                                 <button class="btn btn-info btn-sm" onclick="exportInvoices()">
-                                    <i class="fas fa-download"></i>
-                                    <span>Exportar</span>
+                                    <i class="fas fa-print"></i>
+                                    <span>Cuadre</span>
                                 </button>
                             </div>
                         </div>
@@ -1887,15 +1887,10 @@
         }, 1000);
     }
     
-    // Exportar facturas
+    // Generar cuadre del día (PDF)
     function exportInvoices() {
-        if (invoices.length === 0) {
-            showNotification('No hay facturas para exportar', 'warning');
-            return;
-        }
-        
-        // Redirigir a la vista de exportación
-        window.location.href = "{% url 'exportar_facturas' %}";
+        // Abrir el PDF del ticket del día en una nueva ventana
+        window.open("{% url 'generar_pdf_ticket_dia' %}", '_blank');
     }
     
     // Cerrar modales
