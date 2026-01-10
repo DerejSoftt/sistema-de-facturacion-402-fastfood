@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Devoluciones - Buscar Factura</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            min-height: 100vh;
+        }
+        
+        /* App container */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar styles - Mismo diseño */
+        .sidebar {
+            width: 260px;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 1000;
+        }
+        
+        .sidebar-header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 1.5rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .sidebar-nav {
+            flex: 1;
+            padding: 1rem 0;
+            overflow-y: auto;
+        }
+        
+        .nav-item {
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #ecf0f1;
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+        }
+        
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-left-color: #ff7e5f;
+            color: #ff7e5f;
+            transform: translateX(5px);
+        }
+        
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            border-left-color: #ff7e5f;
+            color: #ff7e5f;
+            font-weight: 600;
+        }
+        
+        .nav-icon {
+            font-size: 1.25rem;
+        }
+        
+        /* Mobile menu toggle */
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 1100;
+            background: #ff7e5f;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: white;
+            transition: all 0.3s;
+        }
+        
+        .menu-toggle:hover {
+            background: #ff6b4a;
+            transform: scale(1.05);
+        }
+        
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+        
+        /* Main content area */
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            margin-left: 260px; /* Ajuste para sidebar fija */
+            transition: margin-left 0.3s ease;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 25px;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Header - Mismo diseño */
+        .header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 2.5rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.1)"/></svg>');
+            background-size: cover;
+        }
+        
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header p {
+            opacity: 0.95;
+            font-size: 1.1rem;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .content {
+            padding: 2.5rem;
+        }
+        
+        /* Search Section */
+        .search-section {
+            background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+            padding: 2.5rem;
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(255, 126, 95, 0.1);
+            border: 1px solid rgba(255, 126, 95, 0.1);
+            text-align: center;
+        }
+        
+        .search-title {
+            color: #2c3e50;
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        .search-box {
+            display: flex;
+            gap: 0.75rem;
+            max-width: 700px;
+            margin: 0 auto 1rem;
+            align-items: stretch;
+        }
+        
+        .invoice-input {
+            flex: 1;
+            padding: 1.2rem;
+            border: 3px solid #e0e6ff;
+            border-radius: 15px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.3s;
+            background: white;
+            box-shadow: 0 5px 15px rgba(50, 50, 93, 0.1);
+        }
+        
+        .invoice-input:focus {
+            outline: none;
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 5px rgba(255, 126, 95, 0.2);
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 1rem 1.8rem;
+            border: none;
+            border-radius: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            box-shadow: 0 10px 20px rgba(255, 126, 95, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(255, 126, 95, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        /* Quick Action Button */
+        .btn-quick-action {
+            padding: 1rem 1.5rem;
+            border: none;
+            border-radius: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #f0f0f0 0%, #e8e8e8 100%);
+            color: #2c3e50;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            white-space: nowrap;
+        }
+        
+        .btn-quick-action:hover {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 126, 95, 0.3);
+        }
+        
+        .btn-quick-action:active {
+            transform: translateY(0);
+        }
+        
+        /* Invoice Display */
+        .invoice-display {
+            display: none;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        .invoice-header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 2rem;
+        }
+        
+        .invoice-header-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+        }
+        
+        .invoice-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        
+        .invoice-meta {
+            text-align: right;
+        }
+        
+        .invoice-meta div {
+            margin-bottom: 0.5rem;
+        }
+        
+        .invoice-status {
+            display: inline-block;
+            padding: 0.5rem 1.5rem;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+        
+        .status-pagada {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        }
+        
+        .status-pendiente {
+            background: linear-gradient(135deg, #ffd700 0%, #ffcc33 100%);
+            color: #7c2d12;
+        }
+        
+        .status-anulada {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+        }
+        
+        .invoice-customer {
+            background: #f8f9ff;
+            padding: 1.5rem;
+            border-radius: 15px;
+            margin-top: 1rem;
+        }
+        
+        .invoice-customer h4 {
+            margin-bottom: 1rem;
+            color: #2c3e50;
+        }
+        
+        .customer-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .customer-info div {
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Invoice Items Table */
+        .invoice-items {
+            padding: 2rem;
+        }
+        
+        .invoice-items h3 {
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+        
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 2rem;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .items-table thead {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+        }
+        
+        .items-table th {
+            padding: 1.2rem 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .items-table tbody tr {
+            border-bottom: 1px solid #e0e6ff;
+            transition: background 0.3s;
+        }
+        
+        .items-table tbody tr:hover {
+            background: #f8f9ff;
+        }
+        
+        .items-table td {
+            padding: 1.2rem 1rem;
+            color: #4a5568;
+        }
+        
+        .items-table td:nth-child(2) {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .items-table td:last-child {
+            font-weight: 700;
+            color: #ff7e5f;
+        }
+        
+        /* Invoice Summary */
+        .invoice-summary {
+            background: #f8f9ff;
+            padding: 2rem;
+            border-radius: 15px;
+        }
+        
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+        
+        .summary-total {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 2px solid #e0e6ff;
+        }
+        
+        .total-amount {
+            color: #4CAF50;
+            font-size: 1.8rem;
+        }
+        
+        /* Return Actions */
+        .return-actions {
+            padding: 2rem;
+            text-align: center;
+            border-top: 1px solid #e0e6ff;
+        }
+        
+        .return-actions h3 {
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn-return {
+            padding: 1.25rem 2.5rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1.05rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn-return.full {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            color: white;
+            flex: 1.2;
+        }
+        
+        .btn-return.partial {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            flex: 1;
+        }
+        
+        .btn-return.exchange {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            flex: 1;
+        }
+        
+        .btn-return:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+        }
+        
+        .btn-return:active {
+            transform: translateY(-2px);
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #a0aec0;
+        }
+        
+        .empty-state svg {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 1.5rem;
+            opacity: 0.5;
+        }
+        
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            z-index: 2000;
+            animation: slideIn 0.3s ease-out;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 400px;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .notification.success {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+        }
+        
+        .notification.error {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            color: white;
+        }
+        
+        .notification.info {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+        
+        /* Modal de Devolución Parcial */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+        }
+        
+        .modal-content-partial {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: slideDown 0.3s ease-out;
+        }
+        
+        @keyframes slideDown {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .modal-header-partial {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 20px 20px 0 0;
+        }
+        
+        .modal-header-partial h2 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        
+        .modal-close {
+            background: rgba(255, 255, 255, 0.3);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+        
+        .modal-body-partial {
+            padding: 2rem;
+        }
+        
+        .product-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .product-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: #f8f9ff;
+            border-radius: 12px;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .product-item:hover {
+            background: #f0f4ff;
+            border-color: #4facfe;
+        }
+        
+        .product-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        .product-info {
+            flex: 1;
+        }
+        
+        .product-name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.25rem;
+        }
+        
+        .product-details {
+            font-size: 0.9rem;
+            color: #718096;
+        }
+        
+        .product-price {
+            font-weight: 700;
+            color: #ff7e5f;
+            min-width: 80px;
+            text-align: right;
+        }
+        
+        .product-item-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 1.25rem;
+            background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+            border-radius: 12px;
+            border: 2px solid #e0e6ff;
+            transition: all 0.3s;
+        }
+        
+        .product-item-wrapper:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+        
+        .product-item {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .product-item:hover {
+            background: transparent;
+            border: none;
+        }
+        
+        .product-item input[type="checkbox"] {
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            accent-color: #667eea;
+        }
+        
+        .product-quantity-control {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .quantity-selector {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: white;
+            border: 2px solid #e0e6ff;
+            border-radius: 8px;
+            padding: 0.5rem;
+        }
+        
+        .qty-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        
+        .qty-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .qty-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .qty-input {
+            width: 50px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1rem;
+            color: #2c3e50;
+        }
+        
+        .qty-input:focus {
+            outline: none;
+        }
+        
+        .product-total-price {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #4CAF50;
+            min-width: 85px;
+            text-align: right;
+        }
+        
+        .modal-footer-partial {
+            padding: 1.5rem 2rem;
+            border-top: 1px solid #e0e6ff;
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+        
+        .modal-footer-partial button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-cancel {
+            background: #e0e6ff;
+            color: #4a5568;
+        }
+        
+        .btn-cancel:hover {
+            background: #d0deff;
+        }
+        
+        .btn-confirm {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+        
+        .btn-confirm:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(79, 172, 254, 0.3);
+        }
+        
+        .modal-total-section {
+            background: #f0f9f0;
+            border: 2px solid #4CAF50;
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-total-label {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .modal-total-amount {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #4CAF50;
+        }
+        
+        /* Loading Spinner */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #ff7e5f;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Responsive design */
+        @media (max-width: 992px) {
+            .main-content {
+                margin-left: 0;
+                padding: 5rem 1rem 1rem;
+            }
+            
+            .menu-toggle {
+                display: block;
+            }
+            
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .sidebar-overlay.open {
+                display: block;
+            }
+            
+            .content {
+                padding: 1.5rem;
+            }
+            
+            .header {
+                padding: 2rem 1.5rem;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .search-box {
+                flex-direction: column;
+            }
+            
+            .invoice-header-info {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .invoice-meta {
+                text-align: left;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .items-table {
+                display: block;
+                overflow-x: auto;
+            }
+            
+            .customer-info {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .search-section {
+                padding: 1.5rem;
+            }
+            
+            .invoice-items, .invoice-summary, .return-actions {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Mobile menu toggle -->
+    <button class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></button>
+    
+    <!-- Overlay for mobile sidebar -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
+    <div class="app-container">
+        <!-- Sidebar navigation -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-utensils"></i> 402 FASTFOOD
+            </div>
+            <nav class="sidebar-nav">
+                <a href="pedidos.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="facturacion.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-file-invoice"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="devoluciones.html" class="nav-item active">
+                    <span class="nav-icon"><i class="fas fa-undo"></i></span>
+                    <span>Devoluciones</span>
+                </a>
+                <a href="reportes.html" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Reportes</span>
+                </a>
+                <div style="margin-top: auto; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <a href="login.html" class="nav-item">
+                        <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
+                        <span>Cerrar Sesión</span>
+                    </a>
+                </div>
+            </nav>
+        </div>
+        
+        <div class="main-content">
+            <div class="container">
+                <div class="header">
+                    <h1><i class="fas fa-undo"></i> Sistema de Devoluciones</h1>
+                    <p>Busca facturas por número para procesar devoluciones</p>
+                </div>
+                
+                <div class="content">
+                    <!-- Search Section -->
+                    <div class="search-section">
+                        <h2 class="search-title">
+                            <i class="fas fa-search"></i>
+                            Buscar Factura por Número
+                        </h2>
+                        
+                        <div class="search-box">
+                            <input 
+                                type="text" 
+                                class="invoice-input" 
+                                id="invoiceNumber"
+                                placeholder="Ej: FACT-2023-00123"
+                                autocomplete="off"
+                                autofocus
+                            >
+                            <button class="btn btn-primary" onclick="searchInvoice()">
+                                <i class="fas fa-search"></i>
+                                <span>Buscar</span>
+                            </button>
+                            <button class="btn-quick-action" onclick="loadLastInvoice()" title="Cargar la última factura registrada">
+                                <i class="fas fa-history"></i>
+                                <span>Última</span>
+                            </button>
+                            <button class="btn-quick-action" onclick="clearInvoiceInput()" title="Limpiar el campo de búsqueda">
+                                <i class="fas fa-times"></i>
+                                <span>Limpiar</span>
+                            </button>
+                        </div>
+                        
+                        <p style="color: #718096; margin-bottom: 0; margin-top: 0.75rem; font-size: 0.9rem;">
+                            Ingresa el número de factura o usa el botón ⏱️ultimo para cargar la última
+                        </p>
+                        
+                        <div class="loading" id="loadingSpinner">
+                            <div class="spinner"></div>
+                            <p>Buscando factura...</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Invoice Display -->
+                    <div class="invoice-display" id="invoiceDisplay">
+                        <!-- Invoice content will be dynamically loaded here -->
+                    </div>
+                    
+                    <!-- Initial empty state -->
+                    <div class="empty-state" id="emptyState">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        <h3>No se ha buscado ninguna factura</h3>
+                        <p>Ingresa un número de factura en el campo de arriba para ver su contenido</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal de Devolución Parcial -->
+        <div class="modal-overlay" id="partialReturnModal">
+            <div class="modal-content-partial">
+                <div class="modal-header-partial">
+                    <h2><i class="fas fa-undo"></i> Devolución Parcial</h2>
+                    <button class="modal-close" onclick="closePartialReturnModal()">&times;</button>
+                </div>
+                <div class="modal-body-partial">
+                    <p style="margin-bottom: 1.5rem; color: #4a5568;">
+                        Selecciona los productos que deseas devolver:
+                    </p>
+                    <div class="product-list" id="productListModal">
+                        <!-- Los productos se cargarán dinámicamente aquí -->
+                    </div>
+                    <div class="modal-total-section">
+                        <span class="modal-total-label">Total a Devolver:</span>
+                        <span class="modal-total-amount" id="partialReturnTotal">$0.00</span>
+                    </div>
+                </div>
+                <div class="modal-footer-partial">
+                    <button class="btn-cancel" onclick="closePartialReturnModal()">Cancelar</button>
+                    <button class="btn-confirm" onclick="confirmPartialReturn()">
+                        <i class="fas fa-check"></i> Procesar Devolución
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Datos de ejemplo para facturas
+        const sampleInvoices = {
+            "FACT-2023-00123": {
+                numero: "FACT-2023-00123",
+                fecha: "15/03/2023",
+                hora: "14:30",
+                cliente: "Juan Pérez",
+                telefono: "+1 234-567-8900",
+                email: "juan.perez@email.com",
+                direccion: "Calle Principal #123, Ciudad",
+                tipo: "Mesa",
+                mesa: "Mesa 5",
+                vendedor: "Carlos Rodríguez",
+                estado: "pagada",
+                items: [
+                    { id: 1, nombre: "Pizza Especial", cantidad: 2, precio: 12.50, subtotal: 25.00 },
+                    { id: 2, nombre: "Hamburguesa Doble", cantidad: 1, precio: 8.75, subtotal: 8.75 },
+                    { id: 3, nombre: "Refresco Grande", cantidad: 3, precio: 3.50, subtotal: 10.50 },
+                    { id: 4, nombre: "Ensalada César", cantidad: 1, precio: 7.25, subtotal: 7.25 }
+                ],
+                subtotal: 51.50,
+                impuesto: 9.27, // 18%
+                descuento: 0,
+                total: 60.77
+            },
+            "INV-2023-0456": {
+                numero: "INV-2023-0456",
+                fecha: "20/03/2023",
+                hora: "19:15",
+                cliente: "María González",
+                telefono: "+1 987-654-3210",
+                email: "maria.gonzalez@email.com",
+                direccion: "Avenida Central #456, Ciudad",
+                tipo: "Delivery",
+                mesa: "N/A",
+                vendedor: "Ana Martínez",
+                estado: "pagada",
+                items: [
+                    { id: 5, nombre: "Pasta Alfredo", cantidad: 1, precio: 10.50, subtotal: 10.50 },
+                    { id: 6, nombre: "Ensalada Griega", cantidad: 2, precio: 6.75, subtotal: 13.50 },
+                    { id: 7, nombre: "Agua Mineral", cantidad: 2, precio: 2.00, subtotal: 4.00 },
+                    { id: 8, nombre: "Tiramisú", cantidad: 1, precio: 5.25, subtotal: 5.25 }
+                ],
+                subtotal: 33.25,
+                impuesto: 5.99,
+                descuento: 2.00,
+                total: 37.24
+            },
+            "2023-0789": {
+                numero: "2023-0789",
+                fecha: "10/03/2023",
+                hora: "12:45",
+                cliente: "Roberto Sánchez",
+                telefono: "+1 555-123-4567",
+                email: "roberto.sanchez@email.com",
+                direccion: "Calle Secundaria #789, Ciudad",
+                tipo: "Para Llevar",
+                mesa: "N/A",
+                vendedor: "Luisa Fernández",
+                estado: "pendiente",
+                items: [
+                    { id: 9, nombre: "Sándwich Club", cantidad: 5, precio: 6.50, subtotal: 19.50 },
+                    { id: 10, nombre: "Papas Fritas", cantidad: 2, precio: 3.25, subtotal: 6.50 },
+                    { id: 11, nombre: "Jugo de Naranja", cantidad: 3, precio: 2.75, subtotal: 8.25 }
+                ],
+                subtotal: 34.25,
+                impuesto: 6.17,
+                descuento: 0,
+                total: 40.42
+            },
+            "FACT-2023-0111": {
+                numero: "FACT-2023-0111",
+                fecha: "05/03/2023",
+                hora: "20:30",
+                cliente: "Laura Mendoza",
+                telefono: "+1 444-555-6666",
+                email: "laura.mendoza@email.com",
+                direccion: "Boulevard Norte #111, Ciudad",
+                tipo: "Mesa",
+                mesa: "Mesa 12",
+                vendedor: "Carlos Rodríguez",
+                estado: "anulada",
+                items: [
+                    { id: 12, nombre: "Filete Mignon", cantidad: 1, precio: 18.75, subtotal: 18.75 },
+                    { id: 13, nombre: "Vino Tinto", cantidad: 1, precio: 12.00, subtotal: 12.00 },
+                    { id: 14, nombre: "Postre de Chocolate", cantidad: 1, precio: 6.50, subtotal: 6.50 }
+                ],
+                subtotal: 37.25,
+                impuesto: 6.71,
+                descuento: 0,
+                total: 43.96
+            }
+        };
+        
+        // Inicializar la aplicación
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            
+            // Permitir búsqueda con Enter
+            document.getElementById('invoiceNumber').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchInvoice();
+                }
+            });
+        });
+        
+        // Configurar event listeners
+        function setupEventListeners() {
+            // Menú móvil
+            document.getElementById('menuToggle').addEventListener('click', toggleSidebar);
+            document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
+        }
+        
+        // Alternar barra lateral en móvil
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('open');
+        }
+        
+        // Limpiar campo de búsqueda
+        function clearInvoiceInput() {
+            document.getElementById('invoiceNumber').value = '';
+            document.getElementById('invoiceNumber').focus();
+            document.getElementById('emptyState').style.display = 'block';
+            document.getElementById('invoiceDisplay').style.display = 'none';
+            document.getElementById('loadingSpinner').style.display = 'none';
+        }
+        
+        // Cargar la última factura
+        function loadLastInvoice() {
+            const invoiceKeys = Object.keys(sampleInvoices);
+            if (invoiceKeys.length === 0) {
+                showNotification('❌ No hay facturas disponibles', 'error');
+                return;
+            }
+            
+            // Obtener la última factura
+            const lastInvoiceKey = invoiceKeys[invoiceKeys.length - 1];
+            const lastInvoice = sampleInvoices[lastInvoiceKey];
+            
+            // Mostrar loading
+            document.getElementById('loadingSpinner').style.display = 'block';
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('invoiceDisplay').style.display = 'none';
+            
+            // Simular búsqueda con delay
+            setTimeout(() => {
+                document.getElementById('loadingSpinner').style.display = 'none';
+                displayInvoice(lastInvoice);
+                document.getElementById('invoiceNumber').value = lastInvoiceKey;
+                showNotification(`✅ Factura ${lastInvoice.numero} cargada (última)`, 'success');
+            }, 600);
+        }
+        
+        // Buscar factura
+        function searchInvoice() {
+            const invoiceNumber = document.getElementById('invoiceNumber').value.trim();
+            
+            if (!invoiceNumber) {
+                showNotification('❌ Por favor ingresa un número de factura', 'error');
+                document.getElementById('invoiceNumber').focus();
+                return;
+            }
+            
+            // Mostrar loading
+            document.getElementById('loadingSpinner').style.display = 'block';
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('invoiceDisplay').style.display = 'none';
+            
+            // Simular búsqueda con delay
+            setTimeout(() => {
+                processInvoiceSearch(invoiceNumber);
+            }, 800);
+        }
+        
+        // Procesar búsqueda de factura
+        function processInvoiceSearch(invoiceNumber) {
+            // Ocultar loading
+            document.getElementById('loadingSpinner').style.display = 'none';
+            
+            // Verificar si existe la factura en los datos de ejemplo
+            let invoiceData = null;
+            
+            // Buscar coincidencias parciales (para simular búsqueda flexible)
+            const searchKey = invoiceNumber.toUpperCase();
+            const invoiceKeys = Object.keys(sampleInvoices);
+            
+            for (const key of invoiceKeys) {
+                if (key.includes(searchKey) || searchKey.includes(key)) {
+                    invoiceData = sampleInvoices[key];
+                    break;
+                }
+            }
+            
+            if (!invoiceData) {
+                // Si no se encuentra exacto, buscar por los últimos dígitos
+                const lastDigits = invoiceNumber.replace(/\D/g, '');
+                if (lastDigits) {
+                    for (const key of invoiceKeys) {
+                        const keyDigits = key.replace(/\D/g, '');
+                        if (keyDigits.includes(lastDigits)) {
+                            invoiceData = sampleInvoices[key];
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (invoiceData) {
+                // Mostrar factura encontrada
+                displayInvoice(invoiceData);
+                showNotification(`✅ Factura ${invoiceData.numero} encontrada`, 'success');
+            } else {
+                // Mostrar mensaje de no encontrado
+                document.getElementById('emptyState').innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3>Factura no encontrada</h3>
+                    <p>No se encontró ninguna factura con el número: <strong>${invoiceNumber}</strong></p>
+                    <p style="margin-top: 1rem;">Ejemplos válidos: FACT-2023-00123, INV-2023-0456, 2023-0789</p>
+                `;
+                document.getElementById('emptyState').style.display = 'block';
+                showNotification(`❌ No se encontró la factura: ${invoiceNumber}`, 'error');
+            }
+        }
+        
+        // Mostrar factura
+        function displayInvoice(invoice) {
+            const invoiceDisplay = document.getElementById('invoiceDisplay');
+            
+            // Determinar clase de estado
+            let statusClass = '';
+            let statusText = '';
+            switch(invoice.estado) {
+                case 'pagada':
+                    statusClass = 'status-pagada';
+                    statusText = 'Pagada';
+                    break;
+                case 'pendiente':
+                    statusClass = 'status-pendiente';
+                    statusText = 'Pendiente';
+                    break;
+                case 'anulada':
+                    statusClass = 'status-anulada';
+                    statusText = 'Anulada';
+                    break;
+            }
+            
+            // Generar tabla de items
+            let itemsRows = '';
+            invoice.items.forEach(item => {
+                itemsRows += `
+                    <tr>
+                        <td>${item.id}</td>
+                        <td>${item.nombre}</td>
+                        <td>${item.cantidad}</td>
+                        <td>$${item.precio.toFixed(2)}</td>
+                        <td>$${item.subtotal.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+            
+            // Construir HTML de la factura
+            const invoiceHTML = `
+                <div class="invoice-header">
+                    <div class="invoice-header-info">
+                        <div>
+                            <h2 class="invoice-title">Factura: ${invoice.numero}</h2>
+                            <p>Fecha: ${invoice.fecha} ${invoice.hora}</p>
+                            <p>Vendedor: ${invoice.vendedor}</p>
+                        </div>
+                        <div class="invoice-meta">
+                            <div><strong>Tipo:</strong> ${invoice.tipo}</div>
+                            <div><strong>${invoice.tipo === 'Mesa' ? 'Mesa:' : 'Referencia:'}</strong> ${invoice.mesa}</div>
+                            <div class="invoice-status ${statusClass}">${statusText}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="invoice-items">
+                    <h3>Detalles de la Factura</h3>
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Precio Unitario</th>
+                                <th>Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsRows}
+                        </tbody>
+                    </table>
+                    
+                    <div class="invoice-summary">
+                        <div class="summary-row">
+                            <span>Subtotal:</span>
+                            <span>$${invoice.subtotal.toFixed(2)}</span>
+                        </div>
+                        <!-- <div class="summary-row">
+                            <span>Impuesto (18%):</span>
+                            <span>$${invoice.impuesto.toFixed(2)}</span>
+                        </div> -->
+                        ${invoice.descuento > 0 ? `
+                        <div class="summary-row">
+                            <span>Descuento:</span>
+                            <span>-$${invoice.descuento.toFixed(2)}</span>
+                        </div>
+                        ` : ''}
+                        <div class="summary-row summary-total">
+                            <span>Total:</span>
+                            <span class="total-amount">$${(invoice.subtotal - invoice.descuento).toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="return-actions">
+                    <div class="action-buttons">
+                        <button class="btn-return full" onclick="processReturn('full', '${invoice.numero}')">
+                            <i class="fas fa-undo"></i>
+                            <span>Devolver Todo</span>
+                        </button>
+                        <button class="btn-return partial" onclick="openPartialReturnModal(this)">
+                            <i class="fas fa-list-check"></i>
+                            <span>Devolver Items</span>
+                        </button>
+                        <button class="btn-return exchange" onclick="processReturn('exchange', '${invoice.numero}')">
+                            <i class="fas fa-exchange-alt"></i>
+                            <span>Cambiar Producto</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            invoiceDisplay.innerHTML = invoiceHTML;
+            invoiceDisplay.style.display = 'block';
+            document.getElementById('emptyState').style.display = 'none';
+            
+            // Scroll suave a la factura
+            invoiceDisplay.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        // Guardar la factura actual para el modal de devolución parcial
+        let currentInvoiceForReturn = null;
+        
+        // Abrir modal de devolución parcial
+        function openPartialReturnModal(button) {
+            const invoiceDisplay = document.getElementById('invoiceDisplay');
+            const invoiceText = invoiceDisplay.innerHTML;
+            
+            // Obtener los datos de la factura del HTML mostrado
+            const invoiceTitleMatch = invoiceText.match(/Factura: ([A-Z0-9\-]+)/);
+            const invoiceNumber = invoiceTitleMatch ? invoiceTitleMatch[1] : 'DESCONOCIDA';
+            
+            // Buscar la factura en los datos de ejemplo
+            for (const key in sampleInvoices) {
+                if (sampleInvoices[key].numero === invoiceNumber) {
+                    currentInvoiceForReturn = sampleInvoices[key];
+                    break;
+                }
+            }
+            
+            if (!currentInvoiceForReturn) {
+                showNotification('❌ No se pudo cargar la factura', 'error');
+                return;
+            }
+            
+            // Cargar los productos en el modal
+            loadProductsInModal();
+            
+            // Mostrar modal
+            document.getElementById('partialReturnModal').classList.add('active');
+        }
+        
+        // Cargar productos en el modal
+        function loadProductsInModal() {
+            if (!currentInvoiceForReturn) return;
+            
+            const productList = document.getElementById('productListModal');
+            productList.innerHTML = '';
+            
+            currentInvoiceForReturn.items.forEach(item => {
+                const productItem = document.createElement('div');
+                productItem.className = 'product-item-wrapper';
+                productItem.innerHTML = `
+                    <label class="product-item">
+                        <input type="checkbox" class="product-checkbox" data-id="${item.id}" data-name="${item.nombre}" data-price="${item.precio}" data-max-qty="${item.cantidad}">
+                        <div class="product-info">
+                            <div class="product-name">${item.nombre}</div>
+                            <div class="product-details">Precio unitario: $${item.precio.toFixed(2)}</div>
+                        </div>
+                    </label>
+                    <div class="product-quantity-control">
+                        <div class="quantity-selector">
+                            <button type="button" class="qty-btn qty-minus" onclick="decreaseQuantity(this, ${item.id})">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <input type="number" class="qty-input product-qty-${item.id}" value="1" min="1" max="${item.cantidad}" readonly>
+                            <button type="button" class="qty-btn qty-plus" onclick="increaseQuantity(this, ${item.id}, ${item.cantidad})">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="product-total-price" id="price-${item.id}">$${item.precio.toFixed(2)}</div>
+                    </div>
+                `;
+                productList.appendChild(productItem);
+                
+                // Agregar event listener para actualizar el total
+                const checkbox = productItem.querySelector('.product-checkbox');
+                checkbox.addEventListener('change', updatePartialReturnTotal);
+            });
+            
+            // Inicializar el total
+            updatePartialReturnTotal();
+        }
+        
+        // Aumentar cantidad
+        function increaseQuantity(button, itemId, maxQty) {
+            const input = document.querySelector(`.product-qty-${itemId}`);
+            const currentValue = parseInt(input.value);
+            if (currentValue < maxQty) {
+                input.value = currentValue + 1;
+                updatePartialReturnTotal();
+            }
+        }
+        
+        // Disminuir cantidad
+        function decreaseQuantity(button, itemId) {
+            const input = document.querySelector(`.product-qty-${itemId}`);
+            const currentValue = parseInt(input.value);
+            if (currentValue > 1) {
+                input.value = currentValue - 1;
+                updatePartialReturnTotal();
+            }
+        }
+        
+        // Actualizar total de devolución parcial
+        function updatePartialReturnTotal() {
+            const selectedCheckboxes = document.querySelectorAll('.product-checkbox:checked');
+            let total = 0;
+            
+            selectedCheckboxes.forEach(checkbox => {
+                const itemId = checkbox.dataset.id;
+                const pricePerUnit = parseFloat(checkbox.dataset.price);
+                const qty = parseInt(document.querySelector(`.product-qty-${itemId}`).value);
+                total += pricePerUnit * qty;
+                
+                // Actualizar el precio mostrado del producto
+                const priceElement = document.getElementById(`price-${itemId}`);
+                if (priceElement) {
+                    priceElement.textContent = `$${(pricePerUnit * qty).toFixed(2)}`;
+                }
+            });
+            
+            const totalElement = document.getElementById('partialReturnTotal');
+            totalElement.textContent = `$${total.toFixed(2)}`;
+        }
+        
+        // Cerrar modal de devolución parcial
+        function closePartialReturnModal() {
+            document.getElementById('partialReturnModal').classList.remove('active');
+            // Limpiar checkboxes y cantidades
+            document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = false);
+            document.querySelectorAll('.qty-input').forEach(input => input.value = '1');
+            // Resetear total
+            document.getElementById('partialReturnTotal').textContent = '$0.00';
+        }
+        
+        // Confirmar devolución parcial
+        function confirmPartialReturn() {
+            const selectedCheckboxes = document.querySelectorAll('.product-checkbox:checked');
+            
+            if (selectedCheckboxes.length === 0) {
+                showNotification('⚠️ Selecciona al menos un producto', 'info');
+                return;
+            }
+            
+            let selectedProducts = [];
+            let totalDevolucion = 0;
+            
+            selectedCheckboxes.forEach(checkbox => {
+                const itemId = checkbox.dataset.id;
+                const pricePerUnit = parseFloat(checkbox.dataset.price);
+                const qty = parseInt(document.querySelector(`.product-qty-${itemId}`).value);
+                const subtotal = pricePerUnit * qty;
+                
+                selectedProducts.push({
+                    id: itemId,
+                    nombre: checkbox.dataset.name,
+                    cantidad: qty,
+                    precioUnitario: pricePerUnit,
+                    subtotal: subtotal
+                });
+                totalDevolucion += subtotal;
+            });
+            
+            // Procesar la devolución
+            const invoiceNumber = currentInvoiceForReturn.numero;
+            const productsText = selectedProducts.map(p => `${p.nombre} (${p.cantidad})`).join(', ');
+            
+            showNotification(`✅ Devolución parcial: ${productsText} (Total: $${totalDevolucion.toFixed(2)})`, 'success');
+            
+            console.log('Devolución parcial:', {
+                factura: invoiceNumber,
+                productos: selectedProducts,
+                total: totalDevolucion
+            });
+            
+            // Cerrar modal
+            closePartialReturnModal();
+        }
+        
+        // Procesar devolución
+        function processReturn(type, invoiceNumber) {
+            let message = '';
+            let notificationType = 'success';
+            
+            switch(type) {
+                case 'full':
+                    message = `Devolución total procesada para la factura ${invoiceNumber}`;
+                    break;
+                case 'partial':
+                    message = `Devolución parcial procesada para la factura ${invoiceNumber}`;
+                    break;
+                case 'exchange':
+                    message = `Cambio de producto procesado para la factura ${invoiceNumber}`;
+                    break;
+            }
+            
+            showNotification(`✅ ${message}`, notificationType);
+            
+            // En una aplicación real, aquí se enviaría la solicitud al servidor
+            console.log(`Procesando devolución tipo ${type} para factura ${invoiceNumber}`);
+        }
+        
+        // Mostrar notificación
+        function showNotification(message, type = 'info') {
+            // Remover notificaciones existentes
+            document.querySelectorAll('.notification').forEach(n => n.remove());
+            
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = message;
+            
+            document.body.appendChild(notification);
+            
+            // Remover automáticamente después de 5 segundos
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.style.animation = 'slideOut 0.3s ease-out';
+                    setTimeout(() => {
+                        if (notification.parentElement) {
+                            notification.remove();
+                        }
+                    }, 300);
+                }
+            }, 5000);
+            
+            // Añadir animación CSS para salida
+            if (!document.querySelector('#notificationStyles')) {
+                const style = document.createElement('style');
+                style.id = 'notificationStyles';
+                style.textContent = `
+                    @keyframes slideOut {
+                        from { transform: translateX(0); opacity: 1; }
+                        to { transform: translateX(100%); opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+    </script>
+    
+</body>
+</html>
