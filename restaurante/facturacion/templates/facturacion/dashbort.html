@@ -7,6 +7,8 @@
     <title>Dashboard - Restaurante</title>
     <!-- Incluir Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* TODOS LOS ESTILOS IGUAL QUE ANTES */
         * {
@@ -1055,46 +1057,168 @@
 </head>
 <body>
     <!-- Mobile menu toggle -->
-    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
     
     <div class="app-container">
         <!-- Sidebar navigation -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                🍽️ Mi Restaurante
+                402 FASTFOOD
             </div>
             <nav class="sidebar-nav">
-                <a href="" class="nav-item active">
-                    <span class="nav-icon">📊</span>
-                    <span>Dashboard</span>
+                {% with user_groups=user.groups.all|join:"," %}
+                <!-- Usuario Normal -->
+                {% if 'Usuario Normal' in user_groups %}
+                <a href="{% url 'pedidos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
                 </a>
-                <a href="" class="nav-item">
-                    <span class="nav-icon">📦</span>
+                {% endif %}
+
+                <!-- Administrador -->
+                {% if 'Administrador' in user_groups %}
+                <a href="{% url 'entradadeproductos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
                     <span>Entrada de Productos</span>
                 </a>
                 <a href="{% url 'inventario' %}" class="nav-item">
-                    <span class="nav-icon">📋</span>
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                     <span>Inventario</span>
                 </a>
-                <a href="" class="nav-item">
-                    <span class="nav-icon">🍽️</span>
-                    <span>Entrada de Platos</span>
+                <a href="{% url 'entradadeplatillos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platillos</span>
                 </a>
-                <a href="" class="nav-item">
-                    <span class="nav-icon">📊</span>
-                    <span>Gestión de Platos</span>
+                <a href="{% url 'listadeplatillos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span>Lista de Platillos</span>
                 </a>
                 <a href="{% url 'pedidos' %}" class="nav-item">
-                    <span class="nav-icon">🛒</span>
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                     <span>Pedidos</span>
                 </a>
-                <a href="" class="nav-item">
-                    <span class="nav-icon">📋</span>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
                     <span>Gestión de Pedidos</span>
                 </a>
                 <a href="{% url 'facturacion' %}" class="nav-item">
-                    <span class="nav-icon">🧾</span>
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
                     <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'roles' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Gestión de Roles</span>
+                </a>
+                {% endif %}
+
+                <!-- Cajero -->
+                {% if 'Cajero' in user_groups %}
+                <a href="{% url 'pedidos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                {% endif %}
+
+                <!-- Gerente -->
+                {% if 'Gerente' in user_groups %}
+                <a href="{% url 'entradadeproductos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platillos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span>Lista de Platillos</span>
+                </a>
+                <a href="{% url 'pedidos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'roles' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Gestión de Roles</span>
+                </a>
+                {% endif %}
+
+                <!-- Superusuario -->
+                {% if user.is_superuser %}
+                <a href="{% url 'dashbort' %}" class="nav-item active">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{% url 'entradadeproductos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platillos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span>Lista de Platillos</span>
+                </a>
+                <a href="{% url 'pedidos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'roles' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Gestión de Roles</span>
+                </a>
+                {% endif %}
+                {% endwith %}
+
+                <a href="{% url 'logout' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-door-open"></i></span>
+                    <span>Cerrar Sesión</span>
                 </a>
             </nav>
         </div>
@@ -1105,7 +1229,7 @@
         <div class="main-content">
             <div class="container">
                 <div class="header">
-                    <h1>📊 Dashboard del Restaurante</h1>
+                    <h1><i class="fas fa-chart-bar"></i> Dashboard del Restaurante</h1>
                     <p>Visión general de ventas, gastos y rendimiento del negocio</p>
                 </div>
                 
@@ -1125,7 +1249,7 @@
                     <!-- Debug Section -->
                     <div class="debug-section">
                         <div class="debug-header">
-                            <h3>🔍 Información de Depuración</h3>
+                            <h3><i class="fas fa-search"></i> Información de Depuración</h3>
                             <button class="debug-toggle" onclick="toggleDebug()">Mostrar Depuración</button>
                         </div>
                         <div class="debug-content" id="debugContent">
@@ -1221,9 +1345,9 @@
                     <div class="stats-container">
                         <div class="stat-card venta-dia">
                             <div class="stat-header">
-                                <div class="stat-icon">💰</div>
+                                <div class="stat-icon"><i class="fas fa-dollar-sign"></i></div>
                                 <div class="stat-trend {% if venta_dia > 0 %}trend-up{% else %}trend-neutral{% endif %}">
-                                    <span>{% if venta_dia > 0 %}📈{% else %}📊{% endif %}</span>
+                                    <span>{% if venta_dia > 0 %}<i class="fas fa-arrow-up"></i>{% else %}<i class="fas fa-chart-line"></i>{% endif %}</span>
                                     <span>
                                         {% if venta_dia > 0 %}+{% endif %}
                                         {% if venta_dia > 0 %}12%{% else %}0%{% endif %}
@@ -1242,7 +1366,7 @@
                             <!-- Botón para generar PDF - Versión simplificada -->
                             <button class="print-pdf-btn" onclick="generarPDFTicket(event)" 
                                     data-pdf-url="{% url 'generar_pdf_ticket_dia' %}">
-                                <span>📄</span>
+                                <span><i class="fas fa-file-pdf"></i></span>
                                 <span>Generar PDF para Impresora 80mm</span>
                             </button>
                         </div>
@@ -1250,9 +1374,9 @@
                         <!-- ... EL RESTO DE TARJETAS IGUAL ... -->
                         <div class="stat-card venta-mes">
                             <div class="stat-header">
-                                <div class="stat-icon">📅</div>
+                                <div class="stat-icon"><i class="fas fa-calendar-alt"></i></div>
                                 <div class="stat-trend {% if venta_mes > 0 %}trend-up{% else %}trend-neutral{% endif %}">
-                                    <span>{% if venta_mes > 0 %}📈{% else %}📊{% endif %}</span>
+                                    <span>{% if venta_mes > 0 %}<i class="fas fa-arrow-up"></i>{% else %}<i class="fas fa-chart-line"></i>{% endif %}</span>
                                     <span>
                                         {% if venta_mes > 0 %}+{% endif %}
                                         {% if venta_mes > 0 %}18%{% else %}0%{% endif %}
@@ -1266,9 +1390,9 @@
                         
                         <div class="stat-card gastos">
                             <div class="stat-header">
-                                <div class="stat-icon">📉</div>
+                                <div class="stat-icon"><i class="fas fa-arrow-down"></i></div>
                                 <div class="stat-trend {% if gastos_totales > venta_mes|divisibleby:2 %}trend-down{% else %}trend-up{% endif %}">
-                                    <span>{% if gastos_totales > venta_mes|divisibleby:2 %}📉{% else %}📈{% endif %}</span>
+                                    <span>{% if gastos_totales > venta_mes|divisibleby:2 %}<i class="fas fa-arrow-down"></i>{% else %}<i class="fas fa-arrow-up"></i>{% endif %}</span>
                                     <span>
                                         {% if gastos_totales > venta_mes|divisibleby:2 %}+{% else %}-{% endif %}
                                         5%
@@ -1282,9 +1406,9 @@
                         
                         <div class="stat-card ganancias">
                             <div class="stat-header">
-                                <div class="stat-icon">💵</div>
+                                <div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div>
                                 <div class="stat-trend {% if ganancias_netas > 0 %}trend-up{% else %}trend-down{% endif %}">
-                                    <span>{% if ganancias_netas > 0 %}📈{% else %}📉{% endif %}</span>
+                                    <span>{% if ganancias_netas > 0 %}<i class="fas fa-arrow-up"></i>{% else %}<i class="fas fa-arrow-down"></i>{% endif %}</span>
                                     <span>
                                         {% if ganancias_netas > 0 %}+{% elif ganancias_netas < 0 %}-{% endif %}
                                         {% if ganancias_netas > 0 %}25%{% elif ganancias_netas < 0 %}15%{% else %}0%{% endif %}
@@ -1298,9 +1422,9 @@
                         
                         <div class="stat-card pedidos">
                             <div class="stat-header">
-                                <div class="stat-icon">🛒</div>
+                                <div class="stat-icon"><i class="fas fa-shopping-cart"></i></div>
                                 <div class="stat-trend {% if total_pedidos > 0 %}trend-up{% else %}trend-neutral{% endif %}">
-                                    <span>{% if total_pedidos > 0 %}📈{% else %}📊{% endif %}</span>
+                                    <span>{% if total_pedidos > 0 %}<i class="fas fa-arrow-up"></i>{% else %}<i class="fas fa-chart-line"></i>{% endif %}</span>
                                     <span>
                                         {% if total_pedidos > 0 %}+{% endif %}
                                         {% if total_pedidos > 10 %}15%{% elif total_pedidos > 0 %}5%{% else %}0%{% endif %}
@@ -1314,9 +1438,9 @@
                         
                         <div class="stat-card clientes">
                             <div class="stat-header">
-                                <div class="stat-icon">👥</div>
+                                <div class="stat-icon"><i class="fas fa-users"></i></div>
                                 <div class="stat-trend {% if nuevos_clientes > 0 %}trend-up{% else %}trend-neutral{% endif %}">
-                                    <span>{% if nuevos_clientes > 0 %}📈{% else %}📊{% endif %}</span>
+                                    <span>{% if nuevos_clientes > 0 %}<i class="fas fa-arrow-up"></i>{% else %}<i class="fas fa-chart-line"></i>{% endif %}</span>
                                     <span>
                                         {% if nuevos_clientes > 0 %}+{% endif %}
                                         {{ nuevos_clientes|add:"0" }}
@@ -1333,7 +1457,7 @@
                     <div class="charts-section">
                         <div class="chart-card">
                             <div class="chart-header">
-                                <h3>📈 Tendencias de Ventas</h3>
+                                <h3><i class="fas fa-chart-line"></i> Tendencias de Ventas</h3>
                                 <div class="chart-actions">
                                     <button class="chart-btn active" onclick="setChartPeriod('week')">Semana</button>
                                     <button class="chart-btn" onclick="setChartPeriod('month')">Mes</button>
@@ -1347,7 +1471,7 @@
                         
                         <div class="chart-card">
                             <div class="chart-header">
-                                <h3>🍽️ Distribución de Ventas por Categoría</h3>
+                                <h3><i class="fas fa-utensils"></i> Distribución de Ventas por Categoría</h3>
                                 <div class="chart-actions">
                                     <button class="chart-btn active" onclick="setCategoryChart('type')">Tipo</button>
                                     <button class="chart-btn" onclick="setCategoryChart('time')">Horario</button>
@@ -1363,9 +1487,9 @@
                     <!-- Recent Activity -->
                     <div class="activity-section">
                         <div class="activity-header">
-                            <h3>📋 Actividad Reciente</h3>
+                            <h3><i class="fas fa-clipboard-list"></i> Actividad Reciente</h3>
                             <button class="btn btn-info" onclick="refreshActivities()">
-                                <span>🔄</span>
+                                <span><i class="fas fa-sync-alt"></i></span>
                                 <span>Actualizar</span>
                             </button>
                         </div>
@@ -1373,7 +1497,7 @@
                             {% for factura in actividades %}
                             <div class="activity-item">
                                 <div class="activity-icon factura">
-                                    🧾
+                                    <i class="fas fa-receipt"></i>
                                 </div>
                                 <div class="activity-content">
                                     <div class="activity-title">Factura {{ factura.numero_factura }}</div>
@@ -1392,7 +1516,7 @@
                             {% empty %}
                             <div class="activity-item">
                                 <div class="activity-icon factura">
-                                    📋
+                                    <i class="fas fa-clipboard-list"></i>
                                 </div>
                                 <div class="activity-content">
                                     <div class="activity-title">No hay actividades recientes</div>
@@ -1407,9 +1531,9 @@
                     <!-- Top Products -->
                     <div class="products-section">
                         <div class="products-header">
-                            <h3>🏆 Productos Más Vendidos</h3>
+                            <h3><i class="fas fa-trophy"></i> Productos Más Vendidos</h3>
                             <button class="btn btn-primary" onclick="viewAllProducts()">
-                                <span>👁️</span>
+                                <span><i class="fas fa-eye"></i></span>
                                 <span>Ver Todos</span>
                             </button>
                         </div>
@@ -1428,14 +1552,14 @@
                                     <td>
                                         <div class="product-info">
                                             <div class="product-icon">
-                                                {% if "pizza" in producto.nombre.lower %}🍕
-                                                {% elif "hamburguesa" in producto.nombre.lower %}🍔
-                                                {% elif "ensalada" in producto.nombre.lower %}🥗
-                                                {% elif "pasta" in producto.nombre.lower %}🍝
-                                                {% elif "sushi" in producto.nombre.lower %}🍣
-                                                {% elif "bebida" in producto.nombre.lower or "jugo" in producto.nombre.lower or "gaseosa" in producto.nombre.lower %}🥤
-                                                {% elif "postre" in producto.nombre.lower or "helado" in producto.nombre.lower or "torta" in producto.nombre.lower %}🍰
-                                                {% else %}🍽️
+                                                {% if "pizza" in producto.nombre.lower %}<i class="fas fa-pizza-slice"></i>
+                                                {% elif "hamburguesa" in producto.nombre.lower %}<i class="fas fa-hamburger"></i>
+                                                {% elif "ensalada" in producto.nombre.lower %}<i class="fas fa-leaf"></i>
+                                                {% elif "pasta" in producto.nombre.lower %}<i class="fas fa-bowl-food"></i>
+                                                {% elif "sushi" in producto.nombre.lower %}<i class="fas fa-fish"></i>
+                                                {% elif "bebida" in producto.nombre.lower or "jugo" in producto.nombre.lower or "gaseosa" in producto.nombre.lower %}<i class="fas fa-glass-whiskey"></i>
+                                                {% elif "postre" in producto.nombre.lower or "helado" in producto.nombre.lower or "torta" in producto.nombre.lower %}<i class="fas fa-birthday-cake"></i>
+                                                {% else %}<i class="fas fa-utensils"></i>
                                                 {% endif %}
                                             </div>
                                             <div>
@@ -1466,7 +1590,7 @@
                                     <td style="font-weight: 700; color: #4CAF50;">${{ producto.ingresos|floatformat:2|intcomma }}</td>
                                     <td>
                                         <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                            <span>📈</span>
+                                            <span><i class="fas fa-arrow-up"></i></span>
                                             <span style="font-weight: 600; color: #4CAF50;">
                                                 +{{ producto.cantidad|divisibleby:5|add:"10" }}%
                                             </span>
@@ -1477,7 +1601,7 @@
                                 <tr>
                                     <td colspan="4" style="text-align: center; padding: 2rem; color: #718096;">
                                         <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
-                                            <div style="font-size: 3rem;">📊</div>
+                                            <div style="font-size: 3rem;"><i class="fas fa-chart-bar"></i></div>
                                             <div>No hay datos de productos vendidos</div>
                                             <div style="font-size: 0.9rem;">Genera facturas para ver estadísticas</div>
                                         </div>
@@ -1561,12 +1685,12 @@
                 
                 // Si hay discrepancia, mostrar advertencia
                 if (ventaCalculada > 0 && ventaDiaValue === 0) {
-                    console.warn('⚠️ Discrepancia encontrada: Hay actividades de hoy pero venta del día es $0');
+                    console.warn('Discrepancia encontrada: Hay actividades de hoy pero venta del día es $0');
                     console.log('Venta calculada desde actividades: $' + ventaCalculada.toFixed(2));
                     console.log('Venta del día en dashboard: $' + ventaDiaValue.toFixed(2));
                     
                     // Mostrar notificación al usuario
-                    showNotification('⚠️ Hay actividades de hoy pero venta del día es $0. Revisa la sección de depuración.', 'info');
+                    showNotification('Hay actividades de hoy pero venta del día es $0. Revisa la sección de depuración.', 'info');
                 }
             }
         }
@@ -1915,7 +2039,7 @@
         // FUNCIÓN PRINCIPAL SIMPLIFICADA PARA PDF
         // =============================================
         function generarPDFTicket(event) {
-            showNotification('📄 Generando ticket PDF para impresora 80mm...', 'info');
+            showNotification('Generando ticket PDF para impresora 80mm...', 'info');
             
             // Obtener el botón que se hizo clic
             const button = event.target.closest('.print-pdf-btn');
@@ -1924,7 +2048,7 @@
             const pdfUrl = button.getAttribute('data-pdf-url');
             
             if (!pdfUrl) {
-                showNotification('❌ Error: No se encontró la URL del PDF', 'error');
+                showNotification('Error: No se encontró la URL del PDF', 'error');
                 return;
             }
             
@@ -2023,7 +2147,7 @@
             const url = '/facturacion/generar-pdf-ticket-dia/';
             const fullUrl = window.location.origin + url;
             window.open(fullUrl, '_blank');
-            showNotification('📄 Abriendo PDF...', 'info');
+            showNotification('Abriendo PDF...', 'info');
         }
     </script>
 </body>
