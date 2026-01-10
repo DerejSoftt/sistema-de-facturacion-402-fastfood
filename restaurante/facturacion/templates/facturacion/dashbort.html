@@ -8,47 +8,6 @@
     <!-- Incluir Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* TODOS LOS ESTILOS IGUAL QUE ANTES */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
-            min-height: 100vh;
-        }
-        
-        /* ... TODOS LOS ESTILOS ANTERIORES SE MANTIENEN IGUAL ... */
-        
-        /* Botón de impresión PDF - Mantenemos el mismo estilo */
-        .print-pdf-btn {
-            margin-top: 15px;
-            width: 100%;
-            padding: 0.75rem;
-            background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-size: 0.9rem;
-            box-shadow: 0 4px 10px rgba(33, 150, 243, 0.2);
-        }
-        
-        .print-pdf-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(33, 150, 243, 0.3);
-            background: linear-gradient(135deg, #1976D2 0%, #1E88E5 100%);
-        }
-        
         * {
             margin: 0;
             padding: 0;
@@ -67,7 +26,7 @@
             min-height: 100vh;
         }
         
-        /* Sidebar styles - Mismo diseño */
+        /* Sidebar styles - Ahora es fijo */
         .sidebar {
             width: 260px;
             background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
@@ -75,6 +34,27 @@
             display: flex;
             flex-direction: column;
             transition: transform 0.3s ease;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        /* Barra de scroll personalizada para sidebar */
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 126, 95, 0.5);
+            border-radius: 3px;
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 126, 95, 0.8);
         }
         
         .sidebar-header {
@@ -155,11 +135,12 @@
             z-index: 998;
         }
         
-        /* Main content area */
+        /* Main content area - Ahora con margen izquierdo */
         .main-content {
             flex: 1;
             padding: 2rem;
             overflow-x: hidden;
+            margin-left: 260px;
         }
         
         .container {
@@ -178,7 +159,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
         
-        /* Header - Mismo diseño */
+        /* Header */
         .header {
             background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             color: white;
@@ -262,7 +243,7 @@
             font-weight: 700;
         }
         
-        /* Stats Cards - Modern Design */
+        /* Stats Cards */
         .stats-container {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -789,7 +770,7 @@
             background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
         }
         
-        /* Botones - Mismo estilo */
+        /* Botones */
         .btn {
             padding: 0.75rem 1.5rem;
             border: none;
@@ -960,6 +941,8 @@
                 bottom: 0;
                 z-index: 999;
                 transform: translateX(-100%);
+                height: 100vh;
+                overflow-y: auto;
             }
             
             .sidebar.open {
@@ -972,6 +955,7 @@
             
             .main-content {
                 padding: 5rem 1rem 1rem;
+                margin-left: 0;
             }
             
             .content {
@@ -1225,7 +1209,6 @@
                                 <div class="stat-trend {% if venta_dia > 0 %}trend-up{% else %}trend-neutral{% endif %}">
                                     <span>{% if venta_dia > 0 %}📈{% else %}📊{% endif %}</span>
                                     <span>
-                                        {% if venta_dia > 0 %}+{% endif %}
                                         {% if venta_dia > 0 %}12%{% else %}0%{% endif %}
                                     </span>
                                 </div>
@@ -1239,7 +1222,7 @@
                                     No hay ventas registradas hoy
                                 {% endif %}
                             </div>
-                            <!-- Botón para generar PDF - Versión simplificada -->
+                            <!-- Botón para generar PDF -->
                             <button class="print-pdf-btn" onclick="generarPDFTicket(event)" 
                                     data-pdf-url="{% url 'generar_pdf_ticket_dia' %}">
                                 <span>📄</span>
@@ -1247,14 +1230,12 @@
                             </button>
                         </div>
                         
-                        <!-- ... EL RESTO DE TARJETAS IGUAL ... -->
                         <div class="stat-card venta-mes">
                             <div class="stat-header">
                                 <div class="stat-icon">📅</div>
                                 <div class="stat-trend {% if venta_mes > 0 %}trend-up{% else %}trend-neutral{% endif %}">
                                     <span>{% if venta_mes > 0 %}📈{% else %}📊{% endif %}</span>
                                     <span>
-                                        {% if venta_mes > 0 %}+{% endif %}
                                         {% if venta_mes > 0 %}18%{% else %}0%{% endif %}
                                     </span>
                                 </div>
@@ -1269,10 +1250,7 @@
                                 <div class="stat-icon">📉</div>
                                 <div class="stat-trend {% if gastos_totales > venta_mes|divisibleby:2 %}trend-down{% else %}trend-up{% endif %}">
                                     <span>{% if gastos_totales > venta_mes|divisibleby:2 %}📉{% else %}📈{% endif %}</span>
-                                    <span>
-                                        {% if gastos_totales > venta_mes|divisibleby:2 %}+{% else %}-{% endif %}
-                                        5%
-                                    </span>
+                                    <span>5%</span>
                                 </div>
                             </div>
                             <div class="stat-value" id="gastosTotales">${{ gastos_totales|floatformat:2|intcomma }}</div>
@@ -1286,7 +1264,6 @@
                                 <div class="stat-trend {% if ganancias_netas > 0 %}trend-up{% else %}trend-down{% endif %}">
                                     <span>{% if ganancias_netas > 0 %}📈{% else %}📉{% endif %}</span>
                                     <span>
-                                        {% if ganancias_netas > 0 %}+{% elif ganancias_netas < 0 %}-{% endif %}
                                         {% if ganancias_netas > 0 %}25%{% elif ganancias_netas < 0 %}15%{% else %}0%{% endif %}
                                     </span>
                                 </div>
@@ -1302,7 +1279,6 @@
                                 <div class="stat-trend {% if total_pedidos > 0 %}trend-up{% else %}trend-neutral{% endif %}">
                                     <span>{% if total_pedidos > 0 %}📈{% else %}📊{% endif %}</span>
                                     <span>
-                                        {% if total_pedidos > 0 %}+{% endif %}
                                         {% if total_pedidos > 10 %}15%{% elif total_pedidos > 0 %}5%{% else %}0%{% endif %}
                                     </span>
                                 </div>
@@ -1317,10 +1293,7 @@
                                 <div class="stat-icon">👥</div>
                                 <div class="stat-trend {% if nuevos_clientes > 0 %}trend-up{% else %}trend-neutral{% endif %}">
                                     <span>{% if nuevos_clientes > 0 %}📈{% else %}📊{% endif %}</span>
-                                    <span>
-                                        {% if nuevos_clientes > 0 %}+{% endif %}
-                                        {{ nuevos_clientes|add:"0" }}
-                                    </span>
+                                    <span>{{ nuevos_clientes|add:"0" }}</span>
                                 </div>
                             </div>
                             <div class="stat-value" id="nuevosClientes">{{ nuevos_clientes }}</div>
@@ -1911,9 +1884,7 @@
             }
         }
         
-        // =============================================
-        // FUNCIÓN PRINCIPAL SIMPLIFICADA PARA PDF
-        // =============================================
+        // Función para generar PDF
         function generarPDFTicket(event) {
             showNotification('📄 Generando ticket PDF para impresora 80mm...', 'info');
             

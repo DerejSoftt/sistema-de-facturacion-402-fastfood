@@ -7,6 +7,8 @@
     <title>Salida de Productos - Restaurante</title>
     <style>
         /* Estilos mantenidos del original */
+          <style>
+        /* Estilos mantenidos del original */
         * {
             margin: 0;
             padding: 0;
@@ -24,7 +26,7 @@
             min-height: 100vh;
         }
         
-        /* Sidebar styles - Mantenido */
+        /* Sidebar styles - FIXED */
         .sidebar {
             width: 260px;
             background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
@@ -32,6 +34,12 @@
             display: flex;
             flex-direction: column;
             transition: transform 0.3s ease;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 1000;
+            overflow-y: auto;
         }
         
         .sidebar-header {
@@ -84,7 +92,7 @@
             position: fixed;
             top: 1rem;
             left: 1rem;
-            z-index: 1000;
+            z-index: 1001;
             background: #ff7e5f;
             border: none;
             padding: 0.75rem;
@@ -112,11 +120,13 @@
             z-index: 998;
         }
         
-        /* Main content area */
+        /* Main content area - adjusted for fixed sidebar */
         .main-content {
             flex: 1;
             padding: 2rem;
             overflow-x: hidden;
+            margin-left: 260px;
+            width: calc(100% - 260px);
         }
         
         .container {
@@ -842,11 +852,6 @@
             }
             
             .sidebar {
-                position: fixed;
-                top: 0;
-                left: 0;
-                bottom: 0;
-                z-index: 999;
                 transform: translateX(-100%);
             }
             
@@ -860,6 +865,8 @@
             
             .main-content {
                 padding: 5rem 1rem 1rem;
+                margin-left: 0;
+                width: 100%;
             }
             
             .content {
@@ -974,6 +981,7 @@
                 width: 100%;
             }
         }
+    </style>
     </style>
 </head>
 <body>

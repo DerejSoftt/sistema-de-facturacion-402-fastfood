@@ -23,7 +23,7 @@
             min-height: 100vh;
         }
         
-        /* Sidebar styles */
+        /* Sidebar styles - Ahora es fijo */
         .sidebar {
             width: 260px;
             background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
@@ -31,6 +31,27 @@
             display: flex;
             flex-direction: column;
             transition: transform 0.3s ease;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        /* Barra de scroll personalizada para sidebar */
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 126, 95, 0.5);
+            border-radius: 3px;
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 126, 95, 0.8);
         }
         
         .sidebar-header {
@@ -111,7 +132,7 @@
             z-index: 998;
         }
         
-        /* Main content area */
+        /* Main content area - Ahora con margen izquierdo */
         .main-content {
             flex: 1;
             padding: 2rem;
@@ -119,6 +140,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            margin-left: 260px;
         }
         
         .form-container {
@@ -464,6 +486,8 @@
                 bottom: 0;
                 z-index: 999;
                 transform: translateX(-100%);
+                height: 100vh;
+                overflow-y: auto;
             }
             
             .sidebar.open {
@@ -476,6 +500,7 @@
             
             .main-content {
                 padding: 5rem 1rem 1rem;
+                margin-left: 0;
             }
             
             .content {
