@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Salida de Productos - Restaurante</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         /* Estilos mantenidos del original */
         * {
@@ -247,7 +248,7 @@
         }
         
         .controls-header h3::before {
-            content: "🔍";
+            content: "";
             font-size: 1.2rem;
         }
         
@@ -977,38 +978,37 @@
     </style>
 </head>
 <body>
-    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
     
     <div class="app-container">
     <!-- Sidebar navigation -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            🍽️ 402 FASTFOOD
+            <i class="fas fa-utensils"></i> 402 FASTFOOD
         </div>
         <nav class="sidebar-nav">
-            <!-- Verificar grupos sin template tag -->
             {% with user_groups=user.groups.all|join:"," %}
             
             <!-- Menú para Usuario Normal (excluye superusuarios) -->
             {% if "Usuario Normal" in user_groups and not user.is_superuser %}
             <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                 <span>Pedidos</span>
             </a>
             <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                 <span>Inventario</span>
             </a>
             <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-tasks"></i></span>
                 <span>Gestión de Pedidos</span>
             </a>
             <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
+                <span class="nav-icon"><i class="fas fa-receipt"></i></span>
                 <span>Facturación</span>
             </a>
             <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
+                <span class="nav-icon"><i class="fas fa-box-open"></i></span>
                 <span>Salida de Productos</span>
             </a>
             {% endif %}
@@ -1016,55 +1016,87 @@
             <!-- Menú para Administrador -->
             {% if "Administrador" in user_groups and not user.is_superuser %}
             <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                <span class="nav-icon">📦</span>
+                <span class="nav-icon"><i class="fas fa-box"></i></span>
                 <span>Entrada de Productos</span>
             </a>
             <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                 <span>Inventario</span>
             </a>
             <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">🍽️</span>
+                <span class="nav-icon"><i class="fas fa-utensils"></i></span>
                 <span>Entrada de Platos</span>
             </a>
             <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">📊</span>
+                <span class="nav-icon"><i class="fas fa-list"></i></span>
                 <span>Gestión de Platos</span>
             </a>
             <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                 <span>Pedidos</span>
             </a>
             <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-tasks"></i></span>
                 <span>Gestión de Pedidos</span>
             </a>
             <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
+                <span class="nav-icon"><i class="fas fa-receipt"></i></span>
                 <span>Facturación</span>
             </a>
             <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
+                <span class="nav-icon"><i class="fas fa-box-open"></i></span>
                 <span>Salida de Productos</span>
             </a>
             <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                <span class="nav-icon">👥</span>
+                <span class="nav-icon"><i class="fas fa-users"></i></span>
                 <span>Gestión de Usuarios</span>
             </a>
             {% endif %}
             
-            <!-- Menú para otros grupos... -->
+            <!-- Menú para Gerente -->
             {% if "Gerente" in user_groups and not user.is_superuser %}
-            <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
+            <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-box"></i></span>
+                <span>Entrada de Productos</span>
+            </a>
+            <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                <span>Inventario</span>
+            </a>
+            <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                <span>Entrada de Platos</span>
+            </a>
+            <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-list"></i></span>
+                <span>Gestión de Platos</span>
+            </a>
+            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                <span>Pedidos</span>
+            </a>
+            <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                <span>Gestión de Pedidos</span>
+            </a>
+            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                <span>Facturación</span>
+            </a>
+            <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                <span>Salida de Productos</span>
+            </a>
             {% endif %}
             
+            <!-- Menú para Cajero -->
             {% if "Cajero" in user_groups and not user.is_superuser %}
             <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                 <span>Pedidos</span>
             </a>
             <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
+                <span class="nav-icon"><i class="fas fa-receipt"></i></span>
                 <span>Facturación</span>
             </a>
             {% endif %}
@@ -1072,46 +1104,50 @@
             <!-- Menú EXCLUSIVO para superusuarios -->
             {% if user.is_superuser %}
             <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                <span class="nav-icon">📦</span>
+                <span class="nav-icon"><i class="fas fa-box"></i></span>
                 <span>Entrada de Productos</span>
             </a>
             <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                 <span>Inventario</span>
             </a>
             <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">🍽️</span>
+                <span class="nav-icon"><i class="fas fa-utensils"></i></span>
                 <span>Entrada de Platos</span>
             </a>
             <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">📊</span>
+                <span class="nav-icon"><i class="fas fa-list"></i></span>
                 <span>Gestión de Platos</span>
             </a>
             <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                 <span>Pedidos</span>
             </a>
             <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-tasks"></i></span>
                 <span>Gestión de Pedidos</span>
             </a>
             <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
+                <span class="nav-icon"><i class="fas fa-receipt"></i></span>
                 <span>Facturación</span>
             </a>
             <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
+                <span class="nav-icon"><i class="fas fa-box-open"></i></span>
                 <span>Salida de Productos</span>
             </a>
             <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                <span class="nav-icon">👥</span>
+                <span class="nav-icon"><i class="fas fa-users"></i></span>
                 <span>Gestión de Usuarios</span>
+            </a>
+            <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                <span>Dashboard</span>
             </a>
             {% endif %}
             
             <!-- Cerrar sesión para todos -->
             <a href="{% url 'logout' %}" class="nav-item">
-                <span class="nav-icon">🚪</span>
+                <span class="nav-icon"><i class="fas fa-door-open"></i></span>
                 <span>Cerrar Sesión</span>
             </a>
             
@@ -1126,7 +1162,7 @@
         <div class="main-content">
             <div class="container">
                 <div class="header">
-                    <h1>📤 Salida de Productos</h1>
+                    <h1><i class="fas fa-box-open"></i> Salida de Productos</h1>
                     <p>Registra la salida de productos y controla tu inventario</p>
                 </div>
                 
@@ -1134,13 +1170,13 @@
                     <!-- Tabs -->
                     <div class="tabs" id="tabs">
                         <div class="tab active" onclick="switchTab('inventario')">
-                            📦 Inventario de Productos
+                            <i class="fas fa-box"></i> Inventario de Productos
                         </div>
                         <div class="tab" onclick="switchTab('historial')">
-                            📋 Historial de Salidas
+                            <i class="fas fa-history"></i> Historial de Salidas
                         </div>
                         <div class="tab" onclick="switchTab('reportes')">
-                            📊 Reportes
+                            <i class="fas fa-chart-bar"></i> Reportes
                         </div>
                     </div>
                     
@@ -1149,22 +1185,22 @@
                         <!-- Stats Cards -->
                         <div class="stats-container">
                             <div class="stat-card">
-                                <span class="stat-icon">📦</span>
+                                <span class="stat-icon"><i class="fas fa-box"></i></span>
                                 <div class="stat-value" id="totalProductos">{{ total_productos }}</div>
                                 <div class="stat-label">Total Productos</div>
                             </div>
                             <div class="stat-card">
-                                <span class="stat-icon">⚖️</span>
+                                <span class="stat-icon"><i class="fas fa-balance-scale"></i></span>
                                 <div class="stat-value" id="cantidadTotal">{{ total_cantidad|floatformat:2 }}</div>
                                 <div class="stat-label">Cantidad Total</div>
                             </div>
                             <div class="stat-card">
-                                <span class="stat-icon">⚠️</span>
+                                <span class="stat-icon"><i class="fas fa-exclamation-triangle"></i></span>
                                 <div class="stat-value" id="productosBajos">{{ productos_bajos }}</div>
                                 <div class="stat-label">Stock Bajo</div>
                             </div>
                             <div class="stat-card">
-                                <span class="stat-icon">🔄</span>
+                                <span class="stat-icon"><i class="fas fa-sync-alt"></i></span>
                                 <div class="stat-value" id="salidasHoy">0</div>
                                 <div class="stat-label">Salidas Hoy</div>
                             </div>
@@ -1176,23 +1212,23 @@
                                 <h3>Buscar y Filtrar Productos</h3>
                                 <div style="display: flex; gap: 1rem;">
                                     <button class="btn btn-info btn-sm" onclick="exportReport()">
-                                        <span>📤</span>
+                                        <span><i class="fas fa-file-export"></i></span>
                                         <span>Exportar</span>
                                     </button>
                                 </div>
                             </div>
                             
                             <div class="form-group">
-                                <label for="searchInput">🔍 Buscar Producto</label>
+                                <label for="searchInput"><i class="fas fa-search"></i> Buscar Producto</label>
                                 <div class="search-box">
-                                    <span class="search-icon">🔍</span>
+                                    <span class="search-icon"><i class="fas fa-search"></i></span>
                                     <input type="text" id="searchInput" placeholder="Buscar por nombre, categoría...">
                                 </div>
                             </div>
                             
                             <div class="filter-row">
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="categoriaFilter">🏷️ Categoría</label>
+                                    <label for="categoriaFilter"><i class="fas fa-tags"></i> Categoría</label>
                                     <select class="filter-select" id="categoriaFilter">
                                         <option value="">Todas las categorías</option>
                                         <option value="carne">Carne</option>
@@ -1204,7 +1240,7 @@
                                 </div>
                                 
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="stockFilter">📊 Estado de Stock</label>
+                                    <label for="stockFilter"><i class="fas fa-chart-bar"></i> Estado de Stock</label>
                                     <select class="filter-select" id="stockFilter">
                                         <option value="">Todos</option>
                                         <option value="disponible">Disponible</option>
@@ -1214,7 +1250,7 @@
                                 </div>
                                 
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="sortFilter">📈 Ordenar por</label>
+                                    <label for="sortFilter"><i class="fas fa-sort"></i> Ordenar por</label>
                                     <select class="filter-select" id="sortFilter">
                                         <option value="nombre">Nombre (A-Z)</option>
                                         <option value="cantidad">Cantidad (Mayor a menor)</option>
@@ -1269,7 +1305,7 @@
                                 <h3>Historial de Salidas de Productos</h3>
                                 <div style="display: flex; gap: 1rem;">
                                     <button class="btn btn-info btn-sm" onclick="exportHistorial()">
-                                        <span>📤</span>
+                                        <span><i class="fas fa-file-export"></i></span>
                                         <span>Exportar Historial</span>
                                     </button>
                                 </div>
@@ -1277,7 +1313,7 @@
                             
                             <div class="filter-row">
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="historialProductoFilter">📦 Producto</label>
+                                    <label for="historialProductoFilter"><i class="fas fa-box"></i> Producto</label>
                                     <select class="filter-select" id="historialProductoFilter">
                                         <option value="">Todos los productos</option>
                                         <!-- Productos will be loaded dynamically -->
@@ -1285,7 +1321,7 @@
                                 </div>
                                 
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="historialMotivoFilter">🎯 Motivo</label>
+                                    <label for="historialMotivoFilter"><i class="fas fa-bullseye"></i> Motivo</label>
                                     <select class="filter-select" id="historialMotivoFilter">
                                         <option value="">Todos los motivos</option>
                                         <option value="venta">Venta</option>
@@ -1296,7 +1332,7 @@
                                 </div>
                                 
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="historialFechaFilter">📅 Rango de Fechas</label>
+                                    <label for="historialFechaFilter"><i class="fas fa-calendar-alt"></i> Rango de Fechas</label>
                                     <select class="filter-select" id="historialFechaFilter">
                                         <option value="hoy">Hoy</option>
                                         <option value="ayer">Ayer</option>
@@ -1309,12 +1345,12 @@
                             
                             <div class="filter-row" id="fechasPersonalizadas" style="display: none;">
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="fechaDesde">📅 Desde</label>
+                                    <label for="fechaDesde"><i class="fas fa-calendar-day"></i> Desde</label>
                                     <input type="date" id="fechaDesde" class="filter-select">
                                 </div>
                                 
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="fechaHasta">📅 Hasta</label>
+                                    <label for="fechaHasta"><i class="fas fa-calendar-day"></i> Hasta</label>
                                     <input type="date" id="fechaHasta" class="filter-select">
                                 </div>
                             </div>
@@ -1354,22 +1390,22 @@
                     <div id="reportesTab" class="tab-content" style="display: none;">
                         <div class="stats-container">
                             <div class="stat-card">
-                                <span class="stat-icon">📈</span>
+                                <span class="stat-icon"><i class="fas fa-chart-line"></i></span>
                                 <div class="stat-value" id="totalSalidasMes">0</div>
                                 <div class="stat-label">Salidas este Mes</div>
                             </div>
                             <div class="stat-card">
-                                <span class="stat-icon">💰</span>
+                                <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
                                 <div class="stat-value" id="valorPerdidas">$0</div>
                                 <div class="stat-label">Valor Perdidas</div>
                             </div>
                             <div class="stat-card">
-                                <span class="stat-icon">📦</span>
+                                <span class="stat-icon"><i class="fas fa-box"></i></span>
                                 <div class="stat-value" id="productoMasVendido">-</div>
                                 <div class="stat-label">Producto Más Salido</div>
                             </div>
                             <div class="stat-card">
-                                <span class="stat-icon">📊</span>
+                                <span class="stat-icon"><i class="fas fa-chart-bar"></i></span>
                                 <div class="stat-value" id="promedioDiario">0</div>
                                 <div class="stat-label">Promedio Diario</div>
                             </div>
@@ -1380,11 +1416,11 @@
                                 <h3>Reportes de Salidas</h3>
                                 <div style="display: flex; gap: 1rem;">
                                     <button class="btn btn-primary btn-sm" onclick="generarReporteMensual()">
-                                        <span>📄</span>
+                                        <span><i class="fas fa-file-alt"></i></span>
                                         <span>Generar Reporte Mensual</span>
                                     </button>
                                     <button class="btn btn-info btn-sm" onclick="exportReporteCompleto()">
-                                        <span>📤</span>
+                                        <span><i class="fas fa-file-export"></i></span>
                                         <span>Exportar Reporte Completo</span>
                                     </button>
                                 </div>
@@ -1392,7 +1428,7 @@
                             
                             <div class="filter-row">
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="reporteTipo">📊 Tipo de Reporte</label>
+                                    <label for="reporteTipo"><i class="fas fa-chart-bar"></i> Tipo de Reporte</label>
                                     <select class="filter-select" id="reporteTipo">
                                         <option value="mensual">Mensual</option>
                                         <option value="semanal">Semanal</option>
@@ -1403,7 +1439,7 @@
                                 </div>
                                 
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="reportePeriodo">📅 Período</label>
+                                    <label for="reportePeriodo"><i class="fas fa-calendar-alt"></i> Período</label>
                                     <select class="filter-select" id="reportePeriodo">
                                         <option value="enero">Enero 2024</option>
                                         <option value="febrero">Febrero 2024</option>
@@ -1414,7 +1450,7 @@
                                 </div>
                                 
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="reporteFormato">🖨️ Formato</label>
+                                    <label for="reporteFormato"><i class="fas fa-print"></i> Formato</label>
                                     <select class="filter-select" id="reporteFormato">
                                         <option value="grafico">Gráfico</option>
                                         <option value="tabla">Tabla</option>
@@ -1426,7 +1462,7 @@
                         
                         <!-- Gráfico de Reportes -->
                         <div class="table-container" style="padding: 2rem; text-align: center;">
-                            <h3 style="color: #2c3e50; margin-bottom: 1.5rem;">📈 Gráfico de Salidas por Producto</h3>
+                            <h3 style="color: #2c3e50; margin-bottom: 1.5rem;"><i class="fas fa-chart-line"></i> Gráfico de Salidas por Producto</h3>
                             <div style="height: 300px; display: flex; align-items: flex-end; justify-content: center; gap: 20px; padding: 20px;">
                                 <!-- Barras del gráfico se generarán dinámicamente -->
                                 <div id="graficoBarras"></div>
@@ -1448,7 +1484,7 @@
     <div class="modal" id="salidaModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>📤 Registrar Salida de Producto</h3>
+                <h3><i class="fas fa-box-open"></i> Registrar Salida de Producto</h3>
                 <button class="modal-close" onclick="closeModal()">×</button>
             </div>
             <div class="modal-body">
@@ -1456,25 +1492,25 @@
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="productoNombre">📦 Producto</label>
+                        <label for="productoNombre"><i class="fas fa-box"></i> Producto</label>
                         <input type="text" id="productoNombre" readonly>
                     </div>
                     
                     <div class="form-group">
-                        <label for="stockActual">⚖️ Stock Actual</label>
+                        <label for="stockActual"><i class="fas fa-balance-scale"></i> Stock Actual</label>
                         <input type="text" id="stockActual" readonly>
                     </div>
                 </div>
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="cantidadSalida">🔢 Cantidad a Retirar</label>
+                        <label for="cantidadSalida"><i class="fas fa-hashtag"></i> Cantidad a Retirar</label>
                         <input type="number" id="cantidadSalida" min="0.01" step="0.01" value="1.00">
                         <small style="color: #718096; margin-top: 0.5rem;">Cantidad a retirar (puede ser decimal)</small>
                     </div>
                     
                     <div class="form-group">
-                        <label for="motivoSalida">🎯 Motivo de Salida</label>
+                        <label for="motivoSalida"><i class="fas fa-bullseye"></i> Motivo de Salida</label>
                         <select class="filter-select" id="motivoSalida">
                             <option value="venta">Venta</option>
                             <option value="dano">Daño/Desperdicio</option>
@@ -1486,12 +1522,12 @@
                 </div>
                 
                 <div class="form-group form-full">
-                    <label for="responsableSalida">👤 Responsable</label>
+                    <label for="responsableSalida"><i class="fas fa-user"></i> Responsable</label>
                     <input type="text" id="responsableSalida" placeholder="Nombre del responsable" value="Administrador">
                 </div>
                 
                 <div class="form-group form-full">
-                    <label for="observacionesSalida">📝 Observaciones</label>
+                    <label for="observacionesSalida"><i class="fas fa-edit"></i> Observaciones</label>
                     <textarea id="observacionesSalida" rows="3" placeholder="Observaciones adicionales..."></textarea>
                 </div>
                 
@@ -1500,7 +1536,7 @@
                         Cancelar
                     </button>
                     <button class="btn btn-primary" onclick="registrarSalida()" id="registrarSalidaBtn">
-                        <span>📤</span>
+                        <span><i class="fas fa-box-open"></i></span>
                         <span>Registrar Salida</span>
                     </button>
                 </div>
@@ -1512,7 +1548,7 @@
     <div class="modal" id="reabastecerModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>📥 Reabastecer Stock</h3>
+                <h3><i class="fas fa-box"></i> Reabastecer Stock</h3>
                 <button class="modal-close" onclick="closeReabastecerModal()">×</button>
             </div>
             <div class="modal-body">
@@ -1520,24 +1556,24 @@
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="reabastecerNombre">📦 Producto</label>
+                        <label for="reabastecerNombre"><i class="fas fa-box"></i> Producto</label>
                         <input type="text" id="reabastecerNombre" readonly>
                     </div>
                     
                     <div class="form-group">
-                        <label for="reabastecerStockActual">⚖️ Stock Actual</label>
+                        <label for="reabastecerStockActual"><i class="fas fa-balance-scale"></i> Stock Actual</label>
                         <input type="text" id="reabastecerStockActual" readonly>
                     </div>
                 </div>
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="cantidadReabastecer">🔢 Cantidad a Agregar</label>
+                        <label for="cantidadReabastecer"><i class="fas fa-hashtag"></i> Cantidad a Agregar</label>
                         <input type="number" id="cantidadReabastecer" min="0.01" step="0.01" value="10.00">
                     </div>
                     
                     <div class="form-group">
-                        <label for="motivoReabastecer">🎯 Motivo</label>
+                        <label for="motivoReabastecer"><i class="fas fa-bullseye"></i> Motivo</label>
                         <select class="filter-select" id="motivoReabastecer">
                             <option value="compra">Compra</option>
                             <option value="transferencia">Transferencia</option>
@@ -1548,7 +1584,7 @@
                 </div>
                 
                 <div class="form-group form-full">
-                    <label for="observacionesReabastecer">📝 Observaciones</label>
+                    <label for="observacionesReabastecer"><i class="fas fa-edit"></i> Observaciones</label>
                     <textarea id="observacionesReabastecer" rows="3" placeholder="Observaciones sobre el reabastecimiento..."></textarea>
                 </div>
                 
@@ -1557,7 +1593,7 @@
                         Cancelar
                     </button>
                     <button class="btn btn-success" onclick="confirmarReabastecimiento()">
-                        <span>📥</span>
+                        <span><i class="fas fa-box"></i></span>
                         <span>Confirmar Reabastecimiento</span>
                     </button>
                 </div>
@@ -1587,13 +1623,13 @@
             // Llamar a las funciones de renderizado
             setupEventListeners();
             
-            console.log(`✅ Sistema inicializado`);
+            console.log('Sistema inicializado');
         });
         
         // Cargar productos desde Django (datos reales)
         async function cargarProductosDesdeDjango() {
             try {
-                console.log('🔍 Cargando productos desde Django...');
+                console.log('Cargando productos desde Django...');
                 
                 // Hacer una petición AJAX para obtener los productos reales
                 const response = await fetch('/obtener-productos-salida/');
@@ -1621,14 +1657,14 @@
                     actualizarEstadisticas();
                     cargarFiltroProductos();
                     
-                    mostrarNotificacion(`✅ ${productos.length} productos cargados correctamente`, 'success');
+                    mostrarNotificacion(`${productos.length} productos cargados correctamente`, 'success');
                 } else {
-                    console.error('❌ Error al cargar productos:', data.error);
+                    console.error('Error al cargar productos:', data.error);
                     mostrarNotificacion('Error al cargar productos desde la base de datos', 'error');
                 }
                 
             } catch (error) {
-                console.error('❌ Error en la petición:', error);
+                console.error('Error en la petición:', error);
                 mostrarNotificacion('Error de conexión al cargar productos', 'error');
             }
         }
@@ -1924,17 +1960,17 @@
                         </td>
                         <td>
                             <div class="date-badge">
-                                <span>📅</span>
+                                <span><i class="fas fa-calendar-alt"></i></span>
                                 <span>${ultimaSalidaFormateada}</span>
                             </div>
                         </td>
                         <td>
                             <div class="action-buttons">
                                 <button class="btn-icon btn-salida" onclick="registrarSalidaModal('${producto.id}')" title="Registrar salida">
-                                    📤
+                                    <i class="fas fa-box-open"></i>
                                 </button>
                                 <button class="btn-icon btn-reabastecer" onclick="reabastecerModal('${producto.id}')" title="Reabastecer stock">
-                                    📥
+                                    <i class="fas fa-box"></i>
                                 </button>
                             </div>
                         </td>
@@ -2322,7 +2358,7 @@
                         <td>
                             <div class="action-buttons">
                                 <button class="btn-icon btn-eliminar" onclick="eliminarSalida('${salida.id}')" title="Eliminar registro">
-                                    🗑️
+                                    <i class="fas fa-trash"></i>
                                 </button>
                             </div>
                         </td>
@@ -2464,7 +2500,7 @@
                 Math.round(((salidasHoy - salidasAyer) / salidasAyer) * 100) : 
                 (salidasHoy > 0 ? 100 : 0);
             
-            const tendencia = diferencia >= 0 ? '📈' : '📉';
+            const tendencia = diferencia >= 0 ? '<i class="fas fa-arrow-up"></i>' : '<i class="fas fa-arrow-down"></i>';
             const claseTendencia = diferencia >= 0 ? 'color: #38a169;' : 'color: #e53e3e;';
             
             resumenActividad.innerHTML = `
@@ -2548,7 +2584,7 @@
             // Deshabilitar botón mientras se procesa
             const btn = document.getElementById('registrarSalidaBtn');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<span>⏳</span><span>Procesando...</span>';
+            btn.innerHTML = '<span><i class="fas fa-spinner fa-spin"></i></span><span>Procesando...</span>';
             btn.disabled = true;
             
             try {
@@ -2771,7 +2807,7 @@
                 actualizarEstadisticasReportes();
             }
             
-            mostrarNotificacion('✅ Registro de salida eliminado correctamente', 'success');
+            mostrarNotificacion('<i class="fas fa-check-circle"></i> Registro de salida eliminado correctamente', 'success');
         }
         
         // Funciones de exportación
@@ -2779,7 +2815,7 @@
             mostrarNotificacion('Generando reporte de inventario...', 'info');
             // En un sistema real, aquí se generaría y descargaría un archivo
             setTimeout(() => {
-                mostrarNotificacion('✅ Reporte de inventario exportado correctamente', 'success');
+                mostrarNotificacion('<i class="fas fa-check-circle"></i> Reporte de inventario exportado correctamente', 'success');
             }, 1000);
         }
         
@@ -2787,7 +2823,7 @@
             mostrarNotificacion('Generando historial de salidas...', 'info');
             // En un sistema real, aquí se generaría y descargaría un archivo
             setTimeout(() => {
-                mostrarNotificacion('✅ Historial de salidas exportado correctamente', 'success');
+                mostrarNotificacion('<i class="fas fa-check-circle"></i> Historial de salidas exportado correctamente', 'success');
             }, 1000);
         }
         
@@ -2795,7 +2831,7 @@
             mostrarNotificacion('Generando reporte completo...', 'info');
             // En un sistema real, aquí se generaría y descargaría un archivo
             setTimeout(() => {
-                mostrarNotificacion('✅ Reporte completo exportado correctamente', 'success');
+                mostrarNotificacion('<i class="fas fa-check-circle"></i> Reporte completo exportado correctamente', 'success');
             }, 1000);
         }
         
@@ -2803,7 +2839,7 @@
             mostrarNotificacion('Generando reporte mensual...', 'info');
             // En un sistema real, aquí se generaría y descargaría un archivo
             setTimeout(() => {
-                mostrarNotificacion('✅ Reporte mensual generado correctamente', 'success');
+                mostrarNotificacion('<i class="fas fa-check-circle"></i> Reporte mensual generado correctamente', 'success');
             }, 1000);
         }
         
@@ -2822,14 +2858,14 @@
         
         function getCategoriaIcon(categoria) {
             const icons = {
-                'carne': '🥩',
-                'verdura': '🥦',
-                'lacteo': '🥛',
-                'postre': '🍰',
-                'bebida': '🥤',
-                'otro': '📦'
+                'carne': '<i class="fas fa-drumstick-bite"></i>',
+                'verdura': '<i class="fas fa-leaf"></i>',
+                'lacteo': '<i class="fas fa-glass-whiskey"></i>',
+                'postre': '<i class="fas fa-birthday-cake"></i>',
+                'bebida': '<i class="fas fa-glass-martini"></i>',
+                'otro': '<i class="fas fa-box"></i>'
             };
-            return icons[categoria] || '📦';
+            return icons[categoria] || '<i class="fas fa-box"></i>';
         }
         
         function getUnidadMedida(categoria) {

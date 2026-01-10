@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pedidos - Restaurante</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+        
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -31,6 +33,12 @@
             display: flex;
             flex-direction: column;
             transition: transform 0.3s ease;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 100;
         }
         
         .sidebar-header {
@@ -116,6 +124,7 @@
             flex: 1;
             padding: 2rem;
             overflow-x: hidden;
+            margin-left: 260px;
         }
         
         .container {
@@ -202,7 +211,9 @@
         }
         
         .menu-section h2::before {
-            content: "🍽️";
+            content: "\f2e7";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
             font-size: 1.4rem;
         }
         
@@ -252,7 +263,9 @@
         }
         
         .search-hint::before {
-            content: "💡";
+            content: "\f0eb";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
         }
         
         /* Menu Grid */
@@ -360,7 +373,9 @@
         }
         
         .order-section h2::before {
-            content: "📋";
+            content: "\f328";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
             font-size: 1.4rem;
         }
         
@@ -993,6 +1008,7 @@
             
             .main-content {
                 padding: 5rem 1rem 1rem;
+                margin-left: 0;
             }
             
             .content {
@@ -1072,13 +1088,13 @@
 </head>
 <body>
     <!-- Mobile menu toggle -->
-    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
     
      <div class="app-container">
     <!-- Sidebar navigation -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            🍽️402 FASTFOOD
+            <i class="fas fa-utensils"></i> 402 FASTFOOD
         </div>
         <nav class="sidebar-nav">
             <!-- Verificar grupos sin template tag -->
@@ -1087,23 +1103,23 @@
             <!-- Menú para Usuario Normal (excluye superusuarios) -->
             {% if "Usuario Normal" in user_groups and not user.is_superuser %}
             <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                 <span>Pedidos</span>
             </a>
             <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                 <span>Inventario</span>
             </a>
             <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
                 <span>Gestión de Pedidos</span>
             </a>
             <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
+                <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                 <span>Facturación</span>
             </a>
             <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
+                <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
                 <span>Salida de Productos</span>
             </a>
             {% endif %}
@@ -1111,39 +1127,39 @@
             <!-- Menú para Administrador -->
             {% if "Administrador" in user_groups and not user.is_superuser %}
             <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                <span class="nav-icon">📦</span>
+                <span class="nav-icon"><i class="fas fa-box"></i></span>
                 <span>Entrada de Productos</span>
             </a>
             <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                 <span>Inventario</span>
             </a>
             <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">🍽️</span>
+                <span class="nav-icon"><i class="fas fa-utensils"></i></span>
                 <span>Entrada de Platos</span>
             </a>
             <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">📊</span>
+                <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
                 <span>Gestión de Platos</span>
             </a>
             <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                 <span>Pedidos</span>
             </a>
             <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
                 <span>Gestión de Pedidos</span>
             </a>
             <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
+                <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                 <span>Facturación</span>
             </a>
             <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
+                <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
                 <span>Salida de Productos</span>
             </a>
             <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                <span class="nav-icon">👥</span>
+                <span class="nav-icon"><i class="fas fa-users"></i></span>
                 <span>Gestión de Usuarios</span>
             </a>
             {% endif %}
@@ -1155,11 +1171,11 @@
             
             {% if "Cajero" in user_groups and not user.is_superuser %}
             <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                 <span>Pedidos</span>
             </a>
             <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
+                <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                 <span>Facturación</span>
             </a>
             {% endif %}
@@ -1167,46 +1183,52 @@
             <!-- Menú EXCLUSIVO para superusuarios -->
             {% if user.is_superuser %}
             <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                <span class="nav-icon">📦</span>
+                <span class="nav-icon"><i class="fas fa-box"></i></span>
                 <span>Entrada de Productos</span>
             </a>
             <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                 <span>Inventario</span>
             </a>
             <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">🍽️</span>
+                <span class="nav-icon"><i class="fas fa-utensils"></i></span>
                 <span>Entrada de Platos</span>
             </a>
             <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                <span class="nav-icon">📊</span>
+                <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
                 <span>Gestión de Platos</span>
             </a>
             <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                <span class="nav-icon">🛒</span>
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                 <span>Pedidos</span>
             </a>
             <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
                 <span>Gestión de Pedidos</span>
             </a>
             <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                <span class="nav-icon">🧾</span>
+                <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                 <span>Facturación</span>
             </a>
             <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                <span class="nav-icon">📤</span>
+                <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
                 <span>Salida de Productos</span>
             </a>
             <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                <span class="nav-icon">👥</span>
+                <span class="nav-icon"><i class="fas fa-users"></i></span>
                 <span>Gestión de Usuarios</span>
+            </a>
+            
+            <!-- Dashboard solo para superusuario -->
+            <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                <span>Dashboard</span>
             </a>
             {% endif %}
             
             <!-- Cerrar sesión para todos -->
             <a href="{% url 'logout' %}" class="nav-item">
-                <span class="nav-icon">🚪</span>
+                <span class="nav-icon"><i class="fas fa-door-open"></i></span>
                 <span>Cerrar Sesión</span>
             </a>
             
@@ -1222,7 +1244,7 @@
         <div class="main-content">
             <div class="container">
                 <div class="header">
-                    <h1>🛒 Realizar Pedido</h1>
+                    <h1><i class="fas fa-shopping-cart"></i> Realizar Pedido</h1>
                     <p>Selecciona los platos y bebidas que deseas ordenar</p>
                 </div>
                 
@@ -1285,7 +1307,7 @@
                                         <span id="resultsCount">0</span> ítems encontrados
                                     </div>
                                     <button type="button" class="results-clear" onclick="clearSearch()">
-                                        <span>🗑️</span>
+                                        <span><i class="fas fa-trash-alt"></i></span>
                                         <span>Limpiar búsqueda</span>
                                     </button>
                                 </div>
@@ -1337,7 +1359,7 @@
                                     
                                     <div class="form-row">
                                         <div class="form-group">
-                                            <label for="orderType">📋 Tipo de Pedido</label>
+                                            <label for="orderType"><i class="fas fa-clipboard-list"></i> Tipo de Pedido</label>
                                             <select id="orderType" name="order_type" onchange="updateOrderType()">
                                                 <option value="mesa">Mesa</option>
                                                 <option value="delivery">Delivery</option>
@@ -1346,7 +1368,7 @@
                                         </div>
                                         
                                         <div class="form-group" id="tableNumberGroup">
-                                            <label for="tableNumber">🍽️ Número de Mesa</label>
+                                            <label for="tableNumber"><i class="fas fa-utensils"></i> Número de Mesa</label>
                                             <select id="tableNumber" name="table_number">
                                                 {% if mesas %}
                                                     {% for mesa in mesas %}
@@ -1387,7 +1409,7 @@
                                     
                                     <!-- Delivery Code Grid -->
                                     <div class="code-grid hidden" id="deliveryCodeGrid">
-                                        <h4 style="margin-bottom: 1rem; color: #4a5568;">🚚 Selecciona Código Delivery</h4>
+                                        <h4 style="margin-bottom: 1rem; color: #4a5568;"><i class="fas fa-shipping-fast"></i> Selecciona Código Delivery</h4>
                                         {% if delivery_codes %}
                                             {% for delivery in delivery_codes %}
                                             <div class="code-item {% if delivery.estado != 'disponible' %}ocupada{% endif %}" 
@@ -1408,7 +1430,7 @@
                                     
                                     <!-- Llevar Code Grid -->
                                     <div class="code-grid hidden" id="llevarCodeGrid">
-                                        <h4 style="margin-bottom: 1rem; color: #4a5568;">📦 Selecciona Código Para Llevar</h4>
+                                        <h4 style="margin-bottom: 1rem; color: #4a5568;"><i class="fas fa-box"></i> Selecciona Código Para Llevar</h4>
                                         {% if llevar_codes %}
                                             {% for llevar in llevar_codes %}
                                             <div class="code-item {% if llevar.estado != 'disponible' %}ocupada{% endif %}" 
@@ -1430,19 +1452,19 @@
                                     <!-- Additional info for delivery -->
                                     <div class="delivery-fields hidden" id="deliveryFields">
                                         <div class="form-group">
-                                            <label for="customerName">👤 Nombre del Cliente (Delivery)</label>
+                                            <label for="customerName"><i class="fas fa-user"></i> Nombre del Cliente (Delivery)</label>
                                             <input type="text" id="customerName" name="customer_name" 
                                                    placeholder="Nombre para el delivery">
                                         </div>
                                         
                                         <div class="form-group">
-                                            <label for="customerPhone">📱 Teléfono (Delivery)</label>
+                                            <label for="customerPhone"><i class="fas fa-phone"></i> Teléfono (Delivery)</label>
                                             <input type="tel" id="customerPhone" name="customer_phone" 
                                                    placeholder="Teléfono para contactar">
                                         </div>
                                         
                                         <div class="form-group">
-                                            <label for="customerAddress">📍 Dirección de Entrega</label>
+                                            <label for="customerAddress"><i class="fas fa-map-marker-alt"></i> Dirección de Entrega</label>
                                             <textarea id="customerAddress" name="customer_address" 
                                                       placeholder="Dirección completa para la entrega"></textarea>
                                         </div>
@@ -1451,7 +1473,7 @@
                                     <!-- Additional info for takeaway -->
                                     <div class="delivery-fields hidden" id="takeawayFields">
                                         <div class="form-group">
-                                            <label for="customerNameTakeaway">👤 Nombre del Cliente (Para Llevar)</label>
+                                            <label for="customerNameTakeaway"><i class="fas fa-user"></i> Nombre del Cliente (Para Llevar)</label>
                                             <input type="text" id="customerNameTakeaway" name="customer_name_takeaway" 
                                                    placeholder="Nombre para recoger">
                                         </div>
@@ -1484,10 +1506,10 @@
                                 
                                 <!-- Action Buttons -->
                                 <button type="submit" class="btn btn-primary" id="placeOrderBtn" disabled>
-                                    <span>✅ Confirmar Pedido</span>
+                                    <span><i class="fas fa-check-circle"></i> Confirmar Pedido</span>
                                 </button>
                                 <button type="button" class="btn btn-secondary" onclick="clearCart()" style="margin-top: 1rem;">
-                                    <span>🗑️ Vaciar Carrito</span>
+                                    <span><i class="fas fa-trash-alt"></i> Vaciar Carrito</span>
                                 </button>
                             </div>
                         </div>
@@ -1588,7 +1610,7 @@
         setTimeout(updatePlaceOrderButton, 300);
         
         if (menuItems.length === 0) {
-            showNotification('⚠️ No hay platos ni bebidas disponibles en el menú', 'warning');
+            showNotification('<i class="fas fa-exclamation-triangle"></i> No hay platos ni bebidas disponibles en el menú', 'warning');
         }
     }
     
@@ -1660,7 +1682,7 @@
         
         if (document.querySelectorAll('.table-item').length > 0 && 
             document.querySelectorAll('.table-item:not(.ocupada)').length === 0) {
-            showNotification('⚠️ Todas las mesas están ocupadas. Selecciona otra opción.', 'warning');
+            showNotification('<i class="fas fa-exclamation-triangle"></i> Todas las mesas están ocupadas. Selecciona otra opción.', 'warning');
         }
     }
     
@@ -1696,12 +1718,12 @@
                 e.preventDefault();
                 
                 if (!validateForm()) {
-                    showNotification('❌ Por favor completa todos los campos requeridos', 'error');
+                    showNotification('<i class="fas fa-times-circle"></i> Por favor completa todos los campos requeridos', 'error');
                     return false;
                 }
                 
                 if (!prepareFormData()) {
-                    showNotification('❌ Error al preparar los datos del pedido', 'error');
+                    showNotification('<i class="fas fa-times-circle"></i> Error al preparar los datos del pedido', 'error');
                     return false;
                 }
                 
@@ -1747,7 +1769,7 @@
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    showNotification('❌ Error al enviar el pedido', 'error');
+                    showNotification('<i class="fas fa-times-circle"></i> Error al enviar el pedido', 'error');
                     // 🔥 AGREGADO: Restaurar estado si hay error
                     restorePageState();
                 });
@@ -1894,7 +1916,7 @@
                         }
                     }
                 } else {
-                    showNotification('⚠️ No hay códigos de delivery disponibles', 'warning');
+                    showNotification('<i class="fas fa-exclamation-triangle"></i> No hay códigos de delivery disponibles', 'warning');
                 }
                 
                 updatePlaceOrderButton();
@@ -1932,7 +1954,7 @@
                         }
                     }
                 } else {
-                    showNotification('⚠️ No hay códigos para llevar disponibles', 'warning');
+                    showNotification('<i class="fas fa-exclamation-triangle"></i> No hay códigos para llevar disponibles', 'warning');
                 }
                 
                 updatePlaceOrderButton();
@@ -1973,7 +1995,7 @@
     // Seleccionar mesa
     function selectTable(mesaId, mesaNumero, estado) {
         if (estado !== 'disponible') {
-            showNotification(`⚠️ La mesa ${mesaNumero} no está disponible`, 'error');
+            showNotification(`<i class="fas fa-exclamation-triangle"></i> La mesa ${mesaNumero} no está disponible`, 'error');
             return;
         }
         
@@ -1998,7 +2020,7 @@
     // Seleccionar código delivery
     function selectDeliveryCode(codigo, estado) {
         if (estado !== 'disponible') {
-            showNotification(`⚠️ El código ${codigo} no está disponible`, 'error');
+            showNotification(`<i class="fas fa-exclamation-triangle"></i> El código ${codigo} no está disponible`, 'error');
             return;
         }
         
@@ -2021,7 +2043,7 @@
     // Seleccionar código para llevar
     function selectLlevarCode(codigo, estado) {
         if (estado !== 'disponible') {
-            showNotification(`⚠️ El código ${codigo} no está disponible`, 'error');
+            showNotification(`<i class="fas fa-exclamation-triangle"></i> El código ${codigo} no está disponible`, 'error');
             return;
         }
         
@@ -2113,8 +2135,8 @@
             const stock = parseFloat(item.stock || 0);
             const isLowStock = stock > 0 && stock < 10;
             const isOutOfStock = stock <= 0;
-            const stockMessage = esBebida ? (isOutOfStock ? '❌ Agotado' : (isLowStock ? `⚠️ Stock bajo (${stock})` : `📊 Stock: ${stock}`)) : '';
-            const iconoTipo = esBebida ? '🥤' : '🍽️';
+            const stockMessage = esBebida ? (isOutOfStock ? '<i class="fas fa-times-circle"></i> Agotado' : (isLowStock ? `<i class="fas fa-exclamation-triangle"></i> Stock bajo (${stock})` : `<i class="fas fa-chart-bar"></i> Stock: ${stock}`)) : '';
+            const iconoTipo = esBebida ? '<i class="fas fa-glass-water"></i>' : '<i class="fas fa-utensils"></i>';
             const tipoTexto = esBebida ? 'Bebida' : 'Plato';
             
             let highlightedName = item.nombre;
@@ -2141,7 +2163,7 @@
                         <p class="menu-card-description">${highlightedDescription}</p>
                         <div class="menu-card-details">
                             <div class="menu-card-detail">
-                                <span>📦</span>
+                                <span><i class="fas fa-box"></i></span>
                                 <span>Código: ${item.codigo}</span>
                             </div>
                             <div class="menu-card-detail">
@@ -2152,7 +2174,7 @@
                         ${esBebida && stockMessage ? `
                         <div class="menu-card-details">
                             <div class="menu-card-detail">
-                                <span>${isOutOfStock ? '❌' : (isLowStock ? '⚠️' : '📊')}</span>
+                                <span>${isOutOfStock ? '<i class="fas fa-times-circle"></i>' : (isLowStock ? '<i class="fas fa-exclamation-triangle"></i>' : '<i class="fas fa-chart-bar"></i>')}</span>
                                 <span>${stockMessage}</span>
                             </div>
                         </div>
@@ -2164,7 +2186,7 @@
                                 <button type="button" class="quantity-btn" onclick="increaseQuantity('${item.id}')" ${(esBebida && isOutOfStock) ? 'disabled' : ''}>+</button>
                             </div>
                             <button type="button" class="btn btn-secondary" onclick="addToCart('${item.id}')" ${(esBebida && isOutOfStock) ? 'disabled' : ''}>
-                                <span>${esBebida ? '🥤 Agregar Bebida' : '🍽️ Agregar Plato'}</span>
+                                <span>${esBebida ? '<i class="fas fa-glass-water"></i> Agregar Bebida' : '<i class="fas fa-utensils"></i> Agregar Plato'}</span>
                             </button>
                         </div>
                     </div>
@@ -2205,7 +2227,7 @@
         if (esBebida) {
             const stock = parseFloat(item.stock || 0);
             if (stock <= 0) {
-                showNotification(`❌ "${item.nombre}" está agotado`, 'error');
+                showNotification(`<i class="fas fa-times-circle"></i> "${item.nombre}" está agotado`, 'error');
                 return;
             }
         }
@@ -2216,7 +2238,7 @@
             if (esBebida) {
                 const stock = parseFloat(item.stock || 0);
                 if (existingItem.quantity >= stock) {
-                    showNotification(`❌ No hay suficiente stock de "${item.nombre}". Disponible: ${stock}`, 'error');
+                    showNotification(`<i class="fas fa-times-circle"></i> No hay suficiente stock de "${item.nombre}". Disponible: ${stock}`, 'error');
                     return;
                 }
             }
@@ -2244,7 +2266,7 @@
         updateCartSummary();
         updatePlaceOrderButton();
         
-        showNotification(`✅ "${item.nombre}" ${esBebida ? '(Bebida)' : '(Plato)'} agregado al carrito!`, 'success');
+        showNotification(`<i class="fas fa-check-circle"></i> "${item.nombre}" ${esBebida ? '(Bebida)' : '(Plato)'} agregado al carrito!`, 'success');
     }
     
     // Aumentar cantidad - CORREGIDO
@@ -2256,7 +2278,7 @@
                 if (menuItem) {
                     const stock = parseFloat(menuItem.stock || 0);
                     if (item.quantity >= stock) {
-                        showNotification(`❌ No hay suficiente stock de "${item.name}". Disponible: ${stock}`, 'error');
+                        showNotification(`<i class="fas fa-times-circle"></i> No hay suficiente stock de "${item.name}". Disponible: ${stock}`, 'error');
                         return;
                     }
                 }
@@ -2316,7 +2338,7 @@
                     <div class="cart-item-name">
                         ${item.name} 
                         <span style="font-size: 0.9rem; color: ${item.es_bebida ? '#3b82f6' : '#ef4444'};">
-                            ${item.es_bebida ? '🥤 Bebida' : '🍽️ Plato'}
+                            ${item.es_bebida ? '<i class="fas fa-glass-water"></i> Bebida' : '<i class="fas fa-utensils"></i> Plato'}
                         </span>
                     </div>
                     <div class="cart-item-details">
@@ -2353,7 +2375,7 @@
             updateCartSummary();
             updatePlaceOrderButton();
             
-            showNotification(`🗑️ "${item.name}" eliminado del carrito`, 'success');
+            showNotification(`<i class="fas fa-trash-alt"></i> "${item.name}" eliminado del carrito`, 'success');
         }
     }
     
@@ -2368,7 +2390,7 @@
             renderCart();
             updateCartSummary();
             updatePlaceOrderButton();
-            showNotification('🗑️ Carrito vaciado', 'success');
+            showNotification('<i class="fas fa-trash-alt"></i> Carrito vaciado', 'success');
         }
     }
     
@@ -2406,23 +2428,23 @@
         const orderType = document.getElementById('orderType').value;
         
         if (cart.length === 0) {
-            showNotification('❌ Tu carrito está vacío', 'error');
+            showNotification('<i class="fas fa-times-circle"></i> Tu carrito está vacío', 'error');
             return false;
         }
         
         if (orderType === 'mesa') {
             if (!currentTableId || currentTableId === '') {
-                showNotification('❌ Por favor selecciona una mesa', 'error');
+                showNotification('<i class="fas fa-times-circle"></i> Por favor selecciona una mesa', 'error');
                 return false;
             }
         } else if (orderType === 'delivery') {
             if (!currentDeliveryCode || currentDeliveryCode === '') {
-                showNotification('❌ Por favor selecciona un código de delivery', 'error');
+                showNotification('<i class="fas fa-times-circle"></i> Por favor selecciona un código de delivery', 'error');
                 return false;
             }
         } else if (orderType === 'llevar') {
             if (!currentLlevarCode || currentLlevarCode === '') {
-                showNotification('❌ Por favor selecciona un código para llevar', 'error');
+                showNotification('<i class="fas fa-times-circle"></i> Por favor selecciona un código para llevar', 'error');
                 return false;
             }
         }
@@ -2437,7 +2459,7 @@
         
         if (cart.length === 0) {
             placeOrderBtn.disabled = true;
-            placeOrderBtn.innerHTML = '<span>✅ Confirmar Pedido</span>';
+            placeOrderBtn.innerHTML = '<span><i class="fas fa-check-circle"></i> Confirmar Pedido</span>';
             return;
         }
         
@@ -2470,12 +2492,12 @@
         placeOrderBtn.disabled = !isValid;
         
         if (isValid) {
-            placeOrderBtn.innerHTML = '<span>✅ Confirmar Pedido</span>';
+            placeOrderBtn.innerHTML = '<span><i class="fas fa-check-circle"></i> Confirmar Pedido</span>';
         } else {
             if (missingFields.length > 0) {
-                placeOrderBtn.innerHTML = `<span>⌛ Requiere: ${missingFields.join(', ')}</span>`;
+                placeOrderBtn.innerHTML = `<span><i class="fas fa-hourglass-half"></i> Requiere: ${missingFields.join(', ')}</span>`;
             } else {
-                placeOrderBtn.innerHTML = '<span>⌛ Complete los campos</span>';
+                placeOrderBtn.innerHTML = '<span><i class="fas fa-hourglass-half"></i> Complete los campos</span>';
             }
         }
     }
@@ -2574,11 +2596,11 @@
     
     function getPopularityIcon(popularidad) {
         const icons = {
-            'alta': '🔥',
-            'media': '⭐',
-            'baja': '📊'
+            'alta': '<i class="fas fa-fire"></i>',
+            'media': '<i class="fas fa-star"></i>',
+            'baja': '<i class="fas fa-chart-bar"></i>'
         };
-        return icons[popularidad] || '📦';
+        return icons[popularidad] || '<i class="fas fa-box"></i>';
     }
     
     // Sidebar toggle

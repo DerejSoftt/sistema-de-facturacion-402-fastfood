@@ -2826,28 +2826,36 @@ def acceso_modulo_requerido(modulo):
 
 
 
-from datetime import datetime, timedelta
-from django.utils import timezone
-from django.db.models import Sum
-from decimal import Decimal
-
-
-
 @login_required
 def dashbort(request):
-    # Obtener el inicio y fin del día actual en la zona horaria local
+    # Obtener hora local actual
     ahora_local = timezone.localtime()
     hoy_local = ahora_local.date()
+    hora_actual = ahora_local.time()
     
-    # Crear datetime para inicio y fin del día en zona horaria local
-    inicio_dia = timezone.make_aware(
-        datetime.combine(hoy_local, datetime.min.time())
-    )
-    fin_dia = timezone.make_aware(
-        datetime.combine(hoy_local, datetime.max.time())
-    )
+    # DEFINICIÓN DEL "DÍA": De 6:00 AM a 5:59 AM del día siguiente
+    if ahora_local.hour >= 6:
+        # Si son las 6:00 AM o más tarde, el día actual comenzó hoy a las 6:00 AM
+        inicio_dia = timezone.make_aware(
+            datetime.combine(hoy_local, datetime(2000, 1, 1, 6, 0, 0).time())
+        )
+        fin_dia = timezone.make_aware(
+            datetime.combine(hoy_local + timedelta(days=1), datetime(2000, 1, 1, 5, 59, 59).time())
+        )
+    else:
+        # Si es antes de las 6:00 AM, estamos en el día que comenzó ayer a las 6:00 AM
+        inicio_dia = timezone.make_aware(
+            datetime.combine(hoy_local - timedelta(days=1), datetime(2000, 1, 1, 6, 0, 0).time())
+        )
+        fin_dia = timezone.make_aware(
+            datetime.combine(hoy_local, datetime(2000, 1, 1, 5, 59, 59).time())
+        )
     
-    # 1. VENTA DEL DÍA - Facturas del día de HOY usando rango de tiempo
+    # Obtener rango visual para mostrar (para información)
+    rango_dia_inicio = timezone.localtime(inicio_dia)
+    rango_dia_fin = timezone.localtime(fin_dia)
+    
+    # 1. VENTA DEL DÍA - Facturas del "día" según nueva definición (6 AM a 5:59 AM)
     facturas_hoy = Factura.objects.filter(
         fecha_factura__gte=inicio_dia,
         fecha_factura__lte=fin_dia,
@@ -2856,45 +2864,55 @@ def dashbort(request):
     
     venta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))['total_dia'] or Decimal('0.00')
     
-    # 2. VENTA DEL MES - Facturas del MES ACTUAL
+    # 2. VENTA DEL MES - Esto se mantiene igual (mes calendario)
     primer_dia_mes = hoy_local.replace(day=1)
     inicio_mes = timezone.make_aware(
         datetime.combine(primer_dia_mes, datetime.min.time())
     )
     
+    # El fin del mes es el último día del mes actual a las 23:59:59
+    if hoy_local.month == 12:
+        ultimo_dia_mes = hoy_local.replace(day=31)
+    else:
+        ultimo_dia_mes = hoy_local.replace(month=hoy_local.month + 1, day=1) - timedelta(days=1)
+    
+    fin_mes = timezone.make_aware(
+        datetime.combine(ultimo_dia_mes, datetime.max.time())
+    )
+    
     facturas_mes = Factura.objects.filter(
         fecha_factura__gte=inicio_mes,
-        fecha_factura__lte=fin_dia,
+        fecha_factura__lte=fin_mes,
         estado='pagada'
     )
     
     venta_mes = facturas_mes.aggregate(total_mes=Sum('total'))['total_mes'] or Decimal('0.00')
     
-    # 3. PEDIDOS HOY
+    # 3. PEDIDOS HOY - Usar misma definición de "día" (6 AM a 5:59 AM)
     total_pedidos = Pedido.objects.filter(
         fecha_pedido__gte=inicio_dia,
         fecha_pedido__lte=fin_dia
     ).count()
     
-    # 4. GASTOS TOTALES
+    # 4. GASTOS TOTALES - Mantener igual
     gastos_totales = venta_mes * Decimal('0.60')
     
     # 5. GANANCIAS NETAS
     ganancias_netas = venta_mes - gastos_totales
     
-    # 6. NUEVOS CLIENTES
+    # 6. NUEVOS CLIENTES - Usar definición de "día" (6 AM a 5:59 AM)
     nuevos_clientes = Factura.objects.filter(
-        fecha_factura__gte=inicio_mes,
+        fecha_factura__gte=inicio_dia,
         fecha_factura__lte=fin_dia
     ).exclude(nombre_cliente='').values('nombre_cliente').distinct().count()
     
-    # 7. ACTIVIDADES RECIENTES
+    # 7. ACTIVIDADES RECIENTES - Mantener igual (últimas 5 facturas sin filtrar por día)
     actividades_recientes = Factura.objects.all().order_by('-fecha_factura')[:5]
     
-    # 8. PRODUCTOS MÁS VENDIDOS
+    # 8. PRODUCTOS MÁS VENDIDOS - Usar facturas del "día" (6 AM a 5:59 AM)
     productos_vendidos = {}
     
-    for factura in facturas_mes:
+    for factura in facturas_hoy:  # Ahora usa facturas_hoy (definición del día)
         try:
             items = factura.get_items_detalle()
             if items and isinstance(items, list):
@@ -2931,31 +2949,42 @@ def dashbort(request):
         reverse=True
     )[:5]
     
-    # 9. DATOS PARA GRÁFICO DE VENTAS - Últimos 7 días
+    # 9. DATOS PARA GRÁFICO DE VENTAS - Últimos 7 "días" (cada uno de 6 AM a 5:59 AM)
     ultimos_7_dias = []
     ventas_7_dias = []
     
     for i in range(6, -1, -1):
-        dia = hoy_local - timedelta(days=i)
-        inicio_dia_grafico = timezone.make_aware(
-            datetime.combine(dia, datetime.min.time())
-        )
-        fin_dia_grafico = timezone.make_aware(
-            datetime.combine(dia, datetime.max.time())
-        )
+        # Para cada día en el gráfico, aplicar la misma lógica de 6 AM a 5:59 AM
+        dia_referencia = hoy_local - timedelta(days=i)
         
-        dia_str = dia.strftime('%a')
+        # Determinar rango para este día
+        if i == 0:
+            # Para hoy, usar los rangos ya calculados
+            dia_inicio = inicio_dia
+            dia_fin = fin_dia
+            dia_str = "Hoy"
+        else:
+            # Para días anteriores
+            dia_anterior = dia_referencia
+            # Crear rango de 6 AM a 5:59 AM del día siguiente
+            dia_inicio = timezone.make_aware(
+                datetime.combine(dia_anterior, datetime(2000, 1, 1, 6, 0, 0).time())
+            )
+            dia_fin = timezone.make_aware(
+                datetime.combine(dia_anterior + timedelta(days=1), datetime(2000, 1, 1, 5, 59, 59).time())
+            )
+            dia_str = dia_anterior.strftime('%a')
         
         venta_dia_grafico = Factura.objects.filter(
-            fecha_factura__gte=inicio_dia_grafico,
-            fecha_factura__lte=fin_dia_grafico,
+            fecha_factura__gte=dia_inicio,
+            fecha_factura__lte=dia_fin,
             estado='pagada'
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
         
         ultimos_7_dias.append(dia_str)
         ventas_7_dias.append(float(venta_dia_grafico))
     
-    # 10. DATOS PARA GRÁFICO DE CATEGORÍAS
+    # 10. DATOS PARA GRÁFICO DE CATEGORÍAS - Mantener igual
     categorias_data = []
     ventas_categorias_data = []
     
@@ -3008,6 +3037,10 @@ def dashbort(request):
         'total_facturas_mes': facturas_mes.count(),
         'facturas_hoy_todas': facturas_hoy_todas,
         'todas_facturas': todas_facturas,
+        # Información adicional para depuración
+        'rango_dia_inicio': rango_dia_inicio.strftime('%d/%m/%Y %H:%M'),
+        'rango_dia_fin': rango_dia_fin.strftime('%d/%m/%Y %H:%M'),
+        'definicion_dia': '6:00 AM - 5:59 AM (día siguiente)',
     }
     
     return render(request, 'facturacion/dashbort.html', context)
@@ -3019,12 +3052,21 @@ def dashboard_stats(request):
     ahora_local = timezone.localtime()
     hoy_local = ahora_local.date()
     
-    inicio_dia = timezone.make_aware(
-        datetime.combine(hoy_local, datetime.min.time())
-    )
-    fin_dia = timezone.make_aware(
-        datetime.combine(hoy_local, datetime.max.time())
-    )
+    # Misma lógica de "día" de 6 AM a 5:59 AM
+    if ahora_local.hour >= 6:
+        inicio_dia = timezone.make_aware(
+            datetime.combine(hoy_local, datetime(2000, 1, 1, 6, 0, 0).time())
+        )
+        fin_dia = timezone.make_aware(
+            datetime.combine(hoy_local + timedelta(days=1), datetime(2000, 1, 1, 5, 59, 59).time())
+        )
+    else:
+        inicio_dia = timezone.make_aware(
+            datetime.combine(hoy_local - timedelta(days=1), datetime(2000, 1, 1, 6, 0, 0).time())
+        )
+        fin_dia = timezone.make_aware(
+            datetime.combine(hoy_local, datetime(2000, 1, 1, 5, 59, 59).time())
+        )
     
     venta_dia = Factura.objects.filter(
         fecha_factura__gte=inicio_dia,
@@ -3040,9 +3082,9 @@ def dashboard_stats(request):
     return JsonResponse({
         'venta_dia': float(venta_dia),
         'total_pedidos': total_pedidos,
-        'timestamp': timezone.now().strftime('%H:%M:%S')
+        'timestamp': timezone.now().strftime('%H:%M:%S'),
+        'rango_dia': f"{inicio_dia.strftime('%H:%M')} - {fin_dia.strftime('%H:%M')}"
     })
-
 
 
 
@@ -3058,29 +3100,47 @@ from reportlab.lib import colors
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
-from django.db.models import Sum
+from django.db.models import Sum, Max, Min
 from datetime import datetime
 from decimal import Decimal
+
+
 
 @login_required
 def generar_pdf_ticket_dia(request):
     """Generar PDF del ticket de venta del día para impresora 80mm"""
-    # Obtener datos de venta del día
+    # Obtener hora local actual
     ahora_local = timezone.localtime()
     hoy_local = ahora_local.date()
     
-    inicio_dia = timezone.make_aware(
-        datetime.combine(hoy_local, datetime.min.time())
-    )
-    fin_dia = timezone.make_aware(
-        datetime.combine(hoy_local, datetime.max.time())
-    )
+    # DEFINICIÓN DEL "DÍA": De 6:00 AM a 5:59 AM del día siguiente
+    if ahora_local.hour >= 6:
+        # Si son las 6:00 AM o más tarde, el día actual comenzó hoy a las 6:00 AM
+        inicio_dia = timezone.make_aware(
+            datetime.combine(hoy_local, datetime(2000, 1, 1, 6, 0, 0).time())
+        )
+        fin_dia = timezone.make_aware(
+            datetime.combine(hoy_local + timedelta(days=1), datetime(2000, 1, 1, 5, 59, 59).time())
+        )
+        periodo_texto = f"{hoy_local.strftime('%d/%m/%Y')} 06:00 - {(hoy_local + timedelta(days=1)).strftime('%d/%m/%Y')} 05:59"
+        periodo_corto = f"{hoy_local.strftime('%d/%m')} 06:00 a {(hoy_local + timedelta(days=1)).strftime('%d/%m')} 06:00"
+    else:
+        # Si es antes de las 6:00 AM, estamos en el día que comenzó ayer a las 6:00 AM
+        inicio_dia = timezone.make_aware(
+            datetime.combine(hoy_local - timedelta(days=1), datetime(2000, 1, 1, 6, 0, 0).time())
+        )
+        fin_dia = timezone.make_aware(
+            datetime.combine(hoy_local, datetime(2000, 1, 1, 5, 59, 59).time())
+        )
+        periodo_texto = f"{(hoy_local - timedelta(days=1)).strftime('%d/%m/%Y')} 06:00 - {hoy_local.strftime('%d/%m/%Y')} 05:59"
+        periodo_corto = f"{(hoy_local - timedelta(days=1)).strftime('%d/%m')} 06:00 a {hoy_local.strftime('%d/%m')} 06:00"
     
+    # Obtener facturas del período
     facturas_hoy = Factura.objects.filter(
         fecha_factura__gte=inicio_dia,
         fecha_factura__lte=fin_dia,
         estado='pagada'
-    )
+    ).order_by('fecha_factura')
     
     venta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))['total_dia'] or Decimal('0.00')
     
@@ -3088,8 +3148,6 @@ def generar_pdf_ticket_dia(request):
     buffer = io.BytesIO()
     
     # Configurar el tamaño de la página para impresora térmica 80mm
-    # Ancho: 80mm = 226.77 puntos (1mm = 2.83465 puntos)
-    # Alto: Variable, pero usaremos un tamaño estándar para ticket
     ancho_pagina = 80 * mm  # 226.77 puntos
     alto_pagina = 297 * mm  # Alto estándar para ticket continuo
     
@@ -3097,7 +3155,7 @@ def generar_pdf_ticket_dia(request):
     c = canvas.Canvas(buffer, pagesize=(ancho_pagina, alto_pagina))
     
     # Configurar fuentes y estilos para impresora térmica
-    c.setFont("Helvetica", 8)  # Fuente pequeña para impresora térmica
+    c.setFont("Helvetica", 8)
     
     # Coordenadas iniciales (de arriba hacia abajo)
     y = alto_pagina - 10 * mm  # Comenzar 10mm desde el borde superior
@@ -3108,87 +3166,145 @@ def generar_pdf_ticket_dia(request):
     y -= 6 * mm
     
     c.setFont("Helvetica", 9)
-    c.drawCentredString(ancho_pagina / 2, y, "TICKET DE VENTAS DEL DÍA")
+    c.drawCentredString(ancho_pagina / 2, y, "REPORTE DE VENTAS")
     y -= 5 * mm
     
     # Línea separadora
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
     y -= 4 * mm
     
-    # 2. FECHA Y HORA
+    # 2. PERÍODO DE REPORTE (con nueva definición)
+    c.setFont("Helvetica-Bold", 9)
+    c.drawCentredString(ancho_pagina / 2, y, "PERÍODO DE REPORTE")
+    y -= 4 * mm
+    
     c.setFont("Helvetica", 8)
-    c.drawString(5 * mm, y, f"FECHA: {hoy_local.strftime('%d/%m/%Y')}")
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"HORA: {ahora_local.strftime('%H:%M:%S')}")
+    c.drawCentredString(ancho_pagina / 2, y, periodo_corto)
+    y -= 4 * mm
+    
+    c.drawCentredString(ancho_pagina / 2, y, "(De 6:00 AM a 5:59 AM)")
+    y -= 6 * mm
+    
+    # 3. FECHA Y HORA DE GENERACIÓN
+    c.setFont("Helvetica", 8)
+    c.drawString(5 * mm, y, f"Generado:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, ahora_local.strftime('%d/%m/%Y %H:%M'))
     y -= 4 * mm
     
     # Línea separadora
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
     y -= 4 * mm
     
-    # 3. INFORMACIÓN DE VENTAS
-    c.setFont("Helvetica-Bold", 9)
+    # 4. RESUMEN DE VENTAS
+    c.setFont("Helvetica-Bold", 10)
     c.drawCentredString(ancho_pagina / 2, y, "RESUMEN DE VENTAS")
     y -= 4 * mm
     
     c.setFont("Helvetica", 8)
-    c.drawString(5 * mm, y, f"TOTAL FACTURAS:")
+    c.drawString(5 * mm, y, f"Total de Facturas:")
     c.drawRightString(ancho_pagina - 5 * mm, y, f"{facturas_hoy.count()}")
     y -= 4 * mm
     
     # Línea separadora punteada
-    c.setDash(1, 2)  # Patrón punteado
+    c.setDash(1, 2)
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-    c.setDash()  # Restaurar línea continua
-    y -= 4 * mm
+    c.setDash()
+    y -= 6 * mm
     
-    # 4. DETALLE DE FACTURAS (si hay)
+    # 5. DETALLE DE FACTURAS (si hay)
     if facturas_hoy.exists():
+        c.setFont("Helvetica-Bold", 9)
+        c.drawCentredString(ancho_pagina / 2, y, "DETALLE DE FACTURAS")
+        y -= 5 * mm
+        
+        # Encabezado de tabla
         c.setFont("Helvetica-Bold", 8)
-        c.drawString(5 * mm, y, "DETALLE DE FACTURAS:")
+        c.drawString(5 * mm, y, "FACTURA")
+        c.drawString(25 * mm, y, "HORA")
+        c.drawString(40 * mm, y, "CLIENTE")
+        c.drawRightString(ancho_pagina - 5 * mm, y, "TOTAL")
         y -= 4 * mm
         
         c.setFont("Helvetica", 7)
-        for i, factura in enumerate(facturas_hoy, 1):
-            # Formatear número de factura
-            factura_text = f"#{factura.numero_factura}"
-            c.drawString(10 * mm, y, factura_text)
-            
-            # Formatear cliente (truncar si es muy largo)
-            cliente = factura.nombre_cliente or "CLIENTE"
-            if len(cliente) > 15:
-                cliente = cliente[:15] + "..."
-            c.drawString(25 * mm, y, cliente)
-            
-            # Total de la factura
-            c.drawRightString(ancho_pagina - 10 * mm, y, f"${factura.total:,.2f}")
-            y -= 3.5 * mm
-            
-            # Si nos quedamos sin espacio, crear nueva página
-            if y < 20 * mm:
+        for factura in facturas_hoy:
+            # Verificar si hay espacio en la página
+            if y < 25 * mm:  # Si queda poco espacio
                 c.showPage()
                 c.setFont("Helvetica", 8)
                 y = alto_pagina - 10 * mm
+                # Reimprimir encabezado de tabla
+                c.setFont("Helvetica-Bold", 8)
+                c.drawString(5 * mm, y, "FACTURA")
+                c.drawString(25 * mm, y, "HORA")
+                c.drawString(40 * mm, y, "CLIENTE")
+                c.drawRightString(ancho_pagina - 5 * mm, y, "TOTAL")
+                y -= 4 * mm
+                c.setFont("Helvetica", 7)
+            
+            # Número de factura
+            c.drawString(5 * mm, y, f"#{factura.numero_factura}")
+            
+            # Hora
+            hora_factura = timezone.localtime(factura.fecha_factura)
+            c.drawString(25 * mm, y, hora_factura.strftime('%H:%M'))
+            
+            # Cliente (truncar si es muy largo)
+            cliente = factura.nombre_cliente or "CLIENTE"
+            if len(cliente) > 12:
+                cliente = cliente[:12] + "..."
+            c.drawString(40 * mm, y, cliente)
+            
+            # Total de la factura
+            c.drawRightString(ancho_pagina - 5 * mm, y, f"${factura.total:,.2f}")
+            y -= 3.5 * mm
         
-        # Línea separadora
+        # Línea separadora después de la lista
         c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
         y -= 4 * mm
     
-    # 5. TOTAL DEL DÍA
-    c.setFont("Helvetica-Bold", 10)
+    # 6. TOTAL DEL DÍA
+    c.setFont("Helvetica-Bold", 11)
     c.drawString(5 * mm, y, "TOTAL DEL DÍA:")
-    c.setFont("Helvetica-Bold", 12)
+    c.setFont("Helvetica-Bold", 14)
     c.drawRightString(ancho_pagina - 5 * mm, y, f"${venta_dia:,.2f}")
-    y -= 6 * mm
+    y -= 8 * mm
     
     # Línea doble para énfasis
-    c.setLineWidth(0.5)
+    c.setLineWidth(0.8)
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-    y -= 1 * mm
+    y -= 1.5 * mm
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
     c.setLineWidth(1)
-    y -= 5 * mm
+    y -= 6 * mm
     
-    # 6. PIE DE PÁGINA
+    # 7. ESTADÍSTICAS ADICIONALES
+    c.setFont("Helvetica", 8)
+    c.drawCentredString(ancho_pagina / 2, y, "ESTADÍSTICAS")
+    y -= 4 * mm
+    
+    # Promedio por factura
+    promedio = venta_dia / facturas_hoy.count() if facturas_hoy.count() > 0 else Decimal('0.00')
+    c.drawString(5 * mm, y, f"Promedio por factura:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"${promedio:,.2f}")
+    y -= 3.5 * mm
+    
+    # Factura más alta
+    if facturas_hoy.exists():
+        max_factura = facturas_hoy.aggregate(max_total=Max('total'))['max_total'] or Decimal('0.00')
+        c.drawString(5 * mm, y, f"Factura más alta:")
+        c.drawRightString(ancho_pagina - 5 * mm, y, f"${max_factura:,.2f}")
+        y -= 3.5 * mm
+    
+    # Factura más baja
+    if facturas_hoy.exists():
+        min_factura = facturas_hoy.aggregate(min_total=Min('total'))['min_total'] or Decimal('0.00')
+        c.drawString(5 * mm, y, f"Factura más baja:")
+        c.drawRightString(ancho_pagina - 5 * mm, y, f"${min_factura:,.2f}")
+        y -= 3.5 * mm
+    
+    y -= 4 * mm
+    
+    # 8. PIE DE PÁGINA
     c.setFont("Helvetica", 8)
     c.drawCentredString(ancho_pagina / 2, y, "*** GRACIAS POR SU VISITA ***")
     y -= 3 * mm
@@ -3198,16 +3314,29 @@ def generar_pdf_ticket_dia(request):
     y -= 3 * mm
     
     c.drawCentredString(ancho_pagina / 2, y, "www.mirestaurante.com")
+    y -= 5 * mm
     
-    # 7. CÓDIGO DE BARRAS (opcional, simulado)
-    y -= 8 * mm
+    # 9. CÓDIGO DE BARRAS (simulado para referencia)
     c.setFont("Helvetica", 6)
     c.drawCentredString(ancho_pagina / 2, y, "| | | | | | | | | | | | | | | |")
     y -= 2 * mm
-    c.drawCentredString(ancho_pagina / 2, y, f"REF: {hoy_local.strftime('%Y%m%d')}")
+    c.drawCentredString(ancho_pagina / 2, y, f"REF: {ahora_local.strftime('%Y%m%d%H%M')}")
+    y -= 3 * mm
+    
+    # 10. NOTA IMPORTANTE
+    c.setFont("Helvetica", 6)
+    nota_texto = "Nota: Este reporte incluye ventas desde las 6:00 AM hasta las 5:59 AM del día siguiente."
+    # Dividir texto largo en líneas
+    max_chars_per_line = 45
+    lines = []
+    for i in range(0, len(nota_texto), max_chars_per_line):
+        lines.append(nota_texto[i:i+max_chars_per_line])
+    
+    for line in lines:
+        c.drawCentredString(ancho_pagina / 2, y, line)
+        y -= 2.5 * mm
     
     # Guardar el PDF
-    c.showPage()
     c.save()
     
     # Obtener el valor del buffer y devolver como respuesta HTTP
@@ -3215,5 +3344,6 @@ def generar_pdf_ticket_dia(request):
     
     # Configurar respuesta HTTP
     response = HttpResponse(buffer, content_type='application/pdf')
-    response['Content-Disposition'] = 'inline; filename="ticket_ventas_dia.pdf"'
+    filename = f"reporte_ventas_{ahora_local.strftime('%Y%m%d_%H%M')}.pdf"
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
     return response
