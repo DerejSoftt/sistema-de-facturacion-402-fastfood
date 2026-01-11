@@ -2,4 +2,12 @@ venv/
 dashboards.html
 dashborts.html
 .env/
+*.sqlite3
+staticfiles/
+*.sql
+*.ps1
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 
