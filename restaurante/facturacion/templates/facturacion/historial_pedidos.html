@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Historial de Pedidos Pagados - Restaurante</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Usa los mismos estilos que gestiondepedidos.html o crea un CSS específico */
         * {
@@ -14,8 +15,9 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             min-height: 100vh;
+            overflow-x: hidden;
         }
         
         /* App container */
@@ -35,7 +37,7 @@
         }
         
         .sidebar-header {
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             color: white;
             padding: 1.5rem;
             font-size: 1.25rem;
@@ -137,7 +139,7 @@
         
         /* Header */
         .header {
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             color: white;
             padding: 2.5rem;
             text-align: center;
@@ -246,9 +248,10 @@
             gap: 10px;
         }
         
-        .controls-header h3::before {
-            content: "📋";
-            font-size: 1.2rem;
+        .controls-header h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         
         /* Botones */
@@ -665,13 +668,13 @@
 </head>
 <body>
     <!-- Mobile menu toggle -->
-    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
     
     <div class="app-container">
-        <!-- Sidebar navigation (mismo que gestiondepedidos) -->
+        <!-- Sidebar navigation -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                🍽️ Mi Restaurante
+                <i class="fas fa-utensils"></i> Mi Restaurante
             </div>
             <nav class="sidebar-nav">
                 {% with user_groups=user.groups.all|join:"," %}
@@ -679,23 +682,23 @@
                 <!-- Menú para Usuario Normal -->
                 {% if "Usuario Normal" in user_groups and not user.is_superuser %}
                 <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon">🛒</span>
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                     <span>Pedidos</span>
                 </a>
                 <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                    <span class="nav-icon">📋</span>
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                     <span>Inventario</span>
                 </a>
                 <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                    <span class="nav-icon">📋</span>
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
                     <span>Gestión de Pedidos</span>
                 </a>
                 <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon">🧾</span>
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
                     <span>Facturación</span>
                 </a>
                 <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon">📤</span>
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
                     <span>Salida de Productos</span>
                 </a>
                 {% endif %}
@@ -703,86 +706,145 @@
                 <!-- Menú para Administrador -->
                 {% if "Administrador" in user_groups and not user.is_superuser %}
                 <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                    <span class="nav-icon">📦</span>
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
                     <span>Entrada de Productos</span>
                 </a>
                 <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                    <span class="nav-icon">📋</span>
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                     <span>Inventario</span>
                 </a>
                 <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                    <span class="nav-icon">🍽️</span>
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
                     <span>Entrada de Platos</span>
                 </a>
                 <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                    <span class="nav-icon">📊</span>
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
                     <span>Gestión de Platos</span>
                 </a>
                 <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon">🛒</span>
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                     <span>Pedidos</span>
                 </a>
-                <a href="{% url 'gestiondepedidos' %}" class="nav-item active">
-                    <span class="nav-icon">📋</span>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
                     <span>Gestión de Pedidos</span>
                 </a>
                 <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon">🧾</span>
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
                     <span>Facturación</span>
                 </a>
                 <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon">📤</span>
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
                     <span>Salida de Productos</span>
                 </a>
                 <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                    <span class="nav-icon">👥</span>
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>Gestión de Usuarios</span>
+                </a>
+                <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
+                {% endif %}
+                
+                <!-- Menú para Gerente -->
+                {% if "Gerente" in user_groups and not user.is_superuser %}
+                <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
+                {% endif %}
+                
+                {% if "Cajero" in user_groups and not user.is_superuser %}
+                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
                 </a>
                 {% endif %}
                 
                 <!-- Menú EXCLUSIVO para superusuarios -->
                 {% if user.is_superuser %}
                 <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                    <span class="nav-icon">📦</span>
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
                     <span>Entrada de Productos</span>
                 </a>
                 <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                    <span class="nav-icon">📋</span>
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                     <span>Inventario</span>
                 </a>
                 <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                    <span class="nav-icon">🍽️</span>
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
                     <span>Entrada de Platos</span>
                 </a>
                 <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                    <span class="nav-icon">📊</span>
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
                     <span>Gestión de Platos</span>
                 </a>
                 <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon">🛒</span>
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                     <span>Pedidos</span>
                 </a>
-                <a href="{% url 'gestiondepedidos' %}" class="nav-item active">
-                    <span class="nav-icon">📋</span>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
                     <span>Gestión de Pedidos</span>
                 </a>
                 <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon">🧾</span>
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
                     <span>Facturación</span>
                 </a>
                 <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon">📤</span>
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
                     <span>Salida de Productos</span>
                 </a>
                 <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                    <span class="nav-icon">👥</span>
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>Gestión de Usuarios</span>
+                </a>
+                <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
                 </a>
                 {% endif %}
                 
                 <!-- Cerrar sesión para todos -->
                 <a href="{% url 'logout' %}" class="nav-item">
-                    <span class="nav-icon">🚪</span>
+                    <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
                     <span>Cerrar Sesión</span>
                 </a>
                 
@@ -796,10 +858,10 @@
         <div class="main-content">
             <div class="container">
                 <div class="header">
-                    <h1>📋 Historial de Pedidos Pagados</h1>
+                    <h1><i class="fas fa-clipboard-list"></i> Historial de Pedidos Pagados</h1>
                     <p>Consulta todos los pedidos que ya han sido pagados y facturados</p>
                     <div style="margin-top: 1rem; background: rgba(255, 255, 255, 0.2); padding: 0.5rem 1rem; border-radius: 10px; font-size: 0.9rem;">
-                        <strong>💡 Nota:</strong> Estos pedidos ya no aparecen en la gestión activa. 
+                        <strong><i class="fas fa-lightbulb"></i> Nota:</strong> Estos pedidos ya no aparecen en la gestión activa. 
                         <a href="{% url 'gestiondepedidos' %}" style="color: white; text-decoration: underline;">Volver a gestión activa</a>
                     </div>
                 </div>
@@ -808,18 +870,18 @@
                     <!-- Stats Cards -->
                     <div class="stats-container">
                         <div class="stat-card">
-                            <span class="stat-icon">💰</span>
+                            <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
                             <div class="stat-value">{{ estadisticas.total_pedidos }}</div>
                             <div class="stat-label">Total Pagados</div>
                         </div>
                         <div class="stat-card">
-                            <span class="stat-icon">📈</span>
-                            <div class="stat-value">${{ estadisticas.ingresos_totales|floatformat:2 }}</div>
+                            <span class="stat-icon"><i class="fas fa-chart-line"></i></span>
+                            <div class="stat-value">$<span id="ingresosTotalesValor">{{ estadisticas.ingresos_totales|default:0 }}</span></div>
                             <div class="stat-label">Ingresos Totales</div>
                         </div>
                         <div class="stat-card">
-                            <span class="stat-icon">📅</span>
-                            <div class="stat-value">${{ estadisticas.ingresos_mes_actual|floatformat:2 }}</div>
+                            <span class="stat-icon"><i class="fas fa-calendar-alt"></i></span>
+                            <div class="stat-value">$<span id="ingresosMesValor">{{ estadisticas.ingresos_mes_actual|default:0 }}</span></div>
                             <div class="stat-label">Ingresos Este Mes</div>
                         </div>
                     </div>
@@ -830,11 +892,11 @@
                             <h3>Buscar en el Historial</h3>
                             <div style="display: flex; gap: 1rem;">
                                 <button class="btn btn-warning btn-sm" onclick="window.location.href='{% url 'gestiondepedidos' %}'" type="button">
-                                    <span>↩️</span>
+                                    <span><i class="fas fa-arrow-left"></i></span>
                                     <span>Volver a Activos</span>
                                 </button>
                                 <button class="btn btn-primary btn-sm" onclick="exportHistorial()" type="button">
-                                    <span>📤</span>
+                                    <span><i class="fas fa-file-export"></i></span>
                                     <span>Exportar Historial</span>
                                 </button>
                             </div>
@@ -842,9 +904,9 @@
                         
                         <form method="get" id="filterForm">
                             <div class="form-group">
-                                <label for="searchInput">🔍 Buscar Pedido</label>
+                                <label for="searchInput"><i class="fas fa-search"></i> Buscar Pedido</label>
                                 <div class="search-box">
-                                    <span class="search-icon">🔍</span>
+                                    <span class="search-icon"><i class="fas fa-search"></i></span>
                                     <input type="text" id="searchInput" name="search" 
                                            value="{{ filtros.search }}"
                                            placeholder="Buscar por cliente, número de pedido, factura...">
@@ -853,7 +915,7 @@
                             
                             <div class="filter-row">
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="typeFilter">🚚 Tipo de Pedido</label>
+                                    <label for="typeFilter"><i class="fas fa-truck"></i> Tipo de Pedido</label>
                                     <select class="filter-select" id="typeFilter" name="tipo_pedido">
                                         <option value="">Todos los tipos</option>
                                         <option value="mesa" {% if filtros.tipo_pedido == 'mesa' %}selected{% endif %}>Comer en Restaurante</option>
@@ -863,7 +925,7 @@
                                 </div>
                                 
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="dateFilter">📅 Fecha</label>
+                                    <label for="dateFilter"><i class="fas fa-calendar-alt"></i> Fecha</label>
                                     <select class="filter-select" id="dateFilter" name="fecha">
                                         <option value="">Todas las fechas</option>
                                         <option value="hoy" {% if filtros.fecha == 'hoy' %}selected{% endif %}>Hoy</option>
@@ -873,10 +935,13 @@
                                     </select>
                                 </div>
                                 
-                                <button type="submit" class="btn btn-primary" style="height: fit-content; margin-top: 1.5rem;">
-                                    <span>🔍</span>
-                                    <span>Filtrar</span>
-                                </button>
+                                <div class="form-group" style="flex: 0 0 auto;">
+                                    <label style="opacity: 0; pointer-events: none;">Acción</label>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-filter"></i>
+                                        Filtrar
+                                    </button>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -903,7 +968,7 @@
                                         <td style="font-weight: 700; color: #2c3e50;">{{ pedido.codigo_pedido }}</td>
                                         <td>
                                             <div class="factura-badge">
-                                                <span>🧾</span>
+                                                <i class="fas fa-receipt"></i>
                                                 <span>{{ pedido.factura_numero|default:"Sin factura" }}</span>
                                             </div>
                                         </td>
@@ -916,33 +981,33 @@
                                                     {% endif %}
                                                 </div>
                                                 {% if pedido.telefono_cliente %}
-                                                    <div class="customer-phone">📱 {{ pedido.telefono_cliente }}</div>
+                                                    <div class="customer-phone"><i class="fas fa-phone"></i> {{ pedido.telefono_cliente }}</div>
                                                 {% endif %}
                                                 {% if pedido.direccion_entrega %}
-                                                    <div class="customer-phone">📍 {{ pedido.direccion_entrega|truncatechars:30 }}</div>
+                                                    <div class="customer-phone"><i class="fas fa-map-marker-alt"></i> {{ pedido.direccion_entrega|truncatechars:30 }}</div>
                                                 {% endif %}
                                             </div>
                                         </td>
                                         <td>
                                             <div class="date-badge">
-                                                <span>📅</span>
+                                                <i class="fas fa-calendar-alt"></i>
                                                 <span>{{ pedido.fecha_formateada }}</span>
                                             </div>
                                         </td>
                                         <td>
                                             {% if pedido.tipo_pedido == 'mesa' %}
                                                 <span class="order-type-badge type-restaurante">
-                                                    <span>🍽️</span>
+                                                    <i class="fas fa-utensils"></i>
                                                     {{ pedido.tipo_pedido_display }}
                                                 </span>
                                             {% elif pedido.tipo_pedido == 'delivery' %}
                                                 <span class="order-type-badge type-domicilio">
-                                                    <span>🚚</span>
+                                                    <i class="fas fa-truck"></i>
                                                     {{ pedido.tipo_pedido_display }}
                                                 </span>
                                             {% else %}
                                                 <span class="order-type-badge type-recoger">
-                                                    <span>🏃‍♂️</span>
+                                                    <i class="fas fa-walking"></i>
                                                     {{ pedido.tipo_pedido_display }}
                                                 </span>
                                             {% endif %}
@@ -952,7 +1017,7 @@
                                         </td>
                                         <td>
                                             <span class="status-pagado">
-                                                <span class="status-icon">✅</span>
+                                                <span class="status-icon"><i class="fas fa-check-circle"></i></span>
                                                 {{ pedido.estado_display }}
                                             </span>
                                         </td>
@@ -1011,6 +1076,39 @@
     {% csrf_token %}
 
     <script>
+        // Formatear moneda al cargar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            // Formatear ingresos totales
+            const ingresosTotalesElement = document.getElementById('ingresosTotalesValor');
+            if (ingresosTotalesElement) {
+                const valor = parseFloat(ingresosTotalesElement.textContent) || 0;
+                ingresosTotalesElement.textContent = valor.toLocaleString('es-DO', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            }
+            
+            // Formatear ingresos del mes
+            const ingresosMesElement = document.getElementById('ingresosMesValor');
+            if (ingresosMesElement) {
+                const valor = parseFloat(ingresosMesElement.textContent) || 0;
+                ingresosMesElement.textContent = valor.toLocaleString('es-DO', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            }
+            
+            // Formatear totales de pedidos en la tabla
+            document.querySelectorAll('.order-total').forEach(element => {
+                const texto = element.textContent.trim();
+                const valor = parseFloat(texto.replace('$', '').replace(/,/g, '')) || 0;
+                element.textContent = '$' + valor.toLocaleString('es-DO', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            });
+        });
+        
         // Función para alternar sidebar
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');

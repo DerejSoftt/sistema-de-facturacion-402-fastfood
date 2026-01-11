@@ -1127,11 +1127,50 @@
                     <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>Gestión de Usuarios</span>
                 </a>
+                <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
                 {% endif %}
                 
-                <!-- Menú para otros grupos... -->
+                <!-- Menú para Gerente -->
                 {% if "Gerente" in user_groups and not user.is_superuser %}
-                <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
+                <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
                 {% endif %}
                 
                 {% if "Cajero" in user_groups and not user.is_superuser %}
@@ -1183,6 +1222,10 @@
                     <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>Gestión de Usuarios</span>
                 </a>
+                <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
                 {% endif %}
                 
                 <!-- Cerrar sesión para todos -->
@@ -1224,7 +1267,7 @@
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
-                            <div class="stat-value" id="ingresosHoy">${{ estadisticas.ingresos_hoy|floatformat:2|intcomma }}</div>
+                            <div class="stat-value" id="ingresosHoy">$<span id="ingresosHoyValor">{{ estadisticas.ingresos_hoy }}</span></div>
                             <div class="stat-label">Ingresos Hoy</div>
                         </div>
                         <div class="stat-card">
@@ -1545,6 +1588,16 @@
         
         // Configurar event listeners
         function setupEventListeners() {
+            // Formatear ingresos del día con formato RD
+            const ingresosElement = document.getElementById('ingresosHoyValor');
+            if (ingresosElement) {
+                const valor = parseFloat(ingresosElement.textContent) || 0;
+                ingresosElement.textContent = valor.toLocaleString('es-DO', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            }
+            
             // Botón para exportar pedidos
             const exportBtn = document.querySelector('.btn-primary[onclick*="exportOrders"]');
             if (exportBtn) {
@@ -1653,8 +1706,8 @@
                     <tr>
                         <td>${item.name || item.nombre}</td>
                         <td>${item.quantity || item.cantidad}</td>
-                        <td>$${(item.price || item.precio || 0).toFixed(2)}</td>
-                        <td>$${(item.total || item.subtotal || 0).toFixed(2)}</td>
+                        <td>$${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td>$${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     </tr>
                 `).join('');
             }
@@ -1709,15 +1762,15 @@
                             <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
                                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                     <span>Subtotal:</span>
-                                    <span>$${pedido.subtotal.toFixed(2)}</span>
+                                    <span>$${pedido.subtotal.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                     <span>Envío:</span>
-                                    <span>$${pedido.envio.toFixed(2)}</span>
+                                    <span>$${pedido.envio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; color: #ff7e5f; padding-top: 0.5rem; border-top: 1px solid #e0e6ff;">
                                     <span>Total:</span>
-                                    <span>$${pedido.total.toFixed(2)}</span>
+                                    <span>$${pedido.total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                                 </div>
                             </div>
                         </div>
@@ -1811,7 +1864,7 @@
                         <div style="flex: 2;">
                             <strong>${item.name || item.nombre}</strong>
                             <div style="font-size: 0.9rem; color: #718096;">
-                                Precio: $${(item.price || item.precio || 0).toFixed(2)}
+                                Precio: $${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                             </div>
                         </div>
                         <div class="cantidad-controls">
@@ -1825,7 +1878,7 @@
                             <button type="button" class="cantidad-btn" onclick="cambiarCantidad(${index}, 1)">+</button>
                         </div>
                         <div style="font-weight: bold; color: #ff7e5f; min-width: 80px; text-align: right;" id="total-item-${index}">
-                            $${(item.total || item.subtotal || 0).toFixed(2)}
+                            $${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                         </div>
                         <button type="button" class="btn-icon btn-danger" onclick="eliminarItem(${index})" title="Eliminar item">
                             <i class="fas fa-trash"></i>
@@ -1915,7 +1968,7 @@
                     <div>
                         <strong style="font-size: 1.2rem;">Total: $</strong>
                         <span id="totalPedidoEdit" style="font-size: 1.5rem; font-weight: bold; color: #ff7e5f;">
-                            ${pedido.total.toFixed(2)}
+                            ${pedido.total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                         </span>
                     </div>
                     <div style="display: flex; gap: 1rem;">
@@ -1964,7 +2017,7 @@
                                 <div style="flex: 1;">
                                     <strong>${producto.nombre}</strong>
                                     <div style="font-size: 0.85rem; color: #718096;">
-                                        ${producto.categoria || producto.tipo} - $${producto.precio.toFixed(2)}
+                                        ${producto.categoria || producto.tipo} - $${producto.precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                                     </div>
                                 </div>
                                 <div style="margin-left: 1rem;">
@@ -2011,7 +2064,7 @@
                     <div style="flex: 2;">
                         <strong>${producto.nombre}</strong>
                         <div style="font-size: 0.9rem; color: #718096;">
-                            Precio: $${precio.toFixed(2)}
+                            Precio: $${precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                         </div>
                     </div>
                     <div class="cantidad-controls">
@@ -2025,7 +2078,7 @@
                         <button type="button" class="cantidad-btn" onclick="cambiarCantidadEdit('${itemId}', 1)">+</button>
                     </div>
                     <div style="font-weight: bold; color: #ff7e5f; min-width: 80px; text-align: right;" id="total-item-${itemId}">
-                        $${total.toFixed(2)}
+                        $${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </div>
                     <button type="button" class="btn-icon btn-danger" onclick="eliminarItemEdit('${itemId}')" title="Eliminar item" style="margin-left: 1rem;">
                         <i class="fas fa-trash"></i>
@@ -2061,7 +2114,7 @@
             
             const totalElement = document.getElementById(`total-item-${itemId}`);
             if (totalElement) {
-                totalElement.textContent = `$${total.toFixed(2)}`;
+                totalElement.textContent = `$${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             }
             
             calcularTotalPedidoEdit();
@@ -2094,7 +2147,7 @@
             
             const totalElement = document.getElementById('totalPedidoEdit');
             if (totalElement) {
-                totalElement.textContent = total.toFixed(2);
+                totalElement.textContent = total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             }
             
             return total;
@@ -2122,7 +2175,7 @@
             
             const totalElement = document.getElementById(`total-item-${index}`);
             if (totalElement) {
-                totalElement.textContent = `$${total.toFixed(2)}`;
+                totalElement.textContent = `$${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             }
             
             calcularTotalPedidoEdit();

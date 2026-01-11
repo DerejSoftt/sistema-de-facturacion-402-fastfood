@@ -597,77 +597,7 @@ class HistorialEstadoPedido(models.Model):
         verbose_name_plural = "Historial Estados Pedido"
         ordering = ['-fecha_cambio']
 
-class DetalleItemPedido(models.Model):
-    """Modelo auxiliar para desnormalizar los items del pedido (opcional)"""
-    TIPOS_ITEM = [
-        ('plato', 'Plato'),
-        ('bebida', 'Bebida'),
-    ]
-    
-    pedido = models.ForeignKey(
-        Pedido, 
-        on_delete=models.CASCADE,
-        related_name='detalles_items'
-    )
-    id_plato = models.IntegerField(verbose_name="ID del Plato/Bebida")
-    nombre_plato = models.CharField(max_length=200, verbose_name="Nombre del Plato/Bebida")
-    cantidad = models.IntegerField(verbose_name="Cantidad")
-    precio_unitario = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2,
-        verbose_name="Precio Unitario"
-    )
-    subtotal_item = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2,
-        verbose_name="Subtotal Item"
-    )
-    tipo_item = models.CharField(
-        max_length=20, 
-        choices=TIPOS_ITEM, 
-        default='plato',
-        verbose_name="Tipo de Item"
-    )
-    notas = models.TextField(blank=True, verbose_name="Notas del Item")
-    
-    def __str__(self):
-        return f"{self.nombre_plato} x{self.cantidad}"
-    
-    class Meta:
-        verbose_name = "Detalle Item Pedido"
-        verbose_name_plural = "Detalles Items Pedido"
 
-class HistorialEstadoPedido(models.Model):
-    """Modelo para rastrear cambios de estado del pedido"""
-    pedido = models.ForeignKey(
-        Pedido, 
-        on_delete=models.CASCADE,
-        related_name='historial_estados'
-    )
-    estado_anterior = models.CharField(max_length=20)
-    estado_nuevo = models.CharField(max_length=20)
-    usuario = models.ForeignKey(
-        User, 
-        on_delete=models.SET_NULL, 
-        null=True
-    )
-    fecha_cambio = models.DateTimeField(auto_now_add=True)
-    motivo = models.TextField(blank=True)
-    
-    def __str__(self):
-        return f"Cambio de {self.estado_anterior} a {self.estado_nuevo}"
-    
-    class Meta:
-        verbose_name = "Historial Estado Pedido"
-        verbose_name_plural = "Historial Estados Pedido"
-        ordering = ['-fecha_cambio']
-
-
-
-
-# models.py - Agregar al archivo existente
-import json
-from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
 
