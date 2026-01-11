@@ -774,7 +774,7 @@
                                 
                                 <div class="form-group">
                                     <label for="precioPlato"><i class="fas fa-dollar-sign"></i> Precio ($)</label>
-                                    <input type="number" id="precioPlato" name="precio" placeholder="0.00" min="0" step="0.01" required>
+                                    <input type="text" id="precioPlato" name="precio" placeholder="0.00" required>
                                 </div>
                             </div>
                             
@@ -830,6 +830,38 @@
                     input.addEventListener('change', updatePreview);
                 }
             });
+            
+            // Formateo para el precio
+            const precioInput = document.getElementById('precioPlato');
+            precioInput.addEventListener('input', function(e) {
+                let valor = e.target.value.replace(/[^0-9.]/g, '');
+                
+                // Permitir solo un punto decimal
+                const partes = valor.split('.');
+                if (partes.length > 2) {
+                    valor = partes[0] + '.' + partes.slice(1).join('');
+                }
+                
+                // Limitar decimales a 2
+                if (partes.length === 2 && partes[1].length > 2) {
+                    valor = partes[0] + '.' + partes[1].substring(0, 2);
+                }
+                
+                // Formatear con comas
+                if (valor) {
+                    const [entero, decimal] = valor.split('.');
+                    const enteroFormateado = parseInt(entero || 0).toLocaleString('en-US');
+                    valor = decimal !== undefined ? enteroFormateado + '.' + decimal : enteroFormateado;
+                }
+                
+                e.target.value = valor;
+                updatePreview();
+            });
+        }
+        
+        // Función para desformatear número (quitar comas)
+        function desformatearNumero(valor) {
+            return valor.replace(/,/g, '');
         }
         
         // Actualizar vista previa
@@ -885,10 +917,12 @@
             }
             
             if (precio) {
+                const precioNumerico = parseFloat(desformatearNumero(precio));
+                const precioFormateado = !isNaN(precioNumerico) ? precioNumerico.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0.00';
                 previewHTML += `
                     <div class="preview-item">
                         <span class="preview-label"><i class="fas fa-dollar-sign"></i> Precio:</span>
-                        <span class="preview-value" style="font-weight: 700; color: #ff7e5f;">$${parseFloat(precio).toFixed(2)}</span>
+                        <span class="preview-value" style="font-weight: 700; color: #ff7e5f;">$${precioFormateado}</span>
                     </div>
                 `;
             }
@@ -902,7 +936,8 @@
             
             const nombrePlato = document.getElementById('nombrePlato').value.trim();
             const categoriaPlato = document.getElementById('categoriaPlato').value;
-            const precioPlato = parseFloat(document.getElementById('precioPlato').value);
+            const precioValor = desformatearNumero(document.getElementById('precioPlato').value);
+            const precioPlato = parseFloat(precioValor);
             
             // Validar datos
             if (!nombrePlato || !categoriaPlato || isNaN(precioPlato)) {

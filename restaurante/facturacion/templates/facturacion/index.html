@@ -12,6 +12,7 @@
         {% endif %}
     </title>
     <link rel="icon" href="{% static 'img/fasfoot1.ico' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -19,104 +20,179 @@
             box-sizing: border-box;
         }
 
+        html, body {
+            height: 100%;
+            width: 100%;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            min-height: 100vh;
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            /* Fondo con imagen de restaurante y overlay elegante */
+            background: linear-gradient(135deg, rgba(26, 26, 46, 0.85) 0%, rgba(51, 34, 34, 0.8) 50%, rgba(64, 32, 32, 0.75) 100%),
+            url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80') center/cover no-repeat fixed;
             display: flex;
             align-items: center;
             justify-content: center;
+            min-height: 100vh;
             padding: 20px;
+            overflow: auto;
+            position: relative;
+            color: #f8f9fa;
         }
 
-        /* Contenedor principal */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(255, 126, 95, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(254, 180, 123, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(255, 107, 74, 0.08) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Contenedor principal con estilo elegante */
         .login-container, .dashboard-container {
+            /* Gradiente elegante con colores del restaurante */
+            background: linear-gradient(135deg, rgba(26, 26, 46, 0.95) 0%, rgba(51, 34, 34, 0.92) 50%, rgba(64, 32, 32, 0.9) 100%);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 50px 40px;
             width: 100%;
-            max-width: 500px;
-            background: white;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
-            animation: fadeIn 0.6s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Encabezado */
-        .login-header, .dashboard-header {
-            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
-            color: white;
-            padding: 40px 30px;
-            text-align: center;
+            max-width: 480px;
+            border: 1px solid rgba(255, 126, 95, 0.3);
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4), 
+                        0 0 50px rgba(255, 126, 95, 0.15),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            margin: auto;
             position: relative;
             overflow: hidden;
+            z-index: 1;
+            animation: fadeIn 0.8s ease-out;
         }
 
-        .login-header::before, .dashboard-header::before {
+        /* Efecto de brillo en la tarjeta */
+        .login-container::before, .dashboard-container::before {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
-            bottom: 0;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.1)"/></svg>');
-            background-size: cover;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 126, 95, 0.6), transparent);
         }
 
+        .login-container::after, .dashboard-container::after {
+            content: '';
+            position: absolute;
+            top: -100%;
+            left: -100%;
+            width: 300%;
+            height: 300%;
+            background: radial-gradient(circle, rgba(255, 126, 95, 0.05) 0%, transparent 70%);
+            pointer-events: none;
+            animation: shimmer 8s infinite linear;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(100%, 100%) rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Sección del logo */
+        .logo-section {
+            text-align: center;
+            margin-bottom: 40px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Logo con imagen del restaurante */
         .logo {
-            width: 80px;
-            height: 80px;
-            background: rgba(255, 255, 255, 0.9);
+            width: 110px;
+            height: 110px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto 20px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            border: 3px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 15px 40px rgba(255, 126, 95, 0.4),
+                        0 0 30px rgba(255, 126, 95, 0.3),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            overflow: hidden;
+            position: relative;
+            border: 2px solid rgba(255, 126, 95, 0.4);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .logo-img {
+            width: 90%;
+            height: 90%;
+            object-fit: contain;
+            min-width: 90%;
+            min-height: 90%;
         }
 
         .logo-icon {
-            font-size: 40px;
+            font-size: 50px;
             background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
+        /* Título con gradiente del restaurante */
         .login-title, .dashboard-title {
-            font-size: 1.8rem;
-            font-weight: 700;
+            font-size: 2.4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 50%, #ffc89f 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
             margin-bottom: 8px;
+            letter-spacing: 0.5px;
             position: relative;
             z-index: 1;
         }
 
         .login-subtitle, .dashboard-subtitle {
             font-size: 1rem;
-            opacity: 0.9;
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 500;
+            letter-spacing: 1px;
             position: relative;
             z-index: 1;
         }
 
         /* Formulario de login */
-        .login-form {
-            padding: 40px 30px;
+        .login-form, .dashboard-content {
+            padding: 0;
+            position: relative;
+            z-index: 2;
         }
 
         .form-group {
             margin-bottom: 25px;
+            position: relative;
+            z-index: 2;
         }
 
         .form-label {
             display: block;
+            margin-bottom: 10px;
+            color: rgba(255, 255, 255, 0.9);
             font-weight: 600;
-            color: #4a5568;
-            margin-bottom: 8px;
-            font-size: 0.95rem;
+            font-size: 1rem;
+            letter-spacing: 0.5px;
         }
 
         .input-group {
@@ -125,29 +201,38 @@
 
         .form-input {
             width: 100%;
-            padding: 16px 20px 16px 50px;
-            border: 2px solid #e2e8f0;
+            padding: 16px 50px 16px 55px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
             font-size: 1rem;
-            transition: all 0.3s;
-            background: #f8f9ff;
-            color: #2c3e50;
+            transition: all 0.3s ease;
+            background: rgba(26, 26, 46, 0.7);
+            color: #f8f9fa;
+            backdrop-filter: blur(10px);
         }
 
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Focus con borde naranja */
         .form-input:focus {
             outline: none;
             border-color: #ff7e5f;
-            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.1);
-            background: white;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.2),
+                        0 5px 20px rgba(0, 0, 0, 0.3);
+            background: rgba(51, 34, 34, 0.8);
         }
 
         .input-icon {
             position: absolute;
-            left: 20px;
+            left: 18px;
             top: 50%;
             transform: translateY(-50%);
-            font-size: 1.2rem;
             color: #ff7e5f;
+            font-size: 1.2rem;
+            z-index: 2;
+            pointer-events: none;
         }
 
         /* Opciones adicionales */
@@ -156,6 +241,8 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 30px;
+            position: relative;
+            z-index: 2;
         }
 
         .remember-me {
@@ -172,7 +259,7 @@
         }
 
         .remember-me label {
-            color: #4a5568;
+            color: rgba(255, 255, 255, 0.7);
             font-size: 0.9rem;
             cursor: pointer;
         }
@@ -180,29 +267,50 @@
         .forgot-password {
             color: #ff7e5f;
             text-decoration: none;
-            font-size: 0.9rem;
-            font-weight: 600;
-            transition: color 0.3s;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .forgot-password::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background: #ff7e5f;
+            transition: width 0.3s ease;
         }
 
         .forgot-password:hover {
-            color: #ff6b4a;
-            text-decoration: underline;
+            color: #feb47b;
         }
 
-        /* Botones */
+        .forgot-password:hover::after {
+            width: 100%;
+        }
+
+        /* Botones con gradiente elegante */
         .login-btn, .dashboard-btn {
             width: 100%;
-            padding: 16px;
-            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
-            color: white;
+            padding: 18px;
+            background: linear-gradient(135deg, #ff6b4a 0%, #ff7e5f 50%, #feb47b 100%);
+            color: #1a1a2e;
             border: none;
             border-radius: 12px;
-            font-size: 1rem;
+            font-size: 1.1rem;
             font-weight: 700;
             cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 8px 20px rgba(255, 126, 95, 0.3);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            box-shadow: 0 10px 30px rgba(255, 126, 95, 0.4),
+                        0 0 20px rgba(255, 126, 95, 0.2);
+            position: relative;
+            z-index: 2;
+            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -211,13 +319,29 @@
             margin-bottom: 15px;
         }
 
+        .login-btn::before, .dashboard-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
         .login-btn:hover, .dashboard-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 25px rgba(255, 126, 95, 0.4);
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(255, 126, 95, 0.5),
+                        0 0 30px rgba(255, 126, 95, 0.3);
+        }
+
+        .login-btn:hover::before, .dashboard-btn:hover::before {
+            left: 100%;
         }
 
         .login-btn:active, .dashboard-btn:active {
-            transform: translateY(0);
+            transform: translateY(-1px);
         }
 
         .logout-btn {
@@ -241,19 +365,38 @@
         /* Registro */
         .register-link {
             text-align: center;
-            color: #718096;
             margin-top: 25px;
+            position: relative;
+            z-index: 2;
+            color: rgba(255, 255, 255, 0.6);
             font-size: 0.9rem;
         }
 
         .register-link a {
             color: #ff7e5f;
             text-decoration: none;
-            font-weight: 600;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .register-link a::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background: #ff7e5f;
+            transition: width 0.3s ease;
         }
 
         .register-link a:hover {
-            text-decoration: underline;
+            color: #feb47b;
+        }
+
+        .register-link a:hover::after {
+            width: 100%;
         }
 
         /* Mensajes de Django */
@@ -308,80 +451,126 @@
         }
 
         /* Contenido del dashboard */
-        .dashboard-content {
-            padding: 40px 30px;
-        }
-
         .user-info {
-            background: #f8f9ff;
-            border-radius: 12px;
-            padding: 20px;
+            background: rgba(26, 26, 46, 0.5);
+            border-radius: 15px;
+            padding: 25px;
             margin-bottom: 30px;
-            border: 2px solid #e2e8f0;
+            border: 1px solid rgba(255, 126, 95, 0.2);
+            backdrop-filter: blur(10px);
+            position: relative;
+            z-index: 2;
         }
 
         .user-info h3 {
-            color: #2c3e50;
-            margin-bottom: 15px;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 20px;
             display: flex;
             align-items: center;
             gap: 10px;
+            font-size: 1.2rem;
         }
 
         .info-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 10px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .info-label {
             font-weight: 600;
-            color: #4a5568;
+            color: rgba(255, 255, 255, 0.7);
         }
 
         .info-value {
-            color: #2c3e50;
+            color: rgba(255, 255, 255, 0.9);
         }
 
         .superuser-badge {
             display: inline-block;
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #333;
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: #1a1a2e;
             padding: 5px 15px;
             border-radius: 20px;
             font-size: 0.8rem;
             font-weight: 700;
             margin-left: 10px;
+            box-shadow: 0 2px 10px rgba(255, 126, 95, 0.3);
         }
 
-        /* Responsive */
-        @media (max-width: 576px) {
-            .login-container, .dashboard-container {
-                max-width: 100%;
-                margin: 10px;
-            }
-
-            .login-header, .dashboard-header {
-                padding: 30px 20px;
-            }
-
-            .login-form, .dashboard-content {
-                padding: 30px 20px;
-            }
-
+        /* RESPONSIVE DESIGN */
+        @media (max-width: 1024px) {
+            .login-container, .dashboard-container { max-width: 440px; padding: 40px 35px; }
+            .logo { width: 100px; height: 100px; }
+        }
+        
+        @media (max-width: 767px) {
+            body { padding: 15px; }
+            .login-container, .dashboard-container { max-width: 400px; padding: 35px 30px; border-radius: 20px; }
+            .logo { width: 90px; height: 90px; margin-bottom: 18px; }
+            .login-title, .dashboard-title { font-size: 2rem; }
+            .login-subtitle, .dashboard-subtitle { font-size: 0.9rem; }
+            .form-input { padding: 14px 45px 14px 18px; font-size: 0.95rem; }
+            .login-btn, .dashboard-btn { padding: 16px; font-size: 1.05rem; }
+        }
+        
+        @media (max-width: 575px) {
+            body { padding: 15px; }
+            .login-container, .dashboard-container { max-width: 380px; padding: 30px 25px; border-radius: 18px; }
+            .logo { width: 85px; height: 85px; }
+            .login-title, .dashboard-title { font-size: 1.9rem; }
+            .form-input { padding: 13px 42px 13px 16px; font-size: 0.9rem; }
+            .login-btn, .dashboard-btn { padding: 15px; font-size: 1rem; }
             .form-options {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 15px;
             }
-
+        }
+        
+        @media (max-width: 479px) {
+            body { padding: 10px; }
+            .login-container, .dashboard-container { max-width: 340px; padding: 25px 20px; border-radius: 16px; }
+            .logo-section { margin-bottom: 30px; }
+            .logo { width: 80px; height: 80px; margin-bottom: 15px; }
+            .login-title, .dashboard-title { font-size: 1.7rem; }
+            .login-subtitle, .dashboard-subtitle { font-size: 0.85rem; }
+            .form-group { margin-bottom: 20px; }
+            .form-label { font-size: 0.95rem; margin-bottom: 8px; }
+            .form-input { padding: 12px 40px 12px 15px; font-size: 0.9rem; border-radius: 10px; }
+            .input-icon { font-size: 1.3rem; left: 15px; }
+            .login-btn, .dashboard-btn { padding: 14px; font-size: 0.95rem; border-radius: 10px; }
+            .register-link { margin-top: 20px; }
+            .register-link, .register-link a { font-size: 0.9rem; }
             .alert {
-                left: 20px;
-                right: 20px;
-                max-width: calc(100% - 40px);
+                left: 10px;
+                right: 10px;
+                max-width: calc(100% - 20px);
             }
+        }
+        
+        @media (max-height: 600px) and (orientation: landscape) {
+            body { padding: 15px; }
+            .login-container, .dashboard-container { max-width: 520px; padding: 25px 30px; }
+            .logo-section { margin-bottom: 20px; }
+            .logo { width: 70px; height: 70px; margin-bottom: 10px; }
+            .login-title, .dashboard-title { font-size: 1.6rem; margin-bottom: 5px; }
+            .login-subtitle, .dashboard-subtitle { font-size: 0.8rem; }
+            .form-group { margin-bottom: 15px; }
+            .form-input { padding: 12px 40px 12px 15px; font-size: 0.9rem; }
+            .login-btn, .dashboard-btn { padding: 14px; font-size: 0.95rem; }
+        }
+        
+        @media (max-height: 450px) and (orientation: landscape) {
+            .login-container, .dashboard-container { max-width: 580px; padding: 20px 25px; }
+            .logo { width: 60px; height: 60px; margin-bottom: 8px; }
+            .login-title, .dashboard-title { font-size: 1.4rem; }
+            .login-subtitle, .dashboard-subtitle { font-size: 0.75rem; }
+            .form-group { margin-bottom: 12px; }
+            .form-input { padding: 10px 38px 10px 12px; font-size: 0.85rem; }
+            .login-btn, .dashboard-btn { padding: 12px; font-size: 0.9rem; }
         }
 
         /* Toggle password */
@@ -392,14 +581,17 @@
             transform: translateY(-50%);
             background: none;
             border: none;
-            color: #718096;
+            color: rgba(255, 255, 255, 0.5);
             cursor: pointer;
-            font-size: 1.2rem;
+            font-size: 1.4rem;
             padding: 5px;
+            transition: all 0.3s;
+            z-index: 3;
         }
 
         .toggle-password:hover {
             color: #ff7e5f;
+            transform: translateY(-50%) scale(1.1);
         }
 
         /* Loading state */
@@ -437,19 +629,19 @@
     {% if user.is_authenticated %}
         <!-- DASHBOARD: Usuario autenticado -->
         <div class="dashboard-container">
-            <div class="dashboard-header">
+            <div class="logo-section">
                 <div class="logo">
-                    <div class="logo-icon">🏪</div>
+                    <img src="{% static 'img/fasfoot1.ico' %}" alt="402 FASTFOOD Logo" class="logo-img">
                 </div>
                 <h1 class="dashboard-title">402 FASTFOOD</h1>
-                <p class="dashboard-subtitle">Bienvenido al sistema de gestión</p>
+                <p class="dashboard-subtitle">Sistema de Gestión de Restaurante</p>
             </div>
 
             <div class="dashboard-content">
                 <!-- Información del usuario -->
                 <div class="user-info">
                     <h3>
-                        👤 Información del Usuario
+                        <i class="fas fa-user-circle"></i> Información del Usuario
                         {% if user.is_superuser %}
                             <span class="superuser-badge">SUPERUSUARIO</span>
                         {% endif %}
@@ -481,18 +673,18 @@
                 <!-- Botones de acción -->
                 {% if user.is_superuser %}
                     <a href="{% url 'pedidos' %}" class="dashboard-btn pedidos-btn">
-                        <span>📋</span>
+                        <span><i class="fas fa-clipboard-list"></i></span>
                         <span>Ver Pedidos</span>
                     </a>
                 {% else %}
                     <a href="{% url 'pedidos' %}" class="dashboard-btn">
-                        <span>📊</span>
-                        <span>Ir al Dashboard</span>
+                        <span><i class="fas fa-clipboard-list"></i></span>
+                        <span>Ver Pedidos</span>
                     </a>
                 {% endif %}
 
                 <a href="{% url 'logout' %}" class="dashboard-btn logout-btn">
-                    <span>🚪</span>
+                    <span><i class="fas fa-sign-out-alt"></i></span>
                     <span>Cerrar Sesión</span>
                 </a>
             </div>
@@ -500,12 +692,12 @@
     {% else %}
         <!-- LOGIN: Usuario NO autenticado -->
         <div class="login-container">
-            <div class="login-header">
+            <div class="logo-section">
                 <div class="logo">
-                    <div class="logo-icon">🔐</div>
+                    <img src="{% static 'img/fasfoot1.ico' %}" alt="402 FASTFOOD Logo" class="logo-img">
                 </div>
-                <h1 class="login-title">Bienvenido de Nuevo</h1>
-                <p class="login-subtitle">Ingresa tus credenciales para acceder</p>
+                <h1 class="login-title">402 FASTFOOD</h1>
+                <p class="login-subtitle">Sistema de Gestión de Restaurante</p>
             </div>
 
             <form class="login-form" method="POST" action="{% url 'index' %}">
@@ -514,7 +706,7 @@
                 <div class="form-group">
                     <label class="form-label">Usuario</label>
                     <div class="input-group">
-                        <span class="input-icon">👤</span>
+                        <i class='fas fa-user input-icon'></i>
                         <input type="text" class="form-input" name="username" id="username" 
                                placeholder="Ingresa tu usuario" required autofocus>
                     </div>
@@ -523,10 +715,13 @@
                 <div class="form-group">
                     <label class="form-label">Contraseña</label>
                     <div class="input-group">
-                        <span class="input-icon">🔒</span>
+                        <i class='fas fa-lock input-icon'></i>
                         <input type="password" class="form-input" name="password" id="password" 
                                placeholder="Ingresa tu contraseña" required>
-                        <button type="button" class="toggle-password" onclick="togglePassword()">👁️</button>
+                        <button type="button" class="toggle-password" onclick="togglePassword()">
+                            <i class='fas fa-eye-slash' id="toggleIcon"></i>
+                        </button>
+                        </button>
                     </div>
                 </div>
 
@@ -539,8 +734,7 @@
                 </div>
 
                 <button type="submit" class="login-btn" id="loginButton">
-                    <span>🚀</span>
-                    <span>Iniciar Sesión</span>
+                    <span>Acceder al Sistema</span>
                 </button>
 
                 <div class="register-link">
@@ -610,18 +804,22 @@
             const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
             passwordInput.setAttribute('type', type);
             
-            // Cambiar ícono
-            const toggleBtn = document.querySelector('.toggle-password');
-            toggleBtn.textContent = type === 'password' ? '👁️' : '👁️‍🗨️';
+            // Cambiar ícono con Font Awesome
+            const toggleBtn = document.querySelector('.toggle-password i');
+            if (toggleBtn) {
+                toggleBtn.className = type === 'password' ? 'fas fa-eye-slash' : 'fas fa-eye';
+            }
         }
 
         // Funciones para mostrar información
         function showForgotPassword() {
-            showNotification('📧 Para restablecer tu contraseña, contacta al administrador del sistema.', 'info');
+            showNotification(' Para restablecer tu contraseña, contacta al administrador del sistema.', 'info');
+            return false;
         }
 
         function showContactAdmin() {
-            showNotification('📞 Contacta al administrador del sistema para solicitar una cuenta.', 'info');
+            showNotification('Contacta al administrador del sistema para solicitar una cuenta.', 'info');
+            return false;
         }
         {% endif %}
 
