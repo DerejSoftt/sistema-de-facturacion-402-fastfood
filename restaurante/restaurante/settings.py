@@ -88,7 +88,7 @@ DATABASES = {
         "USER": "root",
         "PASSWORD": "",
         "HOST": "localhost",
-        "PORT": "3307",
+        "PORT": "3306",
         "OPTIONS": {
             # Usar offset numérico en lugar de nombre de zona
             "init_command": "SET time_zone = '-04:00'",  # Para República Dominicana (UTC-4)
