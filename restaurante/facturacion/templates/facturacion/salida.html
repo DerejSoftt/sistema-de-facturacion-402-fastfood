@@ -8,8 +8,6 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         /* Estilos mantenidos del original */
-          <style>
-        /* Estilos mantenidos del original */
         * {
             margin: 0;
             padding: 0;
@@ -584,9 +582,15 @@
             color: white;
         }
         
+        .btn-salida {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%) !important;
+            color: white !important;
+        }
+        
         .btn-salida:hover {
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            background: linear-gradient(135deg, #e5395f 0%, #e54228 100%) !important;
             color: white;
+            transform: scale(1.1);
         }
         
         .btn-eliminar:hover {
@@ -599,9 +603,15 @@
             color: #2c3e50;
         }
         
+        .btn-reabastecer {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%) !important;
+            color: white !important;
+        }
+        
         .btn-reabastecer:hover {
-            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            background: linear-gradient(135deg, #43a047 0%, #388e3c 100%) !important;
             color: white;
+            transform: scale(1.1);
         }
         
         /* Modal para registrar salida */
@@ -1513,7 +1523,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="cantidadSalida"><i class="fas fa-hashtag"></i> Cantidad a Retirar</label>
-                        <input type="number" id="cantidadSalida" min="0.01" step="0.01" value="1.00">
+                        <input type="text" id="cantidadSalida" placeholder="0.00">
                         <small style="color: #718096; margin-top: 0.5rem;">Cantidad a retirar (puede ser decimal)</small>
                     </div>
                     
@@ -1577,7 +1587,7 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="cantidadReabastecer"><i class="fas fa-hashtag"></i> Cantidad a Agregar</label>
-                        <input type="number" id="cantidadReabastecer" min="0.01" step="0.01" value="10.00">
+                        <input type="text" id="cantidadReabastecer" placeholder="0.00" value="10.00">
                     </div>
                     
                     <div class="form-group">
@@ -1610,6 +1620,26 @@
     </div>
 
     <script>
+        // Función para formatear números con comas para miles
+        function formatearNumero(valor) {
+            const numero = parseFloat(valor);
+            if (isNaN(numero)) return '0.00';
+            
+            const partes = numero.toFixed(2).split('.');
+            const entero = partes[0];
+            const decimal = partes[1];
+            
+            // Agregar comas para los miles
+            const enteroFormateado = entero.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            
+            return enteroFormateado + '.' + decimal;
+        }
+        
+        // Función para formatear moneda en formato US
+        function formatearMoneda(valor) {
+            return '$' + formatearNumero(valor);
+        }
+        
         // Variables globales
         let productos = [];
         let salidas = [];
@@ -1654,7 +1684,7 @@
                         cantidad: parseFloat(producto.cantidad),
                         precio_compra: parseFloat(producto.precio_compra),
                         subtotal: parseFloat(producto.subtotal),
-                        descripcion: `Código: ${producto.codigo} | Precio: $${parseFloat(producto.precio_compra).toFixed(2)}`,
+                        descripcion: `Código: ${producto.codigo} | Precio: ${formatearMoneda(producto.precio_compra)}`,
                         stockMinimo: getStockMinimoByCategory(producto.categoria),
                         fechaCreacion: producto.fecha_creacion,
                         ultimaSalida: producto.ultima_salida || null
@@ -1765,6 +1795,36 @@
                     }
                     
                     filtrarHistorial();
+                });
+            }
+            
+            // Event listeners para formatear inputs con comas
+            const cantidadSalida = document.getElementById('cantidadSalida');
+            const cantidadReabastecer = document.getElementById('cantidadReabastecer');
+            
+            if (cantidadSalida) {
+                cantidadSalida.addEventListener('input', function(e) {
+                    let valor = e.target.value.replace(/[^0-9.]/g, '');
+                    let partes = valor.split('.');
+                    if (partes.length > 2) valor = partes[0] + '.' + partes.slice(1).join('');
+                    if (valor) {
+                        let [entero, decimal] = valor.split('.');
+                        entero = entero.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                        e.target.value = decimal !== undefined ? entero + '.' + decimal : entero;
+                    }
+                });
+            }
+            
+            if (cantidadReabastecer) {
+                cantidadReabastecer.addEventListener('input', function(e) {
+                    let valor = e.target.value.replace(/[^0-9.]/g, '');
+                    let partes = valor.split('.');
+                    if (partes.length > 2) valor = partes[0] + '.' + partes.slice(1).join('');
+                    if (valor) {
+                        let [entero, decimal] = valor.split('.');
+                        entero = entero.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                        e.target.value = decimal !== undefined ? entero + '.' + decimal : entero;
+                    }
                 });
             }
             
@@ -1956,10 +2016,10 @@
                             </span>
                         </td>
                         <td>
-                            <div class="cantidad-disponible">${producto.cantidad} ${unidad}</div>
+                            <div class="cantidad-disponible">${formatearNumero(producto.cantidad)} ${unidad}</div>
                         </td>
                         <td>
-                            <div>${producto.stockMinimo} ${unidad}</div>
+                            <div>${formatearNumero(producto.stockMinimo)} ${unidad}</div>
                         </td>
                         <td>
                             <span class="status-badge ${estadoClass}">
@@ -1975,10 +2035,10 @@
                         <td>
                             <div class="action-buttons">
                                 <button class="btn-icon btn-salida" onclick="registrarSalidaModal('${producto.id}')" title="Registrar salida">
-                                    <i class="fas fa-box-open"></i>
+                                    <i class="fas fa-minus-circle"></i>
                                 </button>
                                 <button class="btn-icon btn-reabastecer" onclick="reabastecerModal('${producto.id}')" title="Reabastecer stock">
-                                    <i class="fas fa-box"></i>
+                                    <i class="fas fa-plus-circle"></i>
                                 </button>
                             </div>
                         </td>
@@ -2005,7 +2065,7 @@
                 const cantidadTotal = productos
                     .filter(p => p.categoria !== 'bebida')
                     .reduce((sum, producto) => sum + producto.cantidad, 0);
-                cantidadTotalElement.textContent = cantidadTotal.toFixed(2);
+                cantidadTotalElement.textContent = formatearNumero(cantidadTotal);
             }
             
             // Productos con stock bajo (excluyendo bebidas)
@@ -2077,7 +2137,7 @@
                     }
                 });
                 
-                valorPerdidasElement.textContent = `$${valorPerdidas.toFixed(2)}`;
+                valorPerdidasElement.textContent = formatearMoneda(valorPerdidas);
             }
             
             // Producto más salido
@@ -2565,12 +2625,12 @@
             // Llenar datos en el modal
             document.getElementById('productoId').value = productoId;
             document.getElementById('productoNombre').value = producto.nombre;
-            document.getElementById('stockActual').value = `${producto.cantidad} ${getUnidadMedida(producto.categoria)}`;
+            document.getElementById('stockActual').value = `${formatearNumero(producto.cantidad)} ${getUnidadMedida(producto.categoria)}`;
             
             // Establecer valor máximo en el input
             const cantidadInput = document.getElementById('cantidadSalida');
             cantidadInput.max = producto.cantidad;
-            cantidadInput.value = producto.cantidad > 0 ? '1.00' : '0';
+            cantidadInput.value = producto.cantidad > 0 ? formatearNumero(1.00) : '0';
             
             // Mostrar modal
             document.getElementById('salidaModal').classList.add('active');
@@ -2579,7 +2639,8 @@
         // Registrar salida - LLAMADA AJAX AL SERVIDOR
         async function registrarSalida() {
             const productoId = document.getElementById('productoId').value;
-            const cantidad = parseFloat(document.getElementById('cantidadSalida').value);
+            const cantidadInput = document.getElementById('cantidadSalida').value.replace(/,/g, '');
+            const cantidad = parseFloat(cantidadInput);
             const motivo = document.getElementById('motivoSalida').value;
             const responsable = document.getElementById('responsableSalida').value;
             const observaciones = document.getElementById('observacionesSalida').value;
@@ -2689,7 +2750,7 @@
             // Llenar datos en el modal
             document.getElementById('reabastecerProductoId').value = productoId;
             document.getElementById('reabastecerNombre').value = producto.nombre;
-            document.getElementById('reabastecerStockActual').value = `${producto.cantidad} ${getUnidadMedida(producto.categoria)}`;
+            document.getElementById('reabastecerStockActual').value = `${formatearNumero(producto.cantidad)} ${getUnidadMedida(producto.categoria)}`;
             
             // Mostrar modal
             document.getElementById('reabastecerModal').classList.add('active');
@@ -2698,7 +2759,8 @@
         // Confirmar reabastecimiento - LLAMADA AJAX AL SERVIDOR
         async function confirmarReabastecimiento() {
             const productoId = document.getElementById('reabastecerProductoId').value;
-            const cantidad = parseFloat(document.getElementById('cantidadReabastecer').value);
+            const cantidadInput = document.getElementById('cantidadReabastecer').value.replace(/,/g, '');
+            const cantidad = parseFloat(cantidadInput);
             const motivo = document.getElementById('motivoReabastecer').value;
             const observaciones = document.getElementById('observacionesReabastecer').value;
             

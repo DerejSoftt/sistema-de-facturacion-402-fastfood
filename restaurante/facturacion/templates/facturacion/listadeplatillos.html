@@ -320,6 +320,31 @@
             font-size: 0.875rem;
         }
         
+        /* Botón Agregar Plato - UX/UI Mejorado */
+        .btn-add-nuevo {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 0.875rem 1.75rem;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(255, 126, 95, 0.25);
+            transition: all 0.2s ease;
+        }
+        
+        .btn-add-nuevo:hover {
+            box-shadow: 0 6px 16px rgba(255, 126, 95, 0.35);
+            transform: translateY(-1px);
+        }
+        
+        .btn-add-nuevo i {
+            font-size: 1.1rem;
+        }
+        
         /* Form inputs */
         .form-group {
             display: flex;
@@ -511,14 +536,41 @@
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
         }
         
+        .btn-icon {
+            padding: 0.5rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 1rem;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e9ecff 100%);
+            color: #667eea;
+        }
+        
+        .btn-icon:hover {
+            transform: scale(1.1);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+        
         .btn-edit:hover {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
         
-        .btn-delete:hover {
+        .btn-delete {
             background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
             color: white;
+        }
+        
+        .btn-delete:hover {
+            background: linear-gradient(135deg, #ff2e4f 0%, #ff1e1e 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(255, 65, 108, 0.4);
         }
         
         /* Pagination */
@@ -662,6 +714,169 @@
             }
         }
         
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            animation: fadeInModal 0.3s ease-out;
+        }
+        
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 25px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.4);
+            animation: slideInModal 0.3s ease-out;
+        }
+        
+        @keyframes fadeInModal {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideInModal {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 25px 25px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h2 {
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .modal-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
+        }
+        
+        .modal-body {
+            padding: 2rem;
+        }
+        
+        .modal-form-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+        
+        .modal-form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .modal-form-group label {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #2c3e50;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .modal-form-group input,
+        .modal-form-group select {
+            padding: 1rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: white;
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.05);
+        }
+        
+        .modal-form-group input:focus,
+        .modal-form-group select:focus {
+            outline: none;
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .modal-footer {
+            padding: 1.5rem 2rem 2rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+        
+        .btn-cancel {
+            background: #e2e8f0;
+            color: #4a5568;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+        }
+        
+        .btn-cancel:hover {
+            background: #cbd5e0;
+            transform: translateY(-2px);
+        }
+        
+        .btn-save {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+            box-shadow: 0 10px 20px rgba(255, 126, 95, 0.3);
+        }
+        
+        .btn-save:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(255, 126, 95, 0.4);
+        }
+        
         @media (max-width: 480px) {
             .stats-container {
                 grid-template-columns: 1fr;
@@ -670,6 +885,29 @@
             .btn {
                 width: 100%;
                 justify-content: center;
+            }
+            
+            .modal-content {
+                width: 95%;
+                max-height: 95vh;
+            }
+            
+            .modal-header {
+                padding: 1.5rem;
+            }
+            
+            .modal-body {
+                padding: 1.5rem;
+            }
+            
+            .modal-footer {
+                padding: 1rem 1.5rem 1.5rem;
+                flex-direction: column;
+            }
+            
+            .btn-cancel,
+            .btn-save {
+                width: 100%;
             }
         }
     </style>
@@ -857,8 +1095,8 @@
                     <div class="controls-section">
                         <div class="controls-header">
                             <h3><i class="fas fa-search"></i> Buscar y Filtrar Platos</h3>
-                            <a href="{% url 'entrada_platos' %}" class="btn btn-primary btn-sm">
-                                <i class="fas fa-plus"></i>
+                            <a href="{% url 'entrada_platos' %}" class="btn-add-nuevo">
+                                <i class="fas fa-plus-circle"></i>
                                 <span>Agregar Nuevo Plato</span>
                             </a>
                         </div>
@@ -925,7 +1163,7 @@
                                             {{ plato.get_categoria_display }}
                                         </span>
                                     </td>
-                                    <td style="font-weight: 700; color: #ff7e5f;">${{ plato.precio }}</td>
+                                    <td style="font-weight: 700; color: #ff7e5f;" data-precio="{{ plato.precio }}">${{ plato.precio }}</td>
                                     <td>{{ plato.fecha_creacion|date:"d/m/Y" }}</td>
                                     <td>
                                         {% if plato.activo %}
@@ -971,9 +1209,85 @@
         </div>
     </div>
 
+    <!-- Modal de Edición -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-edit"></i> Editar Plato</h2>
+                <button class="modal-close" onclick="cerrarModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm" class="modal-form-grid">
+                    <input type="hidden" id="editPlatoId">
+                    
+                    <div class="modal-form-group">
+                        <label for="editCodigo">
+                            <i class="fas fa-barcode"></i> Código
+                        </label>
+                        <input type="text" id="editCodigo" readonly style="background: #f7fafc; color: #718096;">
+                    </div>
+                    
+                    <div class="modal-form-group">
+                        <label for="editNombre">
+                            <i class="fas fa-utensils"></i> Nombre del Plato
+                        </label>
+                        <input type="text" id="editNombre" required placeholder="Ej: Hamburguesa Especial">
+                    </div>
+                    
+                    <div class="modal-form-group">
+                        <label for="editCategoria">
+                            <i class="fas fa-tags"></i> Categoría
+                        </label>
+                        <select id="editCategoria" required>
+                            <option value="entrada">Entradas</option>
+                            <option value="principal">Platos Principales</option>
+                            <option value="postre">Postres</option>
+                            <option value="bebida">Bebidas</option>
+                            <option value="rapida">Comida Rápida</option>
+                            <option value="especial">Especial del Chef</option>
+                        </select>
+                    </div>
+                    
+                    <div class="modal-form-group">
+                        <label for="editPrecio">
+                            <i class="fas fa-dollar-sign"></i> Precio ($)
+                        </label>
+                        <input type="text" id="editPrecio" required placeholder="0.00">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="cerrarModal()">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button type="button" class="btn-save" onclick="guardarEdicion()">
+                    <i class="fas fa-save"></i> Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+
    <script>
+    // Función para formatear moneda con comas para miles
+    function formatearMoneda(numero) {
+        return parseFloat(numero).toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+    
     // Inicializar la aplicación
     document.addEventListener('DOMContentLoaded', function() {
+        // Formatear todos los precios al cargar
+        document.querySelectorAll('td[data-precio]').forEach(cell => {
+            const precio = cell.getAttribute('data-precio');
+            if (precio) {
+                cell.textContent = '$' + formatearMoneda(precio);
+            }
+        });
+        
         // Calcular estadísticas iniciales
         updateStats();
         setupEventListeners();
@@ -1004,9 +1318,10 @@
             // Calcular precio promedio, categorías y platos de hoy
             document.querySelectorAll('#platosBody tr').forEach(row => {
                 if (!row.classList.contains('empty-state')) {
-                    // Precio
-                    const precioText = row.cells[3].textContent.replace('$', '');
-                    const precio = parseFloat(precioText);
+                    // Precio - usar data-precio para cálculos
+                    const precioCell = row.cells[3];
+                    const precioData = precioCell.getAttribute('data-precio');
+                    const precio = parseFloat(precioData || precioCell.textContent.replace('$', '').replace(/,/g, ''));
                     if (!isNaN(precio)) {
                         totalPrecio += precio;
                     }
@@ -1026,7 +1341,7 @@
             const precioPromedio = totalPlatos > 0 ? totalPrecio / totalPlatos : 0;
             
             document.getElementById('totalPlatos').textContent = totalPlatos;
-            document.getElementById('precioPromedio').textContent = `$${precioPromedio.toFixed(2)}`;
+            document.getElementById('precioPromedio').textContent = '$' + formatearMoneda(precioPromedio);
             document.getElementById('totalCategorias').textContent = categorias.size;
             document.getElementById('platosHoy').textContent = platosHoy;
         }
@@ -1112,7 +1427,7 @@
         filasDatos.forEach(row => tbody.appendChild(row));
     }
     
-    // Editar plato (VERSIÓN SIMPLIFICADA - sin API)
+    // Editar plato usando modal
     function editarPlato(platoId) {
         // Obtener datos de la fila directamente del DOM
         const row = document.querySelector(`button[onclick="editarPlato(${platoId})"]`).closest('tr');
@@ -1129,71 +1444,123 @@
         else if (badgeElement.className.includes('rapida')) categoriaActual = 'rapida';
         else if (badgeElement.className.includes('especial')) categoriaActual = 'especial';
         
-        const precioActual = row.cells[3].textContent.replace('$', '');
+        const precioCell = row.cells[3];
+        const precioActual = precioCell.getAttribute('data-precio') || precioCell.textContent.replace('$', '').replace(/,/g, '');
         
-        // Mostrar formulario de edición
-        const nuevoNombre = prompt("Nuevo nombre del plato:", nombreActual);
-        if (!nuevoNombre) return;
+        // Llenar el modal con los datos actuales
+        document.getElementById('editPlatoId').value = platoId;
+        document.getElementById('editCodigo').value = codigo;
+        document.getElementById('editNombre').value = nombreActual;
+        document.getElementById('editCategoria').value = categoriaActual;
+        document.getElementById('editPrecio').value = formatearMoneda(precioActual);
         
-        const nuevaCategoria = prompt("Nueva categoría (entrada/principal/postre/bebida/rapida/especial):", categoriaActual);
-        if (!nuevaCategoria) return;
+        // Abrir el modal
+        abrirModal();
+    }
+    
+    // Abrir modal
+    function abrirModal() {
+        const modal = document.getElementById('editModal');
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
         
-        const nuevoPrecio = parseFloat(prompt("Nuevo precio:", precioActual));
-        if (isNaN(nuevoPrecio) || nuevoPrecio < 0) {
-            showNotification("El precio debe ser un número válido mayor o igual a 0", "error");
+        // Formatear el precio en tiempo real
+        const precioInput = document.getElementById('editPrecio');
+        precioInput.addEventListener('input', formatearPrecioInput);
+    }
+    
+    // Cerrar modal
+    function cerrarModal() {
+        const modal = document.getElementById('editModal');
+        modal.classList.remove('active');
+        document.body.style.overflow = 'auto';
+        
+        // Remover event listener
+        const precioInput = document.getElementById('editPrecio');
+        precioInput.removeEventListener('input', formatearPrecioInput);
+    }
+    
+    // Formatear precio en el input del modal
+    function formatearPrecioInput(e) {
+        let valor = e.target.value.replace(/[^0-9.]/g, '');
+        
+        // Permitir solo un punto decimal
+        const partes = valor.split('.');
+        if (partes.length > 2) {
+            valor = partes[0] + '.' + partes.slice(1).join('');
+        }
+        
+        // Limitar decimales a 2
+        if (partes.length === 2 && partes[1].length > 2) {
+            valor = partes[0] + '.' + partes[1].substring(0, 2);
+        }
+        
+        // Formatear con comas
+        if (valor) {
+            const [entero, decimal] = valor.split('.');
+            const enteroFormateado = parseInt(entero || 0).toLocaleString('en-US');
+            valor = decimal !== undefined ? enteroFormateado + '.' + decimal : enteroFormateado;
+        }
+        
+        e.target.value = valor;
+    }
+    
+    // Guardar edición desde el modal
+    function guardarEdicion() {
+        const platoId = document.getElementById('editPlatoId').value;
+        const nuevoNombre = document.getElementById('editNombre').value.trim();
+        const nuevaCategoria = document.getElementById('editCategoria').value;
+        const precioFormateado = document.getElementById('editPrecio').value;
+        const nuevoPrecio = parseFloat(precioFormateado.replace(/,/g, ''));
+        
+        // Validar datos
+        if (!nuevoNombre || !nuevaCategoria || isNaN(nuevoPrecio)) {
+            showNotification("Por favor, complete todos los campos correctamente", "error");
             return;
         }
         
-        // Actualizar visualmente la fila
-        row.cells[1].textContent = nuevoNombre;
-        row.cells[3].textContent = `$${nuevoPrecio.toFixed(2)}`;
+        if (nuevoPrecio < 0) {
+            showNotification("El precio debe ser mayor o igual a 0", "error");
+            return;
+        }
         
-        // Actualizar badge de categoría
-        const categoriasValidas = ['entrada', 'principal', 'postre', 'bebida', 'rapida', 'especial'];
-        const categoriaFinal = categoriasValidas.includes(nuevaCategoria.toLowerCase()) ? nuevaCategoria.toLowerCase() : 'entrada';
+        // Cerrar el modal
+        cerrarModal();
         
-        // Remover clases antiguas
-        badgeElement.className = 'category-badge';
-        // Añadir nueva clase
-        badgeElement.classList.add(`category-${categoriaFinal}`);
+        // Crear formulario y enviarlo al servidor
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/actualizar-plato/${platoId}/`;
         
-        // Actualizar texto del badge
-        const categoriasLabels = {
-            'entrada': 'Entrada',
-            'principal': 'Principal',
-            'postre': 'Postre',
-            'bebida': 'Bebida',
-            'rapida': 'Comida Rápida',
-            'especial': 'Especial'
-        };
-        badgeElement.textContent = categoriasLabels[categoriaFinal] || categoriaFinal;
+        // Agregar CSRF token
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = getCsrfToken();
+        form.appendChild(csrfInput);
         
-        // Enviar actualización al servidor
-        fetch(`/actualizar-plato/${platoId}/`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
-            },
-            body: JSON.stringify({
-                nombre: nuevoNombre,
-                categoria: categoriaFinal,
-                precio: nuevoPrecio
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification(`"${nuevoNombre}" actualizado exitosamente!`);
-                updateStats();
-            } else {
-                showNotification(`Error: ${data.error}`, "error");
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification("Error al actualizar el plato", "error");
-        });
+        // Agregar datos
+        const nombreInput = document.createElement('input');
+        nombreInput.type = 'hidden';
+        nombreInput.name = 'nombre';
+        nombreInput.value = nuevoNombre;
+        form.appendChild(nombreInput);
+        
+        const categoriaInput = document.createElement('input');
+        categoriaInput.type = 'hidden';
+        categoriaInput.name = 'categoria';
+        categoriaInput.value = nuevaCategoria;
+        form.appendChild(categoriaInput);
+        
+        const precioInput = document.createElement('input');
+        precioInput.type = 'hidden';
+        precioInput.name = 'precio';
+        precioInput.value = nuevoPrecio;
+        form.appendChild(precioInput);
+        
+        // Enviar formulario
+        document.body.appendChild(form);
+        form.submit();
     }
     
     // Eliminar plato
@@ -1274,6 +1641,14 @@
         sidebar.classList.toggle('open');
         overlay.classList.toggle('open');
     }
+    
+    // Cerrar modal al hacer clic fuera
+    document.addEventListener('click', function(e) {
+        const modal = document.getElementById('editModal');
+        if (e.target === modal) {
+            cerrarModal();
+        }
+    });
     
     // Añadir animación CSS para notificaciones
     const style = document.createElement('style');

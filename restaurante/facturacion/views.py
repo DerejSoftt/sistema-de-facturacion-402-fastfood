@@ -311,16 +311,25 @@ def eliminar_producto(request, producto_id):
     return redirect('inventario')
 @csrf_exempt 
 def actualizar_cantidad(request, producto_id):
-    """Actualizar la cantidad de un producto"""
+    """Actualizar la cantidad y precio de un producto"""
     if request.method == 'POST':
         producto = get_object_or_404(Producto, id=producto_id)
         nueva_cantidad = request.POST.get('cantidad', 0)
+        nuevo_precio = request.POST.get('precio_compra', None)
         
         try:
             producto.cantidad = Decimal(nueva_cantidad)
+            
+            # Actualizar precio si se proporcionó
+            if nuevo_precio:
+                producto.precio_compra = Decimal(nuevo_precio)
+                # Recalcular subtotal
+                producto.subtotal = producto.cantidad * producto.precio_compra
+            
             producto.save()
             return redirect('inventario')
-        except:
+        except Exception as e:
+            print(f"Error al actualizar producto: {e}")
             pass
     
     return redirect('inventario')
@@ -482,30 +491,47 @@ def obtener_plato(request, plato_id):
 @csrf_exempt
 def actualizar_plato(request, plato_id):
     """Vista para actualizar un plato"""
-    if request.method == 'PUT':
+    if request.method in ['POST', 'PUT']:
         try:
             plato = Plato.objects.get(id=plato_id)
             
-            # Parsear datos JSON
-            data = json.loads(request.body)
+            # Parsear datos según el método
+            if request.method == 'POST':
+                # Datos desde formulario POST
+                data = {
+                    'nombre': request.POST.get('nombre'),
+                    'categoria': request.POST.get('categoria'),
+                    'precio': request.POST.get('precio')
+                }
+            else:
+                # Datos JSON desde PUT
+                data = json.loads(request.body)
             
             # Actualizar campos
-            if 'nombre' in data:
+            if 'nombre' in data and data['nombre']:
                 plato.nombre = data['nombre'].strip()
             
-            if 'categoria' in data:
+            if 'categoria' in data and data['categoria']:
                 plato.categoria = data['categoria']
             
-            if 'precio' in data:
+            if 'precio' in data and data['precio']:
                 try:
                     precio = float(data['precio'])
                     if precio >= 0:
                         plato.precio = precio
-                except ValueError:
+                    else:
+                        return JsonResponse({'success': False, 'error': 'El precio debe ser mayor o igual a 0'})
+                except (ValueError, TypeError):
                     return JsonResponse({'success': False, 'error': 'Precio inválido'})
             
             plato.save()
             
+            # Si es POST, redirigir a la lista de platos
+            if request.method == 'POST':
+                from django.shortcuts import redirect
+                return redirect('listadeplatillos')
+            
+            # Si es PUT, devolver JSON
             return JsonResponse({
                 'success': True,
                 'message': f'Plato "{plato.nombre}" actualizado exitosamente',
@@ -3091,26 +3117,31 @@ def dashboard_stats(request):
 
 import io
 import textwrap
+import os
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm, inch
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from reportlab.lib import colors
+from reportlab.lib.utils import ImageReader
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.db.models import Sum, Max, Min
 from datetime import datetime
 from decimal import Decimal
+from django.conf import settings
 
 
 
 @login_required
 def generar_pdf_ticket_dia(request):
     """Generar PDF del ticket de venta del día para impresora 80mm"""
-    # Obtener hora local actual
-    ahora_local = timezone.localtime()
+    # Obtener hora local actual - forzar zona horaria de República Dominicana
+    import pytz
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    ahora_local = timezone.now().astimezone(tz_rd)
     hoy_local = ahora_local.date()
     
     # DEFINICIÓN DEL "DÍA": De 6:00 AM a 5:59 AM del día siguiente
@@ -3160,13 +3191,30 @@ def generar_pdf_ticket_dia(request):
     # Coordenadas iniciales (de arriba hacia abajo)
     y = alto_pagina - 10 * mm  # Comenzar 10mm desde el borde superior
     
-    # 1. ENCABEZADO DEL RESTAURANTE
+    # 1. ENCABEZADO DEL RESTAURANTE CON LOGO
+    # Intentar cargar el logo
+    try:
+        logo_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        if not os.path.exists(logo_path):
+            # Intentar ruta alternativa
+            logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        
+        if os.path.exists(logo_path):
+            # Dibujar logo centrado (pequeño: 15mm x 15mm)
+            logo_size = 15 * mm
+            logo_x = (ancho_pagina - logo_size) / 2
+            c.drawImage(logo_path, logo_x, y - logo_size, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
+            y -= (logo_size + 3 * mm)
+    except Exception as e:
+        # Si falla la carga del logo, continuar sin él
+        pass
+    
     c.setFont("Helvetica-Bold", 12)
-    c.drawCentredString(ancho_pagina / 2, y, "MI RESTAURANTE")
+    c.drawCentredString(ancho_pagina / 2, y, "404 FASTFOOD")
     y -= 6 * mm
     
     c.setFont("Helvetica", 9)
-    c.drawCentredString(ancho_pagina / 2, y, "REPORTE DE VENTAS")
+    c.drawCentredString(ancho_pagina / 2, y, "REPORTE DE CUADRE DE VENTAS")
     y -= 5 * mm
     
     # Línea separadora
@@ -3188,7 +3236,7 @@ def generar_pdf_ticket_dia(request):
     # 3. FECHA Y HORA DE GENERACIÓN
     c.setFont("Helvetica", 8)
     c.drawString(5 * mm, y, f"Generado:")
-    c.drawRightString(ancho_pagina - 5 * mm, y, ahora_local.strftime('%d/%m/%Y %H:%M'))
+    c.drawRightString(ancho_pagina - 5 * mm, y, ahora_local.strftime('%d/%m/%Y %I:%M'))
     y -= 4 * mm
     
     # Línea separadora
@@ -3202,6 +3250,7 @@ def generar_pdf_ticket_dia(request):
     
     c.setFont("Helvetica", 8)
     c.drawString(5 * mm, y, f"Total de Facturas:")
+    c.setFont("Helvetica-Bold", 12)
     c.drawRightString(ancho_pagina - 5 * mm, y, f"{facturas_hoy.count()}")
     y -= 4 * mm
     
@@ -3220,8 +3269,8 @@ def generar_pdf_ticket_dia(request):
         # Encabezado de tabla
         c.setFont("Helvetica-Bold", 8)
         c.drawString(5 * mm, y, "FACTURA")
-        c.drawString(25 * mm, y, "HORA")
-        c.drawString(40 * mm, y, "CLIENTE")
+        c.drawString(30 * mm, y, "HORA")
+        c.drawString(42 * mm, y, "CLIENTE")
         c.drawRightString(ancho_pagina - 5 * mm, y, "TOTAL")
         y -= 4 * mm
         
@@ -3235,24 +3284,27 @@ def generar_pdf_ticket_dia(request):
                 # Reimprimir encabezado de tabla
                 c.setFont("Helvetica-Bold", 8)
                 c.drawString(5 * mm, y, "FACTURA")
-                c.drawString(25 * mm, y, "HORA")
-                c.drawString(40 * mm, y, "CLIENTE")
+                c.drawString(30 * mm, y, "HORA")
+                c.drawString(42 * mm, y, "CLIENTE")
                 c.drawRightString(ancho_pagina - 5 * mm, y, "TOTAL")
                 y -= 4 * mm
                 c.setFont("Helvetica", 7)
             
-            # Número de factura
-            c.drawString(5 * mm, y, f"#{factura.numero_factura}")
+            # Número de factura (mostrar solo los últimos 8 dígitos)
+            num_factura = factura.numero_factura
+            if len(num_factura) > 8:
+                num_factura = "..." + num_factura[-8:]
+            c.drawString(5 * mm, y, f"#{num_factura}")
             
             # Hora
-            hora_factura = timezone.localtime(factura.fecha_factura)
-            c.drawString(25 * mm, y, hora_factura.strftime('%H:%M'))
+            hora_factura = factura.fecha_factura.astimezone(tz_rd)
+            c.drawString(30 * mm, y, hora_factura.strftime('%I:%M'))
             
             # Cliente (truncar si es muy largo)
             cliente = factura.nombre_cliente or "CLIENTE"
-            if len(cliente) > 12:
-                cliente = cliente[:12] + "..."
-            c.drawString(40 * mm, y, cliente)
+            if len(cliente) > 10:
+                cliente = cliente[:10] + "."
+            c.drawString(42 * mm, y, cliente)
             
             # Total de la factura
             c.drawRightString(ancho_pagina - 5 * mm, y, f"${factura.total:,.2f}")
@@ -3260,7 +3312,7 @@ def generar_pdf_ticket_dia(request):
         
         # Línea separadora después de la lista
         c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-        y -= 4 * mm
+        y -= 8 * mm
     
     # 6. TOTAL DEL DÍA
     c.setFont("Helvetica-Bold", 11)

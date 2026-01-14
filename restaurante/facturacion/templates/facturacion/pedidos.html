@@ -2683,6 +2683,14 @@ body {
         }
     }
     
+    // Función para formatear moneda con comas para miles
+    function formatearMoneda(numero) {
+        return parseFloat(numero).toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+    
     // Obtener datos de Django
     try {
         platosData = JSON.parse('{{ platos_json|safe }}');
@@ -3273,8 +3281,30 @@ body {
             const esBebida = item.es_bebida || item.tipo === 'bebida';
             const stock = parseFloat(item.stock || 0);
             const isLowStock = stock > 0 && stock < 10;
+            const isMediumStock = stock >= 10 && stock < 50;
+            const isHighStock = stock >= 50;
             const isOutOfStock = stock <= 0;
-            const stockMessage = esBebida ? (isOutOfStock ? '<i class="fas fa-times-circle"></i> Agotado' : (isLowStock ? `<i class="fas fa-exclamation-triangle"></i> Stock bajo (${stock})` : `<i class="fas fa-chart-bar"></i> Stock: ${stock}`)) : '';
+            
+            let stockIcon = '';
+            let stockColor = '';
+            let stockText = '';
+            
+            if (esBebida) {
+                if (isOutOfStock) {
+                    stockIcon = '<i class="fas fa-times-circle" style="color: #ff416c;"></i>';
+                    stockText = '<span style="color: #ff416c; font-weight: 600;">Agotado</span>';
+                } else if (isLowStock) {
+                    stockIcon = '<i class="fas fa-exclamation-triangle" style="color: #ff416c;"></i>';
+                    stockText = `<span style="color: #ff416c; font-weight: 600;">Stock <span style="font-size: 1.3rem; font-weight: 700;">${stock}</span></span>`;
+                } else if (isMediumStock) {
+                    stockIcon = '<i class="fas fa-chart-bar" style="color: #ffb347;"></i>';
+                    stockText = `<span style="color: #ffb347; font-weight: 600;">Stock <span style="font-size: 1.3rem; font-weight: 700;">${stock}</span></span>`;
+                } else if (isHighStock) {
+                    stockIcon = '<i class="fas fa-check-circle" style="color: #4CAF50;"></i>';
+                    stockText = `<span style="color: #4CAF50; font-weight: 600;">Stock <span style="font-size: 1.3rem; font-weight: 700;">${stock}</span></span>`;
+                }
+            }
+            
             const iconoTipo = esBebida ? '<i class="fas fa-glass-water"></i>' : '<i class="fas fa-utensils"></i>';
             const tipoTexto = esBebida ? 'Bebida' : 'Plato';
             
@@ -3292,7 +3322,7 @@ body {
                     <div class="menu-card-header">
                         <div class="menu-card-title">
                             <div class="menu-card-name">${iconoTipo} ${highlightedName}</div>
-                            <div class="menu-card-price">$${item.precio.toFixed(2)}</div>
+                            <div class="menu-card-price">$${formatearMoneda(item.precio)}</div>
                         </div>
                         <div class="menu-card-category card-${item.categoria}">
                             ${getCategoriaLabel(item.categoria)} (${tipoTexto})
@@ -3310,11 +3340,11 @@ body {
                                 <span>${getPopularityLabel(item.popularidad)}</span>
                             </div>
                         </div>
-                        ${esBebida && stockMessage ? `
+                        ${esBebida && stockText ? `
                         <div class="menu-card-details">
                             <div class="menu-card-detail">
-                                <span>${isOutOfStock ? '<i class="fas fa-times-circle"></i>' : (isLowStock ? '<i class="fas fa-exclamation-triangle"></i>' : '<i class="fas fa-chart-bar"></i>')}</span>
-                                <span>${stockMessage}</span>
+                                <span>${stockIcon}</span>
+                                <span>${stockText}</span>
                             </div>
                         </div>
                         ` : ''}
@@ -3481,7 +3511,7 @@ body {
                         </span>
                     </div>
                     <div class="cart-item-details">
-                        <span>$${item.price.toFixed(2)} c/u</span>
+                        <span>$${formatearMoneda(item.price)} c/u</span>
                         <span>Código: ${item.codigo || 'N/A'}</span>
                         <span>Categoría: ${getCategoriaLabel(item.category)}</span>
                     </div>
@@ -3491,7 +3521,7 @@ body {
                     <span class="quantity-value">${item.quantity}</span>
                     <button type="button" class="quantity-btn" onclick="increaseQuantity('${item.id}')">+</button>
                 </div>
-                <div class="cart-item-price">$${item.total.toFixed(2)}</div>
+                <div class="cart-item-price">$${formatearMoneda(item.total)}</div>
                 <button type="button" class="remove-item" onclick="removeFromCart('${item.id}')" title="Eliminar del carrito">×</button>
             </div>
         `).join('');
@@ -3539,9 +3569,9 @@ body {
         
         const total = subtotal;
         
-        document.getElementById('subtotalDisplay').textContent = `$${subtotal.toFixed(2)}`;
+        document.getElementById('subtotalDisplay').textContent = `$${formatearMoneda(subtotal)}`;
         
-        document.getElementById('totalAmountDisplay').textContent = `$${total.toFixed(2)}`;
+        document.getElementById('totalAmountDisplay').textContent = `$${formatearMoneda(total)}`;
         
         document.getElementById('subtotalInput').value = subtotal.toFixed(2);
         
@@ -3726,18 +3756,18 @@ body {
     
     function getPopularityLabel(popularidad) {
         const labels = {
-            'alta': 'Alta',
-            'media': 'Media',
-            'baja': 'Baja'
+            'alta': '<span style="color: #4CAF50; font-weight: 600;">Alta</span>',
+            'media': '<span style="color: #ffb347; font-weight: 600;">Media</span>',
+            'baja': '<span style="color: #ff416c; font-weight: 600;">Baja</span>'
         };
         return labels[popularidad] || popularidad;
     }
     
     function getPopularityIcon(popularidad) {
         const icons = {
-            'alta': '<i class="fas fa-fire"></i>',
-            'media': '<i class="fas fa-star"></i>',
-            'baja': '<i class="fas fa-chart-bar"></i>'
+            'alta': '<i class="fas fa-fire" style="color: #4CAF50;"></i>',
+            'media': '<i class="fas fa-star" style="color: #ffb347;"></i>',
+            'baja': '<i class="fas fa-chart-bar" style="color: #ff416c;"></i>'
         };
         return icons[popularidad] || '<i class="fas fa-box"></i>';
     }

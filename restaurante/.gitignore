@@ -1,6 +1,7 @@
 venv/
 dashboards.html
 dashborts.html
+
 g.html
 
 # Virtualenv
@@ -26,3 +27,18 @@ media/
 Thumbs.db
 *.sqlite3
 *.sql
+
+.env/
+*.sqlite3
+staticfiles/
+*.sql
+*.ps1
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+.env.env
+__pycache__/
+*.pyc
+

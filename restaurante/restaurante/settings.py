@@ -32,7 +32,10 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 #
 # ALLOWED_HOSTS = ['cottaged-willy-delorse.ngrok-free.dev', 'localhost', '127.0.0.1']
 # ALLOWED_HOSTS = []
-CSRF_TRUSTED_ORIGINS = ['65.181.125.215','127.0.0.1','localhost']
+
+
+CSRF_TRUSTED_ORIGINS = ['https://65.181.125.215','http://127.0.0.1','http://localhost']
+
 
 
 # Application definition
@@ -84,7 +87,7 @@ WSGI_APPLICATION = 'restaurante.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-TIME_ZONE = 'America/Santo_Domingo'  # Mantener para Django
+#TIME_ZONE = 'America/Santo_Domingo'  # Mantener para Django
 USE_TZ = True
 
 
@@ -155,4 +158,3 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-#STATIC_URL = 'static/'

@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -534,9 +536,15 @@
             color: white;
         }
         
-        .btn-delete:hover {
+        .btn-delete {
             background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
             color: white;
+        }
+        
+        .btn-delete:hover {
+            background: linear-gradient(135deg, #ff2e4f 0%, #ff1e1e 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(255, 65, 108, 0.4);
         }
         
         /* Empty state */
@@ -557,6 +565,167 @@
             font-size: 1.5rem;
             margin-bottom: 0.5rem;
             color: #4a5568;
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            animation: fadeInModal 0.3s ease-out;
+        }
+        
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 25px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.4);
+            animation: slideInModal 0.3s ease-out;
+        }
+        
+        @keyframes fadeInModal {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideInModal {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 25px 25px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h2 {
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .modal-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
+        }
+        
+        .modal-body {
+            padding: 2rem;
+        }
+        
+        .modal-form-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+        
+        .modal-form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .modal-form-group label {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #2c3e50;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .modal-form-group input {
+            padding: 1rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: white;
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.05);
+        }
+        
+        .modal-form-group input:focus {
+            outline: none;
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .modal-footer {
+            padding: 1.5rem 2rem 2rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+        
+        .btn-cancel {
+            background: #e2e8f0;
+            color: #4a5568;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+        }
+        
+        .btn-cancel:hover {
+            background: #cbd5e0;
+            transform: translateY(-2px);
+        }
+        
+        .btn-save {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+            box-shadow: 0 10px 20px rgba(255, 126, 95, 0.3);
+        }
+        
+        .btn-save:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(255, 126, 95, 0.4);
         }
         
         /* Pagination */
@@ -676,6 +845,29 @@
         @media (max-width: 480px) {
             .stats-container {
                 grid-template-columns: 1fr;
+            }
+            
+            .modal-content {
+                width: 95%;
+                max-height: 95vh;
+            }
+            
+            .modal-header {
+                padding: 1.5rem;
+            }
+            
+            .modal-body {
+                padding: 1.5rem;
+            }
+            
+            .modal-footer {
+                padding: 1rem 1.5rem 1.5rem;
+                flex-direction: column;
+            }
+            
+            .btn-cancel,
+            .btn-save {
+                width: 100%;
             }
         }
     </style>
@@ -851,7 +1043,7 @@
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
-                            <div class="stat-value" id="totalValue">${{ total_valor|floatformat:2 }}</div>
+                            <div class="stat-value" id="totalValue" data-value="{{ total_valor }}">${{ total_valor|floatformat:2 }}</div>
                             <div class="stat-label">Valor Total</div>
                         </div>
                         <div class="stat-card">
@@ -978,8 +1170,8 @@
                                         <td>
                                             <div class="action-buttons">
                                                 <button class="btn-icon btn-edit" 
-                                                        onclick="editarProducto({{ producto.id }}, '{{ producto.nombre|escapejs }}')" 
-                                                        title="Editar cantidad">
+                                                        onclick="editarProducto({{ producto.id }}, '{{ producto.nombre|escapejs }}', {{ producto.cantidad }}, {{ producto.precio }})" 
+                                                        title="Editar producto">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
                                                 <button class="btn-icon btn-delete" 
@@ -1031,10 +1223,82 @@
         </div>
     </div>
 
+    <!-- Modal de Edición -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-edit"></i> Editar Producto</h2>
+                <button class="modal-close" onclick="cerrarModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm" class="modal-form-grid">
+                    <input type="hidden" id="editProductoId">
+                    
+                    <div class="modal-form-group">
+                        <label for="editNombre">
+                            <i class="fas fa-box"></i> Nombre del Producto
+                        </label>
+                        <input type="text" id="editNombre" readonly style="background: #f7fafc; color: #718096;">
+                    </div>
+                    
+                    <div class="modal-form-group">
+                        <label for="editCantidad">
+                            <i class="fas fa-hashtag"></i> Nueva Cantidad
+                        </label>
+                        <input type="text" id="editCantidad" required placeholder="0">
+                    </div>
+                    
+                    <div class="modal-form-group">
+                        <label for="editPrecio">
+                            <i class="fas fa-dollar-sign"></i> Precio de Compra
+                        </label>
+                        <input type="text" id="editPrecio" required placeholder="0.00">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="cerrarModal()">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button type="button" class="btn-save" onclick="guardarEdicion()">
+                    <i class="fas fa-save"></i> Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // Función para formatear moneda en formato RD
+        function formatearMoneda(valor) {
+            return parseFloat(valor).toLocaleString('es-DO', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+        
         // Inicializar la aplicación
         document.addEventListener('DOMContentLoaded', function() {
             console.log("=== SISTEMA DE INVENTARIO INICIADO ===");
+            
+            // Formatear valores monetarios
+            const totalValueElement = document.getElementById('totalValue');
+            if (totalValueElement) {
+                const value = totalValueElement.textContent.replace('$', '').replace(/,/g, '');
+                totalValueElement.textContent = '$' + formatearMoneda(value);
+            }
+            
+            // Formatear precios y subtotales en la tabla
+            document.querySelectorAll('td').forEach(cell => {
+                const text = cell.textContent.trim();
+                if (text.startsWith('$')) {
+                    const value = text.replace('$', '').replace(/,/g, '');
+                    if (!isNaN(value) && value !== '') {
+                        cell.textContent = '$' + formatearMoneda(value);
+                    }
+                }
+            });
             
             // Configurar debounce para búsqueda
             let searchTimeout;
@@ -1085,42 +1349,104 @@
             window.location.href = url.toString();
         }
         
-        // Editar producto
-        function editarProducto(productoId, productoNombre) {
-            const nuevaCantidad = prompt(`Ingrese la nueva cantidad para "${productoNombre}":`, '0');
+        // Editar producto usando modal
+        function editarProducto(productoId, productoNombre, cantidadActual, precioCompra) {
+            console.log('Editando producto:', {productoId, productoNombre, cantidadActual, precioCompra});
             
-            if (nuevaCantidad !== null) {
-                const cantidadNum = parseFloat(nuevaCantidad);
-                
-                if (isNaN(cantidadNum) || cantidadNum < 0) {
-                    mostrarError('La cantidad debe ser un número mayor o igual a 0');
-                    return;
-                }
-                
-                // Crear formulario para enviar
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = `/producto/${productoId}/actualizar-cantidad/`;
-                form.style.display = 'none';
-                
-                // Añadir token CSRF
-                const csrfInput = document.createElement('input');
-                csrfInput.type = 'hidden';
-                csrfInput.name = 'csrfmiddlewaretoken';
-                csrfInput.value = getCSRFToken();
-                form.appendChild(csrfInput);
-                
-                // Añadir campo de cantidad
-                const cantidadInput = document.createElement('input');
-                cantidadInput.type = 'hidden';
-                cantidadInput.name = 'cantidad';
-                cantidadInput.value = cantidadNum;
-                form.appendChild(cantidadInput);
-                
-                // Enviar formulario
-                document.body.appendChild(form);
-                form.submit();
+            // Llenar el modal con los datos actuales
+            document.getElementById('editProductoId').value = productoId;
+            document.getElementById('editNombre').value = productoNombre;
+            
+            // Pre-llenar campos con valores actuales
+            const cantidadValida = cantidadActual && !isNaN(parseFloat(cantidadActual)) ? parseFloat(cantidadActual) : 0;
+            const precioValido = precioCompra && !isNaN(parseFloat(precioCompra)) ? parseFloat(precioCompra) : 0;
+            
+            console.log('Valores procesados:', {cantidadValida, precioValido});
+            
+            // Formatear y asignar valores
+            const cantidadFormateada = formatearMoneda(cantidadValida).replace('$', '');
+            const precioFormateado = formatearMoneda(precioValido);
+            
+            console.log('Valores formateados:', {cantidadFormateada, precioFormateado});
+            
+            document.getElementById('editCantidad').value = cantidadFormateada;
+            document.getElementById('editPrecio').value = precioFormateado;
+            
+            // Abrir el modal
+            abrirModal();
+        }
+        
+        // Abrir modal
+        function abrirModal() {
+            const modal = document.getElementById('editModal');
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            
+            // Enfocar el campo de cantidad
+            setTimeout(() => {
+                document.getElementById('editCantidad').focus();
+            }, 300);
+        }
+        
+        // Cerrar modal
+        function cerrarModal() {
+            const modal = document.getElementById('editModal');
+            modal.classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+        
+        // Guardar edición desde el modal
+        function guardarEdicion() {
+            const productoId = document.getElementById('editProductoId').value;
+            const nuevaCantidad = document.getElementById('editCantidad').value;
+            const nuevoPrecio = document.getElementById('editPrecio').value.replace(/[^0-9.]/g, '');
+            
+            const cantidadNum = parseFloat(nuevaCantidad);
+            const precioNum = parseFloat(nuevoPrecio);
+            
+            if (isNaN(cantidadNum) || cantidadNum < 0) {
+                mostrarError('La cantidad debe ser un número mayor o igual a 0');
+                return;
             }
+            
+            if (isNaN(precioNum) || precioNum < 0) {
+                mostrarError('El precio debe ser un número mayor o igual a 0');
+                return;
+            }
+            
+            // Crear formulario para enviar
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/producto/${productoId}/actualizar-cantidad/`;
+            form.style.display = 'none';
+            
+            // Añadir token CSRF
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = getCSRFToken();
+            form.appendChild(csrfInput);
+            
+            // Añadir campo de cantidad
+            const cantidadInput = document.createElement('input');
+            cantidadInput.type = 'hidden';
+            cantidadInput.name = 'cantidad';
+            cantidadInput.value = cantidadNum;
+            form.appendChild(cantidadInput);
+            
+            // Añadir campo de precio
+            const precioInput = document.createElement('input');
+            precioInput.type = 'hidden';
+            precioInput.name = 'precio_compra';
+            precioInput.value = precioNum;
+            form.appendChild(precioInput);
+            
+            // Enviar formulario
+            document.body.appendChild(form);
+            form.submit();
+            
+            // Cerrar modal
+            cerrarModal();
         }
         
         // Eliminar producto
@@ -1251,6 +1577,14 @@
             sidebar.classList.toggle('open');
             overlay.classList.toggle('open');
         }
+        
+        // Cerrar modal al hacer clic fuera
+        document.addEventListener('click', function(e) {
+            const modal = document.getElementById('editModal');
+            if (e.target === modal) {
+                cerrarModal();
+            }
+        });
         
         // Teclas de acceso rápido
         document.addEventListener('keydown', function(e) {
