@@ -614,6 +614,8 @@ class Factura(models.Model):
         ('pagada', 'Pagada'),
         ('pendiente', 'Pendiente'),
         ('anulada', 'Anulada'),
+        ('parcialmente_devuelta', 'Parcialmente Devuelta'),
+        ('totalmente_devuelta', 'Totalmente Devuelta'),
     ]
     
     # Relación con el pedido
@@ -668,10 +670,23 @@ class Factura(models.Model):
         verbose_name="Método de Pago"
     )
     estado = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=ESTADO_FACTURA_CHOICES,
         default='pendiente',  # CAMBIADO: Ahora por defecto es 'pendiente'
         verbose_name="Estado de la Factura"
+    )
+
+    productos_devueltos = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="Productos Devueltos",
+        help_text="Registro de productos devueltos en formato JSON"
+    )
+    
+    fecha_devolucion = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de Devolución"
     )
     
     # Totales
@@ -836,3 +851,71 @@ class SalidaProducto(models.Model):
     
     def __str__(self):
         return f"{self.cantidad} de {self.producto.nombre} - {self.motivo}"
+
+
+
+# models.py - Añade este nuevo modelo
+
+class Devolucion(models.Model):
+    """Modelo para registrar devoluciones de facturas"""
+    
+    TIPO_DEVOLUCION_CHOICES = [
+        ('total', 'Devolución Total'),
+        ('parcial', 'Devolución Parcial'),
+        ('cambio', 'Cambio de Producto'),
+    ]
+    
+    factura = models.ForeignKey(
+        Factura,
+        on_delete=models.CASCADE,
+        related_name='devoluciones',
+        verbose_name="Factura"
+    )
+    
+    tipo_devolucion = models.CharField(
+        max_length=20,
+        choices=TIPO_DEVOLUCION_CHOICES,
+        verbose_name="Tipo de Devolución"
+    )
+    
+    # Productos devueltos (JSON con detalles)
+    productos_devueltos = models.JSONField(
+        verbose_name="Productos Devueltos",
+        help_text="Lista de productos devueltos con cantidades"
+    )
+    
+    monto_devuelto = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name="Monto Devuelto"
+    )
+    
+    motivo = models.TextField(
+        blank=True,
+        verbose_name="Motivo de la Devolución"
+    )
+    
+    fecha_devolucion = models.DateTimeField(
+        default=timezone.now,
+        verbose_name="Fecha de Devolución"
+    )
+    
+    procesado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='devoluciones_procesadas',
+        verbose_name="Procesado por"
+    )
+    
+    # Auditoría
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"Devolución {self.id} - Factura: {self.factura.numero_factura}"
+    
+    class Meta:
+        verbose_name = "Devolución"
+        verbose_name_plural = "Devoluciones"
+        ordering = ['-fecha_devolucion']

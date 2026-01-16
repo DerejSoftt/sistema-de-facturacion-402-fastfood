@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 import json
-from .models import Producto, Plato, Pedido, Mesa, DeliveryConfig, HistorialEstadoPedido, DetalleItemPedido, Factura
+from .models import Producto, Plato, Pedido, Mesa, DeliveryConfig, HistorialEstadoPedido, DetalleItemPedido, Factura, Devolucion
 from django.core.paginator import Paginator
 from django.db.models import Sum, Count, Q, Exists, OuterRef
 from django.db.models.functions import Coalesce
@@ -25,7 +25,7 @@ from django.views.decorators.csrf import csrf_protect
 from django.template.loader import render_to_string
 from django.utils.timezone import now
 from django.http import HttpResponse
-
+from django.db.models import F
 
 @csrf_exempt 
 def index(request):
@@ -3399,3 +3399,406 @@ def generar_pdf_ticket_dia(request):
     filename = f"reporte_ventas_{ahora_local.strftime('%Y%m%d_%H%M')}.pdf"
     response['Content-Disposition'] = f'inline; filename="{filename}"'
     return response
+
+
+
+# views.py - Actualiza la función anulacionydevolucion
+
+import json
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.db import transaction
+from django.utils import timezone
+from django.urls import reverse
+from decimal import Decimal
+from .models import Factura, Producto, Devolucion
+
+@login_required
+def anulacionydevolucion(request):
+    """Vista principal para anulación y devolución de facturas"""
+    factura = None
+    items = []
+    
+    # Manejar búsqueda por número de factura
+    if 'numero_factura' in request.GET:
+        numero_factura = request.GET.get('numero_factura', '').strip()
+        if numero_factura:
+            try:
+                factura = Factura.objects.filter(numero_factura__iexact=numero_factura).first()
+                if not factura:
+                    factura = Factura.objects.filter(numero_factura__icontains=numero_factura).first()
+                
+                if factura:
+                    items = normalizar_items_factura(factura.get_items_detalle())
+                    messages.success(request, f'Factura {factura.numero_factura} encontrada')
+                else:
+                    messages.error(request, f'Factura {numero_factura} no encontrada')
+            except Exception as e:
+                messages.error(request, f'Error al buscar factura: {str(e)}')
+    
+    # Manejar carga de última factura
+    elif request.GET.get('ultima') == 'true':
+        try:
+            factura = Factura.objects.order_by('-fecha_creacion').first()
+            if factura:
+                items = normalizar_items_factura(factura.get_items_detalle())
+                messages.success(request, f'Última factura cargada: {factura.numero_factura}')
+            else:
+                messages.error(request, 'No hay facturas registradas')
+        except Exception as e:
+            messages.error(request, f'Error al obtener última factura: {str(e)}')
+    
+    context = {
+        'factura': factura,
+        'items': items,
+    }
+    
+    return render(request, 'facturacion/anulacionydevolucion.html', context)
+
+def normalizar_items_factura(items):
+    """Normalizar los items de la factura para tener una estructura consistente"""
+    items_normalizados = []
+    
+    for i, item in enumerate(items):
+        # Determinar las claves según la estructura del item
+        nombre = item.get('nombre') or item.get('name') or f'Producto {i+1}'
+        cantidad = item.get('cantidad') or item.get('quantity') or 1
+        precio = item.get('precio') or item.get('price') or 0
+        subtotal = item.get('subtotal') or item.get('total') or (cantidad * precio)
+        categoria = item.get('categoria') or item.get('category') or ''
+        producto_id = item.get('producto_id') or item.get('id') or (i + 1)
+        
+        items_normalizados.append({
+            'id': producto_id,
+            'producto_id': producto_id,
+            'nombre': nombre,
+            'cantidad': cantidad,
+            'precio': float(precio),
+            'subtotal': float(subtotal),
+            'categoria': categoria,
+        })
+    
+    return items_normalizados
+
+@login_required
+def procesar_devolucion_total(request):
+    """Procesar devolución total de una factura"""
+    if request.method == 'POST':
+        numero_factura = request.POST.get('numero_factura')
+        
+        if not numero_factura:
+            messages.error(request, 'Número de factura requerido')
+            return redirect('anulacionydevolucion')
+        
+        try:
+            factura = get_object_or_404(Factura, numero_factura=numero_factura)
+            
+            # Verificar que la factura esté pagada
+            if factura.estado != 'pagada':
+                messages.error(
+                    request, 
+                    f'La factura debe estar pagada para procesar devolución. Estado actual: {factura.get_estado_display()}'
+                )
+                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+            
+            with transaction.atomic():
+                # Obtener items de la factura
+                items = normalizar_items_factura(factura.get_items_detalle())
+                productos_devueltos = []
+                monto_total_devuelto = 0
+                
+                for item in items:
+                    producto_id = item.get('producto_id')
+                    nombre = item.get('nombre', '')
+                    cantidad = item.get('cantidad', 0)
+                    precio = item.get('precio', 0)
+                    categoria = item.get('categoria', '')
+                    
+                    # AUMENTAR stock para productos bebida (devolución = reponer stock)
+                    if categoria.lower() == 'bebida':
+                        reponer_stock_producto(nombre, cantidad)
+                    
+                    monto_total_devuelto += precio * cantidad
+                    productos_devueltos.append({
+                        'producto_id': producto_id,
+                        'nombre': nombre,
+                        'cantidad': cantidad,
+                        'precio_unitario': precio,
+                        'subtotal': precio * cantidad,
+                        'categoria': categoria
+                    })
+                
+                # Crear registro de devolución
+                Devolucion.objects.create(
+                    factura=factura,
+                    tipo_devolucion='total',
+                    productos_devueltos=productos_devueltos,
+                    monto_devuelto=monto_total_devuelto,
+                    motivo='Devolución total procesada desde el sistema',
+                    procesado_por=request.user
+                )
+                
+                # Actualizar estado de la factura
+                factura.estado = 'totalmente_devuelta'
+                factura.productos_devueltos = productos_devueltos
+                factura.monto_devuelto = monto_total_devuelto
+                factura.fecha_devolucion = timezone.now()
+                factura.save()
+                
+                messages.success(
+                    request, 
+                    f'✅ Devolución total procesada exitosamente. Monto devuelto: ${monto_total_devuelto:.2f}. Stock de bebidas repuesto.'
+                )
+                
+                # Redirigir a la misma factura
+                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+                
+        except Exception as e:
+            messages.error(request, f'❌ Error al procesar devolución: {str(e)}')
+            return redirect('anulacionydevolucion')
+    
+    return redirect('anulacionydevolucion')
+
+@login_required
+def procesar_devolucion_parcial(request):
+    """Procesar devolución parcial de una factura"""
+    if request.method == 'POST':
+        numero_factura = request.POST.get('numero_factura')
+        productos_json = request.POST.get('productos_devueltos', '[]')
+        
+        if not numero_factura:
+            messages.error(request, 'Número de factura requerido')
+            return redirect('anulacionydevolucion')
+        
+        try:
+            factura = get_object_or_404(Factura, numero_factura=numero_factura)
+            
+            # Verificar que la factura esté pagada o parcialmente devuelta
+            if factura.estado not in ['pagada', 'parcialmente_devuelta']:
+                messages.error(
+                    request, 
+                    f'La factura debe estar pagada para procesar devolución. Estado actual: {factura.get_estado_display()}'
+                )
+                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+            
+            # Parsear productos devueltos
+            productos_devueltos = json.loads(productos_json)
+            
+            if not productos_devueltos:
+                messages.error(request, 'Debes seleccionar productos para devolución parcial')
+                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+            
+            with transaction.atomic():
+                # Obtener items de la factura
+                items_factura = normalizar_items_factura(factura.get_items_detalle())
+                productos_procesados = []
+                monto_total_devuelto = 0
+                
+                for producto_data in productos_devueltos:
+                    producto_nombre = producto_data.get('nombre', '')
+                    cantidad = producto_data.get('cantidad', 0)
+                    categoria = producto_data.get('categoria', '')
+                    
+                    # Buscar el producto en la factura por nombre
+                    item_factura = buscar_item_por_nombre(items_factura, producto_nombre)
+                    if not item_factura:
+                        messages.error(request, f'Producto {producto_nombre} no encontrado en la factura')
+                        return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+                    
+                    # Verificar cantidad
+                    cantidad_comprada = item_factura.get('cantidad', 0)
+                    if cantidad > cantidad_comprada:
+                        messages.error(
+                            request, 
+                            f'Cantidad a devolver ({cantidad}) excede lo comprado ({cantidad_comprada}) para {item_factura.get("nombre")}'
+                        )
+                        return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+                    
+                    precio = item_factura.get('precio', 0)
+                    subtotal = precio * cantidad
+                    
+                    # AUMENTAR stock para productos bebida (devolución = reponer stock)
+                    if categoria.lower() == 'bebida':
+                        reponer_stock_producto(producto_nombre, cantidad)
+                    
+                    monto_total_devuelto += subtotal
+                    productos_procesados.append({
+                        'producto_id': item_factura.get('producto_id'),
+                        'nombre': producto_nombre,
+                        'cantidad': cantidad,
+                        'precio_unitario': precio,
+                        'subtotal': subtotal,
+                        'categoria': categoria
+                    })
+                
+                # Crear registro de devolución
+                Devolucion.objects.create(
+                    factura=factura,
+                    tipo_devolucion='parcial',
+                    productos_devueltos=productos_procesados,
+                    monto_devuelto=monto_total_devuelto,
+                    motivo='Devolución parcial procesada desde el sistema',
+                    procesado_por=request.user
+                )
+                
+                # Actualizar estado de la factura
+                if factura.estado == 'pagada':
+                    factura.estado = 'parcialmente_devuelta'
+                
+                # Actualizar productos devueltos
+                devoluciones_anteriores = factura.productos_devueltos or []
+                devoluciones_anteriores.extend(productos_procesados)
+                factura.productos_devueltos = devoluciones_anteriores
+                factura.monto_devuelto += monto_total_devuelto
+                factura.fecha_devolucion = timezone.now()
+                factura.save()
+                
+                messages.success(
+                    request, 
+                    f'✅ Devolución parcial procesada exitosamente. Monto devuelto: ${monto_total_devuelto:.2f}. Stock de bebidas repuesto.'
+                )
+                
+                # Redirigir a la misma factura
+                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+                
+        except Exception as e:
+            messages.error(request, f'❌ Error al procesar devolución parcial: {str(e)}')
+            return redirect('anulacionydevolucion')
+    
+    return redirect('anulacionydevolucion')
+
+
+
+def reponer_stock_producto(nombre_producto, cantidad):
+    """Aumentar stock de un producto (para devoluciones)"""
+    try:
+        # Buscar producto por nombre (insensible a mayúsculas/minúsculas)
+        producto = Producto.objects.filter(
+            nombre__iexact=nombre_producto
+        ).first()
+        
+        if not producto:
+            # Intentar búsqueda parcial
+            producto = Producto.objects.filter(
+                nombre__icontains=nombre_producto
+            ).first()
+        
+        if producto:
+            # Aumentar cantidad en stock (devolución = reponer)
+            # Usamos F() para operación atómica en la base de datos
+            producto.cantidad = F('cantidad') + Decimal(str(cantidad))
+            producto.save()
+            
+            # Refrescar el objeto para obtener el valor actualizado
+            producto.refresh_from_db()
+            
+            print(f"✅ Stock repuesto: {producto.nombre} (+{cantidad}) = {producto.cantidad}")
+            return True
+        else:
+            print(f"⚠️ Producto no encontrado: {nombre_producto}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error al reponer stock: {str(e)}")
+        return False
+
+def disminuir_stock_producto(nombre_producto, cantidad):
+    """Disminuir stock de un producto (para anulaciones)"""
+    try:
+        # Buscar producto por nombre
+        producto = Producto.objects.filter(
+            nombre__iexact=nombre_producto
+        ).first()
+        
+        if not producto:
+            producto = Producto.objects.filter(
+                nombre__icontains=nombre_producto
+            ).first()
+        
+        if producto:
+            # Disminuir cantidad en stock (anulación = quitar stock)
+            # Verificar que no quede negativo
+            if producto.cantidad >= Decimal(str(cantidad)):
+                producto.cantidad = F('cantidad') - Decimal(str(cantidad))
+                producto.save()
+                producto.refresh_from_db()
+            else:
+                # Si no hay suficiente stock, solo disminuir hasta 0
+                producto.cantidad = Decimal('0')
+                producto.save()
+            
+            print(f"✅ Stock disminuido: {producto.nombre} (-{cantidad}) = {producto.cantidad}")
+            return True
+        else:
+            print(f"⚠️ Producto no encontrado: {nombre_producto}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error al disminuir stock: {str(e)}")
+        return False
+
+
+def buscar_item_por_nombre(items_factura, nombre_producto):
+    """Buscar un producto en los items de la factura por nombre"""
+    for item in items_factura:
+        if item.get('nombre', '').lower() == nombre_producto.lower():
+            return item
+    return None
+
+@login_required
+def procesar_anulacion_factura(request):
+    """Procesar anulación de una factura (disminuir stock)"""
+    if request.method == 'POST':
+        numero_factura = request.POST.get('numero_factura')
+        motivo = request.POST.get('motivo', '')
+        
+        if not numero_factura:
+            messages.error(request, 'Número de factura requerido')
+            return redirect('anulacionydevolucion')
+        
+        try:
+            factura = get_object_or_404(Factura, numero_factura=numero_factura)
+            
+            # Solo se pueden anular facturas pagadas o pendientes
+            if factura.estado not in ['pagada', 'pendiente']:
+                messages.error(
+                    request, 
+                    f'Solo se pueden anular facturas pagadas o pendientes. Estado actual: {factura.get_estado_display()}'
+                )
+                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+            
+            with transaction.atomic():
+                # Obtener items de la factura
+                items = normalizar_items_factura(factura.get_items_detalle())
+                
+                # DISMINUIR stock para productos bebida (anulación = quitar stock que se había vendido)
+                for item in items:
+                    nombre = item.get('nombre', '')
+                    cantidad = item.get('cantidad', 0)
+                    categoria = item.get('categoria', '')
+                    
+                    # Solo disminuir stock de bebidas
+                    if categoria.lower() == 'bebida':
+                        disminuir_stock_producto(nombre, cantidad)
+                
+                # Actualizar estado de la factura
+                factura.estado = 'anulada'
+                factura.motivo_anulacion = motivo
+                factura.fecha_devolucion = timezone.now()
+                factura.save()
+                
+                messages.success(
+                    request, 
+                    f'✅ Factura {factura.numero_factura} anulada exitosamente. Stock de bebidas ajustado.'
+                )
+                
+                # Redirigir a la misma factura
+                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+                
+        except Exception as e:
+            messages.error(request, f'❌ Error al anular factura: {str(e)}')
+            return redirect('anulacionydevolucion')
+    
+    return redirect('anulacionydevolucion')
+
