@@ -7,9 +7,6 @@
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-
-   <style>
-
         * {
             margin: 0;
             padding: 0;
@@ -553,11 +550,11 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="quantity"><i class="fas fa-sort-numeric-up"></i> Cantidad</label>
-                                    <input type="number" id="quantity" placeholder="0" min="0" step="0.01" required>
+                                    <input type="text" id="quantity" placeholder="0.00" required>
                                 </div>
                                 <div class="form-group">
                                     <label for="price"><i class="fas fa-dollar-sign"></i> Precio de Compra ($)</label>
-                                    <input type="number" id="price" placeholder="0.00" min="0" step="0.01" required>
+                                    <input type="text" id="price" placeholder="0.00" required>
                                 </div>
                             </div>
                             <button type="submit" class="btn btn-primary">
@@ -579,6 +576,65 @@
 <script>
     const form = document.getElementById('productForm');
     const confirmationMessage = document.getElementById('confirmationMessage');
+    const quantityInput = document.getElementById('quantity');
+    const priceInput = document.getElementById('price');
+
+    // Función para formatear número con coma para miles y punto para decimales
+    function formatearNumero(valor) {
+        // Eliminar todo excepto números y punto
+        let numeros = valor.replace(/[^\d\.]/g, '');
+        
+        // Si hay punto, separar enteros y decimales
+        let partes = numeros.split('.');
+        let enteros = partes[0];
+        let decimales = partes[1] || '';
+        
+        // Limitar decimales a 2 dígitos
+        if (decimales.length > 2) {
+            decimales = decimales.substring(0, 2);
+        }
+        
+        // Formatear la parte entera con comas para miles
+        enteros = enteros.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        
+        // Unir con punto decimal si hay decimales
+        return decimales ? enteros + '.' + decimales : enteros;
+    }
+
+    // Función para convertir formato a número
+    function desformatearNumero(valor) {
+        return valor.replace(/,/g, '');
+    }
+
+    // Event listeners para formatear cantidad
+    quantityInput.addEventListener('input', function(e) {
+        let cursorPos = e.target.selectionStart;
+        let valorAnterior = e.target.value;
+        let valor = formatearNumero(e.target.value);
+        e.target.value = valor;
+        
+        // Ajustar posición del cursor
+        if (valorAnterior.length < valor.length) {
+            e.target.setSelectionRange(cursorPos + 1, cursorPos + 1);
+        } else {
+            e.target.setSelectionRange(cursorPos, cursorPos);
+        }
+    });
+
+    // Event listeners para formatear precio
+    priceInput.addEventListener('input', function(e) {
+        let cursorPos = e.target.selectionStart;
+        let valorAnterior = e.target.value;
+        let valor = formatearNumero(e.target.value);
+        e.target.value = valor;
+        
+        // Ajustar posición del cursor
+        if (valorAnterior.length < valor.length) {
+            e.target.setSelectionRange(cursorPos + 1, cursorPos + 1);
+        } else {
+            e.target.setSelectionRange(cursorPos, cursorPos);
+        }
+    });
 
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -587,8 +643,8 @@
         
         const productName = document.getElementById('productName').value.trim();
         const category = document.getElementById('category').value;
-        const quantity = document.getElementById('quantity').value;
-        const price = document.getElementById('price').value;
+        const quantity = desformatearNumero(quantityInput.value);
+        const price = desformatearNumero(priceInput.value);
         
         console.log("Datos del formulario:", {
             productName, category, quantity, price

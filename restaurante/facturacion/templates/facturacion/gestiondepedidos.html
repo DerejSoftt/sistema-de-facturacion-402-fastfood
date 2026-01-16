@@ -8,9 +8,6 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
 
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-      <style>
-
         * {
             margin: 0;
             padding: 0;
@@ -678,6 +675,381 @@
                 justify-content: center;
             }
         }
+        
+        /* Estilos para Modales */
+        .modal, .status-modal, .edit-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            overflow-y: auto;
+        }
+        
+        .modal.active, .status-modal.active, .edit-modal.active {
+            display: flex;
+        }
+        
+        .modal-content, .status-modal-content, .edit-modal-content {
+            background: white;
+            border-radius: 20px;
+            max-width: 900px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        
+        @keyframes modalSlideIn {
+            from { 
+                opacity: 0; 
+                transform: translateY(-50px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0); 
+            }
+        }
+        
+        .modal-header, .status-modal-header, .edit-modal-header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h3, .status-modal-header h3, .edit-modal-header h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .modal-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 2rem;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            line-height: 1;
+        }
+        
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
+        }
+        
+        .modal-body, .status-modal-body, .edit-modal-body {
+            padding: 2rem;
+        }
+        
+        /* Estilos para items del pedido en modales */
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #f8f9ff;
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            border: 1px solid #e0e6ff;
+        }
+        
+        .order-item-edit {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #f8f9ff;
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            border: 2px solid #e0e6ff;
+            transition: all 0.3s;
+        }
+        
+        .order-item-edit:hover {
+            border-color: #ff7e5f;
+            box-shadow: 0 5px 15px rgba(255, 126, 95, 0.1);
+        }
+        
+        /* Estilos para opciones de estado */
+        .status-option {
+            padding: 1.5rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .status-option:hover {
+            border-color: #ff7e5f;
+            background: #f8f9ff;
+            transform: translateX(5px);
+        }
+        
+        .status-option.selected {
+            border-color: #ff7e5f;
+            background: linear-gradient(135deg, #fff5f0 0%, #fff8f5 100%);
+            box-shadow: 0 5px 15px rgba(255, 126, 95, 0.2);
+        }
+        
+        .status-option-icon {
+            font-size: 2rem;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .status-option-label {
+            flex: 1;
+        }
+        
+        .status-option-label div:first-child {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 0.25rem;
+        }
+        
+        .status-option-label div:last-child {
+            font-size: 0.9rem;
+            color: #718096;
+        }
+        
+        /* Estilos para controles de cantidad */
+        .cantidad-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: white;
+            border-radius: 10px;
+            padding: 0.25rem;
+            border: 2px solid #e0e6ff;
+        }
+        
+        .cantidad-btn {
+            width: 30px;
+            height: 30px;
+            border: none;
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .cantidad-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 10px rgba(255, 126, 95, 0.3);
+        }
+        
+        .cantidad-input {
+            width: 50px;
+            text-align: center;
+            border: none;
+            font-weight: 700;
+            font-size: 1rem;
+            color: #2c3e50;
+        }
+        
+        /* Estilos para formularios de edición */
+        .edit-form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .edit-form-group label {
+            display: block;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+        }
+        
+        .edit-form-group input,
+        .edit-form-group textarea,
+        .edit-form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .edit-form-group input:focus,
+        .edit-form-group textarea:focus,
+        .edit-form-group select:focus {
+            outline: none;
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.1);
+        }
+        
+        /* Estilos para lista de productos disponibles */
+        #productosDisponiblesList {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+        
+        .producto-item {
+            padding: 1rem;
+            background: #f8f9ff;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        
+        .producto-item:hover {
+            border-color: #ff7e5f;
+            background: white;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(255, 126, 95, 0.2);
+        }
+        
+        .producto-item strong {
+            display: block;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+        
+        .producto-item span {
+            color: #ff7e5f;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        
+        /* Estilos para búsqueda de productos */
+        .search-bebidas {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: white;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            padding: 0.5rem;
+            transition: all 0.3s;
+        }
+        
+        .search-bebidas:focus-within {
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.1);
+        }
+        
+        .search-bebidas-icon {
+            padding: 0 0.5rem;
+            color: #ff7e5f;
+            font-size: 1.2rem;
+        }
+        
+        .search-bebidas input {
+            flex: 1;
+            border: none;
+            outline: none;
+            padding: 0.5rem;
+            font-size: 1rem;
+            background: transparent;
+        }
+        
+        .search-bebidas-btn {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 10px rgba(255, 126, 95, 0.2);
+        }
+        
+        .search-bebidas-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(255, 126, 95, 0.3);
+        }
+        
+        .search-bebidas-btn:active {
+            transform: translateY(0);
+        }
+        
+        /* Ajuste para botón eliminar en edición */
+        .order-item-edit .btn-danger {
+            margin-left: 1rem;
+        }
+        
+        /* Estilos para estado actual en modal de edición */
+        .edit-modal .status-badge {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .edit-modal .status-badge.pendiente {
+            background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);
+            color: white;
+        }
+        
+        .edit-modal .status-badge.preparando {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .edit-modal .status-badge.listo {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+        }
+        
+        .edit-modal .status-badge.completado {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        
+        .edit-modal .status-badge.cancelado {
+            background: linear-gradient(135deg, #f857a6 0%, #ff5858 100%);
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -755,11 +1127,50 @@
                     <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>Gestión de Usuarios</span>
                 </a>
+                <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
                 {% endif %}
                 
-                <!-- Menú para otros grupos... -->
+                <!-- Menú para Gerente -->
                 {% if "Gerente" in user_groups and not user.is_superuser %}
-                <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
+                <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
                 {% endif %}
                 
                 {% if "Cajero" in user_groups and not user.is_superuser %}
@@ -811,6 +1222,10 @@
                     <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>Gestión de Usuarios</span>
                 </a>
+                <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
                 {% endif %}
                 
                 <!-- Cerrar sesión para todos -->
@@ -852,7 +1267,7 @@
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
-                            <div class="stat-value" id="ingresosHoy">${{ estadisticas.ingresos_hoy|floatformat:2|intcomma }}</div>
+                            <div class="stat-value" id="ingresosHoy">$<span id="ingresosHoyValor">{{ estadisticas.ingresos_hoy }}</span></div>
                             <div class="stat-label">Ingresos Hoy</div>
                         </div>
                         <div class="stat-card">
@@ -1173,6 +1588,16 @@
         
         // Configurar event listeners
         function setupEventListeners() {
+            // Formatear ingresos del día con formato RD
+            const ingresosElement = document.getElementById('ingresosHoyValor');
+            if (ingresosElement) {
+                const valor = parseFloat(ingresosElement.textContent) || 0;
+                ingresosElement.textContent = valor.toLocaleString('es-DO', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            }
+            
             // Botón para exportar pedidos
             const exportBtn = document.querySelector('.btn-primary[onclick*="exportOrders"]');
             if (exportBtn) {
@@ -1281,8 +1706,8 @@
                     <tr>
                         <td>${item.name || item.nombre}</td>
                         <td>${item.quantity || item.cantidad}</td>
-                        <td>$${(item.price || item.precio || 0).toFixed(2)}</td>
-                        <td>$${(item.total || item.subtotal || 0).toFixed(2)}</td>
+                        <td>$${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td>$${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                     </tr>
                 `).join('');
             }
@@ -1337,15 +1762,15 @@
                             <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
                                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                     <span>Subtotal:</span>
-                                    <span>$${pedido.subtotal.toFixed(2)}</span>
+                                    <span>$${pedido.subtotal.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                                     <span>Envío:</span>
-                                    <span>$${pedido.envio.toFixed(2)}</span>
+                                    <span>$${pedido.envio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; color: #ff7e5f; padding-top: 0.5rem; border-top: 1px solid #e0e6ff;">
                                     <span>Total:</span>
-                                    <span>$${pedido.total.toFixed(2)}</span>
+                                    <span>$${pedido.total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                                 </div>
                             </div>
                         </div>
@@ -1439,7 +1864,7 @@
                         <div style="flex: 2;">
                             <strong>${item.name || item.nombre}</strong>
                             <div style="font-size: 0.9rem; color: #718096;">
-                                Precio: $${(item.price || item.precio || 0).toFixed(2)}
+                                Precio: $${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                             </div>
                         </div>
                         <div class="cantidad-controls">
@@ -1453,7 +1878,7 @@
                             <button type="button" class="cantidad-btn" onclick="cambiarCantidad(${index}, 1)">+</button>
                         </div>
                         <div style="font-weight: bold; color: #ff7e5f; min-width: 80px; text-align: right;" id="total-item-${index}">
-                            $${(item.total || item.subtotal || 0).toFixed(2)}
+                            $${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                         </div>
                         <button type="button" class="btn-icon btn-danger" onclick="eliminarItem(${index})" title="Eliminar item">
                             <i class="fas fa-trash"></i>
@@ -1543,7 +1968,7 @@
                     <div>
                         <strong style="font-size: 1.2rem;">Total: $</strong>
                         <span id="totalPedidoEdit" style="font-size: 1.5rem; font-weight: bold; color: #ff7e5f;">
-                            ${pedido.total.toFixed(2)}
+                            ${pedido.total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                         </span>
                     </div>
                     <div style="display: flex; gap: 1rem;">
@@ -1592,7 +2017,7 @@
                                 <div style="flex: 1;">
                                     <strong>${producto.nombre}</strong>
                                     <div style="font-size: 0.85rem; color: #718096;">
-                                        ${producto.categoria || producto.tipo} - $${producto.precio.toFixed(2)}
+                                        ${producto.categoria || producto.tipo} - $${producto.precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                                     </div>
                                 </div>
                                 <div style="margin-left: 1rem;">
@@ -1639,7 +2064,7 @@
                     <div style="flex: 2;">
                         <strong>${producto.nombre}</strong>
                         <div style="font-size: 0.9rem; color: #718096;">
-                            Precio: $${precio.toFixed(2)}
+                            Precio: $${precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                         </div>
                     </div>
                     <div class="cantidad-controls">
@@ -1653,9 +2078,9 @@
                         <button type="button" class="cantidad-btn" onclick="cambiarCantidadEdit('${itemId}', 1)">+</button>
                     </div>
                     <div style="font-weight: bold; color: #ff7e5f; min-width: 80px; text-align: right;" id="total-item-${itemId}">
-                        $${total.toFixed(2)}
+                        $${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </div>
-                    <button type="button" class="btn-icon btn-danger" onclick="eliminarItemEdit('${itemId}')" title="Eliminar item">
+                    <button type="button" class="btn-icon btn-danger" onclick="eliminarItemEdit('${itemId}')" title="Eliminar item" style="margin-left: 1rem;">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -1689,7 +2114,7 @@
             
             const totalElement = document.getElementById(`total-item-${itemId}`);
             if (totalElement) {
-                totalElement.textContent = `$${total.toFixed(2)}`;
+                totalElement.textContent = `$${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             }
             
             calcularTotalPedidoEdit();
@@ -1722,7 +2147,7 @@
             
             const totalElement = document.getElementById('totalPedidoEdit');
             if (totalElement) {
-                totalElement.textContent = total.toFixed(2);
+                totalElement.textContent = total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             }
             
             return total;
@@ -1750,7 +2175,7 @@
             
             const totalElement = document.getElementById(`total-item-${index}`);
             if (totalElement) {
-                totalElement.textContent = `$${total.toFixed(2)}`;
+                totalElement.textContent = `$${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             }
             
             calcularTotalPedidoEdit();
