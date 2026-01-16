@@ -1,6 +1,33 @@
 venv/
 dashboards.html
 dashborts.html
+
+g.html
+
+# Virtualenv
+venv/
+
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Django
+staticfiles/
+media/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+*.sqlite3
+*.sql
+
 .env/
 *.sqlite3
 staticfiles/
@@ -11,6 +38,6 @@ __pycache__/
 *.pyo
 *.pyd
 
-.env.env
+.env
 __pycache__/
 *.pyc
