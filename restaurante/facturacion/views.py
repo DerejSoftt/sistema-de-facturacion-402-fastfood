@@ -713,7 +713,6 @@ def pedidos(request):
 
 
 
-
 @csrf_exempt 
 def crear_pedido(request):
     """Vista para crear un nuevo pedido - funciona sin login"""
@@ -759,64 +758,184 @@ def crear_pedido(request):
                 print(f"  [{idx}] {item.get('name')} (ID: {item.get('id')}, Tipo: {item.get('tipo')}, es_bebida: {item.get('es_bebida')}, Quantity: {item.get('quantity')})")
             print("=" * 80)
             
-            # 🔥 VALIDAR STOCK DE BEBIDAS ANTES DE CREAR EL PEDIDO
+            # 🔥 VALIDAR Y DESCONTAR STOCK DE BEBIDAS ANTES DE CREAR EL PEDIDO
+            print("=" * 60)
+            print("DESCONTANDO STOCK DE BEBIDAS:")
+            print("=" * 60)
+            
             bebidas_sin_stock = []
+            bebidas_descontadas = []
             
             for item in cart_items:
-                # Si el item es una bebida (tipo = 'bebida' o es_bebida = True)
-                if item.get('tipo') == 'bebida' or item.get('es_bebida'):
-                    # Extraer el ID real del prefijo "bebida_"
-                    item_id = item.get('id', '')
-                    print(f"Procesando bebida - item_id original: {item_id}")
+                # Verificar si es una bebida
+                es_bebida = item.get('tipo') == 'bebida' or item.get('es_bebida', False)
+                
+                if not es_bebida:
+                    continue  # Saltar si no es bebida
+                
+                # Extraer información del item
+                item_id = item.get('id', '')
+                nombre_bebida = item.get('name', 'Bebida sin nombre')
+                cantidad_solicitada = int(item.get('quantity', 1))
+                
+                print(f"\n[Procesando] {nombre_bebida}")
+                print(f"  - ID original: {item_id}")
+                print(f"  - Cantidad solicitada: {cantidad_solicitada}")
+                
+                # 🔥 FUNCIÓN PARA EXTRAER ID REAL
+                def extraer_id_bebida(item_id_str):
+                    """Extrae el ID numérico del string con prefijo 'bebida_'"""
+                    if isinstance(item_id_str, (int, float)):
+                        return int(item_id_str)
                     
-                    bebida_id = None
+                    item_id_str = str(item_id_str)
                     
-                    if isinstance(item_id, str):
-                        if item_id.startswith('bebida_'):
-                            try:
-                                bebida_id = int(item_id.replace('bebida_', ''))
-                            except ValueError:
-                                print(f"ERROR: No se pudo convertir ID: {item_id}")
-                                bebidas_sin_stock.append(f"ID inválido para {item.get('name')}")
-                                continue
-                        else:
-                            # Si no tiene prefijo pero es número
-                            try:
-                                bebida_id = int(item_id)
-                            except ValueError:
-                                print(f"ERROR: ID no numérico: {item_id}")
-                                bebidas_sin_stock.append(f"ID inválido para {item.get('name')}")
-                                continue
-                    else:
-                        # Si ya es un número
-                        bebida_id = int(item_id)
+                    # Caso 1: Tiene prefijo "bebida_"
+                    if item_id_str.startswith('bebida_'):
+                        try:
+                            return int(item_id_str.replace('bebida_', ''))
+                        except ValueError:
+                            return None
                     
-                    cantidad_solicitada = int(item.get('quantity', 1))
+                    # Caso 2: Tiene prefijo "PROD-" (viene de Producto)
+                    if item_id_str.startswith('PROD-'):
+                        try:
+                            # Extraer solo el número después de "PROD-"
+                            partes = item_id_str.split('-')
+                            if len(partes) >= 2:
+                                return int(partes[1])
+                        except (ValueError, IndexError):
+                            return None
                     
-                    print(f"Validando bebida - ID: {bebida_id}, Nombre: {item.get('name')}, Cantidad: {cantidad_solicitada}")
-                    
+                    # Caso 3: Es solo un número
                     try:
-                        bebida = Producto.objects.get(id=bebida_id, categoria='bebida')
-                        
-                        # Verificar si hay suficiente stock
-                        # 🔥 Convertir a Decimal para comparación
-                        stock_disponible = Decimal(str(bebida.cantidad))
-                        if stock_disponible < cantidad_solicitada:
-                            error_msg = f'❌ No hay suficiente stock de {bebida.nombre}. Disponible: {stock_disponible}, Solicitado: {cantidad_solicitada}'
-                            bebidas_sin_stock.append(error_msg)
-                            print(error_msg)
-                            continue
-                            
-                        # Reducir el stock de la bebida
-                        bebida.cantidad = stock_disponible - Decimal(str(cantidad_solicitada))
-                        bebida.save()
-                        print(f"✅ Stock reducido para {bebida.nombre}: nuevo stock = {bebida.cantidad}")
-                        
-                    except Producto.DoesNotExist:
-                        error_msg = f'❌ La bebida "{item.get("name")}" ya no está disponible'
+                        return int(item_id_str)
+                    except ValueError:
+                        # Intentar extraer números del string
+                        import re
+                        numeros = re.findall(r'\d+', item_id_str)
+                        if numeros:
+                            return int(numeros[0])
+                        return None
+                
+                # Extraer ID de la bebida
+                bebida_id = extraer_id_bebida(item_id)
+                
+                if not bebida_id:
+                    error_msg = f'❌ ID inválido para {nombre_bebida}: {item_id}'
+                    bebidas_sin_stock.append(error_msg)
+                    print(f"  {error_msg}")
+                    continue
+                
+                print(f"  - ID extraído: {bebida_id}")
+                
+                # Buscar la bebida en Producto
+                try:
+                    bebida = Producto.objects.get(id=bebida_id, categoria='bebida')
+                    
+                    # 🔥 DEBUG: Mostrar información de la bebida encontrada
+                    print(f"  - Bebida encontrada: {bebida.nombre}")
+                    print(f"  - Stock actual: {bebida.cantidad}")
+                    print(f"  - Precio: ${bebida.precio_compra}")
+                    
+                    # Verificar si hay suficiente stock
+                    stock_disponible = bebida.cantidad
+                    if stock_disponible < cantidad_solicitada:
+                        error_msg = f'❌ No hay suficiente stock de {bebida.nombre}. Disponible: {stock_disponible}, Solicitado: {cantidad_solicitada}'
                         bebidas_sin_stock.append(error_msg)
-                        print(error_msg)
+                        print(f"  {error_msg}")
                         continue
+                    
+                    # 🔥 DESCONTAR EL STOCK
+                    stock_anterior = bebida.cantidad
+                    bebida.cantidad = stock_disponible - Decimal(str(cantidad_solicitada))
+                    
+                    # Recalcular subtotal del producto
+                    bebida.subtotal = bebida.cantidad * bebida.precio_compra
+                    
+                    # Guardar cambios
+                    bebida.save()
+                    
+                    # Registrar bebida descontada
+                    bebidas_descontadas.append({
+                        'id': bebida.id,
+                        'nombre': bebida.nombre,
+                        'cantidad': cantidad_solicitada,
+                        'stock_anterior': float(stock_anterior),
+                        'stock_nuevo': float(bebida.cantidad)
+                    })
+                    
+                    print(f"  ✅ Stock descontado: {cantidad_solicitada} unidad(es)")
+                    print(f"  ✅ Stock anterior: {stock_anterior}")
+                    print(f"  ✅ Stock nuevo: {bebida.cantidad}")
+                    
+                except Producto.DoesNotExist:
+                    # Buscar por código alternativo
+                    try:
+                        # Intentar buscar por nombre o código
+                        codigo_bebida = item.get('codigo', '')
+                        if codigo_bebida:
+                            bebida = Producto.objects.get(codigo=codigo_bebida, categoria='bebida')
+                            
+                            print(f"  - Bebida encontrada por código: {bebida.nombre} ({codigo_bebida})")
+                            print(f"  - Stock actual: {bebida.cantidad}")
+                            
+                            # Verificar stock
+                            stock_disponible = bebida.cantidad
+                            if stock_disponible < cantidad_solicitada:
+                                error_msg = f'❌ No hay suficiente stock de {bebida.nombre}. Disponible: {stock_disponible}, Solicitado: {cantidad_solicitada}'
+                                bebidas_sin_stock.append(error_msg)
+                                print(f"  {error_msg}")
+                                continue
+                            
+                            # Descontar stock
+                            stock_anterior = bebida.cantidad
+                            bebida.cantidad = stock_disponible - Decimal(str(cantidad_solicitada))
+                            bebida.subtotal = bebida.cantidad * bebida.precio_compra
+                            bebida.save()
+                            
+                            bebidas_descontadas.append({
+                                'id': bebida.id,
+                                'nombre': bebida.nombre,
+                                'cantidad': cantidad_solicitada,
+                                'stock_anterior': float(stock_anterior),
+                                'stock_nuevo': float(bebida.cantidad)
+                            })
+                            
+                            print(f"  ✅ Stock descontado: {cantidad_solicitada} unidad(es)")
+                            print(f"  ✅ Stock nuevo: {bebida.cantidad}")
+                            
+                        else:
+                            error_msg = f'❌ La bebida "{nombre_bebida}" no existe en la base de datos'
+                            bebidas_sin_stock.append(error_msg)
+                            print(f"  {error_msg}")
+                            
+                    except Producto.DoesNotExist:
+                        error_msg = f'❌ La bebida "{nombre_bebida}" no existe en la base de datos (ID: {bebida_id})'
+                        bebidas_sin_stock.append(error_msg)
+                        print(f"  {error_msg}")
+                    except Exception as e:
+                        error_msg = f'❌ Error al buscar bebida: {str(e)}'
+                        bebidas_sin_stock.append(error_msg)
+                        print(f"  {error_msg}")
+            
+            # 🔥 RESUMEN DEL DESCUENTO
+            print("\n" + "=" * 60)
+            print("RESUMEN DEL DESCUENTO DE BEBIDAS:")
+            print("=" * 60)
+            
+            if bebidas_descontadas:
+                print(f"✅ Bebidas descontadas: {len(bebidas_descontadas)}")
+                for b in bebidas_descontadas:
+                    print(f"  - {b['nombre']}: {b['cantidad']} unidad(es) | Stock: {b['stock_anterior']} → {b['stock_nuevo']}")
+            else:
+                print("ℹ️ No se descontaron bebidas")
+            
+            if bebidas_sin_stock:
+                print(f"⚠️ Bebidas sin stock: {len(bebidas_sin_stock)}")
+                for error in bebidas_sin_stock:
+                    print(f"  {error}")
+            print("=" * 60)
             
             # Si hay bebidas sin stock, mostrar error y cancelar el pedido
             if bebidas_sin_stock:
@@ -1287,6 +1406,78 @@ def gestiondepedidos(request):
     }
     return render(request, 'facturacion/gestiondepedidos.html', context)
 
+
+
+def actualizar_inventario_bebidas(items, operacion='restar'):
+    """
+    Actualiza el inventario de bebidas basado en los items de un pedido.
+    
+    operacion: 'restar' (al agregar al pedido) o 'sumar' (al cancelar o quitar del pedido)
+    """
+    print(f"🔄 actualizar_inventario_bebidas: {len(items)} items, operación: {operacion}")
+    
+    for item in items:
+        item_id = item.get('id', '')
+        item_name = item.get('name', '')
+        cantidad = item.get('quantity', 1)
+        
+        print(f"  Procesando item: {item_name} (id: {item_id}, cantidad: {cantidad})")
+        
+        # Verificar si es un producto de categoría bebida
+        # Caso 1: El ID empieza con "PROD-" (formato del frontend)
+        if isinstance(item_id, str) and item_id.startswith('PROD-'):
+            try:
+                prod_id = int(item_id.split('-')[1])
+                producto = Producto.objects.filter(id=prod_id, categoria='bebida').first()
+                
+                if producto:
+                    try:
+                        cantidad_decimal = Decimal(str(cantidad))
+                        if operacion == 'restar':
+                            producto.cantidad -= cantidad_decimal
+                            mensaje = f"Descontando {cantidad_decimal} de {producto.nombre}"
+                        else:  # 'sumar'
+                            producto.cantidad += cantidad_decimal
+                            mensaje = f"Reponiendo {cantidad_decimal} a {producto.nombre}"
+                        
+                        producto.save()
+                        print(f"  ✅ {mensaje} (Stock actual: {producto.cantidad})")
+                    except Exception as e:
+                        print(f"  ❌ Error con cantidad: {e}")
+                else:
+                    print(f"  ⚠️ Producto no encontrado o no es bebida: {item_id}")
+                    
+            except (IndexError, ValueError) as e:
+                print(f"  ❌ Error al parsear ID {item_id}: {e}")
+        
+        # Caso 2: Buscar por nombre si no tenemos ID
+        elif item_name:
+            producto = Producto.objects.filter(
+                nombre__icontains=item_name,
+                categoria='bebida'
+            ).first()
+            
+            if producto:
+                try:
+                    cantidad_decimal = Decimal(str(cantidad))
+                    if operacion == 'restar':
+                        producto.cantidad -= cantidad_decimal
+                        mensaje = f"Descontando {cantidad_decimal} de {producto.nombre}"
+                    else:  # 'sumar'
+                        producto.cantidad += cantidad_decimal
+                        mensaje = f"Reponiendo {cantidad_decimal} a {producto.nombre}"
+                    
+                    producto.save()
+                    print(f"  ✅ {mensaje} (Stock actual: {producto.cantidad})")
+                except Exception as e:
+                    print(f"  ❌ Error con cantidad: {e}")
+            else:
+                print(f"  ⚠️ No se encontró bebida con nombre: {item_name}")
+        
+        else:
+            print(f"  ⚠️ Item sin ID ni nombre válido: {item}")
+
+
 @csrf_exempt 
 def procesar_pedidos_para_template(pedidos_queryset):
     """Procesa los pedidos para ser usados en el template - Incluye info de pago"""
@@ -1510,11 +1701,6 @@ def cambiar_estado_pedido(request, pedido_id):
         if not nuevo_estado:
             return JsonResponse({'error': 'Estado no especificado'}, status=400)
 
-        # Procesar nuevos items si los hay
-        nuevos_items = []
-        if nuevos_items_json:
-            nuevos_items = json.loads(nuevos_items_json)
-
         # Obtener los items actuales del pedido
         try:
             if isinstance(pedido.items, str):
@@ -1524,9 +1710,29 @@ def cambiar_estado_pedido(request, pedido_id):
         except:
             items_actuales = []
 
+        # Si el estado cambia a CANCELADO, reponer bebidas del inventario
+        if nuevo_estado == 'cancelado' and pedido.estado != 'cancelado':
+            print(f"🔄 Cancelando pedido {pedido.codigo_pedido} - Reponiendo bebidas...")
+            actualizar_inventario_bebidas(items_actuales, operacion='sumar')
+        
+        # Si el estado cambia de CANCELADO a otro, descontar bebidas
+        elif pedido.estado == 'cancelado' and nuevo_estado != 'cancelado':
+            print(f"🔄 Reactivando pedido {pedido.codigo_pedido} - Descontando bebidas...")
+            actualizar_inventario_bebidas(items_actuales, operacion='restar')
+
+        # Procesar nuevos items si los hay
+        nuevos_items = []
+        if nuevos_items_json:
+            nuevos_items = json.loads(nuevos_items_json)
+
+        # Si hay nuevos items, descontar bebidas del inventario
+        if nuevos_items:
+            print(f"🔄 Agregando {len(nuevos_items)} nuevos items - Descontando bebidas...")
+            actualizar_inventario_bebidas(nuevos_items, operacion='restar')
+
         # Agregar los nuevos items a la lista de items actuales
         for item in nuevos_items:
-            # Buscar el plato para obtener su información completa (por si acaso)
+            # Buscar el plato para obtener su información completa
             plato = Plato.objects.filter(id=item.get('plato_id')).first()
             if plato:
                 nuevo_item = {
@@ -1563,12 +1769,8 @@ def cambiar_estado_pedido(request, pedido_id):
         if nuevo_estado == 'entregado':
             pedido.fecha_entrega = timezone.now()
         
-        # IMPORTANTE: NO LIBERAR MESA AQUÍ
-        # La mesa solo se libera cuando la factura esté PAGADA
-        # o si el pedido se CANCELA
-        
+        # Liberar mesa si se cancela
         if nuevo_estado == 'cancelado':
-            # Liberar mesa si está cancelado
             if pedido.mesa:
                 pedido.mesa.estado = 'disponible'
                 pedido.mesa.save()
@@ -1585,6 +1787,7 @@ def cambiar_estado_pedido(request, pedido_id):
         })
 
     except Exception as e:
+        print(f"❌ Error en cambiar_estado_pedido: {e}")
         return JsonResponse({'error': str(e)}, status=500)
 
 
@@ -1600,23 +1803,37 @@ def eliminar_pedido(request, pedido_id):
         # Verificar si es para eliminar de la vista o cancelar
         eliminar_vista = request.POST.get('eliminar_vista', 'false') == 'true'
         
+        # Obtener items del pedido
+        try:
+            if isinstance(pedido.items, str):
+                items = json.loads(pedido.items) if pedido.items else []
+            else:
+                items = pedido.items or []
+        except:
+            items = []
+        
         # Verificar si tiene factura pagada
         tiene_factura_pagada = pedido.facturas.filter(estado='pagada').exists()
-        
-        # LIBERAR MESA solo si NO tiene factura pagada
-        if pedido.mesa and not tiene_factura_pagada:
-            pedido.mesa.estado = 'disponible'
-            pedido.mesa.save()
         
         if eliminar_vista:
             # Eliminar permanentemente de la base de datos
             codigo_pedido = pedido.codigo_pedido
+            
+            # Reponer bebidas del inventario si no tiene factura pagada
+            if not tiene_factura_pagada:
+                print(f"🔄 Eliminando pedido {codigo_pedido} - Reponiendo bebidas...")
+                actualizar_inventario_bebidas(items, operacion='sumar')
             
             # Verificar si tiene facturas antes de eliminar
             if pedido.facturas.exists():
                 return JsonResponse({
                     'error': 'No se puede eliminar el pedido porque tiene facturas asociadas'
                 }, status=400)
+            
+            # LIBERAR MESA solo si NO tiene factura pagada
+            if pedido.mesa and not tiene_factura_pagada:
+                pedido.mesa.estado = 'disponible'
+                pedido.mesa.save()
             
             pedido.delete()
             
@@ -1627,6 +1844,17 @@ def eliminar_pedido(request, pedido_id):
             })
         else:
             # Marcar como cancelado (comportamiento anterior)
+            
+            # Reponer bebidas del inventario si no tiene factura pagada
+            if not tiene_factura_pagada:
+                print(f"🔄 Cancelando pedido {pedido.codigo_pedido} - Reponiendo bebidas...")
+                actualizar_inventario_bebidas(items, operacion='sumar')
+            
+            # LIBERAR MESA solo si NO tiene factura pagada
+            if pedido.mesa and not tiene_factura_pagada:
+                pedido.mesa.estado = 'disponible'
+                pedido.mesa.save()
+            
             pedido.estado = 'cancelado'
             pedido.actualizado_por = request.user
             pedido.save()
@@ -1637,6 +1865,7 @@ def eliminar_pedido(request, pedido_id):
             })
         
     except Exception as e:
+        print(f"❌ Error al eliminar pedido: {e}")
         return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt 
@@ -1702,6 +1931,7 @@ def platos_disponibles(request):
         return JsonResponse([], safe=False)
 
 
+
 @csrf_exempt 
 def editar_pedido(request, pedido_id):
     """Editar un pedido existente - agregar/eliminar items, cambiar estado"""
@@ -1710,6 +1940,8 @@ def editar_pedido(request, pedido_id):
     
     try:
         pedido = get_object_or_404(Pedido, id=pedido_id)
+        
+        print(f"\n=== EDITANDO PEDIDO {pedido.codigo_pedido} ===")
         
         # Obtener datos del formulario
         nuevos_items_json = request.POST.get('nuevos_items')
@@ -1720,8 +1952,110 @@ def editar_pedido(request, pedido_id):
         if not nuevos_items_json:
             return JsonResponse({'error': 'No se proporcionaron items'}, status=400)
         
+        # Obtener los items actuales del pedido (antes de cambiar)
+        try:
+            if isinstance(pedido.items, str):
+                items_actuales = json.loads(pedido.items) if pedido.items else []
+            else:
+                items_actuales = pedido.items or []
+        except Exception as e:
+            print(f"❌ Error al cargar items actuales: {e}")
+            items_actuales = []
+        
+        print(f"Items actuales: {len(items_actuales)} items")
+        
         # Parsear los nuevos items
         nuevos_items = json.loads(nuevos_items_json)
+        print(f"Nuevos items: {len(nuevos_items)} items")
+        
+        # 🔄 GESTIÓN DE INVENTARIO DE BEBIDAS
+        
+        # 1. Identificar items que se van a eliminar (están en items_actuales pero no en nuevos_items)
+        items_a_eliminar = []
+        for item_actual in items_actuales:
+            encontrado = False
+            for item_nuevo in nuevos_items:
+                # Comparar por id o nombre
+                if (item_nuevo.get('id') == item_actual.get('id') or 
+                    item_nuevo.get('name') == item_actual.get('name')):
+                    encontrado = True
+                    break
+            
+            if not encontrado:
+                items_a_eliminar.append(item_actual)
+        
+        # 2. Identificar items nuevos (están en nuevos_items pero no en items_actuales)
+        items_a_agregar = []
+        for item_nuevo in nuevos_items:
+            encontrado = False
+            for item_actual in items_actuales:
+                if (item_nuevo.get('id') == item_actual.get('id') or 
+                    item_nuevo.get('name') == item_actual.get('name')):
+                    encontrado = True
+                    break
+            
+            if not encontrado:
+                items_a_agregar.append(item_nuevo)
+        
+        # 3. Identificar items modificados (cambia la cantidad)
+        items_modificados = []
+        for item_nuevo in nuevos_items:
+            for item_actual in items_actuales:
+                if (item_nuevo.get('id') == item_actual.get('id') or 
+                    item_nuevo.get('name') == item_actual.get('name')):
+                    
+                    cantidad_actual = item_actual.get('quantity', 1)
+                    cantidad_nueva = item_nuevo.get('quantity', 1)
+                    
+                    if cantidad_actual != cantidad_nueva:
+                        items_modificados.append({
+                            'item': item_nuevo,
+                            'cantidad_anterior': cantidad_actual,
+                            'cantidad_nueva': cantidad_nueva,
+                            'diferencia': cantidad_nueva - cantidad_actual
+                        })
+                    break
+        
+        print(f"\n🔍 Análisis de cambios:")
+        print(f"   Items a eliminar: {len(items_a_eliminar)}")
+        print(f"   Items a agregar: {len(items_a_agregar)}")
+        print(f"   Items modificados: {len(items_modificados)}")
+        
+        # 4. Aplicar cambios al inventario de bebidas
+        
+        # Reponer bebidas de items eliminados
+        if items_a_eliminar:
+            print(f"\n🔄 Reponiendo bebidas de {len(items_a_eliminar)} items eliminados...")
+            actualizar_inventario_bebidas(items_a_eliminar, operacion='sumar')
+        
+        # Descontar bebidas de items nuevos
+        if items_a_agregar:
+            print(f"\n🔄 Descontando bebidas de {len(items_a_agregar)} items nuevos...")
+            actualizar_inventario_bebidas(items_a_agregar, operacion='restar')
+        
+        # Ajustar bebidas de items modificados
+        for item_mod in items_modificados:
+            item = item_mod['item']
+            diferencia = item_mod['diferencia']
+            
+            if diferencia != 0:
+                # Crear un item temporal con la diferencia
+                item_diferencia = {
+                    'id': item.get('id'),
+                    'name': item.get('name'),
+                    'quantity': abs(diferencia),
+                    'price': item.get('price'),
+                    'total': item.get('total')
+                }
+                
+                if diferencia > 0:
+                    # Se aumentó la cantidad, descontar diferencia
+                    print(f"\n📈 Aumentando cantidad de {item['name']} en {diferencia} - Descontando...")
+                    actualizar_inventario_bebidas([item_diferencia], operacion='restar')
+                else:
+                    # Se disminuyó la cantidad, reponer diferencia
+                    print(f"\n📉 Disminuyendo cantidad de {item['name']} en {abs(diferencia)} - Reponiendo...")
+                    actualizar_inventario_bebidas([item_diferencia], operacion='sumar')
         
         # Actualizar información del cliente si se proporciona
         if nombre_cliente:
@@ -1745,6 +2079,8 @@ def editar_pedido(request, pedido_id):
         pedido.actualizado_por = request.user
         pedido.save()
         
+        print(f"✅ Pedido {pedido.codigo_pedido} actualizado correctamente")
+        
         return JsonResponse({
             'success': True,
             'mensaje': f'Pedido {pedido.codigo_pedido} actualizado correctamente',
@@ -1753,7 +2089,7 @@ def editar_pedido(request, pedido_id):
         })
         
     except Exception as e:
-        print(f"Error al editar pedido: {e}")
+        print(f"❌ Error al editar pedido: {e}")
         return JsonResponse({'error': str(e)}, status=500)
 
 
@@ -3404,82 +3740,391 @@ def generar_pdf_ticket_dia(request):
 
 # views.py - Actualiza la función anulacionydevolucion
 
-import json
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.db import transaction
-from django.utils import timezone
-from django.urls import reverse
+
+
+
+
+
 from decimal import Decimal
-from .models import Factura, Producto, Devolucion
+from django.db import transaction
+from django.shortcuts import get_object_or_404, redirect, render
+from django.contrib import messages
+from django.urls import reverse
+from django.contrib.auth.decorators import login_required
+from django.utils import timezone
+import json
+from django.core.serializers.json import DjangoJSONEncoder
+
+# ============================================================
+# FUNCIONES DE GESTIÓN DE STOCK - SOLO BEBIDAS
+# ============================================================
+@login_required
+def anulacionydevolucion(request):
+    """Vista principal para anulación y devolución de facturas"""
+    factura = None
+    items = []
+    items_json = '[]'
+    productos_devueltos_json = '[]'
+    productos_disponibles_json = '[]'
+    
+    numero_factura = request.GET.get('numero_factura', '').strip()
+    ultima_factura = request.GET.get('ultima') == 'true'
+    
+    try:
+        if ultima_factura:
+            factura = Factura.objects.order_by('-fecha_creacion').first()
+            if factura:
+                messages.success(request, f'Última factura cargada: {factura.numero_factura}')
+            else:
+                messages.error(request, 'No hay facturas registradas')
+                
+        elif numero_factura:
+            factura = Factura.objects.filter(numero_factura__iexact=numero_factura).first()
+            if not factura:
+                factura = Factura.objects.filter(numero_factura__icontains=numero_factura).first()
+            
+            if factura:
+                messages.success(request, f'Factura {factura.numero_factura} encontrada')
+            else:
+                messages.error(request, f'Factura {numero_factura} no encontrada')
+        
+        if factura:
+            # Obtener items detallados
+            items = factura.get_items_detalle()
+            items_json = json.dumps(items, cls=DjangoJSONEncoder)
+            
+            # Obtener productos disponibles para devolución
+            productos_disponibles = factura.get_productos_disponibles_devolucion()
+            productos_disponibles_json = json.dumps(productos_disponibles, cls=DjangoJSONEncoder)
+            
+            # Obtener resumen de devoluciones
+            resumen_devoluciones = factura.get_resumen_devoluciones()
+            
+            # Obtener todas las devoluciones para el historial
+            devoluciones = factura.devoluciones.all()
+            todos_productos_devueltos = []
+            
+            for devolucion in devoluciones:
+                if devolucion.productos_devueltos:
+                    todos_productos_devueltos.extend(devolucion.productos_devueltos)
+            
+            productos_devueltos_json = json.dumps(todos_productos_devueltos, cls=DjangoJSONEncoder)
+            
+            print(f"\n📄 FACTURA: {factura.numero_factura}")
+            print(f"📦 Items totales: {len(items)}")
+            print(f"✅ Productos disponibles para devolver: {len(productos_disponibles)}")
+            print(f"💰 Total devuelto: ${resumen_devoluciones['total_devuelto']}")
+                
+    except Exception as e:
+        messages.error(request, f'Error: {str(e)}')
+        import traceback
+        traceback.print_exc()
+    
+    context = {
+        'factura': factura,
+        'items': items,
+        'items_json': items_json,
+        'productos_devueltos_json': productos_devueltos_json,
+        'productos_disponibles_json': productos_disponibles_json,
+    }
+    
+    return render(request, 'facturacion/anulacionydevolucion.html', context)
+
 
 @login_required
 def anulacionydevolucion(request):
     """Vista principal para anulación y devolución de facturas"""
     factura = None
     items = []
+    items_json = '[]'
+    productos_devueltos_json = '[]'
+    productos_disponibles_json = '[]'
     
-    # Manejar búsqueda por número de factura
-    if 'numero_factura' in request.GET:
-        numero_factura = request.GET.get('numero_factura', '').strip()
-        if numero_factura:
-            try:
-                factura = Factura.objects.filter(numero_factura__iexact=numero_factura).first()
-                if not factura:
-                    factura = Factura.objects.filter(numero_factura__icontains=numero_factura).first()
-                
-                if factura:
-                    items = normalizar_items_factura(factura.get_items_detalle())
-                    messages.success(request, f'Factura {factura.numero_factura} encontrada')
-                else:
-                    messages.error(request, f'Factura {numero_factura} no encontrada')
-            except Exception as e:
-                messages.error(request, f'Error al buscar factura: {str(e)}')
+    numero_factura = request.GET.get('numero_factura', '').strip()
+    ultima_factura = request.GET.get('ultima') == 'true'
     
-    # Manejar carga de última factura
-    elif request.GET.get('ultima') == 'true':
-        try:
+    try:
+        if ultima_factura:
             factura = Factura.objects.order_by('-fecha_creacion').first()
             if factura:
-                items = normalizar_items_factura(factura.get_items_detalle())
                 messages.success(request, f'Última factura cargada: {factura.numero_factura}')
+                # Depuración directa
+                print(f"\n{'='*60}")
+                print(f"DEBUG - Factura: {factura.numero_factura}")
+                print(f"Tipo de items: {type(factura.items)}")
+                if isinstance(factura.items, str):
+                    print(f"Es una cadena. Longitud: {len(factura.items)}")
+                    print(f"Primeros 300 caracteres: {factura.items[:300]}")
+                elif isinstance(factura.items, dict):
+                    print(f"Es un diccionario. Claves: {list(factura.items.keys())}")
+                elif isinstance(factura.items, list):
+                    print(f"Es una lista. Longitud: {len(factura.items)}")
+                print(f"{'='*60}")
             else:
                 messages.error(request, 'No hay facturas registradas')
-        except Exception as e:
-            messages.error(request, f'Error al obtener última factura: {str(e)}')
+                
+        elif numero_factura:
+            factura = Factura.objects.filter(numero_factura__iexact=numero_factura).first()
+            if not factura:
+                factura = Factura.objects.filter(numero_factura__icontains=numero_factura).first()
+            
+            if factura:
+                messages.success(request, f'Factura {factura.numero_factura} encontrada')
+                # Depuración directa
+                print(f"\n{'='*60}")
+                print(f"DEBUG - Factura: {factura.numero_factura}")
+                print(f"Tipo de items: {type(factura.items)}")
+                if isinstance(factura.items, str):
+                    print(f"Es una cadena. Longitud: {len(factura.items)}")
+                    print(f"Primeros 300 caracteres: {factura.items[:300]}")
+                elif isinstance(factura.items, dict):
+                    print(f"Es un diccionario. Claves: {list(factura.items.keys())}")
+                elif isinstance(factura.items, list):
+                    print(f"Es una lista. Longitud: {len(factura.items)}")
+                print(f"{'='*60}")
+            else:
+                messages.error(request, f'Factura {numero_factura} no encontrada')
+        
+        if factura:
+            print(f"\n📄 FACTURA ENCONTRADA: {factura.numero_factura}")
+            print(f"📦 Campo 'items' tipo: {type(factura.items)}")
+            
+            # DEPURACIÓN DETALLADA
+            if isinstance(factura.items, str):
+                print(f"🔍 Contenido de items (string):")
+                print(factura.items[:500])
+            elif isinstance(factura.items, list):
+                print(f"🔍 Contenido de items (lista con {len(factura.items)} elementos):")
+                for i, item in enumerate(factura.items[:3]):  # Muestra solo 3
+                    print(f"   Item {i}: {item}")
+            
+            # Obtener items detallados
+            items = factura.get_items_detalle()
+            print(f"\n✅ Items normalizados: {len(items)}")
+            
+            # Mostrar primeros 5 items para depuración
+            for i, item in enumerate(items[:5]):
+                print(f"  {i+1}. {item.get('nombre', 'Sin nombre')} - Cant: {item.get('cantidad', 0)} - Precio: ${item.get('precio', 0)} - Cat: '{item.get('categoria', '')}'")
+            
+            items_json = json.dumps(items, cls=DjangoJSONEncoder)
+            
+            # Obtener productos disponibles para devolución
+            productos_disponibles = factura.get_productos_disponibles_devolucion()
+            productos_disponibles_json = json.dumps(productos_disponibles, cls=DjangoJSONEncoder)
+            print(f"✅ Productos disponibles para devolver: {len(productos_disponibles)}")
+            
+            # Obtener todas las devoluciones para el historial
+            devoluciones = factura.devoluciones.all()
+            todos_productos_devueltos = []
+            
+            for devolucion in devoluciones:
+                if devolucion.productos_devueltos:
+                    todos_productos_devueltos.extend(devolucion.productos_devueltos)
+            
+            productos_devueltos_json = json.dumps(todos_productos_devueltos, cls=DjangoJSONEncoder)
+            print(f"✅ Productos ya devueltos: {len(todos_productos_devueltos)}")
+                
+    except Exception as e:
+        messages.error(request, f'Error: {str(e)}')
+        import traceback
+        traceback.print_exc()
     
     context = {
         'factura': factura,
         'items': items,
+        'items_json': items_json,
+        'productos_devueltos_json': productos_devueltos_json,
+        'productos_disponibles_json': productos_disponibles_json,
     }
     
     return render(request, 'facturacion/anulacionydevolucion.html', context)
 
-def normalizar_items_factura(items):
+def buscar_producto_por_identificador(identificador):
+    """
+    Buscar producto por código o nombre con validación mejorada.
+    """
+    if not identificador:
+        return None
+    
+    identificador = str(identificador).strip()
+    
+    if not identificador:  # Si después del strip está vacío
+        return None
+    
+    # 1. Buscar por código exacto (case-insensitive)
+    producto = Producto.objects.filter(codigo__iexact=identificador).first()
+    if producto:
+        print(f"✅ Producto encontrado por código exacto: {producto.nombre}")
+        return producto
+    
+    # 2. Buscar por nombre exacto (case-insensitive)
+    producto = Producto.objects.filter(nombre__iexact=identificador).first()
+    if producto:
+        print(f"✅ Producto encontrado por nombre exacto: {producto.nombre}")
+        return producto
+    
+    # 3. Buscar por código que contenga
+    producto = Producto.objects.filter(codigo__icontains=identificador).first()
+    if producto:
+        print(f"✅ Producto encontrado por código parcial: {producto.nombre}")
+        return producto
+    
+    # 4. Buscar por nombre que contenga
+    producto = Producto.objects.filter(nombre__icontains=identificador).first()
+    if producto:
+        print(f"✅ Producto encontrado por nombre parcial: {producto.nombre}")
+        return producto
+    
+    print(f"❌ Producto no encontrado con identificador: '{identificador}'")
+    return None
+
+
+def reponer_stock_producto(identificador, cantidad):
+    """
+    Aumentar stock de un producto SOLO SI ES BEBIDA
+    """
+    try:
+        producto = buscar_producto_por_identificador(identificador)
+        
+        if producto:
+            # Verificar que sea bebida
+            if producto.categoria.lower() != 'bebida':
+                print(f"⚠️  Producto '{producto.nombre}' no es bebida (categoría: {producto.categoria})")
+                return False
+            
+            # Reponer stock
+            stock_anterior = producto.cantidad
+            producto.cantidad += Decimal(str(cantidad))
+            producto.save()
+            
+            print(f"📈 Stock repuesto: {producto.nombre} ({producto.codigo})")
+            print(f"   Antes: {stock_anterior}, Añadido: {cantidad}, Después: {producto.cantidad}")
+            
+            return True
+        
+        return False
+        
+    except Exception as e:
+        print(f"❌ Error al reponer stock: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+
+def disminuir_stock_producto(identificador, cantidad):
+    """
+    Disminuir stock de un producto.
+    """
+    try:
+        producto = buscar_producto_por_identificador(identificador)
+        
+        if producto:
+            # Verificar que hay suficiente stock
+            if producto.cantidad >= Decimal(str(cantidad)):
+                producto.cantidad -= Decimal(str(cantidad))
+                producto.save()
+                print(f"📉 Stock disminuido: {producto.nombre} ({producto.codigo})")
+                return True
+            else:
+                print(f"⚠️  Stock insuficiente: {producto.cantidad} < {cantidad}")
+                return False
+        
+        return False
+            
+    except Exception as e:
+        print(f"❌ Error al disminuir stock: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+# ============================================================
+# NORMALIZACIÓN DE ITEMS
+# ============================================================
+def normalizar_items_factura(factura):
     """Normalizar los items de la factura para tener una estructura consistente"""
     items_normalizados = []
+    items_detalle = factura.get_items_detalle()
     
-    for i, item in enumerate(items):
-        # Determinar las claves según la estructura del item
-        nombre = item.get('nombre') or item.get('name') or f'Producto {i+1}'
-        cantidad = item.get('cantidad') or item.get('quantity') or 1
-        precio = item.get('precio') or item.get('price') or 0
-        subtotal = item.get('subtotal') or item.get('total') or (cantidad * precio)
+    for i, item in enumerate(items_detalle):
+        # Extraer datos con múltiples posibles claves
+        nombre = item.get('nombre') or item.get('name') or item.get('producto') or f'Producto {i+1}'
+        cantidad = float(item.get('cantidad') or item.get('quantity') or 1)
+        precio = float(item.get('precio') or item.get('price') or 0)
+        subtotal = float(item.get('subtotal') or item.get('total') or (cantidad * precio))
         categoria = item.get('categoria') or item.get('category') or ''
-        producto_id = item.get('producto_id') or item.get('id') or (i + 1)
+        
+        # INTENTAR OBTENER EL CÓDIGO DEL PRODUCTO DESDE LA BASE DE DATOS
+        codigo = ''
+        producto_id = item.get('producto_id') or item.get('id')
+        
+        # Buscar producto por ID
+        if producto_id:
+            try:
+                producto = Producto.objects.filter(id=producto_id).first()
+                if producto:
+                    codigo = producto.codigo
+                    # Si no hay categoría en el item, usar la del producto
+                    if not categoria or categoria.lower() == 'otro':
+                        categoria = producto.categoria
+            except Exception as e:
+                print(f"Error al buscar producto por ID {producto_id}: {e}")
+        
+        # Si no se encontró por ID, buscar por nombre
+        if not codigo and nombre:
+            try:
+                producto = Producto.objects.filter(nombre__iexact=nombre.strip()).first()
+                if producto:
+                    codigo = producto.codigo
+                    categoria = producto.categoria
+            except Exception as e:
+                print(f"Error al buscar producto por nombre {nombre}: {e}")
         
         items_normalizados.append({
-            'id': producto_id,
+            'id': producto_id or (i + 1),
             'producto_id': producto_id,
+            'codigo': codigo,
             'nombre': nombre,
             'cantidad': cantidad,
-            'precio': float(precio),
-            'subtotal': float(subtotal),
+            'precio': precio,
+            'subtotal': subtotal,
             'categoria': categoria,
         })
     
     return items_normalizados
+
+
+def buscar_item_por_nombre(items, nombre_buscar):
+    """
+    Buscar un item en la lista de items por nombre.
+    """
+    nombre_buscar_lower = nombre_buscar.lower().strip()
+    
+    for item in items:
+        item_nombre = item.get('nombre', '').lower().strip()
+        if item_nombre == nombre_buscar_lower:
+            return item
+        
+        # Buscar por similitud
+        if item_nombre.replace(' ', '') == nombre_buscar_lower.replace(' ', ''):
+            return item
+    
+    # Si no se encuentra exacto, buscar por nombre que contenga
+    for item in items:
+        item_nombre = item.get('nombre', '').lower()
+        if nombre_buscar_lower in item_nombre:
+            return item
+    
+    return None
+# ============================================================
+# VISTA PRINCIPAL
+# ============================================================
+
+
+
+# ============================================================
+# DEVOLUCIÓN TOTAL
+# ============================================================
 
 @login_required
 def procesar_devolucion_total(request):
@@ -3494,7 +4139,6 @@ def procesar_devolucion_total(request):
         try:
             factura = get_object_or_404(Factura, numero_factura=numero_factura)
             
-            # Verificar que la factura esté pagada
             if factura.estado != 'pagada':
                 messages.error(
                     request, 
@@ -3503,25 +4147,44 @@ def procesar_devolucion_total(request):
                 return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
             
             with transaction.atomic():
-                # Obtener items de la factura
-                items = normalizar_items_factura(factura.get_items_detalle())
+                # Usar el método del modelo para obtener items
+                items = factura.get_items_detalle()
                 productos_devueltos = []
                 monto_total_devuelto = 0
+                bebidas_repuestas = 0
+                
+                print(f"\n🔄 PROCESANDO DEVOLUCIÓN TOTAL")
                 
                 for item in items:
-                    producto_id = item.get('producto_id')
+                    codigo = item.get('codigo', '')
                     nombre = item.get('nombre', '')
                     cantidad = item.get('cantidad', 0)
                     precio = item.get('precio', 0)
                     categoria = item.get('categoria', '')
                     
-                    # AUMENTAR stock para productos bebida (devolución = reponer stock)
+                    print(f"\n📦 Procesando item: {nombre}")
+                    print(f"   Código: '{codigo}'")
+                    print(f"   Categoría: '{categoria}'")
+                    print(f"   Cantidad: {cantidad}")
+                    
+                    # REPONER stock para bebidas
                     if categoria.lower() == 'bebida':
-                        reponer_stock_producto(nombre, cantidad)
+                        # Usar código si está disponible, sino usar nombre
+                        identificador = codigo if codigo and codigo.strip() else nombre
+                        print(f"   🍺 ES BEBIDA - Reponiendo stock con identificador: '{identificador}'")
+                        
+                        if reponer_stock_producto(identificador, cantidad):
+                            bebidas_repuestas += 1
+                            print(f"   ✅ Stock repuesto exitosamente")
+                        else:
+                            print(f"   ⚠️  No se pudo reponer stock")
+                    else:
+                        print(f"   ℹ️  No es bebida - no se repone stock")
                     
                     monto_total_devuelto += precio * cantidad
                     productos_devueltos.append({
-                        'producto_id': producto_id,
+                        'producto_id': item.get('producto_id'),
+                        'codigo': codigo,
                         'nombre': nombre,
                         'cantidad': cantidad,
                         'precio_unitario': precio,
@@ -3539,30 +4202,36 @@ def procesar_devolucion_total(request):
                     procesado_por=request.user
                 )
                 
-                # Actualizar estado de la factura
                 factura.estado = 'totalmente_devuelta'
-                factura.productos_devueltos = productos_devueltos
-                factura.monto_devuelto = monto_total_devuelto
                 factura.fecha_devolucion = timezone.now()
                 factura.save()
                 
+                print(f"\n✅ DEVOLUCIÓN TOTAL COMPLETADA")
+                print(f"   Bebidas repuestas: {bebidas_repuestas}")
+                print(f"   Monto devuelto: ${monto_total_devuelto:.2f}")
+                
                 messages.success(
                     request, 
-                    f'✅ Devolución total procesada exitosamente. Monto devuelto: ${monto_total_devuelto:.2f}. Stock de bebidas repuesto.'
+                    f'✅ Devolución total procesada. Monto: ${monto_total_devuelto:.2f}. Bebidas repuestas: {bebidas_repuestas}'
                 )
                 
-                # Redirigir a la misma factura
                 return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
                 
         except Exception as e:
             messages.error(request, f'❌ Error al procesar devolución: {str(e)}')
+            import traceback
+            traceback.print_exc()
             return redirect('anulacionydevolucion')
     
     return redirect('anulacionydevolucion')
 
+# ============================================================
+# DEVOLUCIÓN PARCIAL
+# ============================================================
+
 @login_required
 def procesar_devolucion_parcial(request):
-    """Procesar devolución parcial de una factura"""
+    """Procesar devolución parcial con validación mejorada"""
     if request.method == 'POST':
         numero_factura = request.POST.get('numero_factura')
         productos_json = request.POST.get('productos_devueltos', '[]')
@@ -3574,61 +4243,77 @@ def procesar_devolucion_parcial(request):
         try:
             factura = get_object_or_404(Factura, numero_factura=numero_factura)
             
-            # Verificar que la factura esté pagada o parcialmente devuelta
             if factura.estado not in ['pagada', 'parcialmente_devuelta']:
                 messages.error(
                     request, 
-                    f'La factura debe estar pagada para procesar devolución. Estado actual: {factura.get_estado_display()}'
+                    f'Estado inválido para devolución: {factura.get_estado_display()}'
                 )
                 return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
             
-            # Parsear productos devueltos
             productos_devueltos = json.loads(productos_json)
             
             if not productos_devueltos:
-                messages.error(request, 'Debes seleccionar productos para devolución parcial')
+                messages.error(request, 'Debes seleccionar productos')
                 return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
             
             with transaction.atomic():
-                # Obtener items de la factura
-                items_factura = normalizar_items_factura(factura.get_items_detalle())
+                items_factura = factura.get_items_detalle()
                 productos_procesados = []
-                monto_total_devuelto = 0
+                monto_total_devuelto = Decimal('0.00')
+                bebidas_repuestas = 0
+                
+                print(f"\n🔄 PROCESANDO DEVOLUCIÓN PARCIAL")
                 
                 for producto_data in productos_devueltos:
                     producto_nombre = producto_data.get('nombre', '')
-                    cantidad = producto_data.get('cantidad', 0)
+                    cantidad_devolver = float(producto_data.get('cantidad', 0))
                     categoria = producto_data.get('categoria', '')
                     
-                    # Buscar el producto en la factura por nombre
+                    # Buscar en items de factura
                     item_factura = buscar_item_por_nombre(items_factura, producto_nombre)
                     if not item_factura:
-                        messages.error(request, f'Producto {producto_nombre} no encontrado en la factura')
+                        messages.error(request, f'Producto {producto_nombre} no encontrado')
                         return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
                     
-                    # Verificar cantidad
-                    cantidad_comprada = item_factura.get('cantidad', 0)
-                    if cantidad > cantidad_comprada:
+                    cantidad_original = float(item_factura.get('cantidad', 0))
+                    cantidad_ya_devuelta = factura.get_cantidad_ya_devuelta(producto_nombre)
+                    cantidad_disponible = cantidad_original - cantidad_ya_devuelta
+                    
+                    # VALIDACIÓN CRÍTICA
+                    if cantidad_devolver > cantidad_disponible:
                         messages.error(
-                            request, 
-                            f'Cantidad a devolver ({cantidad}) excede lo comprado ({cantidad_comprada}) para {item_factura.get("nombre")}'
+                            request,
+                            f'❌ {producto_nombre}: Intentas devolver {cantidad_devolver} pero solo hay {cantidad_disponible} disponible (ya devuelto: {cantidad_ya_devuelta})'
                         )
                         return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
                     
-                    precio = item_factura.get('precio', 0)
-                    subtotal = precio * cantidad
+                    precio = Decimal(str(item_factura.get('precio', 0)))
+                    subtotal = precio * Decimal(str(cantidad_devolver))
+                    codigo = item_factura.get('codigo', '')
                     
-                    # AUMENTAR stock para productos bebida (devolución = reponer stock)
+                    print(f"\n📦 {producto_nombre}")
+                    print(f"   Devolver: {cantidad_devolver} de {cantidad_disponible} disponibles")
+                    print(f"   Código: '{codigo}', Categoría: '{categoria}'")
+                    
+                    # Reponer stock para bebidas
                     if categoria.lower() == 'bebida':
-                        reponer_stock_producto(producto_nombre, cantidad)
+                        identificador = codigo if codigo and codigo.strip() else producto_nombre
+                        print(f"   🍺 Reponiendo con: '{identificador}'")
+                        
+                        if reponer_stock_producto(identificador, cantidad_devolver):
+                            bebidas_repuestas += 1
+                            print(f"   ✅ Stock repuesto")
+                        else:
+                            print(f"   ⚠️  Advertencia: No se pudo reponer stock")
                     
                     monto_total_devuelto += subtotal
                     productos_procesados.append({
                         'producto_id': item_factura.get('producto_id'),
+                        'codigo': codigo,
                         'nombre': producto_nombre,
-                        'cantidad': cantidad,
-                        'precio_unitario': precio,
-                        'subtotal': subtotal,
+                        'cantidad': cantidad_devolver,
+                        'precio_unitario': float(precio),
+                        'subtotal': float(subtotal),
                         'categoria': categoria
                     })
                 
@@ -3638,117 +4323,48 @@ def procesar_devolucion_parcial(request):
                     tipo_devolucion='parcial',
                     productos_devueltos=productos_procesados,
                     monto_devuelto=monto_total_devuelto,
-                    motivo='Devolución parcial procesada desde el sistema',
+                    motivo='Devolución parcial procesada',
                     procesado_por=request.user
                 )
                 
-                # Actualizar estado de la factura
+                # Actualizar estado de factura
                 if factura.estado == 'pagada':
                     factura.estado = 'parcialmente_devuelta'
                 
-                # Actualizar productos devueltos
-                devoluciones_anteriores = factura.productos_devueltos or []
-                devoluciones_anteriores.extend(productos_procesados)
-                factura.productos_devueltos = devoluciones_anteriores
-                factura.monto_devuelto += monto_total_devuelto
+                # Verificar si ya se devolvió todo
+                productos_disponibles = factura.get_productos_disponibles_devolucion()
+                if not productos_disponibles:
+                    factura.estado = 'totalmente_devuelta'
+                
                 factura.fecha_devolucion = timezone.now()
                 factura.save()
                 
+                print(f"\n✅ DEVOLUCIÓN COMPLETADA")
+                print(f"   Bebidas repuestas: {bebidas_repuestas}")
+                print(f"   Monto: ${monto_total_devuelto}")
+                
                 messages.success(
-                    request, 
-                    f'✅ Devolución parcial procesada exitosamente. Monto devuelto: ${monto_total_devuelto:.2f}. Stock de bebidas repuesto.'
+                    request,
+                    f'✅ Devolución procesada: ${monto_total_devuelto:.2f}. Bebidas repuestas: {bebidas_repuestas}'
                 )
                 
-                # Redirigir a la misma factura
                 return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
                 
         except Exception as e:
-            messages.error(request, f'❌ Error al procesar devolución parcial: {str(e)}')
+            messages.error(request, f'❌ Error: {str(e)}')
+            import traceback
+            traceback.print_exc()
             return redirect('anulacionydevolucion')
     
     return redirect('anulacionydevolucion')
 
-
-
-def reponer_stock_producto(nombre_producto, cantidad):
-    """Aumentar stock de un producto (para devoluciones)"""
-    try:
-        # Buscar producto por nombre (insensible a mayúsculas/minúsculas)
-        producto = Producto.objects.filter(
-            nombre__iexact=nombre_producto
-        ).first()
-        
-        if not producto:
-            # Intentar búsqueda parcial
-            producto = Producto.objects.filter(
-                nombre__icontains=nombre_producto
-            ).first()
-        
-        if producto:
-            # Aumentar cantidad en stock (devolución = reponer)
-            # Usamos F() para operación atómica en la base de datos
-            producto.cantidad = F('cantidad') + Decimal(str(cantidad))
-            producto.save()
-            
-            # Refrescar el objeto para obtener el valor actualizado
-            producto.refresh_from_db()
-            
-            print(f"✅ Stock repuesto: {producto.nombre} (+{cantidad}) = {producto.cantidad}")
-            return True
-        else:
-            print(f"⚠️ Producto no encontrado: {nombre_producto}")
-            return False
-            
-    except Exception as e:
-        print(f"❌ Error al reponer stock: {str(e)}")
-        return False
-
-def disminuir_stock_producto(nombre_producto, cantidad):
-    """Disminuir stock de un producto (para anulaciones)"""
-    try:
-        # Buscar producto por nombre
-        producto = Producto.objects.filter(
-            nombre__iexact=nombre_producto
-        ).first()
-        
-        if not producto:
-            producto = Producto.objects.filter(
-                nombre__icontains=nombre_producto
-            ).first()
-        
-        if producto:
-            # Disminuir cantidad en stock (anulación = quitar stock)
-            # Verificar que no quede negativo
-            if producto.cantidad >= Decimal(str(cantidad)):
-                producto.cantidad = F('cantidad') - Decimal(str(cantidad))
-                producto.save()
-                producto.refresh_from_db()
-            else:
-                # Si no hay suficiente stock, solo disminuir hasta 0
-                producto.cantidad = Decimal('0')
-                producto.save()
-            
-            print(f"✅ Stock disminuido: {producto.nombre} (-{cantidad}) = {producto.cantidad}")
-            return True
-        else:
-            print(f"⚠️ Producto no encontrado: {nombre_producto}")
-            return False
-            
-    except Exception as e:
-        print(f"❌ Error al disminuir stock: {str(e)}")
-        return False
-
-
-def buscar_item_por_nombre(items_factura, nombre_producto):
-    """Buscar un producto en los items de la factura por nombre"""
-    for item in items_factura:
-        if item.get('nombre', '').lower() == nombre_producto.lower():
-            return item
-    return None
+# ============================================================
+# ANULACIÓN DE FACTURA
+# ============================================================
 
 @login_required
 def procesar_anulacion_factura(request):
-    """Procesar anulación de una factura (disminuir stock)"""
+    """Procesar anulación de una factura (disminuir stock de bebidas)"""
     if request.method == 'POST':
         numero_factura = request.POST.get('numero_factura')
         motivo = request.POST.get('motivo', '')
@@ -3760,7 +4376,6 @@ def procesar_anulacion_factura(request):
         try:
             factura = get_object_or_404(Factura, numero_factura=numero_factura)
             
-            # Solo se pueden anular facturas pagadas o pendientes
             if factura.estado not in ['pagada', 'pendiente']:
                 messages.error(
                     request, 
@@ -3769,36 +4384,51 @@ def procesar_anulacion_factura(request):
                 return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
             
             with transaction.atomic():
-                # Obtener items de la factura
-                items = normalizar_items_factura(factura.get_items_detalle())
+                # Usar el método del modelo para obtener items
+                items = factura.get_items_detalle()
+                bebidas_disminuidas = 0
                 
-                # DISMINUIR stock para productos bebida (anulación = quitar stock que se había vendido)
+                print(f"\n❌ PROCESANDO ANULACIÓN DE FACTURA")
+                
+                # DISMINUIR stock para productos bebida
                 for item in items:
                     nombre = item.get('nombre', '')
+                    codigo = item.get('codigo', '')
                     cantidad = item.get('cantidad', 0)
                     categoria = item.get('categoria', '')
                     
-                    # Solo disminuir stock de bebidas
+                    print(f"\n📦 Procesando item: {nombre}")
+                    print(f"   Código: '{codigo}'")
+                    print(f"   Categoría: '{categoria}'")
+                    
                     if categoria.lower() == 'bebida':
-                        disminuir_stock_producto(nombre, cantidad)
+                        # Usar código si está disponible, sino usar nombre
+                        identificador = codigo if codigo and codigo.strip() else nombre
+                        print(f"   🍺 ES BEBIDA - Disminuyendo stock con: '{identificador}'")
+                        
+                        if disminuir_stock_producto(identificador, cantidad):
+                            bebidas_disminuidas += 1
+                            print(f"   ✅ Stock disminuido exitosamente")
                 
-                # Actualizar estado de la factura
                 factura.estado = 'anulada'
                 factura.motivo_anulacion = motivo
                 factura.fecha_devolucion = timezone.now()
                 factura.save()
                 
+                print(f"\n✅ ANULACIÓN COMPLETADA")
+                print(f"   Bebidas ajustadas: {bebidas_disminuidas}")
+                
                 messages.success(
                     request, 
-                    f'✅ Factura {factura.numero_factura} anulada exitosamente. Stock de bebidas ajustado.'
+                    f'✅ Factura {factura.numero_factura} anulada. Bebidas ajustadas: {bebidas_disminuidas}'
                 )
                 
-                # Redirigir a la misma factura
                 return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
                 
         except Exception as e:
             messages.error(request, f'❌ Error al anular factura: {str(e)}')
+            import traceback
+            traceback.print_exc()
             return redirect('anulacionydevolucion')
     
     return redirect('anulacionydevolucion')
-

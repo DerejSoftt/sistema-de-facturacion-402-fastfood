@@ -1573,1065 +1573,1116 @@
     {% csrf_token %}
 
     <script>
-        // Variables globales
-        let currentOrder = null;
-        
-        // Inicializar la aplicación
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('=== INICIANDO GESTIÓN DE PEDIDOS ===');
-            
-            setupEventListeners();
-            
-            // Si hay filtros aplicados, restaurarlos
-            restoreFilters();
+      // Variables globales
+let currentOrder = null;
+
+// Inicializar la aplicación
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== INICIANDO GESTIÓN DE PEDIDOS ===');
+    
+    setupEventListeners();
+    
+    // Si hay filtros aplicados, restaurarlos
+    restoreFilters();
+});
+
+// Configurar event listeners
+function setupEventListeners() {
+    // Formatear ingresos del día con formato RD
+    const ingresosElement = document.getElementById('ingresosHoyValor');
+    if (ingresosElement) {
+        const valor = parseFloat(ingresosElement.textContent) || 0;
+        ingresosElement.textContent = valor.toLocaleString('es-DO', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
         });
-        
-        // Configurar event listeners
-        function setupEventListeners() {
-            // Formatear ingresos del día con formato RD
-            const ingresosElement = document.getElementById('ingresosHoyValor');
-            if (ingresosElement) {
-                const valor = parseFloat(ingresosElement.textContent) || 0;
-                ingresosElement.textContent = valor.toLocaleString('es-DO', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                });
+    }
+    
+    // Botón para exportar pedidos
+    const exportBtn = document.querySelector('.btn-primary[onclick*="exportOrders"]');
+    if (exportBtn) {
+        exportBtn.onclick = exportOrders;
+    }
+    
+    // Formulario de filtros - enviar al cambiar
+    const filterSelects = document.querySelectorAll('.filter-select');
+    filterSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            // Actualizar la URL con los filtros
+            updateURLFilters();
+        });
+    });
+    
+    // Buscar al presionar Enter
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                updateURLFilters();
             }
-            
-            // Botón para exportar pedidos
-            const exportBtn = document.querySelector('.btn-primary[onclick*="exportOrders"]');
-            if (exportBtn) {
-                exportBtn.onclick = exportOrders;
-            }
-            
-            // Formulario de filtros - enviar al cambiar
-            const filterSelects = document.querySelectorAll('.filter-select');
-            filterSelects.forEach(select => {
-                select.addEventListener('change', function() {
-                    // Actualizar la URL con los filtros
-                    updateURLFilters();
-                });
-            });
-            
-            // Buscar al presionar Enter
-            const searchInput = document.getElementById('searchInput');
-            if (searchInput) {
-                searchInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        updateURLFilters();
-                    }
-                });
-            }
+        });
+    }
+}
+
+// Restaurar filtros desde URL
+function restoreFilters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    const filters = {
+        'search': urlParams.get('search') || '',
+        'estado': urlParams.get('estado') || '',
+        'tipo': urlParams.get('tipo') || '',
+        'fecha': urlParams.get('fecha') || '',
+        'sort': urlParams.get('sort') || 'fecha_desc'
+    };
+    
+    // Establecer valores en los inputs
+    Object.keys(filters).forEach(key => {
+        const element = document.querySelector(`[name="${key}"]`);
+        if (element && filters[key]) {
+            element.value = filters[key];
         }
-        
-        // Restaurar filtros desde URL
-        function restoreFilters() {
-            const urlParams = new URLSearchParams(window.location.search);
-            
-            const filters = {
-                'search': urlParams.get('search') || '',
-                'estado': urlParams.get('estado') || '',
-                'tipo': urlParams.get('tipo') || '',
-                'fecha': urlParams.get('fecha') || '',
-                'sort': urlParams.get('sort') || 'fecha_desc'
-            };
-            
-            // Establecer valores en los inputs
-            Object.keys(filters).forEach(key => {
-                const element = document.querySelector(`[name="${key}"]`);
-                if (element && filters[key]) {
-                    element.value = filters[key];
-                }
-            });
+    });
+}
+
+// Actualizar URL con filtros
+function updateURLFilters() {
+    const form = document.getElementById('filterForm');
+    const formData = new FormData(form);
+    const params = new URLSearchParams();
+    
+    for (const [key, value] of formData.entries()) {
+        if (value) {
+            params.append(key, value);
         }
-        
-        // Actualizar URL con filtros
-        function updateURLFilters() {
-            const form = document.getElementById('filterForm');
-            const formData = new FormData(form);
-            const params = new URLSearchParams();
-            
-            for (const [key, value] of formData.entries()) {
-                if (value) {
-                    params.append(key, value);
-                }
+    }
+    
+    // Mantener el parámetro de página si existe
+    const currentParams = new URLSearchParams(window.location.search);
+    const page = currentParams.get('page');
+    if (page) {
+        params.append('page', page);
+    }
+    
+    // Actualizar URL y recargar
+    window.location.href = `${window.location.pathname}?${params.toString()}`;
+}
+
+// Función para exportar pedidos
+function exportOrders() {
+    showNotification('Funcionalidad de exportación en desarrollo', 'info');
+}
+
+// Función para ver detalles del pedido
+function viewOrderDetails(pedidoId) {
+    console.log('Cargando detalles del pedido:', pedidoId);
+    
+    fetch(`/gestiondepedidos/detalle/${pedidoId}/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: Pedido no encontrado`);
             }
-            
-            // Mantener el parámetro de página si existe
-            const currentParams = new URLSearchParams(window.location.search);
-            const page = currentParams.get('page');
-            if (page) {
-                params.append('page', page);
-            }
-            
-            // Actualizar URL y recargar
-            window.location.href = `${window.location.pathname}?${params.toString()}`;
-        }
-        
-        // Función para exportar pedidos
-        function exportOrders() {
-            showNotification('Funcionalidad de exportación en desarrollo', 'info');
-        }
-        
-        // Función para ver detalles del pedido
-        function viewOrderDetails(pedidoId) {
-            console.log('Cargando detalles del pedido:', pedidoId);
-            
-            fetch(`/gestiondepedidos/detalle/${pedidoId}/`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Error ${response.status}: Pedido no encontrado`);
-                    }
-                    return response.json();
-                })
-                .then(pedido => {
-                    console.log('Detalles cargados:', pedido);
-                    cargarDetallesPedido(pedido);
-                    document.getElementById('orderModal').classList.add('active');
-                })
-                .catch(error => {
-                    console.error('Error al cargar pedido:', error);
-                    showNotification('Error: ' + error.message, 'error');
-                });
-        }
-        
-        // Función para cargar detalles en el modal
-        function cargarDetallesPedido(pedido) {
-            const modalBody = document.getElementById('modalBody');
-            
-            // Formatear items
-            let itemsHTML = '';
-            if (pedido.items && pedido.items.length > 0) {
-                itemsHTML = pedido.items.map(item => `
-                    <tr>
-                        <td>${item.name || item.nombre}</td>
-                        <td>${item.quantity || item.cantidad}</td>
-                        <td>$${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        <td>$${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                    </tr>
-                `).join('');
-            }
-            
-            // Determinar icono y color según estado
-            const estadoInfo = getEstadoInfo(pedido.estado);
-            const tipoInfo = getTipoInfo(pedido.tipo_pedido);
-            
-            modalBody.innerHTML = `
-                <div style="background: white; border-radius: 15px; padding: 2rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
-                        <div>
-                            <h2 style="color: #2c3e50; margin-bottom: 0.5rem;">Pedido #${pedido.codigo_pedido}</h2>
-                            <div style="color: #718096;">${pedido.fecha_pedido}</div>
-                        </div>
-                        <span class="status-badge ${estadoInfo.class}">
-                            <span class="status-icon">${estadoInfo.icon}</span>
-                            ${pedido.estado_display}
-                        </span>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
-                        <div>
-                            <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-user"></i> Información del Cliente</h4>
-                            <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
-                                <div style="margin-bottom: 0.5rem;">
-                                    <strong>Nombre:</strong> ${pedido.nombre_cliente || 'No especificado'}
-                                </div>
-                                ${pedido.telefono_cliente ? `
-                                    <div style="margin-bottom: 0.5rem;">
-                                        <strong>Teléfono:</strong> ${pedido.telefono_cliente}
-                                    </div>
-                                ` : ''}
-                                ${pedido.direccion_entrega ? `
-                                    <div style="margin-bottom: 0.5rem;">
-                                        <strong>Dirección:</strong> ${pedido.direccion_entrega}
-                                    </div>
-                                ` : ''}
-                                <div style="margin-bottom: 0.5rem;">
-                                    <strong>Tipo:</strong> ${tipoInfo.icon} ${pedido.tipo_pedido_display}
-                                </div>
-                                ${pedido.mesa_numero ? `
-                                    <div style="margin-bottom: 0.5rem;">
-                                        <strong>Mesa:</strong> ${pedido.mesa_numero}
-                                    </div>
-                                ` : ''}
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-dollar-sign"></i> Resumen de Pago</h4>
-                            <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                    <span>Subtotal:</span>
-                                    <span>$${pedido.subtotal.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                    <span>Envío:</span>
-                                    <span>$${pedido.envio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; color: #ff7e5f; padding-top: 0.5rem; border-top: 1px solid #e0e6ff;">
-                                    <span>Total:</span>
-                                    <span>$${pedido.total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-utensils"></i> Items del Pedido (${pedido.cantidad_items || pedido.items?.length || 0})</h4>
-                        <div style="overflow-x: auto;">
-                            <table style="width: 100%; border-collapse: collapse;">
-                                <thead>
-                                    <tr style="background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); color: white;">
-                                        <th style="padding: 1rem; text-align: left;">Producto</th>
-                                        <th style="padding: 1rem; text-align: center;">Cantidad</th>
-                                        <th style="padding: 1rem; text-align: right;">Precio Unitario</th>
-                                        <th style="padding: 1rem; text-align: right;">Subtotal</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${itemsHTML || `
-                                        <tr>
-                                            <td colspan="4" style="padding: 2rem; text-align: center; color: #718096;">
-                                                No hay items en este pedido
-                                            </td>
-                                        </tr>
-                                    `}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    
-                    ${pedido.notas ? `
-                        <div style="margin-top: 2rem;">
-                            <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-sticky-note"></i> Notas</h4>
-                            <div style="background: #fff7ed; padding: 1rem; border-radius: 10px; border-left: 4px solid #ed8936;">
-                                ${pedido.notas}
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    ${pedido.tiempo_preparacion ? `
-                        <div style="margin-top: 1rem; padding: 1rem; background: #e6fffa; border-radius: 10px; border-left: 4px solid #38a169;">
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <span><i class="fas fa-clock"></i></span>
-                                <span><strong>Tiempo estimado de preparación:</strong> ${pedido.tiempo_preparacion}</span>
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
-                        <button class="btn btn-warning" onclick="closeModal()">Cerrar</button>
-                        <button class="btn btn-info" onclick="openStatusModal(${pedido.id})">
-                            <span><i class="fas fa-sync-alt"></i></span>
-                            <span>Cambiar Estado</span>
-                        </button>
-                    </div>
+            return response.json();
+        })
+        .then(pedido => {
+            console.log('Detalles cargados:', pedido);
+            cargarDetallesPedido(pedido);
+            document.getElementById('orderModal').classList.add('active');
+        })
+        .catch(error => {
+            console.error('Error al cargar pedido:', error);
+            showNotification('Error: ' + error.message, 'error');
+        });
+}
+
+// Función para cargar detalles en el modal
+function cargarDetallesPedido(pedido) {
+    const modalBody = document.getElementById('modalBody');
+    
+    // Formatear items
+    let itemsHTML = '';
+    if (pedido.items && pedido.items.length > 0) {
+        itemsHTML = pedido.items.map(item => `
+            <tr>
+                <td>${item.name || item.nombre}</td>
+                <td>${item.quantity || item.cantidad}</td>
+                <td>$${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td>$${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            </tr>
+        `).join('');
+    }
+    
+    // Determinar icono y color según estado
+    const estadoInfo = getEstadoInfo(pedido.estado);
+    const tipoInfo = getTipoInfo(pedido.tipo_pedido);
+    
+    modalBody.innerHTML = `
+        <div style="background: white; border-radius: 15px; padding: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
+                <div>
+                    <h2 style="color: #2c3e50; margin-bottom: 0.5rem;">Pedido #${pedido.codigo_pedido}</h2>
+                    <div style="color: #718096;">${pedido.fecha_pedido}</div>
                 </div>
-            `;
-        }
-        
-        // Función para abrir modal de edición
-        function openEditModal(pedidoId) {
-            console.log('Abriendo modal para editar pedido:', pedidoId);
+                <span class="status-badge ${estadoInfo.class}">
+                    <span class="status-icon">${estadoInfo.icon}</span>
+                    ${pedido.estado_display}
+                </span>
+            </div>
             
-            fetch(`/gestiondepedidos/detalle/${pedidoId}/`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Error ${response.status}: Pedido no encontrado`);
-                    }
-                    return response.json();
-                })
-                .then(pedido => {
-                    console.log('Pedido cargado para edición:', pedido);
-                    cargarDatosEdicion(pedido);
-                    document.getElementById('editModal').classList.add('active');
-                })
-                .catch(error => {
-                    console.error('Error al cargar pedido:', error);
-                    showNotification('Error: ' + error.message, 'error');
-                });
-        }
-        
-        // Función para cargar datos en el modal de edición
-        function cargarDatosEdicion(pedido) {
-            const modalBody = document.getElementById('editModalBody');
-            
-            // Formatear items actuales
-            let itemsHTML = '';
-            if (pedido.items && pedido.items.length > 0) {
-                itemsHTML = pedido.items.map((item, index) => `
-                    <div class="order-item-edit" data-index="${index}" data-id="${item.id || ''}">
-                        <div style="flex: 2;">
-                            <strong>${item.name || item.nombre}</strong>
-                            <div style="font-size: 0.9rem; color: #718096;">
-                                Precio: $${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                <div>
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-user"></i> Información del Cliente</h4>
+                    <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
+                        <div style="margin-bottom: 0.5rem;">
+                            <strong>Nombre:</strong> ${pedido.nombre_cliente || 'No especificado'}
+                        </div>
+                        ${pedido.telefono_cliente ? `
+                            <div style="margin-bottom: 0.5rem;">
+                                <strong>Teléfono:</strong> ${pedido.telefono_cliente}
                             </div>
-                        </div>
-                        <div class="cantidad-controls">
-                            <button type="button" class="cantidad-btn" onclick="cambiarCantidad(${index}, -1)">-</button>
-                            <input type="number" class="cantidad-input" 
-                                   value="${item.quantity || item.cantidad || 1}" 
-                                   min="1" 
-                                   onchange="actualizarTotalItem(${index}, this.value)"
-                                   data-precio="${item.price || item.precio || 0}"
-                                   id="cantidad-${index}">
-                            <button type="button" class="cantidad-btn" onclick="cambiarCantidad(${index}, 1)">+</button>
-                        </div>
-                        <div style="font-weight: bold; color: #ff7e5f; min-width: 80px; text-align: right;" id="total-item-${index}">
-                            $${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                        </div>
-                        <button type="button" class="btn-icon btn-danger" onclick="eliminarItem(${index})" title="Eliminar item">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                `).join('');
-            }
-            
-            modalBody.innerHTML = `
-                <input type="hidden" id="editPedidoId" value="${pedido.id}">
-                
-                <div class="edit-form-group">
-                    <label><i class="fas fa-clipboard"></i> Información del Pedido</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                        <div>
-                            <div style="font-weight: 600;">Código:</div>
-                            <div>${pedido.codigo_pedido}</div>
-                        </div>
-                        <div>
-                            <div style="font-weight: 600;">Estado Actual:</div>
-                            <div>
-                                <span class="status-badge ${getEstadoClass(pedido.estado)}">
-                                    ${pedido.estado_display}
-                                </span>
+                        ` : ''}
+                        ${pedido.direccion_entrega ? `
+                            <div style="margin-bottom: 0.5rem;">
+                                <strong>Dirección:</strong> ${pedido.direccion_entrega}
                             </div>
+                        ` : ''}
+                        <div style="margin-bottom: 0.5rem;">
+                            <strong>Tipo:</strong> ${tipoInfo.icon} ${pedido.tipo_pedido_display}
                         </div>
+                        ${pedido.mesa_numero ? `
+                            <div style="margin-bottom: 0.5rem;">
+                                <strong>Mesa:</strong> ${pedido.mesa_numero}
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
                 
-                <div class="edit-form-group">
-                    <label><i class="fas fa-user"></i> Información del Cliente</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                        <div>
-                            <label for="editNombreCliente">Nombre *</label>
-                            <input type="text" id="editNombreCliente" 
-                                   value="${pedido.nombre_cliente || ''}" 
-                                   placeholder="Nombre del cliente"
-                                   required>
+                <div>
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-dollar-sign"></i> Resumen de Pago</h4>
+                    <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                            <span>Subtotal:</span>
+                            <span>$${pedido.subtotal.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                         </div>
-                        <div>
-                            <label for="editTelefonoCliente">Teléfono</label>
-                            <input type="tel" id="editTelefonoCliente" 
-                                   value="${pedido.telefono_cliente || ''}" 
-                                   placeholder="Teléfono">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                            <span>Envío:</span>
+                            <span>$${pedido.envio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; color: #ff7e5f; padding-top: 0.5rem; border-top: 1px solid #e0e6ff;">
+                            <span>Total:</span>
+                            <span>$${pedido.total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                         </div>
                     </div>
                 </div>
-                
-                <div class="edit-form-group">
-                    <label><i class="fas fa-utensils"></i> Items del Pedido</label>
-                    <div id="itemsContainer" style="max-height: 300px; overflow-y: auto; padding: 0.5rem; border: 1px solid #e0e6ff; border-radius: 8px;">
-                        ${itemsHTML || '<p style="color: #718096; text-align: center; padding: 2rem;">No hay items en este pedido</p>'}
+            </div>
+            
+            <div>
+                <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-utensils"></i> Items del Pedido (${pedido.cantidad_items || pedido.items?.length || 0})</h4>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); color: white;">
+                                <th style="padding: 1rem; text-align: left;">Producto</th>
+                                <th style="padding: 1rem; text-align: center;">Cantidad</th>
+                                <th style="padding: 1rem; text-align: right;">Precio Unitario</th>
+                                <th style="padding: 1rem; text-align: right;">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsHTML || `
+                                <tr>
+                                    <td colspan="4" style="padding: 2rem; text-align: center; color: #718096;">
+                                        No hay items en este pedido
+                                    </td>
+                                </tr>
+                            `}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            ${pedido.notas ? `
+                <div style="margin-top: 2rem;">
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-sticky-note"></i> Notas</h4>
+                    <div style="background: #fff7ed; padding: 1rem; border-radius: 10px; border-left: 4px solid #ed8936;">
+                        ${pedido.notas}
                     </div>
                 </div>
-                
-                <!-- Sección para agregar nuevos productos -->
-                <div class="edit-form-group">
-                    <label><i class="fas fa-plus-circle"></i> Agregar Nuevos Productos</label>
-                    
-                    <div class="search-bebidas" style="margin-bottom: 1rem;">
-                        <span class="search-bebidas-icon"><i class="fas fa-search"></i></span>
-                        <input type="text" id="buscarProducto" placeholder="Buscar bebidas, platos..." 
-                               oninput="buscarProductosDisponibles()">
-                        <button type="button" class="search-bebidas-btn" onclick="buscarProductosDisponibles()">Buscar</button>
-                    </div>
-                    
-                    <div style="margin-bottom: 1rem;">
-                        <label for="tipoProducto">Tipo de Producto:</label>
-                        <select id="tipoProducto" onchange="buscarProductosDisponibles()" style="width: 100%; padding: 0.75rem;">
-                            <option value="todos">Todos</option>
-                            <option value="bebida">Bebidas</option>
-                            <option value="plato">Platos</option>
-                        </select>
-                    </div>
-                    
-                    <div id="productosDisponibles" style="max-height: 200px; overflow-y: auto; border: 1px solid #e0e6ff; border-radius: 8px; padding: 0.5rem;">
-                        <p style="color: #718096; text-align: center; padding: 1rem;">Busca productos para agregar</p>
+            ` : ''}
+            
+            ${pedido.tiempo_preparacion ? `
+                <div style="margin-top: 1rem; padding: 1rem; background: #e6fffa; border-radius: 10px; border-left: 4px solid #38a169;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span><i class="fas fa-clock"></i></span>
+                        <span><strong>Tiempo estimado de preparación:</strong> ${pedido.tiempo_preparacion}</span>
                     </div>
                 </div>
-                
-                <div class="edit-form-group">
-                    <label><i class="fas fa-sticky-note"></i> Notas Adicionales</label>
-                    <textarea id="editNotas" rows="3" placeholder="Notas del pedido...">${pedido.notas || ''}</textarea>
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e0e6ff;">
-                    <div>
-                        <strong style="font-size: 1.2rem;">Total: $</strong>
-                        <span id="totalPedidoEdit" style="font-size: 1.5rem; font-weight: bold; color: #ff7e5f;">
-                            ${pedido.total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                        </span>
-                    </div>
-                    <div style="display: flex; gap: 1rem;">
-                        <button type="button" class="btn btn-warning" onclick="closeEditModal()">Cancelar</button>
-                        <button type="button" class="btn btn-primary" onclick="guardarCambiosPedido()">
-                            <span><i class="fas fa-save"></i></span>
-                            <span>Guardar Cambios</span>
-                        </button>
-                    </div>
-                </div>
-            `;
+            ` : ''}
             
-            // Inicializar búsqueda de productos
-            buscarProductosDisponibles();
-        }
-        
-        // Función para buscar productos disponibles
-        function buscarProductosDisponibles() {
-            const searchTerm = document.getElementById('buscarProducto')?.value || '';
-            const tipoProducto = document.getElementById('tipoProducto')?.value || 'todos';
-            
-            console.log('Buscando productos:', searchTerm, tipoProducto);
-            
-            fetch(`/gestiondepedidos/platos-disponibles/?search=${encodeURIComponent(searchTerm)}&tipo=${tipoProducto}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Error en la respuesta del servidor');
-                    }
-                    return response.json();
-                })
-                .then(productos => {
-                    const container = document.getElementById('productosDisponibles');
-                    if (!container) return;
-                    
-                    if (!productos || productos.length === 0) {
-                        container.innerHTML = '<p style="color: #718096; text-align: center; padding: 1rem;">No se encontraron productos</p>';
-                        return;
-                    }
-                    
-                    container.innerHTML = productos.map(producto => `
-                        <div class="producto-item" style="padding: 0.75rem; border-bottom: 1px solid #f1f1f1; cursor: pointer; transition: background-color 0.2s;" 
-                             onclick="agregarProductoAPedido(${JSON.stringify(producto).replace(/"/g, '&quot;')})"
-                             onmouseover="this.style.backgroundColor='#f8f9ff'"
-                             onmouseout="this.style.backgroundColor='transparent'">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div style="flex: 1;">
-                                    <strong>${producto.nombre}</strong>
-                                    <div style="font-size: 0.85rem; color: #718096;">
-                                        ${producto.categoria || producto.tipo} - $${producto.precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                                    </div>
-                                </div>
-                                <div style="margin-left: 1rem;">
-                                    <span style="color: #38a169; font-size: 1.2rem;"><i class="fas fa-plus-circle"></i></span>
-                                </div>
-                            </div>
-                            ${producto.cantidad_disponible !== null && producto.cantidad_disponible !== undefined ? `
-                                <div class="stock-indicator" style="margin-top: 0.25rem;">
-                                    <span class="stock-icon ${producto.stock_status === 'high' ? 'stock-high' : producto.stock_status === 'medium' ? 'stock-medium' : 'stock-low'}">
-                                        ${producto.stock_icon || '<i class="fas fa-box"></i>'}
-                                    </span>
-                                    <span class="stock-text">${producto.stock_label || 'Disponible'}</span>
-                                </div>
-                            ` : ''}
-                        </div>
-                    `).join('');
-                })
-                .catch(error => {
-                    console.error('Error al buscar productos:', error);
-                    const container = document.getElementById('productosDisponibles');
-                    if (container) {
-                        container.innerHTML = '<p style="color: #e53e3e; text-align: center; padding: 1rem;">Error al cargar productos</p>';
-                    }
-                });
-        }
-        
-        // Función para agregar producto al pedido
-        function agregarProductoAPedido(producto) {
-            const itemsContainer = document.getElementById('itemsContainer');
-            
-            // Si el contenedor está vacío, limpiar el mensaje
-            if (itemsContainer.innerHTML.includes('No hay items')) {
-                itemsContainer.innerHTML = '';
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+                <button class="btn btn-warning" onclick="closeModal()">Cerrar</button>
+                <button class="btn btn-info" onclick="openStatusModal(${pedido.id})">
+                    <span><i class="fas fa-sync-alt"></i></span>
+                    <span>Cambiar Estado</span>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Función para abrir modal de edición
+function openEditModal(pedidoId) {
+    console.log('Abriendo modal para editar pedido:', pedidoId);
+    
+    fetch(`/gestiondepedidos/detalle/${pedidoId}/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: Pedido no encontrado`);
             }
-            
-            // Crear nuevo item con ID único
-            const itemId = `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            const precio = parseFloat(producto.precio) || 0;
-            const cantidad = 1;
-            const total = precio * cantidad;
-            
-            const nuevoItemHTML = `
-                <div class="order-item-edit" data-id="${producto.id}" data-unique-id="${itemId}">
+            return response.json();
+        })
+        .then(pedido => {
+            console.log('Pedido cargado para edición:', pedido);
+            cargarDatosEdicion(pedido);
+            document.getElementById('editModal').classList.add('active');
+        })
+        .catch(error => {
+            console.error('Error al cargar pedido:', error);
+            showNotification('Error: ' + error.message, 'error');
+        });
+}
+
+// Función para cargar datos en el modal de edición
+function cargarDatosEdicion(pedido) {
+    const modalBody = document.getElementById('editModalBody');
+    
+    // Formatear items actuales
+    let itemsHTML = '';
+    if (pedido.items && pedido.items.length > 0) {
+        itemsHTML = pedido.items.map((item, index) => {
+            // Asegurar que el ID sea string y esté disponible
+            const itemId = item.id ? String(item.id) : '';
+            return `
+                <div class="order-item-edit" data-index="${index}" data-id="${itemId}">
                     <div style="flex: 2;">
-                        <strong>${producto.nombre}</strong>
+                        <strong>${item.name || item.nombre}</strong>
                         <div style="font-size: 0.9rem; color: #718096;">
-                            Precio: $${precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            Precio: $${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                         </div>
                     </div>
                     <div class="cantidad-controls">
-                        <button type="button" class="cantidad-btn" onclick="cambiarCantidadEdit('${itemId}', -1)">-</button>
+                        <button type="button" class="cantidad-btn" onclick="cambiarCantidad(${index}, -1)">-</button>
                         <input type="number" class="cantidad-input" 
-                               value="${cantidad}" 
+                               value="${item.quantity || item.cantidad || 1}" 
                                min="1" 
-                               onchange="actualizarTotalItemEdit('${itemId}', this.value)"
-                               data-precio="${precio}"
-                               id="cantidad-input-${itemId}">
-                        <button type="button" class="cantidad-btn" onclick="cambiarCantidadEdit('${itemId}', 1)">+</button>
+                               onchange="actualizarTotalItem(${index}, this.value)"
+                               data-precio="${item.price || item.precio || 0}"
+                               id="cantidad-${index}">
+                        <button type="button" class="cantidad-btn" onclick="cambiarCantidad(${index}, 1)">+</button>
                     </div>
-                    <div style="font-weight: bold; color: #ff7e5f; min-width: 80px; text-align: right;" id="total-item-${itemId}">
-                        $${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    <div style="font-weight: bold; color: #ff7e5f; min-width: 80px; text-align: right;" id="total-item-${index}">
+                        $${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </div>
-                    <button type="button" class="btn-icon btn-danger" onclick="eliminarItemEdit('${itemId}')" title="Eliminar item" style="margin-left: 1rem;">
+                    <button type="button" class="btn-icon btn-danger" onclick="eliminarItem(${index})" title="Eliminar item">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
             `;
-            
-            itemsContainer.innerHTML += nuevoItemHTML;
-            calcularTotalPedidoEdit();
-            
-            showNotification(`<i class="fas fa-check-circle"></i> ${producto.nombre} agregado al pedido`, 'success');
-        }
+        }).join('');
+    }
+    
+    modalBody.innerHTML = `
+        <input type="hidden" id="editPedidoId" value="${pedido.id}">
         
-        // Función para cambiar cantidad (edición)
-        function cambiarCantidadEdit(itemId, cambio) {
-            const input = document.getElementById(`cantidad-input-${itemId}`);
-            if (!input) return;
-            
-            let nuevaCantidad = parseInt(input.value) + cambio;
-            if (nuevaCantidad < 1) nuevaCantidad = 1;
-            
-            input.value = nuevaCantidad;
-            actualizarTotalItemEdit(itemId, nuevaCantidad);
-        }
-        
-        // Función para actualizar total de item (edición)
-        function actualizarTotalItemEdit(itemId, cantidad) {
-            const input = document.getElementById(`cantidad-input-${itemId}`);
-            if (!input) return;
-            
-            const precio = parseFloat(input.dataset.precio) || 0;
-            const total = precio * parseInt(cantidad);
-            
-            const totalElement = document.getElementById(`total-item-${itemId}`);
-            if (totalElement) {
-                totalElement.textContent = `$${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            }
-            
-            calcularTotalPedidoEdit();
-        }
-        
-        // Función para eliminar item (edición)
-        function eliminarItemEdit(itemId) {
-            const itemDiv = document.querySelector(`.order-item-edit[data-unique-id="${itemId}"]`);
-            if (itemDiv && confirm('¿Estás seguro de eliminar este item?')) {
-                itemDiv.remove();
-                calcularTotalPedidoEdit();
-                
-                // Si no quedan items, mostrar mensaje
-                const itemsContainer = document.getElementById('itemsContainer');
-                if (itemsContainer.children.length === 0) {
-                    itemsContainer.innerHTML = '<p style="color: #718096; text-align: center; padding: 2rem;">No hay items en este pedido</p>';
-                }
-            }
-        }
-        
-        // Función para calcular total del pedido (edición)
-        function calcularTotalPedidoEdit() {
-            let total = 0;
-            
-            document.querySelectorAll('.order-item-edit').forEach(item => {
-                const totalText = item.querySelector('div[style*="color: #ff7e5f"]').textContent;
-                const itemTotal = parseFloat(totalText.replace('$', '')) || 0;
-                total += itemTotal;
-            });
-            
-            const totalElement = document.getElementById('totalPedidoEdit');
-            if (totalElement) {
-                totalElement.textContent = total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            }
-            
-            return total;
-        }
-        
-        // Función para cambiar cantidad (items originales)
-        function cambiarCantidad(index, cambio) {
-            const input = document.getElementById(`cantidad-${index}`);
-            if (!input) return;
-            
-            let nuevaCantidad = parseInt(input.value) + cambio;
-            if (nuevaCantidad < 1) nuevaCantidad = 1;
-            
-            input.value = nuevaCantidad;
-            actualizarTotalItem(index, nuevaCantidad);
-        }
-        
-        // Función para actualizar total de item (items originales)
-        function actualizarTotalItem(index, cantidad) {
-            const input = document.getElementById(`cantidad-${index}`);
-            if (!input) return;
-            
-            const precio = parseFloat(input.dataset.precio) || 0;
-            const total = precio * parseInt(cantidad);
-            
-            const totalElement = document.getElementById(`total-item-${index}`);
-            if (totalElement) {
-                totalElement.textContent = `$${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            }
-            
-            calcularTotalPedidoEdit();
-        }
-        
-        // Función para eliminar item (items originales)
-        function eliminarItem(index) {
-            const itemDiv = document.querySelector(`.order-item-edit[data-index="${index}"]`);
-            if (itemDiv && confirm('¿Estás seguro de eliminar este item?')) {
-                itemDiv.remove();
-                calcularTotalPedidoEdit();
-            }
-        }
-        
-        // Función para guardar cambios del pedido
-        function guardarCambiosPedido() {
-            const pedidoId = document.getElementById('editPedidoId').value;
-            const nombreCliente = document.getElementById('editNombreCliente').value;
-            const telefonoCliente = document.getElementById('editTelefonoCliente').value;
-            const notas = document.getElementById('editNotas').value;
-            
-            // Validar nombre del cliente
-            if (!nombreCliente.trim()) {
-                showNotification('<i class="fas fa-exclamation-circle"></i> El nombre del cliente es obligatorio', 'error');
-                document.getElementById('editNombreCliente').focus();
-                return;
-            }
-            
-            // Recopilar todos los items
-            const items = [];
-            document.querySelectorAll('.order-item-edit').forEach(itemDiv => {
-                const nombre = itemDiv.querySelector('strong').textContent;
-                const cantidadInput = itemDiv.querySelector('.cantidad-input');
-                const cantidad = parseInt(cantidadInput.value) || 1;
-                const precio = parseFloat(cantidadInput.dataset.precio) || 0;
-                const total = precio * cantidad;
-                
-                items.push({
-                    name: nombre,
-                    quantity: cantidad,
-                    price: precio,
-                    total: total
-                });
-            });
-            
-            // Validar que haya al menos un item
-            if (items.length === 0) {
-                showNotification('<i class="fas fa-exclamation-circle"></i> El pedido debe tener al menos un item', 'error');
-                return;
-            }
-            
-            // Preparar datos para enviar
-            const formData = new FormData();
-            formData.append('nuevos_items', JSON.stringify(items));
-            formData.append('nombre_cliente', nombreCliente);
-            formData.append('telefono_cliente', telefonoCliente);
-            formData.append('notas', notas);
-            
-            // Agregar CSRF token
-            const csrfToken = getCSRFToken();
-            if (csrfToken) {
-                formData.append('csrfmiddlewaretoken', csrfToken);
-            }
-            
-            console.log('Enviando datos para editar pedido:', {
-                pedidoId,
-                nombreCliente,
-                telefonoCliente,
-                cantidadItems: items.length,
-                total: calcularTotalPedidoEdit()
-            });
-            
-            // Mostrar indicador de carga
-            const saveBtn = document.querySelector('.btn-primary[onclick="guardarCambiosPedido()"]');
-            const originalText = saveBtn.innerHTML;
-            saveBtn.innerHTML = '<span><i class="fas fa-hourglass-half"></i></span><span>Guardando...</span>';
-            saveBtn.disabled = true;
-            
-            // Enviar datos al servidor
-            fetch(`/gestiondepedidos/editar/${pedidoId}/`, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Error ${response.status}: ${response.statusText}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    showNotification(`<i class="fas fa-check-circle"></i> ${data.mensaje}`, 'success');
-                    closeEditModal();
-                    
-                    // Recargar la página después de un breve retraso
-                    setTimeout(() => {
-                        location.reload();
-                    }, 1500);
-                } else {
-                    throw new Error(data.error || 'Error desconocido');
-                }
-            })
-            .catch(error => {
-                console.error('Error al guardar cambios:', error);
-                showNotification(`<i class="fas fa-exclamation-circle"></i> Error: ${error.message}`, 'error');
-                
-                // Restaurar botón
-                saveBtn.innerHTML = originalText;
-                saveBtn.disabled = false;
-            });
-        }
-        
-        // Función para abrir modal de cambio de estado
-        function openStatusModal(pedidoId) {
-            currentOrder = pedidoId;
-            
-            const estados = [
-                { value: 'pendiente', label: 'Pendiente', icon: '<i class="fas fa-clock"></i>', description: 'El pedido está pendiente de confirmación' },
-                { value: 'confirmado', label: 'Confirmado', icon: '<i class="fas fa-check"></i>', description: 'El pedido ha sido confirmado' },
-                { value: 'preparacion', label: 'En Preparación', icon: '<i class="fas fa-concierge-bell"></i>', description: 'El pedido está siendo preparado' },
-                { value: 'listo', label: 'Listo', icon: '<i class="fas fa-rocket"></i>', description: 'El pedido está listo para servir/entregar' },
-                { value: 'entregado', label: 'Entregado', icon: '<i class="fas fa-box"></i>', description: 'El pedido ha sido entregado' },
-                { value: 'completado', label: 'Completado', icon: '<i class="fas fa-flag-checkered"></i>', description: 'El pedido ha sido completado' },
-                { value: 'cancelado', label: 'Cancelado', icon: '<i class="fas fa-times-circle"></i>', description: 'El pedido ha sido cancelado' }
-            ];
-            
-            const modalBody = document.getElementById('statusModalBody');
-            modalBody.innerHTML = `
-                <input type="hidden" id="statusPedidoId" value="${pedidoId}">
-                
-                <div style="margin-bottom: 1.5rem;">
-                    <p>Selecciona el nuevo estado para el pedido:</p>
+        <div class="edit-form-group">
+            <label><i class="fas fa-clipboard"></i> Información del Pedido</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <div style="font-weight: 600;">Código:</div>
+                    <div>${pedido.codigo_pedido}</div>
                 </div>
-                
-                <div id="statusOptions">
-                    ${estados.map(estado => `
-                        <div class="status-option" data-value="${estado.value}" onclick="seleccionarEstado('${estado.value}')">
-                            <div class="status-option-icon">
-                                ${estado.icon}
-                            </div>
-                            <div class="status-option-label">
-                                <div>${estado.label}</div>
-                                <div style="font-size: 0.85rem; color: #718096; font-weight: normal;">${estado.description}</div>
+                <div>
+                    <div style="font-weight: 600;">Estado Actual:</div>
+                    <div>
+                        <span class="status-badge ${getEstadoClass(pedido.estado)}">
+                            ${pedido.estado_display}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="edit-form-group">
+            <label><i class="fas fa-user"></i> Información del Cliente</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                    <label for="editNombreCliente">Nombre *</label>
+                    <input type="text" id="editNombreCliente" 
+                           value="${pedido.nombre_cliente || ''}" 
+                           placeholder="Nombre del cliente"
+                           required>
+                </div>
+                <div>
+                    <label for="editTelefonoCliente">Teléfono</label>
+                    <input type="tel" id="editTelefonoCliente" 
+                           value="${pedido.telefono_cliente || ''}" 
+                           placeholder="Teléfono">
+                </div>
+            </div>
+        </div>
+        
+        <div class="edit-form-group">
+            <label><i class="fas fa-utensils"></i> Items del Pedido</label>
+            <div id="itemsContainer" style="max-height: 300px; overflow-y: auto; padding: 0.5rem; border: 1px solid #e0e6ff; border-radius: 8px;">
+                ${itemsHTML || '<p style="color: #718096; text-align: center; padding: 2rem;">No hay items en este pedido</p>'}
+            </div>
+        </div>
+        
+        <!-- Sección para agregar nuevos productos -->
+        <div class="edit-form-group">
+            <label><i class="fas fa-plus-circle"></i> Agregar Nuevos Productos</label>
+            
+            <div class="search-bebidas" style="margin-bottom: 1rem;">
+                <span class="search-bebidas-icon"><i class="fas fa-search"></i></span>
+                <input type="text" id="buscarProducto" placeholder="Buscar bebidas, platos..." 
+                       oninput="buscarProductosDisponibles()">
+                <button type="button" class="search-bebidas-btn" onclick="buscarProductosDisponibles()">Buscar</button>
+            </div>
+            
+            <div style="margin-bottom: 1rem;">
+                <label for="tipoProducto">Tipo de Producto:</label>
+                <select id="tipoProducto" onchange="buscarProductosDisponibles()" style="width: 100%; padding: 0.75rem;">
+                    <option value="todos">Todos</option>
+                    <option value="bebida">Bebidas</option>
+                    <option value="plato">Platos</option>
+                </select>
+            </div>
+            
+            <div id="productosDisponibles" style="max-height: 200px; overflow-y: auto; border: 1px solid #e0e6ff; border-radius: 8px; padding: 0.5rem;">
+                <p style="color: #718096; text-align: center; padding: 1rem;">Busca productos para agregar</p>
+            </div>
+        </div>
+        
+        <div class="edit-form-group">
+            <label><i class="fas fa-sticky-note"></i> Notas Adicionales</label>
+            <textarea id="editNotas" rows="3" placeholder="Notas del pedido...">${pedido.notas || ''}</textarea>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e0e6ff;">
+            <div>
+                <strong style="font-size: 1.2rem;">Total: $</strong>
+                <span id="totalPedidoEdit" style="font-size: 1.5rem; font-weight: bold; color: #ff7e5f;">
+                    ${pedido.total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                </span>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button type="button" class="btn btn-warning" onclick="closeEditModal()">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarCambiosPedido()">
+                    <span><i class="fas fa-save"></i></span>
+                    <span>Guardar Cambios</span>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Inicializar búsqueda de productos
+    buscarProductosDisponibles();
+}
+
+// Función para buscar productos disponibles
+function buscarProductosDisponibles() {
+    const searchTerm = document.getElementById('buscarProducto')?.value || '';
+    const tipoProducto = document.getElementById('tipoProducto')?.value || 'todos';
+    
+    console.log('Buscando productos:', searchTerm, tipoProducto);
+    
+    fetch(`/gestiondepedidos/platos-disponibles/?search=${encodeURIComponent(searchTerm)}&tipo=${tipoProducto}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error en la respuesta del servidor');
+            }
+            return response.json();
+        })
+        .then(productos => {
+            const container = document.getElementById('productosDisponibles');
+            if (!container) return;
+            
+            if (!productos || productos.length === 0) {
+                container.innerHTML = '<p style="color: #718096; text-align: center; padding: 1rem;">No se encontraron productos</p>';
+                return;
+            }
+            
+            container.innerHTML = productos.map(producto => `
+                <div class="producto-item" style="padding: 0.75rem; border-bottom: 1px solid #f1f1f1; cursor: pointer; transition: background-color 0.2s;" 
+                     onclick="agregarProductoAPedido(${JSON.stringify(producto).replace(/"/g, '&quot;')})"
+                     onmouseover="this.style.backgroundColor='#f8f9ff'"
+                     onmouseout="this.style.backgroundColor='transparent'">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1;">
+                            <strong>${producto.nombre}</strong>
+                            <div style="font-size: 0.85rem; color: #718096;">
+                                ${producto.categoria || producto.tipo} - $${producto.precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                             </div>
                         </div>
-                    `).join('')}
+                        <div style="margin-left: 1rem;">
+                            <span style="color: #38a169; font-size: 1.2rem;"><i class="fas fa-plus-circle"></i></span>
+                        </div>
+                    </div>
+                    ${producto.cantidad_disponible !== null && producto.cantidad_disponible !== undefined ? `
+                        <div class="stock-indicator" style="margin-top: 0.25rem;">
+                            <span class="stock-icon ${producto.stock_status === 'high' ? 'stock-high' : producto.stock_status === 'medium' ? 'stock-medium' : 'stock-low'}">
+                                ${producto.stock_icon || '<i class="fas fa-box"></i>'}
+                            </span>
+                            <span class="stock-text">${producto.stock_label || 'Disponible'}</span>
+                        </div>
+                    ` : ''}
                 </div>
-                
-                <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
-                    <button class="btn btn-warning" onclick="closeStatusModal()">Cancelar</button>
-                    <button class="btn btn-primary" id="confirmStatusBtn" onclick="confirmarCambioEstado()" disabled>
-                        <span><i class="fas fa-save"></i></span>
-                        <span>Confirmar Cambio</span>
-                    </button>
+            `).join('');
+        })
+        .catch(error => {
+            console.error('Error al buscar productos:', error);
+            const container = document.getElementById('productosDisponibles');
+            if (container) {
+                container.innerHTML = '<p style="color: #e53e3e; text-align: center; padding: 1rem;">Error al cargar productos</p>';
+            }
+        });
+}
+
+// Función para agregar producto al pedido
+function agregarProductoAPedido(producto) {
+    const itemsContainer = document.getElementById('itemsContainer');
+    
+    // Si el contenedor está vacío, limpiar el mensaje
+    if (itemsContainer.innerHTML.includes('No hay items')) {
+        itemsContainer.innerHTML = '';
+    }
+    
+    // Crear nuevo item con ID único
+    const itemUniqueId = `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const precio = parseFloat(producto.precio) || 0;
+    const cantidad = 1;
+    const total = precio * cantidad;
+    
+    const nuevoItemHTML = `
+        <div class="order-item-edit" data-id="${producto.id}" data-unique-id="${itemUniqueId}">
+            <div style="flex: 2;">
+                <strong>${producto.nombre}</strong>
+                <div style="font-size: 0.9rem; color: #718096;">
+                    Precio: $${precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                 </div>
-            `;
-            
-            document.getElementById('statusModal').classList.add('active');
-        }
+            </div>
+            <div class="cantidad-controls">
+                <button type="button" class="cantidad-btn" onclick="cambiarCantidadEdit('${itemUniqueId}', -1)">-</button>
+                <input type="number" class="cantidad-input" 
+                       value="${cantidad}" 
+                       min="1" 
+                       onchange="actualizarTotalItemEdit('${itemUniqueId}', this.value)"
+                       data-precio="${precio}"
+                       id="cantidad-input-${itemUniqueId}">
+                <button type="button" class="cantidad-btn" onclick="cambiarCantidadEdit('${itemUniqueId}', 1)">+</button>
+            </div>
+            <div style="font-weight: bold; color: #ff7e5f; min-width: 80px; text-align: right;" id="total-item-${itemUniqueId}">
+                $${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+            </div>
+            <button type="button" class="btn-icon btn-danger" onclick="eliminarItemEdit('${itemUniqueId}')" title="Eliminar item" style="margin-left: 1rem;">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    
+    itemsContainer.innerHTML += nuevoItemHTML;
+    calcularTotalPedidoEdit();
+    
+    showNotification(`<i class="fas fa-check-circle"></i> ${producto.nombre} agregado al pedido`, 'success');
+}
+
+// Función para cambiar cantidad (edición - items nuevos)
+function cambiarCantidadEdit(itemUniqueId, cambio) {
+    const input = document.getElementById(`cantidad-input-${itemUniqueId}`);
+    if (!input) return;
+    
+    let nuevaCantidad = parseInt(input.value) + cambio;
+    if (nuevaCantidad < 1) nuevaCantidad = 1;
+    
+    input.value = nuevaCantidad;
+    actualizarTotalItemEdit(itemUniqueId, nuevaCantidad);
+}
+
+// Función para actualizar total de item (edición - items nuevos)
+function actualizarTotalItemEdit(itemUniqueId, cantidad) {
+    const input = document.getElementById(`cantidad-input-${itemUniqueId}`);
+    if (!input) return;
+    
+    const precio = parseFloat(input.dataset.precio) || 0;
+    const total = precio * parseInt(cantidad);
+    
+    const totalElement = document.getElementById(`total-item-${itemUniqueId}`);
+    if (totalElement) {
+        totalElement.textContent = `$${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    }
+    
+    calcularTotalPedidoEdit();
+}
+
+// Función para eliminar item (edición - items nuevos)
+function eliminarItemEdit(itemUniqueId) {
+    const itemDiv = document.querySelector(`.order-item-edit[data-unique-id="${itemUniqueId}"]`);
+    if (itemDiv && confirm('¿Estás seguro de eliminar este item?')) {
+        itemDiv.remove();
+        calcularTotalPedidoEdit();
         
-        // Función para seleccionar estado
-        function seleccionarEstado(estadoValue) {
-            // Remover selección anterior
-            document.querySelectorAll('.status-option').forEach(option => {
-                option.classList.remove('selected');
-            });
-            
-            // Marcar como seleccionado
-            const selectedOption = document.querySelector(`.status-option[data-value="${estadoValue}"]`);
-            if (selectedOption) {
-                selectedOption.classList.add('selected');
-            }
-            
-            // Habilitar botón de confirmación
-            document.getElementById('confirmStatusBtn').disabled = false;
+        // Si no quedan items, mostrar mensaje
+        const itemsContainer = document.getElementById('itemsContainer');
+        if (itemsContainer.children.length === 0) {
+            itemsContainer.innerHTML = '<p style="color: #718096; text-align: center; padding: 2rem;">No hay items en este pedido</p>';
         }
+    }
+}
+
+// Función para calcular total del pedido (edición)
+function calcularTotalPedidoEdit() {
+    let total = 0;
+    
+    document.querySelectorAll('.order-item-edit').forEach(item => {
+        const totalText = item.querySelector('div[style*="color: #ff7e5f"]').textContent;
+        const itemTotal = parseFloat(totalText.replace('$', '')) || 0;
+        total += itemTotal;
+    });
+    
+    const totalElement = document.getElementById('totalPedidoEdit');
+    if (totalElement) {
+        totalElement.textContent = total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+    
+    return total;
+}
+
+// Función para cambiar cantidad (items originales)
+function cambiarCantidad(index, cambio) {
+    const input = document.getElementById(`cantidad-${index}`);
+    if (!input) return;
+    
+    let nuevaCantidad = parseInt(input.value) + cambio;
+    if (nuevaCantidad < 1) nuevaCantidad = 1;
+    
+    input.value = nuevaCantidad;
+    actualizarTotalItem(index, nuevaCantidad);
+}
+
+// Función para actualizar total de item (items originales)
+function actualizarTotalItem(index, cantidad) {
+    const input = document.getElementById(`cantidad-${index}`);
+    if (!input) return;
+    
+    const precio = parseFloat(input.dataset.precio) || 0;
+    const total = precio * parseInt(cantidad);
+    
+    const totalElement = document.getElementById(`total-item-${index}`);
+    if (totalElement) {
+        totalElement.textContent = `$${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    }
+    
+    calcularTotalPedidoEdit();
+}
+
+// Función para eliminar item (items originales)
+function eliminarItem(index) {
+    const itemDiv = document.querySelector(`.order-item-edit[data-index="${index}"]`);
+    if (itemDiv && confirm('¿Estás seguro de eliminar este item?')) {
+        itemDiv.remove();
+        calcularTotalPedidoEdit();
         
-        // Función para confirmar cambio de estado
-        function confirmarCambioEstado() {
-            const pedidoId = currentOrder;
-            const selectedOption = document.querySelector('.status-option.selected');
-            
-            if (!selectedOption) {
-                showNotification('<i class="fas fa-times-circle"></i> Por favor selecciona un estado', 'error');
-                return;
-            }
-            
-            const nuevoEstado = selectedOption.dataset.value;
-            
-            if (!confirm(`¿Estás seguro de cambiar el estado del pedido a "${selectedOption.querySelector('.status-option-label div').textContent}"?`)) {
-                return;
-            }
-            
-            // Preparar datos
-            const formData = new FormData();
-            formData.append('estado', nuevoEstado);
-            
-            const csrfToken = getCSRFToken();
-            if (csrfToken) {
-                formData.append('csrfmiddlewaretoken', csrfToken);
-            }
-            
-            // Mostrar indicador de carga
-            const confirmBtn = document.getElementById('confirmStatusBtn');
-            const originalText = confirmBtn.innerHTML;
-            confirmBtn.innerHTML = '<span><i class="fas fa-hourglass-half"></i></span><span>Cambiando...</span>';
-            confirmBtn.disabled = true;
-            
-            // Enviar solicitud
-            fetch(`/gestiondepedidos/cambiar-estado/${pedidoId}/`, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showNotification(`<i class="fas fa-check-circle"></i> Estado cambiado a ${data.estado_display}`, 'success');
-                    closeStatusModal();
-                    
-                    // Actualizar la fila en la tabla
-                    const row = document.querySelector(`tr[data-order-id="${pedidoId}"]`);
-                    if (row) {
-                        const estadoCell = row.querySelector('td:nth-child(7)');
-                        if (estadoCell) {
-                            const estadoInfo = getEstadoInfo(nuevoEstado);
-                            estadoCell.innerHTML = `
-                                <span class="status-badge ${estadoInfo.class}">
-                                    <span class="status-icon">${estadoInfo.icon}</span>
-                                    ${data.estado_display}
-                                </span>
-                            `;
-                        }
-                    }
-                    
-                    // Actualizar estadísticas
-                    updateStats();
-                } else {
-                    throw new Error(data.error || 'Error desconocido');
-                }
-            })
-            .catch(error => {
-                console.error('Error al cambiar estado:', error);
-                showNotification(`<i class="fas fa-exclamation-circle"></i> Error: ${error.message}`, 'error');
-                
-                // Restaurar botón
-                confirmBtn.innerHTML = originalText;
-                confirmBtn.disabled = false;
-            });
+        // Si no quedan items, mostrar mensaje
+        const itemsContainer = document.getElementById('itemsContainer');
+        if (itemsContainer.children.length === 0) {
+            itemsContainer.innerHTML = '<p style="color: #718096; text-align: center; padding: 2rem;">No hay items en este pedido</p>';
         }
+    }
+}
+
+// Función para guardar cambios del pedido
+function guardarCambiosPedido() {
+    const pedidoId = document.getElementById('editPedidoId').value;
+    const nombreCliente = document.getElementById('editNombreCliente').value;
+    const telefonoCliente = document.getElementById('editTelefonoCliente').value;
+    const notas = document.getElementById('editNotas').value;
+    
+    // Validar nombre del cliente
+    if (!nombreCliente.trim()) {
+        showNotification('<i class="fas fa-exclamation-circle"></i> El nombre del cliente es obligatorio', 'error');
+        document.getElementById('editNombreCliente').focus();
+        return;
+    }
+    
+    // Recopilar todos los items con su ID
+    const items = [];
+    document.querySelectorAll('.order-item-edit').forEach(itemDiv => {
+        const id = itemDiv.getAttribute('data-id'); // Obtener el ID del producto (PROD-XX o PLATO-XX)
+        const nombre = itemDiv.querySelector('strong').textContent;
+        const cantidadInput = itemDiv.querySelector('.cantidad-input');
+        const cantidad = parseInt(cantidadInput.value) || 1;
+        const precio = parseFloat(cantidadInput.dataset.precio) || 0;
+        const total = precio * cantidad;
         
-        // Función para eliminar pedido
-        function deleteOrder(pedidoId) {
-            if (!confirm('¿Estás seguro de eliminar este pedido? Esta acción no se puede deshacer.')) {
-                return;
-            }
-            
-            // Preparar datos
-            const formData = new FormData();
-            formData.append('eliminar_vista', 'true');
-            
-            const csrfToken = getCSRFToken();
-            if (csrfToken) {
-                formData.append('csrfmiddlewaretoken', csrfToken);
-            }
-            
-            // Enviar solicitud
-            fetch(`/gestiondepedidos/eliminar/${pedidoId}/`, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showNotification(`<i class="fas fa-check-circle"></i> ${data.mensaje}`, 'success');
-                    
-                    // Eliminar la fila de la tabla
-                    const row = document.querySelector(`tr[data-order-id="${pedidoId}"]`);
-                    if (row) {
-                        row.remove();
-                    }
-                    
-                    // Actualizar estadísticas
-                    updateStats();
-                    
-                    // Mostrar mensaje si no hay pedidos
-                    const tbody = document.querySelector('#pedidosBody');
-                    if (tbody && tbody.children.length === 0) {
-                        tbody.innerHTML = `
-                            <tr class="empty-state">
-                                <td colspan="8">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                    </svg>
-                                    <h3>No se encontraron pedidos</h3>
-                                    <p>Todos los pedidos están pagados o no hay pedidos con los filtros aplicados</p>
-                                    <div style="margin-top: 1rem;">
-                                        <a href="{% url 'historial_pedidos' %}" class="btn btn-success" style="text-decoration: none;">
-                                            <span><i class="fas fa-history"></i></span>
-                                            <span>Ver Historial de Pagados</span>
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                        `;
-                    }
-                } else {
-                    throw new Error(data.error || 'Error al eliminar el pedido');
-                }
-            })
-            .catch(error => {
-                console.error('Error al eliminar pedido:', error);
-                showNotification(`<i class="fas fa-exclamation-circle"></i> ${error.message}`, 'error');
-            });
+        items.push({
+            id: id,  // ✅ Enviar el ID del producto
+            name: nombre,
+            quantity: cantidad,
+            price: precio,
+            total: total
+        });
+    });
+    
+    // Validar que haya al menos un item
+    if (items.length === 0) {
+        showNotification('<i class="fas fa-exclamation-circle"></i> El pedido debe tener al menos un item', 'error');
+        return;
+    }
+    
+    console.log('Items a enviar:', items);
+    
+    // Preparar datos para enviar
+    const formData = new FormData();
+    formData.append('nuevos_items', JSON.stringify(items));
+    formData.append('nombre_cliente', nombreCliente);
+    formData.append('telefono_cliente', telefonoCliente);
+    formData.append('notas', notas);
+    
+    // Agregar CSRF token
+    const csrfToken = getCSRFToken();
+    if (csrfToken) {
+        formData.append('csrfmiddlewaretoken', csrfToken);
+    }
+    
+    console.log('Enviando datos para editar pedido:', {
+        pedidoId,
+        nombreCliente,
+        telefonoCliente,
+        cantidadItems: items.length,
+        items: items,
+        total: calcularTotalPedidoEdit()
+    });
+    
+    // Mostrar indicador de carga
+    const saveBtn = document.querySelector('.btn-primary[onclick="guardarCambiosPedido()"]');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<span><i class="fas fa-hourglass-half"></i></span><span>Guardando...</span>';
+    saveBtn.disabled = true;
+    
+    // Enviar datos al servidor
+    fetch(`/gestiondepedidos/editar/${pedidoId}/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
         }
-        
-        // Función para actualizar estadísticas
-        function updateStats() {
-            // Contar pedidos en la tabla
-            const totalRows = document.querySelectorAll('#pedidosTable tbody tr:not(.empty-state)').length;
-            const totalElement = document.getElementById('totalPedidos');
-            if (totalElement) {
-                totalElement.textContent = totalRows;
-            }
-            
-            // Contar pedidos pendientes
-            const pendientes = document.querySelectorAll('.status-pendiente').length;
-            const pendientesElement = document.getElementById('pedidosPendientes');
-            if (pendientesElement) {
-                pendientesElement.textContent = pendientes;
-            }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
         }
-        
-        // Funciones de utilidad
-        function getCSRFToken() {
-            const token = document.querySelector('[name=csrfmiddlewaretoken]');
-            return token ? token.value : '';
-        }
-        
-        function showNotification(message, type = 'success') {
-            // Remover notificaciones anteriores
-            const existing = document.querySelectorAll('.custom-notification');
-            existing.forEach(n => n.remove());
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showNotification(`<i class="fas fa-check-circle"></i> ${data.mensaje}`, 'success');
+            closeEditModal();
             
-            // Crear notificación
-            const notification = document.createElement('div');
-            notification.className = 'custom-notification';
-            
-            const colors = {
-                success: { bg: '#38a169', color: '#ffffff' },
-                error: { bg: '#e53e3e', color: '#ffffff' },
-                info: { bg: '#3182ce', color: '#ffffff' },
-                warning: { bg: '#d69e2e', color: '#ffffff' }
-            };
-            
-            const color = colors[type] || colors.success;
-            
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: ${color.bg};
-                color: ${color.color};
-                padding: 1rem 1.5rem;
-                border-radius: 10px;
-                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-                z-index: 10000;
-                animation: slideIn 0.3s ease-out;
-                font-weight: 600;
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                max-width: 400px;
-                white-space: pre-line;
-            `;
-            
-            notification.innerHTML = message;
-            document.body.appendChild(notification);
-            
-            // Remover después de 5 segundos
+            // Recargar la página después de un breve retraso
             setTimeout(() => {
-                notification.style.animation = 'slideOut 0.3s ease-out';
-                setTimeout(() => notification.remove(), 300);
-            }, 5000);
+                location.reload();
+            }, 1500);
+        } else {
+            throw new Error(data.error || 'Error desconocido');
         }
+    })
+    .catch(error => {
+        console.error('Error al guardar cambios:', error);
+        showNotification(`<i class="fas fa-exclamation-circle"></i> Error: ${error.message}`, 'error');
         
-        function getEstadoClass(estado) {
-            const clases = {
-                'pendiente': 'status-pendiente',
-                'confirmado': 'status-pendiente',
-                'preparacion': 'status-preparacion',
-                'listo': 'status-listo',
-                'entregado': 'status-entregado',
-                'completado': 'status-entregado',
-                'cancelado': 'status-cancelado'
-            };
-            return clases[estado] || 'status-pendiente';
+        // Restaurar botón
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
+    });
+}
+
+// Función para abrir modal de cambio de estado
+function openStatusModal(pedidoId) {
+    currentOrder = pedidoId;
+    
+    const estados = [
+        { value: 'pendiente', label: 'Pendiente', icon: '<i class="fas fa-clock"></i>', description: 'El pedido está pendiente de confirmación' },
+        { value: 'confirmado', label: 'Confirmado', icon: '<i class="fas fa-check"></i>', description: 'El pedido ha sido confirmado' },
+        { value: 'preparacion', label: 'En Preparación', icon: '<i class="fas fa-concierge-bell"></i>', description: 'El pedido está siendo preparado' },
+        { value: 'listo', label: 'Listo', icon: '<i class="fas fa-rocket"></i>', description: 'El pedido está listo para servir/entregar' },
+        { value: 'entregado', label: 'Entregado', icon: '<i class="fas fa-box"></i>', description: 'El pedido ha sido entregado' },
+        { value: 'completado', label: 'Completado', icon: '<i class="fas fa-flag-checkered"></i>', description: 'El pedido ha sido completado' },
+        { value: 'cancelado', label: 'Cancelado', icon: '<i class="fas fa-times-circle"></i>', description: 'El pedido ha sido cancelado' }
+    ];
+    
+    const modalBody = document.getElementById('statusModalBody');
+    modalBody.innerHTML = `
+        <input type="hidden" id="statusPedidoId" value="${pedidoId}">
+        
+        <div style="margin-bottom: 1.5rem;">
+            <p>Selecciona el nuevo estado para el pedido:</p>
+        </div>
+        
+        <div id="statusOptions">
+            ${estados.map(estado => `
+                <div class="status-option" data-value="${estado.value}" onclick="seleccionarEstado('${estado.value}')">
+                    <div class="status-option-icon">
+                        ${estado.icon}
+                    </div>
+                    <div class="status-option-label">
+                        <div>${estado.label}</div>
+                        <div style="font-size: 0.85rem; color: #718096; font-weight: normal;">${estado.description}</div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+        
+        <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+            <button class="btn btn-warning" onclick="closeStatusModal()">Cancelar</button>
+            <button class="btn btn-primary" id="confirmStatusBtn" onclick="confirmarCambioEstado()" disabled>
+                <span><i class="fas fa-save"></i></span>
+                <span>Confirmar Cambio</span>
+            </button>
+        </div>
+    `;
+    
+    document.getElementById('statusModal').classList.add('active');
+}
+
+// Función para seleccionar estado
+function seleccionarEstado(estadoValue) {
+    // Remover selección anterior
+    document.querySelectorAll('.status-option').forEach(option => {
+        option.classList.remove('selected');
+    });
+    
+    // Marcar como seleccionado
+    const selectedOption = document.querySelector(`.status-option[data-value="${estadoValue}"]`);
+    if (selectedOption) {
+        selectedOption.classList.add('selected');
+    }
+    
+    // Habilitar botón de confirmación
+    document.getElementById('confirmStatusBtn').disabled = false;
+}
+
+// Función para confirmar cambio de estado
+function confirmarCambioEstado() {
+    const pedidoId = currentOrder;
+    const selectedOption = document.querySelector('.status-option.selected');
+    
+    if (!selectedOption) {
+        showNotification('<i class="fas fa-times-circle"></i> Por favor selecciona un estado', 'error');
+        return;
+    }
+    
+    const nuevoEstado = selectedOption.dataset.value;
+    
+    if (!confirm(`¿Estás seguro de cambiar el estado del pedido a "${selectedOption.querySelector('.status-option-label div').textContent}"?`)) {
+        return;
+    }
+    
+    // Preparar datos
+    const formData = new FormData();
+    formData.append('estado', nuevoEstado);
+    
+    const csrfToken = getCSRFToken();
+    if (csrfToken) {
+        formData.append('csrfmiddlewaretoken', csrfToken);
+    }
+    
+    // Mostrar indicador de carga
+    const confirmBtn = document.getElementById('confirmStatusBtn');
+    const originalText = confirmBtn.innerHTML;
+    confirmBtn.innerHTML = '<span><i class="fas fa-hourglass-half"></i></span><span>Cambiando...</span>';
+    confirmBtn.disabled = true;
+    
+    // Enviar solicitud
+    fetch(`/gestiondepedidos/cambiar-estado/${pedidoId}/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
         }
-        
-        function getEstadoInfo(estado) {
-            const info = {
-                'pendiente': { class: 'status-pendiente', icon: '<i class="fas fa-clock"></i>' },
-                'confirmado': { class: 'status-pendiente', icon: '<i class="fas fa-check"></i>' },
-                'preparacion': { class: 'status-preparacion', icon: '<i class="fas fa-concierge-bell"></i>' },
-                'listo': { class: 'status-listo', icon: '<i class="fas fa-rocket"></i>' },
-                'entregado': { class: 'status-entregado', icon: '<i class="fas fa-box"></i>' },
-                'completado': { class: 'status-entregado', icon: '<i class="fas fa-flag-checkered"></i>' },
-                'cancelado': { class: 'status-cancelado', icon: '<i class="fas fa-times-circle"></i>' }
-            };
-            return info[estado] || { class: 'status-pendiente', icon: '<i class="fas fa-question-circle"></i>' };
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`<i class="fas fa-check-circle"></i> Estado cambiado a ${data.estado_display}`, 'success');
+            closeStatusModal();
+            
+            // Actualizar la fila en la tabla
+            const row = document.querySelector(`tr[data-order-id="${pedidoId}"]`);
+            if (row) {
+                const estadoCell = row.querySelector('td:nth-child(7)');
+                if (estadoCell) {
+                    const estadoInfo = getEstadoInfo(nuevoEstado);
+                    estadoCell.innerHTML = `
+                        <span class="status-badge ${estadoInfo.class}">
+                            <span class="status-icon">${estadoInfo.icon}</span>
+                            ${data.estado_display}
+                        </span>
+                    `;
+                }
+            }
+            
+            // Actualizar estadísticas
+            updateStats();
+        } else {
+            throw new Error(data.error || 'Error desconocido');
         }
+    })
+    .catch(error => {
+        console.error('Error al cambiar estado:', error);
+        showNotification(`<i class="fas fa-exclamation-circle"></i> Error: ${error.message}`, 'error');
         
-        function getTipoInfo(tipo) {
-            const info = {
-                'restaurante': { icon: '<i class="fas fa-utensils"></i>', label: 'Restaurante' },
-                'domicilio': { icon: '<i class="fas fa-truck"></i>', label: 'Domicilio' },
-                'recoger': { icon: '<i class="fas fa-walking"></i>', label: 'Recoger' },
-                'mesa': { icon: '<i class="fas fa-utensils"></i>', label: 'Mesa' },
-                'delivery': { icon: '<i class="fas fa-truck"></i>', label: 'Delivery' },
-                'llevar': { icon: '<i class="fas fa-walking"></i>', label: 'Para llevar' }
-            };
-            return info[tipo] || { icon: '<i class="fas fa-box"></i>', label: tipo };
+        // Restaurar botón
+        confirmBtn.innerHTML = originalText;
+        confirmBtn.disabled = false;
+    });
+}
+
+// Función para eliminar pedido
+function deleteOrder(pedidoId) {
+    if (!confirm('¿Estás seguro de eliminar este pedido? Esta acción no se puede deshacer.')) {
+        return;
+    }
+    
+    // Preparar datos
+    const formData = new FormData();
+    formData.append('eliminar_vista', 'true');
+    
+    const csrfToken = getCSRFToken();
+    if (csrfToken) {
+        formData.append('csrfmiddlewaretoken', csrfToken);
+    }
+    
+    // Enviar solicitud
+    fetch(`/gestiondepedidos/eliminar/${pedidoId}/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
         }
-        
-        // Funciones para cerrar modales
-        function closeModal() {
-            document.getElementById('orderModal').classList.remove('active');
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`<i class="fas fa-check-circle"></i> ${data.mensaje}`, 'success');
+            
+            // Eliminar la fila de la tabla
+            const row = document.querySelector(`tr[data-order-id="${pedidoId}"]`);
+            if (row) {
+                row.remove();
+            }
+            
+            // Actualizar estadísticas
+            updateStats();
+            
+            // Mostrar mensaje si no hay pedidos
+            const tbody = document.querySelector('#pedidosBody');
+            if (tbody && tbody.children.length === 0) {
+                tbody.innerHTML = `
+                    <tr class="empty-state">
+                        <td colspan="8">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            <h3>No se encontraron pedidos</h3>
+                            <p>Todos los pedidos están pagados o no hay pedidos con los filtros aplicados</p>
+                            <div style="margin-top: 1rem;">
+                                <a href="{% url 'historial_pedidos' %}" class="btn btn-success" style="text-decoration: none;">
+                                    <span><i class="fas fa-history"></i></span>
+                                    <span>Ver Historial de Pagados</span>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+        } else {
+            throw new Error(data.error || 'Error al eliminar el pedido');
         }
-        
-        function closeStatusModal() {
-            document.getElementById('statusModal').classList.remove('active');
-            currentOrder = null;
+    })
+    .catch(error => {
+        console.error('Error al eliminar pedido:', error);
+        showNotification(`<i class="fas fa-exclamation-circle"></i> ${error.message}`, 'error');
+    });
+}
+
+// Función para actualizar estadísticas
+function updateStats() {
+    // Contar pedidos en la tabla
+    const totalRows = document.querySelectorAll('#pedidosTable tbody tr:not(.empty-state)').length;
+    const totalElement = document.getElementById('totalPedidos');
+    if (totalElement) {
+        totalElement.textContent = totalRows;
+    }
+    
+    // Contar pedidos pendientes
+    const pendientes = document.querySelectorAll('.status-pendiente').length;
+    const pendientesElement = document.getElementById('pedidosPendientes');
+    if (pendientesElement) {
+        pendientesElement.textContent = pendientes;
+    }
+}
+
+// Funciones de utilidad
+function getCSRFToken() {
+    const token = document.querySelector('[name=csrfmiddlewaretoken]');
+    return token ? token.value : '';
+}
+
+function showNotification(message, type = 'success') {
+    // Remover notificaciones anteriores
+    const existing = document.querySelectorAll('.custom-notification');
+    existing.forEach(n => n.remove());
+    
+    // Crear notificación
+    const notification = document.createElement('div');
+    notification.className = 'custom-notification';
+    
+    const colors = {
+        success: { bg: '#38a169', color: '#ffffff' },
+        error: { bg: '#e53e3e', color: '#ffffff' },
+        info: { bg: '#3182ce', color: '#ffffff' },
+        warning: { bg: '#d69e2e', color: '#ffffff' }
+    };
+    
+    const color = colors[type] || colors.success;
+    
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${color.bg};
+        color: ${color.color};
+        padding: 1rem 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        z-index: 10000;
+        animation: slideIn 0.3s ease-out;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        max-width: 400px;
+        white-space: pre-line;
+    `;
+    
+    notification.innerHTML = message;
+    document.body.appendChild(notification);
+    
+    // Animaciones CSS para notificaciones
+    if (!document.querySelector('#notification-styles')) {
+        const style = document.createElement('style');
+        style.id = 'notification-styles';
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Remover después de 5 segundos
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => notification.remove(), 300);
+    }, 5000);
+}
+
+function getEstadoClass(estado) {
+    const clases = {
+        'pendiente': 'status-pendiente',
+        'confirmado': 'status-pendiente',
+        'preparacion': 'status-preparacion',
+        'listo': 'status-listo',
+        'entregado': 'status-entregado',
+        'completado': 'status-entregado',
+        'cancelado': 'status-cancelado'
+    };
+    return clases[estado] || 'status-pendiente';
+}
+
+function getEstadoInfo(estado) {
+    const info = {
+        'pendiente': { class: 'status-pendiente', icon: '<i class="fas fa-clock"></i>' },
+        'confirmado': { class: 'status-pendiente', icon: '<i class="fas fa-check"></i>' },
+        'preparacion': { class: 'status-preparacion', icon: '<i class="fas fa-concierge-bell"></i>' },
+        'listo': { class: 'status-listo', icon: '<i class="fas fa-rocket"></i>' },
+        'entregado': { class: 'status-entregado', icon: '<i class="fas fa-box"></i>' },
+        'completado': { class: 'status-entregado', icon: '<i class="fas fa-flag-checkered"></i>' },
+        'cancelado': { class: 'status-cancelado', icon: '<i class="fas fa-times-circle"></i>' }
+    };
+    return info[estado] || { class: 'status-pendiente', icon: '<i class="fas fa-question-circle"></i>' };
+}
+
+function getTipoInfo(tipo) {
+    const info = {
+        'restaurante': { icon: '<i class="fas fa-utensils"></i>', label: 'Restaurante' },
+        'domicilio': { icon: '<i class="fas fa-truck"></i>', label: 'Domicilio' },
+        'recoger': { icon: '<i class="fas fa-walking"></i>', label: 'Recoger' },
+        'mesa': { icon: '<i class="fas fa-utensils"></i>', label: 'Mesa' },
+        'delivery': { icon: '<i class="fas fa-truck"></i>', label: 'Delivery' },
+        'llevar': { icon: '<i class="fas fa-walking"></i>', label: 'Para llevar' }
+    };
+    return info[tipo] || { icon: '<i class="fas fa-box"></i>', label: tipo };
+}
+
+// Funciones para cerrar modales
+function closeModal() {
+    document.getElementById('orderModal').classList.remove('active');
+}
+
+function closeStatusModal() {
+    document.getElementById('statusModal').classList.remove('active');
+    currentOrder = null;
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').classList.remove('active');
+}
+
+// Función para alternar sidebar
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('open');
+}
+
+// Cerrar sidebar al hacer clic en overlay
+document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
+
+// Añadir animaciones CSS para notificaciones si no existen
+if (!document.querySelector('#notification-styles')) {
+    const style = document.createElement('style');
+    style.id = 'notification-styles';
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
-        
-        function closeEditModal() {
-            document.getElementById('editModal').classList.remove('active');
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
         }
-        
-        // Función para alternar sidebar
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('open');
-        }
-        
-        // Cerrar sidebar al hacer clic en overlay
-        document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
+    `;
+    document.head.appendChild(style);
+}
+
+console.log('✅ JavaScript de gestión de pedidos cargado correctamente');
     </script>
 </body>
 </html>
