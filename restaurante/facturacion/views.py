@@ -2334,6 +2334,8 @@ def facturacion(request):
         }
         return render(request, 'facturacion/facturacion.html', context)
 
+
+
 @csrf_exempt 
 @login_required
 def crear_factura(request):
@@ -2343,11 +2345,9 @@ def crear_factura(request):
             pedido_id = request.POST.get('pedido_id')
             pedido = get_object_or_404(Pedido, id=pedido_id)
             
-            # Calcular totales - SIN IVA NI ENVÍO (COMENTADOS COMO PIDES)
+            # Calcular totales - SIN IVA NI ENVÍO
             subtotal = float(request.POST.get('subtotal', pedido.subtotal))
-            # envio = float(request.POST.get('envio', pedido.envio))  # COMENTADO
             envio = 0  # Establecer envío a 0 ya que no lo estamos usando
-            # iva = subtotal * 0.12  # 12% IVA - COMENTADO
             iva = 0  # Establecer IVA a 0 ya que no lo estamos usando
             
             # TOTAL sin IVA ni envío - usar el total del pedido directamente
@@ -2361,18 +2361,25 @@ def crear_factura(request):
                 items = pedido.get_items_detalle()
             
             # Crear la factura con estado PAGADA
+            # Obtener hora actual en zona horaria de República Dominicana
+            import pytz
+            from django.utils import timezone
+            tz_rd = pytz.timezone('America/Santo_Domingo')
+            now_rd = timezone.now().astimezone(tz_rd)
+            
             factura = Factura(
                 pedido=pedido,
                 tipo_pedido=pedido.tipo_pedido,
                 metodo_pago=request.POST.get('metodo_pago', 'efectivo'),
                 estado='pagada',  # Estado PAGADA automáticamente
                 subtotal=subtotal,
-                iva=iva,  # Ahora es 0
-                envio=envio,  # Ahora es 0
-                total=total,  # Usar el total del pedido directamente
+                iva=iva,
+                envio=envio,
+                total=total,
                 items=items,
                 notas=request.POST.get('notas', ''),
                 creado_por=request.user,
+                fecha_factura=now_rd,  # Establecer fecha en zona horaria RD
             )
             
             # Agregar información específica según el tipo de pedido
@@ -2393,7 +2400,7 @@ def crear_factura(request):
             
             # IMPORTANTE: Actualizar estado del pedido a 'completado'
             pedido.estado = 'completado'
-            pedido.fecha_entrega = timezone.now()  # Establecer fecha de entrega
+            pedido.fecha_entrega = now_rd  # Establecer fecha de entrega en zona horaria RD
             pedido.save()
             
             # 🔥🔥🔥 LIBERAR MESA solo cuando la factura está PAGADA
@@ -2702,8 +2709,23 @@ def detalle_factura(request, factura_id):
 
 @login_required
 def imprimir_factura_termica(request, factura_id):
-    """Imprimir factura en formato térmico 80mm"""
+    """Imprimir factura en formato térmico 80mm con hora local de República Dominicana"""
+    # Forzar zona horaria de República Dominicana
+    import pytz
+    from django.utils import timezone
+    
+    # Obtener la zona horaria de República Dominicana
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    
+    # Obtener la factura
     factura = get_object_or_404(Factura, id=factura_id)
+    
+    # Si la factura no tiene fecha, usar la hora actual en RD
+    if not factura.fecha_factura:
+        factura.fecha_factura = timezone.now().astimezone(tz_rd)
+    else:
+        # Convertir la fecha existente a zona horaria de RD
+        factura.fecha_factura = factura.fecha_factura.astimezone(tz_rd)
     
     # Marcar como impresa
     factura.marcar_impresa()
