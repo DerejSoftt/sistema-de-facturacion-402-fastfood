@@ -1,0 +1,2600 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Clientes - Restaurante</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Estilos base (igual que gestión de pedidos) */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* App container */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar styles - FIJADO */
+        .sidebar {
+            width: 260px;
+            height: 100vh;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 1.5rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 1001;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 1rem 0;
+            overflow-y: auto;
+        }
+
+        .nav-item {
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #ecf0f1;
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-left-color: #ff7e5f;
+            color: #ff7e5f;
+            transform: translateX(5px);
+        }
+
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            border-left-color: #ff7e5f;
+            color: #ff7e5f;
+            font-weight: 600;
+        }
+
+        .nav-icon {
+            font-size: 1.25rem;
+        }
+
+        /* Mobile menu toggle */
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 1002;
+            background: #ff7e5f;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: white;
+            transition: all 0.3s;
+        }
+
+        .menu-toggle:hover {
+            background: #ff6b4a;
+            transform: scale(1.05);
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 998;
+        }
+
+        /* Main content area */
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-x: hidden;
+            margin-left: 260px;
+            width: calc(100% - 260px);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 25px;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 2.5rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.1)"/></svg>');
+            background-size: cover;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            position: relative;
+            z-index: 1;
+        }
+
+        .header p {
+            opacity: 0.95;
+            font-size: 1.1rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .content {
+            padding: 2.5rem;
+        }
+
+        /* Stats Cards */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+            padding: 1.5rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(255, 126, 95, 0.1);
+            border: 1px solid rgba(255, 126, 95, 0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(255, 126, 95, 0.2);
+        }
+
+        .stat-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #ff7e5f;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: #4a5568;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        /* Botones */
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            box-shadow: 0 10px 20px rgba(255, 126, 95, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(255, 126, 95, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #38a169 0%, #48bb78 100%);
+            color: white;
+            box-shadow: 0 10px 20px rgba(56, 161, 105, 0.3);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(56, 161, 105, 0.4);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ed8936 0%, #f6ad55 100%);
+            color: white;
+            box-shadow: 0 10px 20px rgba(237, 137, 54, 0.3);
+        }
+
+        .btn-warning:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(237, 137, 54, 0.4);
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #4299e1 0%, #63b3ed 100%);
+            color: white;
+            box-shadow: 0 10px 20px rgba(66, 153, 225, 0.3);
+        }
+
+        .btn-info:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(66, 153, 225, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #e53e3e 0%, #fc8181 100%);
+            color: white;
+            box-shadow: 0 10px 20px rgba(229, 62, 62, 0.3);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(229, 62, 62, 0.4);
+        }
+
+        /* Controls Section */
+        .controls-section {
+            background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(255, 126, 95, 0.1);
+            border: 1px solid rgba(255, 126, 95, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .controls-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .controls-header h3 {
+            color: #2c3e50;
+            font-size: 1.4rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .controls-header h3::before {
+            content: "🔍";
+            font-size: 1.2rem;
+        }
+
+        /* Form inputs */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #2c3e50;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .form-group input,
+        .form-group select {
+            padding: 1rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: white;
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.05);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 300px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 1rem 1rem 1rem 3.5rem;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            color: #ff7e5f;
+        }
+
+        .filter-select {
+            padding: 1rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            font-size: 1rem;
+            background: white;
+            min-width: 180px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.05);
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.2);
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        /* Clientes Table */
+        .table-container {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(255, 126, 95, 0.1);
+            border: 1px solid rgba(255, 126, 95, 0.1);
+            margin-bottom: 2rem;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1200px;
+        }
+
+        thead {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+        }
+
+        thead th {
+            padding: 1.5rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid rgba(255, 126, 95, 0.1);
+            transition: all 0.2s;
+        }
+
+        tbody tr:hover {
+            background: #f8f9ff;
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(255, 126, 95, 0.1);
+        }
+
+        tbody td {
+            padding: 1.5rem;
+            color: #4a5568;
+        }
+
+        /* Badges para estado */
+        .status-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-active {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+        }
+
+        .status-inactive {
+            background: linear-gradient(135deg, #a0aec0 0%, #718096 100%);
+            color: white;
+        }
+
+        /* Badges para tipo de crédito */
+        .credito-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .credito-activo {
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+            color: white;
+        }
+
+        .credito-sin {
+            background: linear-gradient(135deg, #a0aec0 0%, #718096 100%);
+            color: white;
+        }
+
+        .credito-agotado {
+            background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+            color: white;
+        }
+
+        .credito-excedido {
+            background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+            color: white;
+        }
+
+        /* Botones de acción */
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-icon {
+            padding: 0.5rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 1rem;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e9ecff 100%);
+            color: #667eea;
+        }
+
+        .btn-icon:hover {
+            transform: scale(1.1);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .btn-edit:hover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+            color: white;
+        }
+
+        .btn-view:hover {
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+            color: white;
+        }
+
+        .btn-history:hover {
+            background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+            color: white;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+
+        .page-btn {
+            padding: 0.75rem 1.25rem;
+            border: 2px solid #e0e6ff;
+            background: white;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .page-btn:hover {
+            background: #f8f9ff;
+            border-color: #ff7e5f;
+            color: #ff7e5f;
+        }
+
+        .page-btn.active {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            border-color: #ff7e5f;
+        }
+
+        .page-info {
+            padding: 0 1rem;
+            color: #4a5568;
+            font-weight: 600;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 4rem;
+            color: #a0aec0;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1rem;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: #4a5568;
+        }
+
+        /* Modal para editar cliente */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .modal-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 2rem;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
+        }
+
+        .modal-body {
+            padding: 2rem;
+        }
+
+        /* Formulario en modal */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .modal-form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-form-group label {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #2c3e50;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .modal-form-group label.required::after {
+            content: "*";
+            color: #e53e3e;
+            margin-left: 4px;
+        }
+
+        .modal-form-group input,
+        .modal-form-group textarea,
+        .modal-form-group select {
+            padding: 1rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: white;
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.05);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .modal-form-group input:focus,
+        .modal-form-group textarea:focus,
+        .modal-form-group select:focus {
+            outline: none;
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .modal-form-group input.error,
+        .modal-form-group textarea.error,
+        .modal-form-group select.error {
+            border-color: #e53e3e;
+            background-color: #fff5f5;
+        }
+
+        .modal-form-group input.valid,
+        .modal-form-group textarea.valid,
+        .modal-form-group select.valid {
+            border-color: #38a169;
+            background-color: #f0fff4;
+        }
+
+        .modal-form-group .form-help {
+            font-size: 0.85rem;
+            color: #718096;
+            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .modal-form-group .form-help.error {
+            color: #e53e3e;
+        }
+
+        .modal-form-group .form-help.success {
+            color: #38a169;
+        }
+
+        /* Campos específicos en modal */
+        .modal-cedula-input-container {
+            position: relative;
+        }
+
+        .modal-cedula-format {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #a0aec0;
+            font-size: 0.9rem;
+            background: #f7fafc;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .modal-credito-container {
+            position: relative;
+        }
+
+        .modal-credito-symbol {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #ff7e5f;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .modal-credito-input {
+            padding-left: 2.5rem !important;
+        }
+
+        /* Modal actions */
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e0e6ff;
+        }
+
+        /* Responsive design */
+        @media (max-width: 1200px) {
+            .stats-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: block;
+            }
+
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                z-index: 999;
+                transform: translateX(-100%);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .sidebar-overlay.open {
+                display: block;
+            }
+
+            .main-content {
+                padding: 5rem 1rem 1rem;
+                margin-left: 0;
+                width: 100%;
+            }
+
+            .content {
+                padding: 1.5rem;
+            }
+
+            .header {
+                padding: 2rem 1.5rem;
+            }
+
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .stats-container {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .controls-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .filter-row {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .search-box {
+                min-width: 100%;
+            }
+
+            .filter-select {
+                width: 100%;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .table-container {
+                border-radius: 15px;
+            }
+
+            table {
+                min-width: 1200px;
+            }
+
+            .modal-content {
+                width: 95%;
+                margin: 1rem;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .modal-actions {
+                flex-direction: column;
+            }
+
+            .modal-actions button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Mobile menu toggle -->
+    <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+
+    <div class="app-container">
+        <!-- Sidebar navigation -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-utensils"></i> Mi Restaurante
+            </div>
+            <nav class="sidebar-nav">
+                {% with user_groups=user.groups.all|join:"," %}
+
+                <!-- Menú para Usuario Normal -->
+                {% if "Usuario Normal" in user_groups and not user.is_superuser %}
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'registro_clientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'registro_clientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
+                    <span>Registro de Clientes</span>
+                </a>
+                <a href="{% url 'gestion_clientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestion_clientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-users-cog"></i></span>
+                    <span>Gestión de Clientes</span>
+                </a>
+                {% endif %}
+
+                <!-- Menú para Administrador -->
+                {% if "Administrador" in user_groups and not user.is_superuser %}
+                <a href="{% url 'entradadeproductos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'registro_clientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'registro_clientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
+                    <span>Registro de Clientes</span>
+                </a>
+                <a href="{% url 'gestion_clientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestion_clientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-users-cog"></i></span>
+                    <span>Gestión de Clientes</span>
+                </a>
+                <a href="{% url 'roles' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Gestión de Usuarios</span>
+                </a>
+                <a href="{% url 'dashbort' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
+                {% endif %}
+
+                <!-- Menú para Gerente -->
+                {% if "Gerente" in user_groups and not user.is_superuser %}
+                <a href="{% url 'entradadeproductos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'registro_clientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'registro_clientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
+                    <span>Registro de Clientes</span>
+                </a>
+                <a href="{% url 'gestion_clientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestion_clientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-users-cog"></i></span>
+                    <span>Gestión de Clientes</span>
+                </a>
+                <a href="{% url 'dashbort' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
+                {% endif %}
+
+                {% if "Cajero" in user_groups and not user.is_superuser %}
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'registro_clientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'registro_clientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
+                    <span>Registro de Clientes</span>
+                </a>
+                <a href="{% url 'gestion_clientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestion_clientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-users-cog"></i></span>
+                    <span>Gestión de Clientes</span>
+                </a>
+                {% endif %}
+
+                <!-- Menú EXCLUSIVO para superusuarios -->
+                {% if user.is_superuser %}
+                <a href="{% url 'entradadeproductos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'registro_clientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'registro_clientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
+                    <span>Registro de Clientes</span>
+                </a>
+                <a href="{% url 'gestion_clientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestion_clientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-users-cog"></i></span>
+                    <span>Gestión de Clientes</span>
+                </a>
+                <a href="{% url 'roles' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Gestión de Usuarios</span>
+                </a>
+                <a href="{% url 'dashbort' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
+                {% endif %}
+
+                <!-- Cerrar sesión para todos -->
+                <a href="{% url 'logout' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
+                    <span>Cerrar Sesión</span>
+                </a>
+
+                {% endwith %}
+            </nav>
+        </div>
+
+        <!-- Overlay for mobile sidebar -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+        <div class="main-content">
+            <div class="container">
+                <div class="header">
+                    <h1><i class="fas fa-users-cog"></i> Gestión de Clientes</h1>
+                    <p>Administra, edita y gestiona todos los clientes del restaurante</p>
+                </div>
+
+                <div class="content">
+                    <!-- Stats Cards -->
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <span class="stat-icon"><i class="fas fa-users"></i></span>
+                            <div class="stat-value" id="totalClientes">{{ estadisticas.total_clientes|default:"0" }}
+                            </div>
+                            <div class="stat-label">Clientes Totales</div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon"><i class="fas fa-user-check"></i></span>
+                            <div class="stat-value" id="clientesActivos">{{ estadisticas.clientes_activos|default:"0" }}
+                            </div>
+                            <div class="stat-label">Clientes Activos</div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon"><i class="fas fa-credit-card"></i></span>
+                            <div class="stat-value" id="clientesCredito">$<span id="creditoTotal">{{
+                                    estadisticas.credito_total|default:"0"|intcomma }}</span></div>
+                            <div class="stat-label">Crédito Otorgado</div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon"><i class="fas fa-history"></i></span>
+                            <div class="stat-value" id="clientesHoy">{{ estadisticas.clientes_hoy|default:"0" }}</div>
+                            <div class="stat-label">Registrados Hoy</div>
+                        </div>
+                    </div>
+
+                    <!-- Controls Section -->
+                    <div class="controls-section">
+                        <div class="controls-header">
+                            <h3>Buscar y Filtrar Clientes</h3>
+                            <div style="display: flex; gap: 1rem;">
+                                <button class="btn btn-success"
+                                    onclick="window.location.href='{% url 'registro_clientes' %}'" type="button">
+                                    <span><i class="fas fa-user-plus"></i></span>
+                                    <span>Nuevo Cliente</span>
+                                </button>
+                                <button class="btn btn-info" onclick="exportarClientes()" type="button">
+                                    <span><i class="fas fa-file-export"></i></span>
+                                    <span>Exportar Clientes</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <form method="get" id="filterForm">
+                            <div class="form-group">
+                                <label for="searchInput"><i class="fas fa-search"></i> Buscar Cliente</label>
+                                <div class="search-box">
+                                    <span class="search-icon"><i class="fas fa-search"></i></span>
+                                    <input type="text" id="searchInput" name="search" value="{{ filtros.search }}"
+                                        placeholder="Buscar por cédula, nombre, teléfono...">
+                                </div>
+                            </div>
+
+                            <div class="filter-row">
+                                <div class="form-group" style="flex: 1;">
+                                    <label for="statusFilter"><i class="fas fa-toggle-on"></i> Estado</label>
+                                    <select class="filter-select" id="statusFilter" name="estado">
+                                        <option value="">Todos los estados</option>
+                                        <option value="activo" {% if filtros.estado=='activo' %}selected{% endif %}>
+                                            Activo</option>
+                                        <option value="inactivo" {% if filtros.estado=='inactivo' %}selected{% endif %}>
+                                            Inactivo</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group" style="flex: 1;">
+                                    <label for="creditoFilter"><i class="fas fa-credit-card"></i> Estado de
+                                        Crédito</label>
+                                    <select class="filter-select" id="creditoFilter" name="credito">
+                                        <option value="">Todos</option>
+                                        <option value="con_credito" {% if filtros.credito=='con_credito' %}selected{%
+                                            endif %}>Con Crédito</option>
+                                        <option value="sin_credito" {% if filtros.credito=='sin_credito' %}selected{%
+                                            endif %}>Sin Crédito</option>
+                                        <option value="agotado" {% if filtros.credito=='agotado' %}selected{% endif %}>
+                                            Crédito Agotado</option>
+                                        <option value="excedido" {% if filtros.credito=='excedido' %}selected{% endif
+                                            %}>Crédito Excedido</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group" style="flex: 1;">
+                                    <label for="dateFilter"><i class="fas fa-calendar"></i> Fecha de Registro</label>
+                                    <select class="filter-select" id="dateFilter" name="fecha">
+                                        <option value="">Todas las fechas</option>
+                                        <option value="hoy" {% if filtros.fecha=='hoy' %}selected{% endif %}>Hoy
+                                        </option>
+                                        <option value="ayer" {% if filtros.fecha=='ayer' %}selected{% endif %}>Ayer
+                                        </option>
+                                        <option value="semana" {% if filtros.fecha=='semana' %}selected{% endif %}>Esta
+                                            Semana</option>
+                                        <option value="mes" {% if filtros.fecha=='mes' %}selected{% endif %}>Este Mes
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group" style="flex: 1;">
+                                    <label for="sortFilter"><i class="fas fa-sort"></i> Ordenar por</label>
+                                    <select class="filter-select" id="sortFilter" name="sort">
+                                        <option value="nombre" {% if filtros.sort=='nombre' %}selected{% endif %}>Nombre
+                                            (A-Z)</option>
+                                        <option value="nombre_desc" {% if filtros.sort=='nombre_desc' %}selected{% endif
+                                            %}>Nombre (Z-A)</option>
+                                        <option value="cedula" {% if filtros.sort=='cedula' %}selected{% endif %}>Cédula
+                                        </option>
+                                        <option value="fecha_desc" {% if filtros.sort=='fecha_desc' %}selected{% endif
+                                            %}>Más Reciente</option>
+                                        <option value="fecha_asc" {% if filtros.sort=='fecha_asc' %}selected{% endif %}>
+                                            Más Antiguo</option>
+                                        <option value="credito_desc" {% if filtros.sort=='credito_desc' %}selected{%
+                                            endif %}>Límite Crédito (Mayor)</option>
+                                        <option value="credito_asc" {% if filtros.sort=='credito_asc' %}selected{% endif
+                                            %}>Límite Crédito (Menor)</option>
+                                    </select>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary"
+                                    style="height: fit-content; margin-top: 1.5rem;">
+                                    <span><i class="fas fa-filter"></i></span>
+                                    <span>Filtrar</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Clientes Table -->
+                    <div class="table-container">
+                        <table id="clientesTable">
+                            <thead>
+                                <tr>
+                                    <th>Cédula</th>
+                                    <th>Nombre Completo</th>
+                                    <th>Teléfono</th>
+                                    <th>Dirección</th>
+                                    <th>Límite Crédito</th>
+                                    <th>Días Crédito</th>
+                                    <th>Estado</th>
+                                    <th>Última Actualización</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clientesBody">
+                                {% if clientes %}
+                                {% for cliente in clientes %}
+                                <tr data-cliente-id="{{ cliente.id }}">
+                                    <td style="font-weight: 700; color: #2c3e50;">{{ cliente.cedula }}</td>
+                                    <td>{{ cliente.nombre_completo }}</td>
+                                    <td>
+                                        <div class="telefono-info">
+                                            <div class="telefono-principal">
+                                                {{ cliente.telefono_principal }}
+                                            </div>
+                                            {% if cliente.telefono_alternativo %}
+                                            <div class="telefono-alt" style="font-size: 0.85rem; color: #718096;">
+                                                Alt: {{ cliente.telefono_alternativo }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div
+                                            style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                            {{ cliente.direccion }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if cliente.limite_credito > 0 %}
+                                        <div style="font-weight: bold; color: #4299e1;">
+                                            ${{ cliente.limite_credito|floatformat:2|intcomma }}
+                                        </div>
+                                        {% if cliente.saldo_actual %}
+                                        <div style="font-size: 0.85rem; color: #718096;">
+                                            Saldo: ${{ cliente.saldo_actual|floatformat:2|intcomma }}
+                                        </div>
+                                        {% endif %}
+                                        {% else %}
+                                        <div style="color: #a0aec0;">Sin crédito</div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if cliente.dias_credito > 0 %}
+                                        <span
+                                            style="padding: 0.25rem 0.75rem; background: #bee3f8; color: #2c5282; border-radius: 12px; font-size: 0.85rem;">
+                                            {{ cliente.dias_credito }} días
+                                        </span>
+                                        {% else %}
+                                        <span
+                                            style="padding: 0.25rem 0.75rem; background: #e2e8f0; color: #4a5568; border-radius: 12px; font-size: 0.85rem;">
+                                            Contado
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if cliente.activo %}
+                                        <span class="status-badge status-active">Activo</span>
+                                        {% else %}
+                                        <span class="status-badge status-inactive">Inactivo</span>
+                                        {% endif %}
+                                        <br>
+                                        {% if cliente.limite_credito > 0 %}
+                                        {% if cliente.saldo_disponible > 0 %}
+                                        <span class="credito-badge credito-activo">Crédito Disponible</span>
+                                        {% elif cliente.saldo_disponible == 0 %}
+                                        <span class="credito-badge credito-agotado">Crédito Agotado</span>
+                                        {% else %}
+                                        <span class="credito-badge credito-excedido">Crédito Excedido</span>
+                                        {% endif %}
+                                        {% else %}
+                                        <span class="credito-badge credito-sin">Sin Crédito</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="date-badge">
+                                            <span><i class="fas fa-calendar-alt"></i></span>
+                                            <span>{{ cliente.fecha_actualizacion|date:"d/m/Y" }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn-icon btn-view" onclick="verCliente({{ cliente.id }})"
+                                                title="Ver detalles">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button class="btn-icon btn-edit" onclick="editarCliente({{ cliente.id }})"
+                                                title="Editar cliente">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn-icon btn-history"
+                                                onclick="verHistorial({{ cliente.id }})" title="Ver historial">
+                                                <i class="fas fa-history"></i>
+                                            </button>
+                                            <button class="btn-icon btn-delete"
+                                                onclick="eliminarCliente({{ cliente.id }})" title="Eliminar cliente">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% else %}
+                                <tr class="empty-state">
+                                    <td colspan="9">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                            stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5 3.75a3.5 3.5 0 01-5 0" />
+                                        </svg>
+                                        <h3>No se encontraron clientes</h3>
+                                        <p>No hay clientes registrados o no hay clientes con los filtros aplicados</p>
+                                        <div style="margin-top: 1rem;">
+                                            <a href="{% url 'registro_clientes' %}" class="btn btn-success"
+                                                style="text-decoration: none;">
+                                                <span><i class="fas fa-user-plus"></i></span>
+                                                <span>Registrar Primer Cliente</span>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if paginator.num_pages > 1 %}
+                    <div class="pagination" id="pagination">
+                        {% if paginator.has_previous %}
+                        <a href="?page={{ paginator.previous_page_number }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
+                            class="page-btn">← Anterior</a>
+                        {% endif %}
+
+                        <span class="page-info" id="pageInfo">
+                            Página {{ paginator.number }} de {{ paginator.num_pages }}
+                        </span>
+
+                        {% if paginator.has_next %}
+                        <a href="?page={{ paginator.next_page_number }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
+                            class="page-btn">Siguiente →</a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para ver/editar cliente -->
+    <div class="modal" id="clienteModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-edit"></i> Editar Cliente</h3>
+                <button class="modal-close" onclick="cerrarModal()">×</button>
+            </div>
+            <div class="modal-body" id="modalClienteBody">
+                <!-- Los datos del cliente se cargarán dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para ver detalles del cliente -->
+    <div class="modal" id="viewClienteModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-circle"></i> Detalles del Cliente</h3>
+                <button class="modal-close" onclick="cerrarViewModal()">×</button>
+            </div>
+            <div class="modal-body" id="viewClienteBody">
+                <!-- Los detalles del cliente se cargarán dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Agregar CSRF token para las peticiones AJAX -->
+    {% csrf_token %}
+
+    <script>
+        // Variables globales
+        let clienteEditando = null;
+
+        // Inicializar la aplicación
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('=== INICIANDO GESTIÓN DE CLIENTES ===');
+
+            setupEventListeners();
+            setupFormValidation();
+
+            // Formatear crédito total con formato RD
+            const creditoElement = document.getElementById('creditoTotal');
+            if (creditoElement) {
+                const valor = parseFloat(creditoElement.textContent.replace(/,/g, '')) || 0;
+                creditoElement.textContent = valor.toLocaleString('es-DO', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            }
+        });
+
+        // Configurar event listeners
+        function setupEventListeners() {
+            // Formulario de filtros - enviar al cambiar
+            const filterSelects = document.querySelectorAll('.filter-select');
+            filterSelects.forEach(select => {
+                select.addEventListener('change', function () {
+                    updateURLFilters();
+                });
+            });
+
+            // Buscar al presionar Enter
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('keypress', function (e) {
+                    if (e.key === 'Enter') {
+                        updateURLFilters();
+                    }
+                });
+            }
+        }
+
+        // Configurar validación del formulario
+        function setupFormValidation() {
+            // Esta función se llama cuando se abre el modal de edición
+        }
+
+        // Actualizar URL con filtros
+        function updateURLFilters() {
+            const form = document.getElementById('filterForm');
+            const formData = new FormData(form);
+            const params = new URLSearchParams();
+
+            for (const [key, value] of formData.entries()) {
+                if (value) {
+                    params.append(key, value);
+                }
+            }
+
+            // Mantener el parámetro de página si existe
+            const currentParams = new URLSearchParams(window.location.search);
+            const page = currentParams.get('page');
+            if (page) {
+                params.append('page', page);
+            }
+
+            // Actualizar URL y recargar
+            window.location.href = `${window.location.pathname}?${params.toString()}`;
+        }
+
+        // Función para exportar clientes
+        function exportarClientes() {
+            mostrarNotificacion('Funcionalidad de exportación en desarrollo', 'info');
+        }
+
+        // Función para ver detalles del cliente
+        function verCliente(clienteId) {
+            console.log('Cargando detalles del cliente:', clienteId);
+
+            fetch(`/gestion_clientes/detalle/${clienteId}/`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error ${response.status}: Cliente no encontrado`);
+                    }
+                    return response.json();
+                })
+                .then(cliente => {
+                    console.log('Detalles cargados:', cliente);
+                    cargarDetallesCliente(cliente);
+                    document.getElementById('viewClienteModal').classList.add('active');
+                })
+                .catch(error => {
+                    console.error('Error al cargar cliente:', error);
+                    mostrarNotificacion('Error: ' + error.message, 'error');
+                });
+        }
+
+        // Función para cargar detalles en el modal de vista
+        function cargarDetallesCliente(cliente) {
+            const modalBody = document.getElementById('viewClienteBody');
+
+            // Determinar estado de crédito
+            let estadoCredito = '';
+            let colorCredito = '';
+            let iconoCredito = '';
+
+            if (cliente.limite_credito > 0) {
+                if (cliente.saldo_disponible > 0) {
+                    estadoCredito = 'Crédito Disponible';
+                    colorCredito = '#4299e1';
+                    iconoCredito = 'fa-check-circle';
+                } else if (cliente.saldo_disponible === 0) {
+                    estadoCredito = 'Crédito Agotado';
+                    colorCredito = '#ed8936';
+                    iconoCredito = 'fa-exclamation-triangle';
+                } else {
+                    estadoCredito = 'Crédito Excedido';
+                    colorCredito = '#e53e3e';
+                    iconoCredito = 'fa-exclamation-circle';
+                }
+            } else {
+                estadoCredito = 'Sin Crédito';
+                colorCredito = '#a0aec0';
+                iconoCredito = 'fa-ban';
+            }
+
+            // Formatear fechas
+            const fechaRegistro = new Date(cliente.fecha_registro).toLocaleDateString('es-DO');
+            const fechaActualizacion = new Date(cliente.fecha_actualizacion).toLocaleDateString('es-DO');
+
+            modalBody.innerHTML = `
+        <div style="background: white; border-radius: 15px; padding: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
+                <div>
+                    <h2 style="color: #2c3e50; margin-bottom: 0.5rem;">${cliente.nombre_completo}</h2>
+                    <div style="color: #718096; font-size: 1.1rem; font-weight: 600;">Cédula: ${cliente.cedula}</div>
+                </div>
+                <div style="text-align: right;">
+                    <span class="status-badge ${cliente.activo ? 'status-active' : 'status-inactive'}" style="margin-bottom: 0.5rem; display: block;">
+                        ${cliente.activo ? 'Activo' : 'Inactivo'}
+                    </span>
+                    <span style="padding: 0.5rem 1rem; border-radius: 20px; background: ${colorCredito}; color: white; font-size: 0.85rem; font-weight: 600;">
+                        <i class="fas ${iconoCredito}"></i> ${estadoCredito}
+                    </span>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                <div>
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-user"></i> Información Personal
+                    </h4>
+                    <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
+                        <div style="margin-bottom: 0.75rem;">
+                            <strong style="color: #4a5568;">Nombre Completo:</strong>
+                            <div style="margin-top: 0.25rem;">${cliente.nombre_completo}</div>
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <strong style="color: #4a5568;">Cédula:</strong>
+                            <div style="margin-top: 0.25rem;">${cliente.cedula}</div>
+                        </div>
+                        <div>
+                            <strong style="color: #4a5568;">Dirección:</strong>
+                            <div style="margin-top: 0.25rem;">${cliente.direccion}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-phone"></i> Información de Contacto
+                    </h4>
+                    <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
+                        <div style="margin-bottom: 0.75rem;">
+                            <strong style="color: #4a5568;">Teléfono Principal:</strong>
+                            <div style="margin-top: 0.25rem;">
+                                <i class="fas fa-phone"></i> ${cliente.telefono_principal}
+                            </div>
+                        </div>
+                        ${cliente.telefono_alternativo ? `
+                            <div style="margin-bottom: 0.75rem;">
+                                <strong style="color: #4a5568;">Teléfono Alternativo:</strong>
+                                <div style="margin-top: 0.25rem;">
+                                    <i class="fas fa-phone-alt"></i> ${cliente.telefono_alternativo}
+                                </div>
+                            </div>
+                        ` : ''}
+                        ${cliente.correo_electronico ? `
+                            <div>
+                                <strong style="color: #4a5568;">Correo Electrónico:</strong>
+                                <div style="margin-top: 0.25rem;">
+                                    <i class="fas fa-envelope"></i> ${cliente.correo_electronico}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                <div>
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-credit-card"></i> Información de Crédito
+                    </h4>
+                    <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
+                        <div style="margin-bottom: 0.75rem;">
+                            <strong style="color: #4a5568;">Límite de Crédito:</strong>
+                            <div style="margin-top: 0.25rem; font-size: 1.2rem; font-weight: bold; color: ${cliente.limite_credito > 0 ? '#4299e1' : '#a0aec0'};">
+                                $${cliente.limite_credito.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                        ${cliente.saldo_actual !== undefined ? `
+                            <div style="margin-bottom: 0.75rem;">
+                                <strong style="color: #4a5568;">Saldo Actual:</strong>
+                                <div style="margin-top: 0.25rem; font-size: 1.1rem; font-weight: bold; color: ${cliente.saldo_actual > 0 ? '#38a169' : '#e53e3e'};">
+                                    $${cliente.saldo_actual.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                            </div>
+                        ` : ''}
+                        ${cliente.saldo_disponible !== undefined ? `
+                            <div style="margin-bottom: 0.75rem;">
+                                <strong style="color: #4a5568;">Saldo Disponible:</strong>
+                                <div style="margin-top: 0.25rem; font-size: 1.1rem; font-weight: bold; color: ${cliente.saldo_disponible > 0 ? '#38a169' : cliente.saldo_disponible === 0 ? '#ed8936' : '#e53e3e'};">
+                                    $${cliente.saldo_disponible.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                            </div>
+                        ` : ''}
+                        <div>
+                            <strong style="color: #4a5568;">Días de Crédito:</strong>
+                            <div style="margin-top: 0.25rem;">
+                                ${cliente.dias_credito > 0 ?
+                    `<span style="padding: 0.25rem 0.75rem; background: #bee3f8; color: #2c5282; border-radius: 12px; font-size: 0.9rem;">${cliente.dias_credito} días</span>` :
+                    '<span style="padding: 0.25rem 0.75rem; background: #e2e8f0; color: #4a5568; border-radius: 12px; font-size: 0.9rem;">Contado</span>'
+                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-history"></i> Información del Registro
+                    </h4>
+                    <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
+                        <div style="margin-bottom: 0.75rem;">
+                            <strong style="color: #4a5568;">Fecha de Registro:</strong>
+                            <div style="margin-top: 0.25rem;">
+                                <i class="fas fa-calendar-plus"></i> ${fechaRegistro}
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 0.75rem;">
+                            <strong style="color: #4a5568;">Última Actualización:</strong>
+                            <div style="margin-top: 0.25rem;">
+                                <i class="fas fa-calendar-check"></i> ${fechaActualizacion}
+                            </div>
+                        </div>
+                        <div>
+                            <strong style="color: #4a5568;">Registrado por:</strong>
+                            <div style="margin-top: 0.25rem;">
+                                <i class="fas fa-user-tie"></i> ${cliente.usuario_registro || 'Sistema'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            ${cliente.notas_credito ? `
+                <div style="margin-bottom: 2rem;">
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-sticky-note"></i> Notas sobre Crédito
+                    </h4>
+                    <div style="background: #fff7ed; padding: 1rem; border-radius: 10px; border-left: 4px solid #ed8936;">
+                        ${cliente.notas_credito}
+                    </div>
+                </div>
+            ` : ''}
+            
+            ${cliente.notas_generales ? `
+                <div style="margin-bottom: 2rem;">
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-edit"></i> Notas Generales
+                    </h4>
+                    <div style="background: #e6fffa; padding: 1rem; border-radius: 10px; border-left: 4px solid #38a169;">
+                        ${cliente.notas_generales}
+                    </div>
+                </div>
+            ` : ''}
+            
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+                <button class="btn btn-warning" onclick="cerrarViewModal()">Cerrar</button>
+                <button class="btn btn-info" onclick="cerrarViewModal(); editarCliente(${cliente.id})">
+                    <span><i class="fas fa-edit"></i></span>
+                    <span>Editar Cliente</span>
+                </button>
+                <button class="btn btn-success" onclick="verHistorial(${cliente.id})">
+                    <span><i class="fas fa-history"></i></span>
+                    <span>Ver Historial</span>
+                </button>
+            </div>
+        </div>
+    `;
+        }
+
+        // Función para editar cliente
+        function editarCliente(clienteId) {
+            clienteEditando = clienteId;
+
+            fetch(`/gestion_clientes/detalle/${clienteId}/`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error ${response.status}: Cliente no encontrado`);
+                    }
+                    return response.json();
+                })
+                .then(cliente => {
+                    cargarDatosEdicionCliente(cliente);
+                    document.getElementById('clienteModal').classList.add('active');
+                })
+                .catch(error => {
+                    console.error('Error al cargar cliente:', error);
+                    mostrarNotificacion('Error: ' + error.message, 'error');
+                });
+        }
+
+        // Función para cargar datos en el modal de edición
+        function cargarDatosEdicionCliente(cliente) {
+            const modalBody = document.getElementById('modalClienteBody');
+
+            modalBody.innerHTML = `
+        <form id="editClienteForm">
+            <input type="hidden" id="editClienteId" value="${cliente.id}">
+            
+            <div class="form-grid">
+                <div class="modal-form-group">
+                    <label for="editCedula" class="required">
+                        <i class="fas fa-id-card"></i> Número de Cédula
+                    </label>
+                    <div class="modal-cedula-input-container">
+                        <input type="text" 
+                               id="editCedula" 
+                               name="cedula" 
+                               value="${cliente.cedula}"
+                               maxlength="11"
+                               pattern="\\d{11}"
+                               title="Debe contener exactamente 11 dígitos numéricos"
+                               required>
+                        <span class="modal-cedula-format">11 dígitos</span>
+                    </div>
+                    <div class="form-help" id="editCedulaHelp">
+                        <i class="fas fa-info-circle"></i> 11 dígitos numéricos
+                    </div>
+                </div>
+                
+                <div class="modal-form-group">
+                    <label for="editNombreCompleto" class="required">
+                        <i class="fas fa-user"></i> Nombre Completo
+                    </label>
+                    <input type="text" 
+                           id="editNombreCompleto" 
+                           name="nombre_completo" 
+                           value="${cliente.nombre_completo}"
+                           required>
+                </div>
+            </div>
+            
+            <div class="modal-form-group">
+                <label for="editDireccion" class="required">
+                    <i class="fas fa-home"></i> Dirección Completa
+                </label>
+                <textarea id="editDireccion" 
+                          name="direccion" 
+                          rows="3"
+                          required>${cliente.direccion}</textarea>
+            </div>
+            
+            <div style="display: flex; gap: 1rem;">
+                <div class="modal-form-group" style="flex: 1;">
+                    <label for="editTelefonoPrincipal" class="required">
+                        <i class="fas fa-phone"></i> Teléfono Principal
+                    </label>
+                    <input type="tel" 
+                           id="editTelefonoPrincipal" 
+                           name="telefono_principal" 
+                           value="${cliente.telefono_principal}"
+                           pattern="[0-9]{10}"
+                           required>
+                </div>
+                
+                <div class="modal-form-group" style="flex: 1;">
+                    <label for="editTelefonoAlternativo">
+                        <i class="fas fa-phone-alt"></i> Teléfono Alternativo
+                    </label>
+                    <input type="tel" 
+                           id="editTelefonoAlternativo" 
+                           name="telefono_alternativo" 
+                           value="${cliente.telefono_alternativo || ''}"
+                           pattern="[0-9]{10}">
+                </div>
+            </div>
+            
+            <div class="form-grid">
+                <div class="modal-form-group">
+                    <label for="editLimiteCredito" class="required">
+                        <i class="fas fa-dollar-sign"></i> Límite de Crédito
+                    </label>
+                    <div class="modal-credito-container">
+                        <span class="modal-credito-symbol">$</span>
+                        <input type="number" 
+                               id="editLimiteCredito" 
+                               name="limite_credito" 
+                               class="modal-credito-input"
+                               value="${cliente.limite_credito || '0.00'}"
+                               step="0.01"
+                               min="0"
+                               max="1000000"
+                               required>
+                    </div>
+                    <div class="form-help" id="editCreditoHelp">
+                        <i class="fas fa-info-circle"></i> Establezca el límite máximo de crédito
+                    </div>
+                </div>
+                
+                <div class="modal-form-group">
+                    <label for="editDiasCredito">
+                        <i class="fas fa-calendar-alt"></i> Días de Crédito
+                    </label>
+                    <input type="number" 
+                           id="editDiasCredito" 
+                           name="dias_credito" 
+                           value="${cliente.dias_credito || '30'}"
+                           min="0"
+                           max="365">
+                    <div class="form-help">
+                        <i class="fas fa-info-circle"></i> Días máximos para pago (0 = contado)
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-grid">
+                <div class="modal-form-group">
+                    <label for="editNotasCredito">
+                        <i class="fas fa-sticky-note"></i> Notas sobre Crédito
+                    </label>
+                    <textarea id="editNotasCredito" 
+                              name="notas_credito" 
+                              rows="3">${cliente.notas_credito || ''}</textarea>
+                </div>
+                
+                <div class="modal-form-group">
+                    <label for="editNotasGenerales">
+                        <i class="fas fa-edit"></i> Notas Generales
+                    </label>
+                    <textarea id="editNotasGenerales" 
+                              name="notas_generales" 
+                              rows="3">${cliente.notas_generales || ''}</textarea>
+                </div>
+            </div>
+            
+            <div class="form-grid">
+                <div class="modal-form-group">
+                    <label for="editEstado">
+                        <i class="fas fa-toggle-on"></i> Estado
+                    </label>
+                    <select id="editEstado" name="activo">
+                        <option value="true" ${cliente.activo ? 'selected' : ''}>Activo</option>
+                        <option value="false" ${!cliente.activo ? 'selected' : ''}>Inactivo</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" class="btn btn-warning" onclick="cerrarModal()">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-success" onclick="guardarCambiosCliente()">
+                    <span><i class="fas fa-save"></i></span>
+                    <span>Guardar Cambios</span>
+                </button>
+            </div>
+        </form>
+    `;
+
+            // Configurar validación para los campos de edición
+            setupModalFormValidation();
+        }
+
+        // Configurar validación del formulario modal
+        function setupModalFormValidation() {
+            const editCedula = document.getElementById('editCedula');
+            const editCedulaHelp = document.getElementById('editCedulaHelp');
+
+            if (editCedula && editCedulaHelp) {
+                editCedula.addEventListener('input', function () {
+                    validarCedulaModal(this, editCedulaHelp);
+                });
+
+                editCedula.addEventListener('blur', function () {
+                    validarCedulaModal(this, editCedulaHelp);
+                });
+            }
+
+            const editTelefonoPrincipal = document.getElementById('editTelefonoPrincipal');
+            const editTelefonoAlternativo = document.getElementById('editTelefonoAlternativo');
+
+            if (editTelefonoPrincipal) {
+                editTelefonoPrincipal.addEventListener('input', validarTelefonoModal);
+                editTelefonoPrincipal.addEventListener('keypress', soloNumerosModal);
+            }
+
+            if (editTelefonoAlternativo) {
+                editTelefonoAlternativo.addEventListener('input', validarTelefonoModal);
+                editTelefonoAlternativo.addEventListener('keypress', soloNumerosModal);
+            }
+
+            const editLimiteCredito = document.getElementById('editLimiteCredito');
+            const editCreditoHelp = document.getElementById('editCreditoHelp');
+
+            if (editLimiteCredito && editCreditoHelp) {
+                editLimiteCredito.addEventListener('input', function () {
+                    validarLimiteCreditoModal(this, editCreditoHelp);
+                });
+
+                editLimiteCredito.addEventListener('blur', function () {
+                    formatearLimiteCreditoModal(this);
+                });
+            }
+        }
+
+        // Función para validar cédula en modal
+        function validarCedulaModal(input, helpElement) {
+            const valor = input.value.replace(/\D/g, '');
+
+            // Limitar a 11 dígitos
+            if (valor.length > 11) {
+                input.value = valor.substring(0, 11);
+            } else {
+                input.value = valor;
+            }
+
+            const caracteresRestantes = 11 - valor.length;
+
+            if (caracteresRestantes > 0) {
+                helpElement.innerHTML = `<i class="fas fa-info-circle"></i> ${caracteresRestantes} dígitos restantes`;
+                helpElement.className = 'form-help';
+            } else {
+                helpElement.innerHTML = `<i class="fas fa-check-circle"></i> Cédula completa (11 dígitos)`;
+                helpElement.className = 'form-help success';
+            }
+        }
+
+        // Función para validar teléfono en modal
+        function validarTelefonoModal(e) {
+            const input = e.target;
+            const valor = input.value;
+
+            // Solo permitir números
+            const soloNumeros = valor.replace(/\D/g, '');
+
+            // Limitar a 10 dígitos
+            if (soloNumeros.length > 10) {
+                input.value = soloNumeros.substring(0, 10);
+            } else {
+                input.value = soloNumeros;
+            }
+        }
+
+        // Función para validar límite de crédito en modal
+        function validarLimiteCreditoModal(input, helpElement) {
+            const valor = input.value;
+
+            // Solo permitir números y un punto decimal
+            const soloNumeros = valor.replace(/[^\d.]/g, '');
+
+            // Limitar a un punto decimal
+            const partes = soloNumeros.split('.');
+            if (partes.length > 2) {
+                input.value = partes[0] + '.' + partes.slice(1).join('');
+            } else {
+                input.value = soloNumeros;
+            }
+
+            // Limitar a 2 decimales
+            if (partes.length === 2 && partes[1].length > 2) {
+                input.value = partes[0] + '.' + partes[1].substring(0, 2);
+            }
+
+            // Limitar máximo a 1,000,000
+            const valorNumerico = parseFloat(input.value) || 0;
+            if (valorNumerico > 1000000) {
+                input.value = '1000000';
+            }
+
+            // Actualizar ayuda visual
+            const valorFormateado = formatearMoneda(valorNumerico);
+
+            if (valorNumerico === 0) {
+                helpElement.innerHTML = `<i class="fas fa-info-circle"></i> Sin crédito - solo ventas al contado`;
+            } else if (valorNumerico > 0) {
+                helpElement.innerHTML = `<i class="fas fa-check-circle"></i> Límite establecido: $${valorFormateado}`;
+                helpElement.className = 'form-help success';
+            }
+        }
+
+        // Función para formatear límite de crédito en modal
+        function formatearLimiteCreditoModal(input) {
+            const valor = parseFloat(input.value) || 0;
+
+            // Formatear a 2 decimales
+            input.value = valor.toFixed(2);
+
+            // Si el valor es 0, establecer como 0.00
+            if (valor === 0) {
+                input.value = '0.00';
+            }
+        }
+
+        // Función para permitir solo números en modal
+        function soloNumerosModal(e) {
+            const charCode = e.which ? e.which : e.keyCode;
+
+            // Solo permitir números (0-9)
+            if (charCode < 48 || charCode > 57) {
+                e.preventDefault();
+                return false;
+            }
+            return true;
+        }
+
+        // Función para guardar cambios del cliente
+        function guardarCambiosCliente() {
+            const clienteId = document.getElementById('editClienteId').value;
+
+            // Validar campos
+            const cedula = document.getElementById('editCedula').value.trim();
+            const nombre = document.getElementById('editNombreCompleto').value.trim();
+            const direccion = document.getElementById('editDireccion').value.trim();
+            const telefono = document.getElementById('editTelefonoPrincipal').value.trim();
+            const limiteCredito = document.getElementById('editLimiteCredito').value.trim();
+
+            let formularioValido = true;
+
+            // Validar cédula
+            if (cedula.length !== 11 || !/^\d+$/.test(cedula)) {
+                mostrarErrorModal(document.getElementById('editCedula'), document.getElementById('editCedulaHelp'), 'Cédula inválida');
+                formularioValido = false;
+            }
+
+            // Validar nombre
+            if (nombre.length < 5) {
+                mostrarErrorModal(document.getElementById('editNombreCompleto'), null, 'Nombre inválido');
+                formularioValido = false;
+            }
+
+            // Validar dirección
+            if (direccion.length < 10) {
+                mostrarErrorModal(document.getElementById('editDireccion'), null, 'Dirección inválida');
+                formularioValido = false;
+            }
+
+            // Validar teléfono
+            if (telefono.length !== 10 || !/^\d+$/.test(telefono)) {
+                mostrarErrorModal(document.getElementById('editTelefonoPrincipal'), null, 'Teléfono inválido');
+                formularioValido = false;
+            }
+
+            // Validar teléfono alternativo si tiene valor
+            const telefonoAlt = document.getElementById('editTelefonoAlternativo').value.trim();
+            if (telefonoAlt.length > 0 && (telefonoAlt.length !== 10 || !/^\d+$/.test(telefonoAlt))) {
+                mostrarErrorModal(document.getElementById('editTelefonoAlternativo'), null, 'Teléfono alternativo inválido');
+                formularioValido = false;
+            }
+
+            // Validar límite de crédito
+            const limiteCreditoNum = parseFloat(limiteCredito) || 0;
+            if (limiteCreditoNum < 0) {
+                mostrarErrorModal(document.getElementById('editLimiteCredito'), document.getElementById('editCreditoHelp'), 'El límite de crédito no puede ser negativo.');
+                formularioValido = false;
+            }
+
+            // Validar días de crédito
+            const diasCreditoInput = document.getElementById('editDiasCredito');
+            if (diasCreditoInput) {
+                const diasCredito = parseInt(diasCreditoInput.value) || 0;
+                if (diasCredito < 0) {
+                    mostrarErrorModal(diasCreditoInput, null, 'Los días de crédito no pueden ser negativos.');
+                    formularioValido = false;
+                }
+            }
+
+            if (!formularioValido) {
+                mostrarNotificacion('Por favor, corrija los errores en el formulario.', 'error');
+                return;
+            }
+
+            // Recopilar datos del formulario
+            const formData = new FormData();
+            formData.append('cedula', cedula);
+            formData.append('nombre_completo', nombre);
+            formData.append('direccion', direccion);
+            formData.append('telefono_principal', telefono);
+            formData.append('telefono_alternativo', telefonoAlt);
+            formData.append('limite_credito', limiteCreditoNum);
+            formData.append('dias_credito', document.getElementById('editDiasCredito').value || '0');
+            formData.append('notas_credito', document.getElementById('editNotasCredito').value.trim());
+            formData.append('notas_generales', document.getElementById('editNotasGenerales').value.trim());
+            formData.append('activo', document.getElementById('editEstado').value === 'true');
+
+            // Agregar CSRF token
+            const csrfToken = getCSRFToken();
+            if (csrfToken) {
+                formData.append('csrfmiddlewaretoken', csrfToken);
+            }
+
+            // Mostrar indicador de carga
+            const saveBtn = document.querySelector('#modalClienteBody .btn-success');
+            const originalText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<span><i class="fas fa-spinner fa-spin"></i></span><span>Guardando...</span>';
+            saveBtn.disabled = true;
+
+            // Enviar datos
+            fetch(`/gestion_clientes/editar/${clienteId}/`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        mostrarNotificacion(data.mensaje, 'success');
+                        cerrarModal();
+
+                        // Actualizar la fila en la tabla
+                        actualizarFilaCliente(clienteId, data.cliente);
+
+                        // Actualizar estadísticas
+                        actualizarEstadisticas(data.estadisticas);
+                    } else {
+                        mostrarNotificacion(data.error || 'Error al actualizar cliente', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    mostrarNotificacion('Error de conexión', 'error');
+                })
+                .finally(() => {
+                    // Restaurar botón
+                    saveBtn.innerHTML = originalText;
+                    saveBtn.disabled = false;
+                });
+        }
+
+        // Función para mostrar error en modal
+        function mostrarErrorModal(input, helpElement, mensaje) {
+            input.classList.remove('valid');
+            input.classList.add('error');
+
+            if (helpElement) {
+                helpElement.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${mensaje}`;
+                helpElement.className = 'form-help error';
+            } else {
+                const parent = input.parentElement;
+                let existingHelp = parent.querySelector('.form-help');
+
+                if (!existingHelp) {
+                    existingHelp = document.createElement('div');
+                    existingHelp.className = 'form-help error';
+                    parent.appendChild(existingHelp);
+                }
+
+                existingHelp.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${mensaje}`;
+            }
+        }
+
+        // Función para actualizar fila del cliente en la tabla
+        function actualizarFilaCliente(clienteId, cliente) {
+            const fila = document.querySelector(`tr[data-cliente-id="${clienteId}"]`);
+            if (!fila) return;
+
+            // Determinar estado de crédito
+            let creditoBadge = '';
+            let creditoTexto = '';
+
+            if (cliente.limite_credito > 0) {
+                if (cliente.saldo_disponible > 0) {
+                    creditoBadge = 'credito-activo';
+                    creditoTexto = 'Crédito Disponible';
+                } else if (cliente.saldo_disponible === 0) {
+                    creditoBadge = 'credito-agotado';
+                    creditoTexto = 'Crédito Agotado';
+                } else {
+                    creditoBadge = 'credito-excedido';
+                    creditoTexto = 'Crédito Excedido';
+                }
+            } else {
+                creditoBadge = 'credito-sin';
+                creditoTexto = 'Sin Crédito';
+            }
+
+            // Actualizar celdas
+            fila.cells[0].textContent = cliente.cedula;
+            fila.cells[1].textContent = cliente.nombre_completo;
+
+            // Actualizar teléfonos
+            let telefonoHTML = `<div class="telefono-principal">${cliente.telefono_principal}</div>`;
+            if (cliente.telefono_alternativo) {
+                telefonoHTML += `<div class="telefono-alt" style="font-size: 0.85rem; color: #718096;">Alt: ${cliente.telefono_alternativo}</div>`;
+            }
+            fila.cells[2].innerHTML = telefonoHTML;
+
+            fila.cells[3].innerHTML = `<div style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cliente.direccion}</div>`;
+
+            // Actualizar límite de crédito
+            if (cliente.limite_credito > 0) {
+                let creditoHTML = `<div style="font-weight: bold; color: #4299e1;">$${cliente.limite_credito.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`;
+                if (cliente.saldo_actual !== undefined) {
+                    creditoHTML += `<div style="font-size: 0.85rem; color: #718096;">Saldo: $${cliente.saldo_actual.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`;
+                }
+                fila.cells[4].innerHTML = creditoHTML;
+            } else {
+                fila.cells[4].innerHTML = `<div style="color: #a0aec0;">Sin crédito</div>`;
+            }
+
+            // Actualizar días de crédito
+            if (cliente.dias_credito > 0) {
+                fila.cells[5].innerHTML = `<span style="padding: 0.25rem 0.75rem; background: #bee3f8; color: #2c5282; border-radius: 12px; font-size: 0.85rem;">${cliente.dias_credito} días</span>`;
+            } else {
+                fila.cells[5].innerHTML = `<span style="padding: 0.25rem 0.75rem; background: #e2e8f0; color: #4a5568; border-radius: 12px; font-size: 0.85rem;">Contado</span>`;
+            }
+
+            // Actualizar estado
+            fila.cells[6].innerHTML = `
+        ${cliente.activo ?
+                    '<span class="status-badge status-active">Activo</span>' :
+                    '<span class="status-badge status-inactive">Inactivo</span>'}
+        <br>
+        <span class="credito-badge ${creditoBadge}">${creditoTexto}</span>
+    `;
+
+            // Actualizar fecha de actualización
+            const fechaActualizacion = new Date(cliente.fecha_actualizacion).toLocaleDateString('es-DO');
+            fila.cells[7].innerHTML = `
+        <div class="date-badge">
+            <span><i class="fas fa-calendar-alt"></i></span>
+            <span>${fechaActualizacion}</span>
+        </div>
+    `;
+        }
+
+        // Función para actualizar estadísticas
+        function actualizarEstadisticas(estadisticas) {
+            if (!estadisticas) return;
+
+            // Actualizar total de clientes
+            const totalElement = document.getElementById('totalClientes');
+            if (totalElement && estadisticas.total_clientes !== undefined) {
+                totalElement.textContent = estadisticas.total_clientes;
+            }
+
+            // Actualizar clientes activos
+            const activosElement = document.getElementById('clientesActivos');
+            if (activosElement && estadisticas.clientes_activos !== undefined) {
+                activosElement.textContent = estadisticas.clientes_activos;
+            }
+
+            // Actualizar crédito total
+            const creditoElement = document.getElementById('creditoTotal');
+            if (creditoElement && estadisticas.credito_total !== undefined) {
+                creditoElement.textContent = estadisticas.credito_total.toLocaleString('es-DO', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            }
+        }
+
+        // Función para ver historial del cliente
+        function verHistorial(clienteId) {
+            mostrarNotificacion(`Redirigiendo al historial del cliente #${clienteId}`, 'info');
+            // Aquí puedes redirigir a una página de historial específica
+            // window.location.href = `/gestion_clientes/historial/${clienteId}/`;
+        }
+
+        // Función para eliminar cliente
+        function eliminarCliente(clienteId) {
+            if (!confirm('¿Está seguro de que desea eliminar este cliente?\n\nEsta acción eliminará permanentemente todos los datos del cliente y no se puede deshacer.')) {
+                return;
+            }
+
+            fetch(`/gestion_clientes/eliminar/${clienteId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        mostrarNotificacion(data.mensaje, 'success');
+
+                        // Eliminar la fila de la tabla
+                        const fila = document.querySelector(`tr[data-cliente-id="${clienteId}"]`);
+                        if (fila) {
+                            fila.remove();
+                        }
+
+                        // Actualizar estadísticas
+                        actualizarEstadisticas(data.estadisticas);
+
+                        // Mostrar mensaje si no hay clientes
+                        const tbody = document.getElementById('clientesBody');
+                        if (tbody && tbody.children.length === 0) {
+                            tbody.innerHTML = `
+                    <tr class="empty-state">
+                        <td colspan="9">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5 3.75a3.5 3.5 0 01-5 0" />
+                            </svg>
+                            <h3>No se encontraron clientes</h3>
+                            <p>No hay clientes registrados o no hay clientes con los filtros aplicados</p>
+                            <div style="margin-top: 1rem;">
+                                <a href="{% url 'registro_clientes' %}" class="btn btn-success" style="text-decoration: none;">
+                                    <span><i class="fas fa-user-plus"></i></span>
+                                    <span>Registrar Primer Cliente</span>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                        }
+                    } else {
+                        mostrarNotificacion(data.error || 'Error al eliminar cliente', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    mostrarNotificacion('Error de conexión', 'error');
+                });
+        }
+
+        // Función para formatear moneda
+        function formatearMoneda(valor) {
+            return new Intl.NumberFormat('es-DO', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(valor);
+        }
+
+        // Función para obtener token CSRF
+        function getCSRFToken() {
+            const token = document.querySelector('[name=csrfmiddlewaretoken]');
+            return token ? token.value : '';
+        }
+
+        // Función para mostrar notificaciones
+        function mostrarNotificacion(mensaje, tipo = 'success') {
+            // Remover notificaciones anteriores
+            const existing = document.querySelectorAll('.custom-notification');
+            existing.forEach(n => n.remove());
+
+            // Crear notificación
+            const notification = document.createElement('div');
+            notification.className = 'custom-notification';
+
+            const colors = {
+                success: { bg: '#38a169', color: '#ffffff', icon: 'fa-check-circle' },
+                error: { bg: '#e53e3e', color: '#ffffff', icon: 'fa-exclamation-circle' },
+                info: { bg: '#3182ce', color: '#ffffff', icon: 'fa-info-circle' },
+                warning: { bg: '#d69e2e', color: '#ffffff', icon: 'fa-exclamation-triangle' }
+            };
+
+            const color = colors[tipo] || colors.success;
+
+            notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${color.bg};
+        color: ${color.color};
+        padding: 1rem 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        z-index: 10000;
+        animation: slideIn 0.3s ease-out;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        max-width: 400px;
+    `;
+
+            notification.innerHTML = `<i class="fas ${color.icon}"></i> ${mensaje}`;
+            document.body.appendChild(notification);
+
+            // Animaciones CSS para notificaciones
+            if (!document.querySelector('#notification-styles')) {
+                const style = document.createElement('style');
+                style.id = 'notification-styles';
+                style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+                document.head.appendChild(style);
+            }
+
+            // Remover después de 5 segundos
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+
+        // Funciones para cerrar modales
+        function cerrarModal() {
+            document.getElementById('clienteModal').classList.remove('active');
+            clienteEditando = null;
+        }
+
+        function cerrarViewModal() {
+            document.getElementById('viewClienteModal').classList.remove('active');
+        }
+
+        // Función para alternar sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('open');
+        }
+
+        // Cerrar sidebar al hacer clic en overlay
+        document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
+
+        console.log('✅ JavaScript de gestión de clientes cargado correctamente');
+    </script>
+</body>
+
+</html>
