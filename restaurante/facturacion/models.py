@@ -7,6 +7,7 @@ from django.db.models import Max
 import re
 from django.contrib.auth.models import User
 import json
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class Producto(models.Model):
     # Opciones de categoría
@@ -1189,3 +1190,84 @@ class Devolucion(models.Model):
         verbose_name = "Devolución"
         verbose_name_plural = "Devoluciones"
         ordering = ['-fecha_devolucion']
+        
+        
+        
+        
+        
+        
+class Cliente(models.Model):
+    cedula = models.CharField(
+        max_length=11,
+        unique=True,
+        verbose_name="Cédula",
+        help_text="Debe contener exactamente 11 dígitos"
+    )
+    nombre_completo = models.CharField(
+        max_length=200,
+        verbose_name="Nombre Completo"
+    )
+    direccion = models.TextField(
+        verbose_name="Dirección"
+    )
+    telefono_principal = models.CharField(
+        max_length=10,
+        verbose_name="Teléfono Principal"
+    )
+    telefono_alternativo = models.CharField(
+        max_length=10,
+        blank=True,
+        null=True,
+        verbose_name="Teléfono Alternativo"
+    )
+    limite_credito = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        validators=[MinValueValidator(0)],
+        verbose_name="Límite de Crédito"
+    )
+    dias_credito = models.PositiveIntegerField(
+        default=30,
+        validators=[MaxValueValidator(365)],
+        verbose_name="Días de Crédito"
+    )
+    notas_credito = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Notas sobre Crédito"
+    )
+    fecha_registro = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de Registro"
+    )
+    fecha_actualizacion = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Fecha de Actualización"
+    )
+    activo = models.BooleanField(
+        default=True,
+        verbose_name="Cliente Activo"
+    )
+
+    class Meta:
+        verbose_name = "Cliente"
+        verbose_name_plural = "Clientes"
+        ordering = ['nombre_completo']
+        indexes = [
+            models.Index(fields=['cedula']),
+            models.Index(fields=['nombre_completo']),
+        ]
+
+    def __str__(self):
+        return f"{self.nombre_completo} ({self.cedula})"
+
+    @property
+    def tiene_credito(self):
+        """Verifica si el cliente tiene crédito disponible"""
+        return self.limite_credito > 0
+
+    @property
+    def venta_contado(self):
+        """Verifica si el cliente es solo al contado"""
+        return self.dias_credito == 0

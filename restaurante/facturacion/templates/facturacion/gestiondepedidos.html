@@ -1,10 +1,11 @@
-{% load humanize %}
+{% load humanize %} {% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión de Pedidos - Restaurante</title>
+    <link rel="icon" href="{% static 'img/fasfoot1.ico' %}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
 
@@ -1282,7 +1283,10 @@
                         <div class="controls-header">
                             <h3>Buscar y Filtrar Pedidos Activos</h3>
                             <div style="display: flex; gap: 1rem;">
-                                <button class="btn btn-success btn-sm" onclick="window.location.href='{% url 'historial_pedidos' %}'" type="button">
+                                <button class="btn btn-success btn-sm" 
+                                        type="button"
+                                        data-url="{% url 'historial_pedidos' %}" 
+                                        onclick="window.location.href=this.dataset.url">
                                     <span><i class="fas fa-history"></i></span>
                                     <span>Ver Historial Pagados</span>
                                 </button>
@@ -1473,13 +1477,25 @@
                                         </td>
                                         <td>
                                             <div class="action-buttons">
-                                                <button class="btn-icon btn-view" onclick="viewOrderDetails({{ pedido.id }})" title="Ver detalles">
+                                                <button class="btn-icon btn-view" 
+                                                        data-id="{{ pedido.id }}" 
+                                                        onclick="viewOrderDetails(this.dataset.id)" 
+                                                        title="Ver detalles">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
-                                                <button class="btn-icon btn-edit" onclick="openEditModal({{ pedido.id }})" title="Editar pedido">
+
+                                                <button class="btn-icon btn-edit" 
+                                                        data-id="{{ pedido.id }}" 
+                                                        onclick="openEditModal(this.dataset.id)" 
+                                                        title="Editar pedido">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
-                                                <button class="btn-icon btn-danger" onclick="deleteOrder({{ pedido.id }})" title="Eliminar pedido de la vista">
+
+                                                <button class="btn-icon btn-danger" 
+                                                        data-id="{{ pedido.id }}" 
+                                                        data-nombre="{{ pedido.nombre|escapejs }}"
+                                                        onclick="deleteOrder(this.dataset.id, this.dataset.nombre)" 
+                                                        title="Eliminar pedido">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </div>
@@ -1572,8 +1588,8 @@
     <!-- Agregar CSRF token para las peticiones AJAX -->
     {% csrf_token %}
 
-    <script>
-      // Variables globales
+<script>
+// Variables globales
 let currentOrder = null;
 
 // Inicializar la aplicación
@@ -2012,32 +2028,60 @@ function buscarProductosDisponibles() {
                 return;
             }
             
-            container.innerHTML = productos.map(producto => `
-                <div class="producto-item" style="padding: 0.75rem; border-bottom: 1px solid #f1f1f1; cursor: pointer; transition: background-color 0.2s;" 
-                     onclick="agregarProductoAPedido(${JSON.stringify(producto).replace(/"/g, '&quot;')})"
-                     onmouseover="this.style.backgroundColor='#f8f9ff'"
-                     onmouseout="this.style.backgroundColor='transparent'">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="flex: 1;">
-                            <strong>${producto.nombre}</strong>
-                            <div style="font-size: 0.85rem; color: #718096;">
-                                ${producto.categoria || producto.tipo} - $${producto.precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+            container.innerHTML = productos.map(producto => {
+                // Determinar si el producto tiene stock
+                let puedeAgregar = true;
+                let estiloBoton = 'color: #38a169;';
+                let iconoBoton = 'fa-plus-circle';
+                let mensajeHover = 'Click para agregar';
+                
+                if (producto.tipo === 'bebida' && producto.cantidad_disponible !== null) {
+                    if (producto.cantidad_disponible <= 0) {
+                        puedeAgregar = false;
+                        estiloBoton = 'color: #e53e3e;';
+                        iconoBoton = 'fa-ban';
+                        mensajeHover = 'Sin stock disponible';
+                    } else if (producto.cantidad_disponible < 5) {
+                        estiloBoton = 'color: #d69e2e;';
+                        iconoBoton = 'fa-exclamation-triangle';
+                        mensajeHover = 'Stock bajo';
+                    }
+                }
+                
+                const onClick = puedeAgregar ? 
+                    `onclick="agregarProductoAPedido(${JSON.stringify(producto).replace(/"/g, '&quot;')})"` : 
+                    `onclick="showNotification('\\u26A0 No se puede agregar ${producto.nombre}: ${mensajeHover}', 'error')"`;
+                
+                return `
+                    <div class="producto-item" style="padding: 0.75rem; border-bottom: 1px solid #f1f1f1; cursor: ${puedeAgregar ? 'pointer' : 'not-allowed'}; opacity: ${puedeAgregar ? '1' : '0.7'};" 
+                         ${onClick}
+                         title="${mensajeHover}"
+                         onmouseover="this.style.backgroundColor='${puedeAgregar ? '#f8f9ff' : '#f7fafc'}'"
+                         onmouseout="this.style.backgroundColor='transparent'">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="flex: 1;">
+                                <strong>${producto.nombre}</strong>
+                                <div style="font-size: 0.85rem; color: #718096;">
+                                    ${producto.categoria || producto.tipo} - $${producto.precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                </div>
+                                ${producto.cantidad_disponible !== null && producto.cantidad_disponible !== undefined ? `
+                                    <div class="stock-indicator" style="margin-top: 0.25rem; padding: 0.25rem 0.5rem; border-radius: 4px; background: ${producto.cantidad_disponible <= 0 ? '#fed7d7' : producto.cantidad_disponible < 5 ? '#feebc8' : '#c6f6d5'};">
+                                        <span style="color: ${producto.cantidad_disponible <= 0 ? '#e53e3e' : producto.cantidad_disponible < 5 ? '#d69e2e' : '#38a169'}; font-size: 0.8rem;">
+                                            <i class="fas ${producto.cantidad_disponible <= 0 ? 'fa-times-circle' : producto.cantidad_disponible < 5 ? 'fa-exclamation-triangle' : 'fa-check-circle'}"></i>
+                                            ${producto.cantidad_disponible <= 0 ? 'SIN STOCK' : producto.cantidad_disponible < 5 ? `Stock bajo: ${producto.cantidad_disponible}` : `Stock: ${producto.cantidad_disponible}`}
+                                        </span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div style="margin-left: 1rem;">
+                                <span style="${estiloBoton} font-size: 1.2rem;">
+                                    <i class="fas ${iconoBoton}"></i>
+                                </span>
                             </div>
                         </div>
-                        <div style="margin-left: 1rem;">
-                            <span style="color: #38a169; font-size: 1.2rem;"><i class="fas fa-plus-circle"></i></span>
-                        </div>
                     </div>
-                    ${producto.cantidad_disponible !== null && producto.cantidad_disponible !== undefined ? `
-                        <div class="stock-indicator" style="margin-top: 0.25rem;">
-                            <span class="stock-icon ${producto.stock_status === 'high' ? 'stock-high' : producto.stock_status === 'medium' ? 'stock-medium' : 'stock-low'}">
-                                ${producto.stock_icon || '<i class="fas fa-box"></i>'}
-                            </span>
-                            <span class="stock-text">${producto.stock_label || 'Disponible'}</span>
-                        </div>
-                    ` : ''}
-                </div>
-            `).join('');
+                `;
+            }).join('');
         })
         .catch(error => {
             console.error('Error al buscar productos:', error);
@@ -2048,8 +2092,69 @@ function buscarProductosDisponibles() {
         });
 }
 
-// Función para agregar producto al pedido
-function agregarProductoAPedido(producto) {
+// Función para verificar stock de productos
+async function verificarStockProductos(items) {
+    try {
+        const response = await fetch('/gestiondepedidos/verificar-stock-multiples/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ items: items })
+        });
+        
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error al verificar stock:', error);
+        return { exito: false, productos_sin_stock: [], mensaje: 'Error al verificar stock' };
+    }
+}
+
+// Función para verificar stock de un item específico
+async function verificarStockItem(itemUniqueId, nuevaCantidad) {
+    const itemDiv = document.querySelector(`.order-item-edit[data-unique-id="${itemUniqueId}"]`);
+    if (!itemDiv) return { exito: true, producto: null };
+    
+    const id = itemDiv.getAttribute('data-id');
+    const nombre = itemDiv.querySelector('strong').textContent;
+    
+    // Solo verificar productos de bebida
+    if (id && id.startsWith('PROD-')) {
+        const item = [{
+            id: id,
+            name: nombre,
+            quantity: nuevaCantidad
+        }];
+        
+        try {
+            const data = await verificarStockProductos(item);
+            return data;
+        } catch (error) {
+            console.error('Error al verificar stock:', error);
+            return { exito: false, producto: { nombre: nombre, mensaje: 'Error al verificar stock' } };
+        }
+    }
+    
+    return { exito: true, producto: null };
+}
+
+// Función para agregar producto al pedido CON verificación de stock
+async function agregarProductoAPedido(producto) {
+    // Verificar stock si es bebida
+    if (producto.tipo === 'bebida' && producto.cantidad_disponible !== null && producto.cantidad_disponible <= 0) {
+        showNotification(`<i class="fas fa-exclamation-circle"></i> No se puede agregar ${producto.nombre}: Sin stock disponible`, 'error');
+        return;
+    }
+    
+    // Si tiene stock bajo, mostrar advertencia
+    if (producto.tipo === 'bebida' && producto.cantidad_disponible !== null && producto.cantidad_disponible < 5) {
+        if (!confirm(`⚠️ ${producto.nombre} tiene stock bajo (${producto.cantidad_disponible} unidades). ¿Desea agregarlo de todos modos?`)) {
+            return;
+        }
+    }
+    
     const itemsContainer = document.getElementById('itemsContainer');
     
     // Si el contenedor está vacío, limpiar el mensaje
@@ -2069,6 +2174,7 @@ function agregarProductoAPedido(producto) {
                 <strong>${producto.nombre}</strong>
                 <div style="font-size: 0.9rem; color: #718096;">
                     Precio: $${precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    ${producto.cantidad_disponible !== null ? ` | Stock disponible: ${producto.cantidad_disponible}` : ''}
                 </div>
             </div>
             <div class="cantidad-controls">
@@ -2076,6 +2182,7 @@ function agregarProductoAPedido(producto) {
                 <input type="number" class="cantidad-input" 
                        value="${cantidad}" 
                        min="1" 
+                       max="${producto.cantidad_disponible !== null ? producto.cantidad_disponible : ''}"
                        onchange="actualizarTotalItemEdit('${itemUniqueId}', this.value)"
                        data-precio="${precio}"
                        id="cantidad-input-${itemUniqueId}">
@@ -2097,21 +2204,61 @@ function agregarProductoAPedido(producto) {
 }
 
 // Función para cambiar cantidad (edición - items nuevos)
-function cambiarCantidadEdit(itemUniqueId, cambio) {
+async function cambiarCantidadEdit(itemUniqueId, cambio) {
     const input = document.getElementById(`cantidad-input-${itemUniqueId}`);
     if (!input) return;
     
     let nuevaCantidad = parseInt(input.value) + cambio;
-    if (nuevaCantidad < 1) nuevaCantidad = 1;
+    if (nuevaCantidad < 1) {
+        nuevaCantidad = 1;
+    }
     
-    input.value = nuevaCantidad;
-    actualizarTotalItemEdit(itemUniqueId, nuevaCantidad);
+    // Verificar stock antes de cambiar
+    const result = await verificarStockItem(itemUniqueId, nuevaCantidad);
+    
+    if (result.exito) {
+        input.value = nuevaCantidad;
+        actualizarTotalItemEdit(itemUniqueId, nuevaCantidad);
+    } else {
+        // Si no hay stock, NO cambiar la cantidad y mostrar mensaje
+        showNotification(`<i class="fas fa-exclamation-circle"></i> ${result.productos_sin_stock[0]?.mensaje || 'Stock insuficiente'}`, 'error');
+        
+        // Revertir al valor anterior
+        const valorActual = parseInt(input.value);
+        input.value = valorActual;
+        
+        // Si intentaba incrementar y no hay stock, deshabilitar botón +
+        if (cambio > 0) {
+            const btnIncrementar = input.nextElementSibling;
+            if (btnIncrementar) {
+                btnIncrementar.disabled = true;
+                btnIncrementar.style.opacity = '0.5';
+                setTimeout(() => {
+                    btnIncrementar.disabled = false;
+                    btnIncrementar.style.opacity = '1';
+                }, 2000);
+            }
+        }
+    }
 }
 
 // Función para actualizar total de item (edición - items nuevos)
-function actualizarTotalItemEdit(itemUniqueId, cantidad) {
+async function actualizarTotalItemEdit(itemUniqueId, cantidad) {
     const input = document.getElementById(`cantidad-input-${itemUniqueId}`);
     if (!input) return;
+    
+    // Verificar stock si es producto de bebida
+    const id = input.closest('.order-item-edit').getAttribute('data-id');
+    if (id && id.startsWith('PROD-')) {
+        const result = await verificarStockItem(itemUniqueId, cantidad);
+        if (!result.exito) {
+            // Si no hay stock, revertir al valor anterior
+            const valorAnterior = parseInt(input.value) || 1;
+            input.value = valorAnterior;
+            showNotification(`<i class="fas fa-exclamation-circle"></i> ${result.productos_sin_stock[0]?.mensaje || 'Stock insuficiente'}`, 'error');
+            return;
+        }
+    }
     
     const precio = parseFloat(input.dataset.precio) || 0;
     const total = precio * parseInt(cantidad);
@@ -2200,8 +2347,94 @@ function eliminarItem(index) {
     }
 }
 
-// Función para guardar cambios del pedido
-function guardarCambiosPedido() {
+// Función para verificar stock antes de guardar - AHORA BLOQUEA COMPLETAMENTE
+async function verificarStockAntesDeGuardar() {
+    const items = [];
+    document.querySelectorAll('.order-item-edit').forEach(itemDiv => {
+        const id = itemDiv.getAttribute('data-id');
+        const nombre = itemDiv.querySelector('strong').textContent;
+        const cantidadInput = itemDiv.querySelector('.cantidad-input');
+        const cantidad = parseInt(cantidadInput.value) || 1;
+        const precio = parseFloat(cantidadInput.dataset.precio) || 0;
+        
+        items.push({
+            id: id,
+            name: nombre,
+            quantity: cantidad,
+            price: precio,
+            total: precio * cantidad
+        });
+    });
+    
+    const data = await verificarStockProductos(items);
+    
+    if (data.exito) {
+        return true;
+    } else {
+        // Mostrar error y NO permitir continuar
+        let mensajeError = `<div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1.5rem; color: #e53e3e;">⛔</span>
+            <div>
+                <strong style="color: #e53e3e;">¡NO SE PUEDE GUARDAR!</strong><br>
+                ${data.mensaje}<br>
+                <small>Productos con stock insuficiente:</small>
+            </div>
+        </div>`;
+        
+        // Lista de productos sin stock
+        data.productos_sin_stock.forEach(producto => {
+            mensajeError += `<div style="margin-top: 0.5rem; padding: 0.5rem; background: #fed7d7; border-radius: 5px;">
+                <strong>${producto.nombre}</strong>: Stock actual ${producto.stock_actual}, solicitado ${producto.cantidad_solicitada}
+            </div>`;
+        });
+        
+        mensajeError += `<div style="margin-top: 1rem; font-size: 0.9rem;">
+            <i class="fas fa-info-circle"></i> Por favor, ajuste las cantidades antes de guardar.
+        </div>`;
+        
+        showNotification(mensajeError, 'error');
+        
+        // Destacar los productos sin stock
+        data.productos_sin_stock.forEach(producto => {
+            const itemDivs = document.querySelectorAll('.order-item-edit');
+            itemDivs.forEach(div => {
+                const nombre = div.querySelector('strong').textContent;
+                if (nombre === producto.nombre) {
+                    div.style.border = '2px solid #e53e3e';
+                    div.style.background = '#fed7d7';
+                    div.style.animation = 'shake 0.5s';
+                    
+                    const cantidadInput = div.querySelector('.cantidad-input');
+                    if (cantidadInput) {
+                        cantidadInput.style.border = '2px solid #e53e3e';
+                        cantidadInput.style.color = '#e53e3e';
+                        cantidadInput.style.fontWeight = 'bold';
+                        cantidadInput.focus();
+                    }
+                }
+            });
+        });
+        
+        // Agregar animación shake si no existe
+        if (!document.querySelector('#shake-animation')) {
+            const style = document.createElement('style');
+            style.id = 'shake-animation';
+            style.textContent = `
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+                    20%, 40%, 60%, 80% { transform: translateX(5px); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        return false;
+    }
+}
+
+// Función para guardar cambios del pedido - AHORA BLOQUEA SI NO HAY STOCK
+async function guardarCambiosPedido() {
     const pedidoId = document.getElementById('editPedidoId').value;
     const nombreCliente = document.getElementById('editNombreCliente').value;
     const telefonoCliente = document.getElementById('editTelefonoCliente').value;
@@ -2214,10 +2447,16 @@ function guardarCambiosPedido() {
         return;
     }
     
+    // 1. Primero verificar stock - AHORA BLOQUEA COMPLETAMENTE
+    const stockOk = await verificarStockAntesDeGuardar();
+    if (!stockOk) {
+        return; // NO continuar si no hay stock suficiente
+    }
+    
     // Recopilar todos los items con su ID
     const items = [];
     document.querySelectorAll('.order-item-edit').forEach(itemDiv => {
-        const id = itemDiv.getAttribute('data-id'); // Obtener el ID del producto (PROD-XX o PLATO-XX)
+        const id = itemDiv.getAttribute('data-id');
         const nombre = itemDiv.querySelector('strong').textContent;
         const cantidadInput = itemDiv.querySelector('.cantidad-input');
         const cantidad = parseInt(cantidadInput.value) || 1;
@@ -2225,7 +2464,7 @@ function guardarCambiosPedido() {
         const total = precio * cantidad;
         
         items.push({
-            id: id,  // ✅ Enviar el ID del producto
+            id: id,
             name: nombre,
             quantity: cantidad,
             price: precio,
@@ -2286,6 +2525,12 @@ function guardarCambiosPedido() {
     .then(data => {
         if (data.success) {
             showNotification(`<i class="fas fa-check-circle"></i> ${data.mensaje}`, 'success');
+            
+            // Mostrar alertas de stock si existen
+            if (data.alertas) {
+                mostrarAlertasStock(data.alertas);
+            }
+            
             closeEditModal();
             
             // Recargar la página después de un breve retraso
@@ -2304,6 +2549,92 @@ function guardarCambiosPedido() {
         saveBtn.innerHTML = originalText;
         saveBtn.disabled = false;
     });
+}
+
+// Función para mostrar alertas de stock
+function mostrarAlertasStock(alertas) {
+    if (!alertas || alertas.length === 0) return;
+    
+    console.log('Mostrando alertas de stock:', alertas);
+    
+    // Agrupar alertas por tipo
+    const alertasCero = alertas.filter(a => a.tipo === 'advertencia');
+    const alertasBajo = alertas.filter(a => a.tipo === 'bajo_stock');
+    
+    // Mostrar alertas de stock cero primero (más críticas)
+    alertasCero.forEach(alerta => {
+        showNotification(`
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.5rem; color: #e53e3e;">⚠️</span>
+                <div>
+                    <strong style="color: #e53e3e;">¡ATENCIÓN!</strong><br>
+                    ${alerta.mensaje}<br>
+                    <small>Stock anterior: ${alerta.stock_anterior}, Solicitado: ${alerta.cantidad_solicitada}</small>
+                </div>
+            </div>
+        `, 'error');
+    });
+    
+    // Mostrar alertas de stock bajo después
+    alertasBajo.forEach(alerta => {
+        showNotification(`
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.5rem; color: #d69e2e;">📉</span>
+                <div>
+                    <strong style="color: #d69e2e;">Stock Bajo</strong><br>
+                    ${alerta.mensaje}
+                </div>
+            </div>
+        `, 'warning');
+    });
+    
+    // Agregar botón para ir al inventario si hay alertas críticas
+    if (alertasCero.length > 0) {
+        setTimeout(() => {
+            const notif = document.createElement('div');
+            notif.className = 'custom-notification';
+            notif.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: #2c3e50;
+                color: white;
+                padding: 1rem;
+                border-radius: 10px;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+                z-index: 10001;
+                animation: slideIn 0.3s ease-out;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                max-width: 300px;
+            `;
+            
+            notif.innerHTML = `
+                <div style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-exclamation-triangle" style="color: #ff6b6b;"></i>
+                    ¡Stock Crítico!
+                </div>
+                <div style="font-size: 0.9rem;">
+                    Hay ${alertasCero.length} producto(s) con stock cero o negativo
+                </div>
+                <button onclick="window.location.href='/inventario/'" 
+                        style="background: #ff7e5f; color: white; border: none; 
+                               padding: 8px 16px; border-radius: 6px; 
+                               cursor: pointer; font-weight: bold;">
+                    <i class="fas fa-boxes"></i> Ir a Inventario
+                </button>
+            `;
+            
+            document.body.appendChild(notif);
+            
+            // Remover después de 10 segundos
+            setTimeout(() => {
+                notif.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => notif.remove(), 300);
+            }, 10000);
+        }, 1500);
+    }
 }
 
 // Función para abrir modal de cambio de estado
@@ -2414,6 +2745,12 @@ function confirmarCambioEstado() {
     .then(data => {
         if (data.success) {
             showNotification(`<i class="fas fa-check-circle"></i> Estado cambiado a ${data.estado_display}`, 'success');
+            
+            // Mostrar alertas de stock si existen
+            if (data.alertas) {
+                mostrarAlertasStock(data.alertas);
+            }
+            
             closeStatusModal();
             
             // Actualizar la fila en la tabla
@@ -2474,6 +2811,11 @@ function deleteOrder(pedidoId) {
     .then(data => {
         if (data.success) {
             showNotification(`<i class="fas fa-check-circle"></i> ${data.mensaje}`, 'success');
+            
+            // Mostrar alertas de stock si existen
+            if (data.alertas) {
+                mostrarAlertasStock(data.alertas);
+            }
             
             // Eliminar la fila de la tabla
             const row = document.querySelector(`tr[data-order-id="${pedidoId}"]`);
@@ -2683,6 +3025,6 @@ if (!document.querySelector('#notification-styles')) {
 }
 
 console.log('✅ JavaScript de gestión de pedidos cargado correctamente');
-    </script>
+</script>
 </body>
 </html>

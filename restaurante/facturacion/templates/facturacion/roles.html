@@ -1,9 +1,11 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestión de Usuarios - Restaurante</title>
+    <link rel="icon" href="{% static 'img/fasfoot1.ico' %}">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -607,6 +609,26 @@
                 gap: 0.25rem;
             }
         }
+
+                /* Estilo base */
+        .confirmation-message {
+            display: block;
+            padding: 15px;
+            color: white;
+        }
+
+        /* Variaciones */
+        .msg-success {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        }
+
+        .msg-error {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+
+        .msg-info {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        }
     </style>
     </style>
 </head>
@@ -775,7 +797,9 @@
                     {% if messages %}
                     <div style="margin-bottom: 2rem;">
                         {% for message in messages %}
-                        <div class="confirmation-message" style="display: block; background: {% if message.tags == 'success' %}linear-gradient(135deg, #4CAF50 0%, #45a049 100%){% elif message.tags == 'error' %}linear-gradient(135deg, #e74c3c 0%, #c0392b 100%){% else %}linear-gradient(135deg, #3498db 0%, #2980b9 100%){% endif %};">
+                        <div class="confirmation-message msg-{{ message.tags|default:'info' }}">
+                            {{ message }}
+                        </div>
                             <h3>{% if message.tags == 'success' %}<i class="fas fa-check-circle"></i>{% elif message.tags == 'error' %}<i class="fas fa-times-circle"></i>{% else %}<i class="fas fa-info-circle"></i>{% endif %} {{ message }}</h3>
                         </div>
                         {% endfor %}
@@ -811,7 +835,7 @@
                                     <div class="password-strength">
                                         <div class="password-strength-bar" id="passwordStrengthBar"></div>
                                     </div>
-                                    <small id="passwordHelp" style="margin-top: 0.5rem; color: #666; font-size: 0.8rem;">La contraseña debe tener al menos 8 caracteres, una mayúscula y un número.</small>
+                                    <small id="passwordHelp" style="margin-top: 0.5rem; color: #666; font-size: 0.8rem;">La contraseña debe tener al menos 4 caracteres, una mayúscula y un número.</small>
                                 </div>
                                 
                                 <div class="form-group">
@@ -838,12 +862,6 @@
                                 </button>
                             </div>
                         </form>
-                        
-                        <!-- Confirmation message for JavaScript -->
-                        <div class="confirmation-message" id="confirmationMessage">
-                            <h3><i class="fas fa-check-circle"></i> Usuario creado exitosamente</h3>
-                            <p id="confirmationDetails">El usuario ha sido registrado en el sistema correctamente.</p>
-                        </div>
                     </div>
                     
                     <!-- Lista de usuarios existentes -->
@@ -891,9 +909,13 @@
                                         <td>{{ user.date_joined|date:"d/m/Y" }}</td>
                                         <td>
                                             <div class="actions">
-                                                <button class="action-btn edit-btn" 
-                                                        onclick="openEditModal({{ user.id }}, '{{ user.username }}', '{{ user.groups.first.id|default:"" }}', '{{ user.is_active|yesno:"active,inactive" }}')"
-                                                        title="Editar usuario">
+                                                <button class="action-btn edit-btn"
+                                                    title="Editar usuario"
+                                                    data-id="{{ user.id }}"
+                                                    data-username="{{ user.username }}"
+                                                    data-group="{{ user.groups.first.id|default:'' }}"
+                                                    data-active="{{ user.is_active|yesno:'active,inactive' }}"
+                                                    onclick="openEditModal(this.dataset.id, this.dataset.username, this.dataset.group, this.dataset.active)">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
                                                 {% if user.id != request.user.id and not user.is_superuser %}
@@ -972,7 +994,7 @@
     </div>
 
 <script>
-    // Función para obtener el token CSRF de las cookies
+   // Función para obtener el token CSRF de las cookies
     function getCSRFToken() {
         const name = 'csrftoken';
         let cookieValue = null;
@@ -994,9 +1016,6 @@
         const bar = document.getElementById('passwordStrengthBar');
         let strength = 0;
         
-        // Longitud mínima
-        if (password.length >= 8) strength++;
-        
         // Contiene mayúsculas
         if (/[A-Z]/.test(password)) strength++;
         
@@ -1007,7 +1026,7 @@
         if (/[^A-Za-z0-9]/.test(password)) strength++;
         
         // Actualizar barra de fortaleza
-        bar.style.width = (strength * 25) + '%';
+        bar.style.width = (strength * 33.33) + '%';
         bar.className = 'password-strength-bar';
         
         if (strength <= 1) {
@@ -1093,14 +1112,6 @@
         const userForm = document.getElementById('userForm');
         if (userForm) {
             userForm.addEventListener('submit', function(e) {
-                // Validar fortaleza de contraseña
-                const password = document.getElementById('password').value;
-                if (password.length < 8) {
-                    e.preventDefault();
-                    alert('La contraseña debe tener al menos 8 caracteres');
-                    return;
-                }
-                
                 // Validar coincidencia de contraseñas
                 if (!validatePasswordMatch()) {
                     e.preventDefault();
