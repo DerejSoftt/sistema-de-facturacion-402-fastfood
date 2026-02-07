@@ -1,4 +1,4 @@
-![Logotipo de la aplicación](restaurante/static/img/fastfood.png)
+![Logotipo de la aplicación](img-doc/derejfood.png)
 
 # Documentación Técnica del Sistema de Facturación y Gestión
 
