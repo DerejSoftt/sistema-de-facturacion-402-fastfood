@@ -163,7 +163,20 @@ El archivo monolítico [views.py](restaurante/facturacion/views.py) agrupa todas
 
 ## 9. Despliegue y configuración
 
-1. Crear archivo `.env` con `SECRET_KEY`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS` y `DEBUG`.
+1. Crear archivo `.env` con las siguientes variables de entorno:
+
+```bash
+SECRET_KEY="tu_clave_secreta"
+DB_NAME="nombre_base_datos"
+DB_USER="usuario"
+DB_PASSWORD="contraseña"
+DB_HOST="localhost"
+DB_PORT="3306"
+ALLOWED_HOSTS="localhost,127.0.0.1"
+CSRF_TRUSTED_ORIGINS="http://localhost,http://127.0.0.1"
+DEBUG=True
+```
+
 2. Instalar dependencias ([requirements.txt](restaurante/requirements.txt)).
 3. Ejecutar migraciones (`python manage.py migrate`).
 4. Crear superusuario (`python manage.py createsuperuser`).
