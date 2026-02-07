@@ -2660,6 +2660,10 @@ body {
 
 
 <script>
+    // ========================================
+    // VARIABLES GLOBALES
+    // ========================================
+    
     // Variables globales - COMBINAR PLATOS Y BEBIDAS
     let platosData = [];
     let bebidasData = [];
@@ -2667,7 +2671,30 @@ body {
     // Variable para guardar el estado anterior de la página
     let previousPageState = null;
     
-    // Función para parsear datos de forma segura
+    // Carrito de compras
+    let cart = JSON.parse(localStorage.getItem('restaurantCart')) || [];
+    
+    // Filtros y búsqueda
+    let currentFilter = 'todos';
+    let currentSearch = '';
+    
+    // Variables de pedido
+    let currentOrderType = 'mesa';
+    let currentTableId = '';
+    let currentTableNumber = '';
+    let currentDeliveryCode = '';
+    let currentLlevarCode = '';
+    
+    // Combinar platos y bebidas
+    let menuItems = [];
+    
+    // ========================================
+    // FUNCIONES DE UTILIDAD
+    // ========================================
+    
+    /**
+     * Parsear datos JSON de forma segura
+     */
     function parseJsonSafely(jsonString, defaultValue) {
         try {
             if (!jsonString || jsonString === 'undefined' || jsonString === 'null' || jsonString.trim() === '') {
@@ -2683,7 +2710,9 @@ body {
         }
     }
     
-    // Función para formatear moneda con comas para miles
+    /**
+     * Formatear moneda con comas para miles
+     */
     function formatearMoneda(numero) {
         return parseFloat(numero).toLocaleString('en-US', {
             minimumFractionDigits: 2,
@@ -2691,49 +2720,124 @@ body {
         });
     }
     
-    // Obtener datos de Django
-    try {
-        platosData = JSON.parse('{{ platos_json|safe }}');
-        platosData = platosData.map(plato => ({
-            ...plato,
-            tipo: 'plato',
-            es_bebida: false
-        }));
-    } catch (e) {
-        console.error("Error parseando platos_json:", e);
-        platosData = [];
+    /**
+     * Obtener etiqueta legible de categoría
+     */
+    function getCategoriaLabel(categoria) {
+        const labels = {
+            'entrada': 'Entrada',
+            'principal': 'Principal',
+            'postre': 'Postre',
+            'bebida': 'Bebida',
+            'rapida': 'Comida Rápida',
+            'especial': 'Especial'
+        };
+        return labels[categoria] || categoria;
     }
     
-    try {
-        bebidasData = JSON.parse('{{ bebidas_json|safe }}');
-        bebidasData = bebidasData.map(bebida => ({
-            ...bebida,
-            tipo: 'bebida',
-            es_bebida: true
-        }));
-    } catch (e) {
-        console.error("Error parseando bebidas_json:", e);
-        bebidasData = [];
+    /**
+     * Obtener etiqueta de popularidad
+     */
+    function getPopularityLabel(popularidad) {
+        const labels = {
+            'alta': '<span style="color: #4CAF50; font-weight: 600;">Alta</span>',
+            'media': '<span style="color: #ffb347; font-weight: 600;">Media</span>',
+            'baja': '<span style="color: #ff416c; font-weight: 600;">Baja</span>'
+        };
+        return labels[popularidad] || popularidad;
     }
     
-    // Combinar ambos en un solo array
-    let menuItems = [...platosData, ...bebidasData];
+    /**
+     * Obtener icono de popularidad
+     */
+    function getPopularityIcon(popularidad) {
+        const icons = {
+            'alta': '<i class="fas fa-fire" style="color: #4CAF50;"></i>',
+            'media': '<i class="fas fa-star" style="color: #ffb347;"></i>',
+            'baja': '<i class="fas fa-chart-bar" style="color: #ff416c;"></i>'
+        };
+        return icons[popularidad] || '<i class="fas fa-box"></i>';
+    }
     
-    let cart = JSON.parse(localStorage.getItem('restaurantCart')) || [];
-    let currentFilter = 'todos';
-    let currentSearch = '';
-    let currentOrderType = 'mesa';
-    let currentTableId = '';
-    let currentTableNumber = '';
-    let currentDeliveryCode = '';
-    let currentLlevarCode = '';
+    /**
+     * Guardar carrito en localStorage
+     */
+    function saveCart() {
+        localStorage.setItem('restaurantCart', JSON.stringify(cart));
+    }
     
-    // Inicializar la aplicación
+    /**
+     * Mostrar notificación
+     */
+    function showNotification(message, type = 'success') {
+        // Eliminar notificaciones anteriores (excepto las de Django)
+        document.querySelectorAll('.notification').forEach(n => {
+            if (n.parentElement !== document.querySelector('.messages')) {
+                n.remove();
+            }
+        });
+        
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.innerHTML = message;
+        notification.style.position = 'fixed';
+        notification.style.top = '20px';
+        notification.style.right = '20px';
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.remove();
+                    }
+                }, 300);
+            }
+        }, 5000);
+    }
+    
+    // ========================================
+    // INICIALIZACIÓN
+    // ========================================
+    
+    /**
+     * Inicializar la aplicación cuando el DOM esté listo
+     */
     document.addEventListener('DOMContentLoaded', function() {
         console.log("=== INICIALIZANDO APLICACIÓN ===");
-        console.log("Platos:", platosData.length);
-        console.log("Bebidas:", bebidasData.length);
-        console.log("Total items:", menuItems.length);
+        
+        // Obtener datos de Django
+        try {
+            platosData = JSON.parse('{{ platos_json|safe }}');
+            // ✅ NO MODIFICAR IDs - vienen correctos desde el servidor
+            console.log("✅ Platos cargados:", platosData.length);
+        } catch (e) {
+            console.error("❌ Error parseando platos_json:", e);
+            platosData = [];
+        }
+        
+        try {
+            bebidasData = JSON.parse('{{ bebidas_json|safe }}');
+            // ✅ NO MODIFICAR IDs - vienen correctos desde el servidor
+            console.log("✅ Bebidas cargadas:", bebidasData.length);
+        } catch (e) {
+            console.error("❌ Error parseando bebidas_json:", e);
+            bebidasData = [];
+        }
+        
+        // Combinar ambos en un solo array
+        menuItems = [...platosData, ...bebidasData];
+        console.log("📦 Total items en menú:", menuItems.length);
+        
+        // 🔍 DEBUG: Mostrar los primeros items
+        if (menuItems.length > 0) {
+            console.log("\n📋 Primeros items del menú:");
+            menuItems.slice(0, 3).forEach(item => {
+                console.log(`  - ${item.nombre} (ID: ${item.id}, Tipo: ${item.tipo}, Es bebida: ${item.es_bebida})`);
+            });
+        }
         
         // Verificar si estamos en modo ticket
         if (document.body.classList.contains('ticket-mode')) {
@@ -2743,7 +2847,9 @@ body {
         }
     });
     
-    // Mostrar contenido de pedidos
+    /**
+     * Mostrar contenido de pedidos
+     */
     function showPedidosContent() {
         renderMenu();
         renderCart();
@@ -2761,13 +2867,13 @@ body {
         }
     }
     
-    // Mostrar contenido de ticket
+    /**
+     * Mostrar contenido de ticket
+     */
     function showTicketContent() {
-        // Modificar botones del ticket para que funcionen en esta página
         const closeButton = document.querySelector('.btn-close');
         if (closeButton) {
             closeButton.onclick = function() {
-                // Limpiar carrito y recargar página de pedidos
                 localStorage.removeItem('restaurantCart');
                 window.location.href = '/pedidos/';
             };
@@ -2780,15 +2886,12 @@ body {
             };
         }
         
-        // Modificar el cierre automático después de imprimir
         window.onafterprint = function() {
             setTimeout(function() {
-                // No cerrar la ventana, solo mostrar mensaje
                 console.log("Impresión completada");
             }, 3000);
         };
         
-        // También permitir cerrar con ESC
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 localStorage.removeItem('restaurantCart');
@@ -2797,46 +2900,29 @@ body {
         });
     }
     
-    // Inicializar selección de mesa automáticamente
-    function initializeTableSelection() {
-        console.log("Inicializando selección de mesa...");
-        
-        const tableSelect = document.getElementById('tableNumber');
-        if (tableSelect && tableSelect.value) {
-            const selectedOption = tableSelect.options[tableSelect.selectedIndex];
-            if (selectedOption && !selectedOption.disabled) {
-                const mesaId = selectedOption.value;
-                const mesaNumero = selectedOption.getAttribute('data-numero') || 
-                                  selectedOption.textContent.replace('Mesa ', '').split(' ')[0];
-                const estado = selectedOption.textContent.includes('disponible') ? 'disponible' : 'ocupada';
-                
-                if (mesaId && mesaNumero && estado === 'disponible') {
-                    selectTable(mesaId, mesaNumero, estado);
-                    return;
-                }
-            }
-        }
-        
-        const firstAvailableTable = document.querySelector('.table-item:not(.ocupada)');
-        if (firstAvailableTable) {
-            const mesaId = firstAvailableTable.getAttribute('data-mesa-id');
-            const mesaNumero = firstAvailableTable.getAttribute('data-mesa-numero');
-            if (mesaId && mesaNumero) {
-                selectTable(mesaId, mesaNumero, 'disponible');
-                return;
-            }
-        }
-        
-        if (document.querySelectorAll('.table-item').length > 0 && 
-            document.querySelectorAll('.table-item:not(.ocupada)').length === 0) {
-            showNotification('<i class="fas fa-exclamation-triangle"></i> Todas las mesas están ocupadas. Selecciona otra opción.', 'warning');
+    /**
+     * Cargar datos del formulario desde localStorage
+     */
+    function loadFormData() {
+        const savedCart = localStorage.getItem('restaurantCart');
+        if (savedCart) {
+            cart = JSON.parse(savedCart);
+            renderCart();
+            updateCartSummary();
         }
     }
     
-    // Configurar event listeners
+    // ========================================
+    // CONFIGURACIÓN DE EVENTOS
+    // ========================================
+    
+    /**
+     * Configurar event listeners
+     */
     function setupEventListeners() {
         console.log("Configurando event listeners...");
         
+        // Búsqueda
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
             searchInput.addEventListener('input', function() {
@@ -2845,6 +2931,7 @@ body {
             });
         }
         
+        // Campos de cliente
         const customerName = document.getElementById('customerName');
         const customerPhone = document.getElementById('customerPhone');
         const customerNameTakeaway = document.getElementById('customerNameTakeaway');
@@ -2855,10 +2942,12 @@ body {
         
         document.getElementById('customerAddress')?.addEventListener('input', updatePlaceOrderButton);
         
+        // Tipo de pedido
         document.getElementById('orderType')?.addEventListener('change', function() {
             updateOrderType();
         });
         
+        // Formulario de pedido
         const pedidoForm = document.getElementById('pedidoForm');
         if (pedidoForm) {
             pedidoForm.addEventListener('submit', function(e) {
@@ -2874,10 +2963,10 @@ body {
                     return false;
                 }
                 
-                // 🔥 MODIFICADO: Guardar el estado actual de la página
+                // Guardar el estado actual de la página
                 saveCurrentPageState();
                 
-                // 🔥 MODIFICADO: Mostrar mensaje de procesamiento
+                // Mostrar mensaje de procesamiento
                 showNotification('🔄 Procesando tu pedido...', 'success');
                 
                 // Obtener los datos del formulario
@@ -2899,32 +2988,32 @@ body {
                     return response.text();
                 })
                 .then(ticketHtml => {
-                    // 🔥 MODIFICADO: Reemplazar el contenido de la página con el ticket
+                    // Reemplazar el contenido de la página con el ticket
                     document.body.innerHTML = ticketHtml;
                     
-                    // 🔥 AGREGADO: Marcar el body como modo ticket
+                    // Marcar el body como modo ticket
                     document.body.classList.add('ticket-mode');
                     
-                    // 🔥 MODIFICADO: Ajustar el ticket para que funcione en esta página
+                    // Ajustar el ticket para que funcione en esta página
                     adjustTicketForCurrentPage();
                     
-                    // 🔥 AGREGADO: Limpiar el carrito local
+                    // Limpiar el carrito local
                     localStorage.removeItem('restaurantCart');
                     cart = [];
-                    
-                    // 🔥 ELIMINADO: No recargamos la página aquí, se hará al cerrar el ticket
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     showNotification('<i class="fas fa-times-circle"></i> Error al enviar el pedido', 'error');
-                    // 🔥 AGREGADO: Restaurar estado si hay error
+                    // Restaurar estado si hay error
                     restorePageState();
                 });
             });
         }
     }
     
-    // Guardar estado actual de la página
+    /**
+     * Guardar estado actual de la página
+     */
     function saveCurrentPageState() {
         previousPageState = {
             appContainer: document.querySelector('.app-container')?.outerHTML,
@@ -2932,7 +3021,9 @@ body {
         };
     }
     
-    // Restaurar estado de la página
+    /**
+     * Restaurar estado de la página
+     */
     function restorePageState() {
         if (previousPageState && previousPageState.appContainer) {
             document.body.innerHTML = previousPageState.appContainer;
@@ -2942,13 +3033,14 @@ body {
         }
     }
     
-    // Ajustar el ticket para que funcione en la página actual
+    /**
+     * Ajustar el ticket para que funcione en la página actual
+     */
     function adjustTicketForCurrentPage() {
         // Modificar el botón de cerrar
         const closeButton = document.querySelector('.btn-close');
         if (closeButton) {
             closeButton.onclick = function() {
-                // 🔥 REDIRIGIR a la página de pedidos (se recargará automáticamente)
                 window.location.href = 'pedidos';
             };
         }
@@ -2964,7 +3056,6 @@ body {
         // Modificar el cierre automático después de imprimir
         window.onafterprint = function() {
             setTimeout(function() {
-                // No cerrar la ventana, solo mostrar mensaje opcional
                 console.log("Impresión completada. Cierra el ticket para volver a pedidos.");
             }, 3000);
         };
@@ -2976,7 +3067,7 @@ body {
             }
         });
         
-        // 🔥 AGREGAR ESTILOS para que el ticket se vea bien en la página
+        // Agregar estilos para que el ticket se vea bien
         const style = document.createElement('style');
         style.textContent = `
             body.ticket-mode {
@@ -3005,7 +3096,13 @@ body {
         document.head.appendChild(style);
     }
     
-    // Actualizar tipo de pedido
+    // ========================================
+    // GESTIÓN DE PEDIDOS
+    // ========================================
+    
+    /**
+     * Actualizar tipo de pedido
+     */
     function updateOrderType() {
         const orderType = document.getElementById('orderType').value;
         currentOrderType = orderType;
@@ -3116,7 +3213,9 @@ body {
         updateShippingCost();
     }
     
-    // Actualizar código de pedido
+    /**
+     * Actualizar código de pedido
+     */
     function updateOrderCode() {
         const orderType = document.getElementById('orderType').value;
         let code = '';
@@ -3139,7 +3238,47 @@ body {
         document.getElementById('orderCode').textContent = code;
     }
     
-    // Seleccionar mesa
+    /**
+     * Inicializar selección de mesa automáticamente
+     */
+    function initializeTableSelection() {
+        console.log("Inicializando selección de mesa...");
+        
+        const tableSelect = document.getElementById('tableNumber');
+        if (tableSelect && tableSelect.value) {
+            const selectedOption = tableSelect.options[tableSelect.selectedIndex];
+            if (selectedOption && !selectedOption.disabled) {
+                const mesaId = selectedOption.value;
+                const mesaNumero = selectedOption.getAttribute('data-numero') || 
+                                  selectedOption.textContent.replace('Mesa ', '').split(' ')[0];
+                const estado = selectedOption.textContent.includes('disponible') ? 'disponible' : 'ocupada';
+                
+                if (mesaId && mesaNumero && estado === 'disponible') {
+                    selectTable(mesaId, mesaNumero, estado);
+                    return;
+                }
+            }
+        }
+        
+        const firstAvailableTable = document.querySelector('.table-item:not(.ocupada)');
+        if (firstAvailableTable) {
+            const mesaId = firstAvailableTable.getAttribute('data-mesa-id');
+            const mesaNumero = firstAvailableTable.getAttribute('data-mesa-numero');
+            if (mesaId && mesaNumero) {
+                selectTable(mesaId, mesaNumero, 'disponible');
+                return;
+            }
+        }
+        
+        if (document.querySelectorAll('.table-item').length > 0 && 
+            document.querySelectorAll('.table-item:not(.ocupada)').length === 0) {
+            showNotification('<i class="fas fa-exclamation-triangle"></i> Todas las mesas están ocupadas. Selecciona otra opción.', 'warning');
+        }
+    }
+    
+    /**
+     * Seleccionar mesa
+     */
     function selectTable(mesaId, mesaNumero, estado) {
         if (estado !== 'disponible') {
             showNotification(`<i class="fas fa-exclamation-triangle"></i> La mesa ${mesaNumero} no está disponible`, 'error');
@@ -3164,7 +3303,9 @@ body {
         updatePlaceOrderButton();
     }
     
-    // Seleccionar código delivery
+    /**
+     * Seleccionar código delivery
+     */
     function selectDeliveryCode(codigo, estado) {
         if (estado !== 'disponible') {
             showNotification(`<i class="fas fa-exclamation-triangle"></i> El código ${codigo} no está disponible`, 'error');
@@ -3187,7 +3328,9 @@ body {
         updatePlaceOrderButton();
     }
     
-    // Seleccionar código para llevar
+    /**
+     * Seleccionar código para llevar
+     */
     function selectLlevarCode(codigo, estado) {
         if (estado !== 'disponible') {
             showNotification(`<i class="fas fa-exclamation-triangle"></i> El código ${codigo} no está disponible`, 'error');
@@ -3210,389 +3353,9 @@ body {
         updatePlaceOrderButton();
     }
     
-    // Realizar búsqueda
-    function performSearch() {
-        const searchInput = document.getElementById('searchInput');
-        currentSearch = searchInput.value.toLowerCase().trim();
-        renderMenu();
-    }
-    
-    // Limpiar búsqueda
-    function clearSearch() {
-        const searchInput = document.getElementById('searchInput');
-        searchInput.value = '';
-        currentSearch = '';
-        renderMenu();
-    }
-    
-    // Renderizar menú (PLATOS Y BEBIDAS) - CORREGIDO
-    function renderMenu() {
-        const menuGrid = document.getElementById('menuGrid');
-        const searchResults = document.getElementById('searchResults');
-        const resultsCount = document.getElementById('resultsCount');
-        
-        let filteredItems = menuItems;
-        if (currentFilter !== 'todos') {
-            filteredItems = filteredItems.filter(item => item.categoria === currentFilter);
-        }
-        
-        if (currentSearch) {
-            filteredItems = filteredItems.filter(item => {
-                const searchInName = item.nombre.toLowerCase().includes(currentSearch);
-                const searchInDescription = item.descripcion.toLowerCase().includes(currentSearch);
-                const searchInCategory = getCategoriaLabel(item.categoria).toLowerCase().includes(currentSearch);
-                const searchInCode = item.codigo.toLowerCase().includes(currentSearch);
-                
-                return searchInName || searchInDescription || searchInCategory || searchInCode;
-            });
-            
-            if (searchResults) {
-                searchResults.style.display = 'flex';
-            }
-            if (resultsCount) {
-                resultsCount.textContent = filteredItems.length;
-            }
-        } else {
-            if (searchResults) {
-                searchResults.style.display = 'none';
-            }
-        }
-        
-        filteredItems = filteredItems.filter(item => item.disponibilidad !== 'agotado');
-        
-        if (filteredItems.length === 0) {
-            menuGrid.innerHTML = `
-                <div class="empty-cart">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <h3>${currentSearch ? 'No se encontraron resultados' : 'No hay platos ni bebidas disponibles'}</h3>
-                    <p>${currentSearch ? 'Intenta con otros términos de búsqueda' : 'Agrega platos o bebidas primero'}</p>
-                    ${currentSearch ? '<button type="button" class="btn btn-secondary" onclick="clearSearch()" style="margin-top: 1rem;">Limpiar búsqueda</button>' : ''}
-                </div>
-            `;
-            return;
-        }
-        
-        menuGrid.innerHTML = filteredItems.map(item => {
-            const cartItem = cart.find(ci => String(ci.id) === String(item.id));
-            const quantity = cartItem ? cartItem.quantity : 0;
-            
-            const esBebida = item.es_bebida || item.tipo === 'bebida';
-            const stock = parseFloat(item.stock || 0);
-            const isLowStock = stock > 0 && stock < 10;
-            const isMediumStock = stock >= 10 && stock < 50;
-            const isHighStock = stock >= 50;
-            const isOutOfStock = stock <= 0;
-            
-            let stockIcon = '';
-            let stockColor = '';
-            let stockText = '';
-            
-            if (esBebida) {
-                if (isOutOfStock) {
-                    stockIcon = '<i class="fas fa-times-circle" style="color: #ff416c;"></i>';
-                    stockText = '<span style="color: #ff416c; font-weight: 600;">Agotado</span>';
-                } else if (isLowStock) {
-                    stockIcon = '<i class="fas fa-exclamation-triangle" style="color: #ff416c;"></i>';
-                    stockText = `<span style="color: #ff416c; font-weight: 600;">Stock <span style="font-size: 1.3rem; font-weight: 700;">${stock}</span></span>`;
-                } else if (isMediumStock) {
-                    stockIcon = '<i class="fas fa-chart-bar" style="color: #ffb347;"></i>';
-                    stockText = `<span style="color: #ffb347; font-weight: 600;">Stock <span style="font-size: 1.3rem; font-weight: 700;">${stock}</span></span>`;
-                } else if (isHighStock) {
-                    stockIcon = '<i class="fas fa-check-circle" style="color: #4CAF50;"></i>';
-                    stockText = `<span style="color: #4CAF50; font-weight: 600;">Stock <span style="font-size: 1.3rem; font-weight: 700;">${stock}</span></span>`;
-                }
-            }
-            
-            const iconoTipo = esBebida ? '<i class="fas fa-glass-water"></i>' : '<i class="fas fa-utensils"></i>';
-            const tipoTexto = esBebida ? 'Bebida' : 'Plato';
-            
-            let highlightedName = item.nombre;
-            let highlightedDescription = item.descripcion;
-            
-            if (currentSearch) {
-                const regex = new RegExp(`(${currentSearch})`, 'gi');
-                highlightedName = item.nombre.replace(regex, '<mark>$1</mark>');
-                highlightedDescription = item.descripcion.replace(regex, '<mark>$1</mark>');
-            }
-            
-            return `
-                <div class="menu-card">
-                    <div class="menu-card-header">
-                        <div class="menu-card-title">
-                            <div class="menu-card-name">${iconoTipo} ${highlightedName}</div>
-                            <div class="menu-card-price">$${formatearMoneda(item.precio)}</div>
-                        </div>
-                        <div class="menu-card-category card-${item.categoria}">
-                            ${getCategoriaLabel(item.categoria)} (${tipoTexto})
-                        </div>
-                    </div>
-                    <div class="menu-card-body">
-                        <p class="menu-card-description">${highlightedDescription}</p>
-                        <div class="menu-card-details">
-                            <div class="menu-card-detail">
-                                <span><i class="fas fa-box"></i></span>
-                                <span>Código: ${item.codigo}</span>
-                            </div>
-                            <div class="menu-card-detail">
-                                <span>${getPopularityIcon(item.popularidad)}</span>
-                                <span>${getPopularityLabel(item.popularidad)}</span>
-                            </div>
-                        </div>
-                        ${esBebida && stockText ? `
-                        <div class="menu-card-details">
-                            <div class="menu-card-detail">
-                                <span>${stockIcon}</span>
-                                <span>${stockText}</span>
-                            </div>
-                        </div>
-                        ` : ''}
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div class="cart-item-quantity">
-                                <button type="button" class="quantity-btn" onclick="decreaseQuantity('${item.id}')" ${(esBebida && isOutOfStock) ? 'disabled' : ''}>-</button>
-                                <span class="quantity-value">${quantity}</span>
-                                <button type="button" class="quantity-btn" onclick="increaseQuantity('${item.id}')" ${(esBebida && isOutOfStock) ? 'disabled' : ''}>+</button>
-                            </div>
-                            <button type="button" class="btn btn-secondary" onclick="addToCart('${item.id}')" ${(esBebida && isOutOfStock) ? 'disabled' : ''}>
-                                <span>${esBebida ? '<i class="fas fa-glass-water"></i> Agregar Bebida' : '<i class="fas fa-utensils"></i> Agregar Plato'}</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-        
-        const style = document.createElement('style');
-        style.textContent = `
-            mark {
-                background-color: #ffeb3b;
-                padding: 0 2px;
-                border-radius: 2px;
-            }
-        `;
-        document.head.appendChild(style);
-    }
-    
-    // Filtrar menú por categoría
-    function filterMenu(category) {
-        currentFilter = category;
-        
-        document.querySelectorAll('.category-filter').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        event.target.classList.add('active');
-        
-        renderMenu();
-    }
-    
-    // Agregar al carrito - CORREGIDO
-    function addToCart(itemId) {
-        const item = menuItems.find(i => String(i.id) === String(itemId));
-        if (!item) return;
-        
-        const esBebida = item.es_bebida || item.tipo === 'bebida';
-        
-        if (esBebida) {
-            const stock = parseFloat(item.stock || 0);
-            if (stock <= 0) {
-                showNotification(`<i class="fas fa-times-circle"></i> "${item.nombre}" está agotado`, 'error');
-                return;
-            }
-        }
-        
-        const existingItem = cart.find(ci => String(ci.id) === String(itemId));
-        
-        if (existingItem) {
-            if (esBebida) {
-                const stock = parseFloat(item.stock || 0);
-                if (existingItem.quantity >= stock) {
-                    showNotification(`<i class="fas fa-times-circle"></i> No hay suficiente stock de "${item.nombre}". Disponible: ${stock}`, 'error');
-                    return;
-                }
-            }
-            existingItem.quantity += 1;
-            existingItem.total = existingItem.quantity * existingItem.price;
-        } else {
-            cart.push({
-                id: item.id,
-                name: item.nombre,
-                price: item.precio,
-                quantity: 1,
-                total: item.precio,
-                category: item.categoria,
-                codigo: item.codigo,
-                prepTime: item.tiempoPreparacion || (esBebida ? 5 : 15),
-                tipo: esBebida ? 'bebida' : 'plato',
-                es_bebida: esBebida,
-                stock: item.stock
-            });
-        }
-        
-        saveCart();
-        renderMenu();
-        renderCart();
-        updateCartSummary();
-        updatePlaceOrderButton();
-        
-        showNotification(`<i class="fas fa-check-circle"></i> "${item.nombre}" ${esBebida ? '(Bebida)' : '(Plato)'} agregado al carrito!`, 'success');
-    }
-    
-    // Aumentar cantidad - CORREGIDO
-    function increaseQuantity(itemId) {
-        const item = cart.find(ci => String(ci.id) === String(itemId));
-        if (item) {
-            if (item.es_bebida) {
-                const menuItem = menuItems.find(i => String(i.id) === String(itemId));
-                if (menuItem) {
-                    const stock = parseFloat(menuItem.stock || 0);
-                    if (item.quantity >= stock) {
-                        showNotification(`<i class="fas fa-times-circle"></i> No hay suficiente stock de "${item.name}". Disponible: ${stock}`, 'error');
-                        return;
-                    }
-                }
-            }
-            
-            item.quantity += 1;
-            item.total = item.quantity * item.price;
-            saveCart();
-            renderMenu();
-            renderCart();
-            updateCartSummary();
-        }
-    }
-    
-    // Disminuir cantidad - CORREGIDO
-    function decreaseQuantity(itemId) {
-        const itemIndex = cart.findIndex(ci => String(ci.id) === String(itemId));
-        if (itemIndex !== -1) {
-            if (cart[itemIndex].quantity > 1) {
-                cart[itemIndex].quantity -= 1;
-                cart[itemIndex].total = cart[itemIndex].quantity * cart[itemIndex].price;
-            } else {
-                cart.splice(itemIndex, 1);
-            }
-            saveCart();
-            renderMenu();
-            renderCart();
-            updateCartSummary();
-            updatePlaceOrderButton();
-        }
-    }
-    
-    // Renderizar carrito - CORREGIDO
-    function renderCart() {
-        const cartItemsContainer = document.getElementById('cartItemsContainer');
-        const orderSummary = document.getElementById('orderSummary');
-        
-        if (cart.length === 0) {
-            cartItemsContainer.innerHTML = `
-                <div class="empty-cart">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <h3>Tu carrito está vacío</h3>
-                    <p>Agrega platos o bebidas del menú</p>
-                </div>
-            `;
-            if (orderSummary) {
-                orderSummary.style.display = 'none';
-            }
-            return;
-        }
-        
-        cartItemsContainer.innerHTML = cart.map(item => `
-            <div class="cart-item">
-                <div class="cart-item-info">
-                    <div class="cart-item-name">
-                        ${item.name} 
-                        <span style="font-size: 0.9rem; color: ${item.es_bebida ? '#3b82f6' : '#ef4444'};">
-                            ${item.es_bebida ? '<i class="fas fa-glass-water"></i> Bebida' : '<i class="fas fa-utensils"></i> Plato'}
-                        </span>
-                    </div>
-                    <div class="cart-item-details">
-                        <span>$${formatearMoneda(item.price)} c/u</span>
-                        <span>Código: ${item.codigo || 'N/A'}</span>
-                        <span>Categoría: ${getCategoriaLabel(item.category)}</span>
-                    </div>
-                </div>
-                <div class="cart-item-quantity">
-                    <button type="button" class="quantity-btn" onclick="decreaseQuantity('${item.id}')">-</button>
-                    <span class="quantity-value">${item.quantity}</span>
-                    <button type="button" class="quantity-btn" onclick="increaseQuantity('${item.id}')">+</button>
-                </div>
-                <div class="cart-item-price">$${formatearMoneda(item.total)}</div>
-                <button type="button" class="remove-item" onclick="removeFromCart('${item.id}')" title="Eliminar del carrito">×</button>
-            </div>
-        `).join('');
-        
-        if (orderSummary) {
-            orderSummary.style.display = 'block';
-        }
-    }
-    
-    // Remover del carrito - CORREGIDO
-    function removeFromCart(itemId) {
-        const item = cart.find(ci => String(ci.id) === String(itemId));
-        if (!item) return;
-        
-        if (confirm(`¿Eliminar "${item.name}" del carrito?`)) {
-            cart = cart.filter(item => String(item.id) !== String(itemId));
-            saveCart();
-            renderMenu();
-            renderCart();
-            updateCartSummary();
-            updatePlaceOrderButton();
-            
-            showNotification(`<i class="fas fa-trash-alt"></i> "${item.name}" eliminado del carrito`, 'success');
-        }
-    }
-    
-    // Vaciar carrito
-    function clearCart() {
-        if (cart.length === 0) return;
-        
-        if (confirm('¿Estás seguro de vaciar el carrito?')) {
-            cart = [];
-            saveCart();
-            renderMenu();
-            renderCart();
-            updateCartSummary();
-            updatePlaceOrderButton();
-            showNotification('<i class="fas fa-trash-alt"></i> Carrito vaciado', 'success');
-        }
-    }
-    
-    // 🔥 MODIFICADO: Actualizar resumen del carrito - SIN IVA NI ENVÍO
-    function updateCartSummary() {
-        const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
-        
-        const total = subtotal;
-        
-        document.getElementById('subtotalDisplay').textContent = `$${formatearMoneda(subtotal)}`;
-        
-        document.getElementById('totalAmountDisplay').textContent = `$${formatearMoneda(total)}`;
-        
-        document.getElementById('subtotalInput').value = subtotal.toFixed(2);
-        
-        document.getElementById('envioInput').value = "0.00";
-        
-        document.getElementById('totalInput').value = total.toFixed(2);
-        
-        document.getElementById('cartItemsInput').value = JSON.stringify(cart);
-    }
-    
-    // 🔥 MODIFICADO: Calcular costo de envío - SIEMPRE 0
-    function calculateShipping() {
-        return 0;
-    }
-    
-    // Actualizar costo de envío cuando cambia el tipo de pedido
-    function updateShippingCost() {
-        updateCartSummary();
-    }
-    
-    // Validar formulario
+    /**
+     * Validar formulario
+     */
     function validateForm() {
         const orderType = document.getElementById('orderType').value;
         
@@ -3621,7 +3384,37 @@ body {
         return true;
     }
     
-    // ACTUALIZAR BOTÓN DE CONFIRMAR PEDIDO
+    /**
+     * Preparar datos del formulario
+     */
+    function prepareFormData() {
+        try {
+            const orderType = document.getElementById('orderType').value;
+            
+            if (orderType === 'mesa') {
+                document.getElementById('mesaIdInput').value = currentTableId;
+                document.getElementById('codigoDeliveryInput').value = '';
+                document.getElementById('codigoLlevarInput').value = '';
+            } else if (orderType === 'delivery') {
+                document.getElementById('mesaIdInput').value = '';
+                document.getElementById('codigoDeliveryInput').value = currentDeliveryCode;
+                document.getElementById('codigoLlevarInput').value = '';
+            } else if (orderType === 'llevar') {
+                document.getElementById('mesaIdInput').value = '';
+                document.getElementById('codigoDeliveryInput').value = '';
+                document.getElementById('codigoLlevarInput').value = currentLlevarCode;
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Error preparando datos:', error);
+            return false;
+        }
+    }
+    
+    /**
+     * Actualizar botón de confirmar pedido
+     */
     function updatePlaceOrderButton() {
         const orderType = document.getElementById('orderType').value;
         const placeOrderBtn = document.getElementById('placeOrderBtn');
@@ -3671,114 +3464,448 @@ body {
         }
     }
     
-    // Preparar datos del formulario
-    function prepareFormData() {
-        try {
-            const orderType = document.getElementById('orderType').value;
+    // ========================================
+    // RENDERIZADO DE MENÚ
+    // ========================================
+    
+    /**
+     * Renderizar menú (PLATOS Y BEBIDAS)
+     */
+    function renderMenu() {
+        const menuGrid = document.getElementById('menuGrid');
+        const searchResults = document.getElementById('searchResults');
+        const resultsCount = document.getElementById('resultsCount');
+        
+        let filteredItems = menuItems;
+        
+        // Filtrar por categoría
+        if (currentFilter !== 'todos') {
+            filteredItems = filteredItems.filter(item => item.categoria === currentFilter);
+        }
+        
+        // Filtrar por búsqueda
+        if (currentSearch) {
+            filteredItems = filteredItems.filter(item => {
+                const searchInName = item.nombre.toLowerCase().includes(currentSearch);
+                const searchInDescription = item.descripcion.toLowerCase().includes(currentSearch);
+                const searchInCategory = getCategoriaLabel(item.categoria).toLowerCase().includes(currentSearch);
+                const searchInCode = item.codigo.toLowerCase().includes(currentSearch);
+                
+                return searchInName || searchInDescription || searchInCategory || searchInCode;
+            });
             
-            if (orderType === 'mesa') {
-                document.getElementById('mesaIdInput').value = currentTableId;
-                document.getElementById('codigoDeliveryInput').value = '';
-                document.getElementById('codigoLlevarInput').value = '';
-            } else if (orderType === 'delivery') {
-                document.getElementById('mesaIdInput').value = '';
-                document.getElementById('codigoDeliveryInput').value = currentDeliveryCode;
-                document.getElementById('codigoLlevarInput').value = '';
-            } else if (orderType === 'llevar') {
-                document.getElementById('mesaIdInput').value = '';
-                document.getElementById('codigoDeliveryInput').value = '';
-                document.getElementById('codigoLlevarInput').value = currentLlevarCode;
+            if (searchResults) {
+                searchResults.style.display = 'flex';
+            }
+            if (resultsCount) {
+                resultsCount.textContent = filteredItems.length;
+            }
+        } else {
+            if (searchResults) {
+                searchResults.style.display = 'none';
+            }
+        }
+        
+        // Filtrar items agotados
+        filteredItems = filteredItems.filter(item => item.disponibilidad !== 'agotado');
+        
+        // Si no hay items
+        if (filteredItems.length === 0) {
+            menuGrid.innerHTML = `
+                <div class="empty-cart">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3>${currentSearch ? 'No se encontraron resultados' : 'No hay platos ni bebidas disponibles'}</h3>
+                    <p>${currentSearch ? 'Intenta con otros términos de búsqueda' : 'Agrega platos o bebidas primero'}</p>
+                    ${currentSearch ? '<button type="button" class="btn btn-secondary" onclick="clearSearch()" style="margin-top: 1rem;">Limpiar búsqueda</button>' : ''}
+                </div>
+            `;
+            return;
+        }
+        
+        // Renderizar items
+        menuGrid.innerHTML = filteredItems.map(item => {
+            const cartItem = cart.find(ci => String(ci.id) === String(item.id));
+            const quantity = cartItem ? cartItem.quantity : 0;
+            
+            const esBebida = item.es_bebida || item.tipo === 'bebida';
+            const stock = parseFloat(item.stock || 0);
+            const isLowStock = stock > 0 && stock < 10;
+            const isMediumStock = stock >= 10 && stock < 50;
+            const isHighStock = stock >= 50;
+            const isOutOfStock = stock <= 0;
+            
+            let stockIcon = '';
+            let stockColor = '';
+            let stockText = '';
+            
+            if (esBebida) {
+                if (isOutOfStock) {
+                    stockIcon = '<i class="fas fa-times-circle" style="color: #ff416c;"></i>';
+                    stockText = '<span style="color: #ff416c; font-weight: 600;">Agotado</span>';
+                } else if (isLowStock) {
+                    stockIcon = '<i class="fas fa-exclamation-triangle" style="color: #ff416c;"></i>';
+                    stockText = `<span style="color: #ff416c; font-weight: 600;">Stock <span style="font-size: 1.3rem; font-weight: 700;">${stock}</span></span>`;
+                } else if (isMediumStock) {
+                    stockIcon = '<i class="fas fa-chart-bar" style="color: #ffb347;"></i>';
+                    stockText = `<span style="color: #ffb347; font-weight: 600;">Stock <span style="font-size: 1.3rem; font-weight: 700;">${stock}</span></span>`;
+                } else if (isHighStock) {
+                    stockIcon = '<i class="fas fa-check-circle" style="color: #4CAF50;"></i>';
+                    stockText = `<span style="color: #4CAF50; font-weight: 600;">Stock <span style="font-size: 1.3rem; font-weight: 700;">${stock}</span></span>`;
+                }
             }
             
-            return true;
-        } catch (error) {
-            console.error('Error preparando datos:', error);
-            return false;
+            const iconoTipo = esBebida ? '<i class="fas fa-glass-water"></i>' : '<i class="fas fa-utensils"></i>';
+            const tipoTexto = esBebida ? 'Bebida' : 'Plato';
+            
+            let highlightedName = item.nombre;
+            let highlightedDescription = item.descripcion;
+            
+            if (currentSearch) {
+                const regex = new RegExp(`(${currentSearch})`, 'gi');
+                highlightedName = item.nombre.replace(regex, '<mark>$1</mark>');
+                highlightedDescription = item.descripcion.replace(regex, '<mark>$1</mark>');
+            }
+            
+            return `
+                <div class="menu-card">
+                    <div class="menu-card-header">
+                        <div class="menu-card-title">
+                            <div class="menu-card-name">${iconoTipo} ${highlightedName}</div>
+                            <div class="menu-card-price">${formatearMoneda(item.precio)}</div>
+                        </div>
+                        <div class="menu-card-category card-${item.categoria}">
+                            ${getCategoriaLabel(item.categoria)} (${tipoTexto})
+                        </div>
+                    </div>
+                    <div class="menu-card-body">
+                        <p class="menu-card-description">${highlightedDescription}</p>
+                        <div class="menu-card-details">
+                            <div class="menu-card-detail">
+                                <span><i class="fas fa-box"></i></span>
+                                <span>Código: ${item.codigo}</span>
+                            </div>
+                            <div class="menu-card-detail">
+                                <span>${getPopularityIcon(item.popularidad)}</span>
+                                <span>${getPopularityLabel(item.popularidad)}</span>
+                            </div>
+                        </div>
+                        ${esBebida && stockText ? `
+                        <div class="menu-card-details">
+                            <div class="menu-card-detail">
+                                <span>${stockIcon}</span>
+                                <span>${stockText}</span>
+                            </div>
+                        </div>
+                        ` : ''}
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div class="cart-item-quantity">
+                                <button type="button" class="quantity-btn" onclick="decreaseQuantity('${item.id}')" ${(esBebida && isOutOfStock) ? 'disabled' : ''}>-</button>
+                                <span class="quantity-value">${quantity}</span>
+                                <button type="button" class="quantity-btn" onclick="increaseQuantity('${item.id}')" ${(esBebida && isOutOfStock) ? 'disabled' : ''}>+</button>
+                            </div>
+                            <button type="button" class="btn btn-secondary" onclick="addToCart('${item.id}')" ${(esBebida && isOutOfStock) ? 'disabled' : ''}>
+                                <span>${esBebida ? '<i class="fas fa-glass-water"></i> Agregar Bebida' : '<i class="fas fa-utensils"></i> Agregar Plato'}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        // Agregar estilos para el highlighting
+        const style = document.createElement('style');
+        style.textContent = `
+            mark {
+                background-color: #ffeb3b;
+                padding: 0 2px;
+                border-radius: 2px;
+            }
+        `;
+        if (!document.querySelector('style[data-search-highlight]')) {
+            style.setAttribute('data-search-highlight', 'true');
+            document.head.appendChild(style);
         }
     }
     
-    // Mostrar notificación
-    function showNotification(message, type = 'success') {
-        document.querySelectorAll('.notification').forEach(n => {
-            if (n.parentElement !== document.querySelector('.messages')) {
-                n.remove();
-            }
+    /**
+     * Filtrar menú por categoría
+     */
+    function filterMenu(category) {
+        currentFilter = category;
+        
+        document.querySelectorAll('.category-filter').forEach(btn => {
+            btn.classList.remove('active');
         });
+        event.target.classList.add('active');
         
-        const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        notification.innerHTML = message;
-        notification.style.position = 'fixed';
-        notification.style.top = '20px';
-        notification.style.right = '20px';
+        renderMenu();
+    }
+    
+    /**
+     * Realizar búsqueda
+     */
+    function performSearch() {
+        const searchInput = document.getElementById('searchInput');
+        currentSearch = searchInput.value.toLowerCase().trim();
+        renderMenu();
+    }
+    
+    /**
+     * Limpiar búsqueda
+     */
+    function clearSearch() {
+        const searchInput = document.getElementById('searchInput');
+        searchInput.value = '';
+        currentSearch = '';
+        renderMenu();
+    }
+    
+    // ========================================
+    // GESTIÓN DEL CARRITO
+    // ========================================
+    
+    /**
+     * Agregar al carrito
+     */
+    function addToCart(itemId) {
+        const item = menuItems.find(i => String(i.id) === String(itemId));
+        if (!item) return;
         
-        document.body.appendChild(notification);
+        const esBebida = item.es_bebida || item.tipo === 'bebida';
         
-        setTimeout(() => {
-            if (notification.parentElement) {
-                notification.style.animation = 'slideOut 0.3s ease-out';
-                setTimeout(() => {
-                    if (notification.parentElement) {
-                        notification.remove();
-                    }
-                }, 300);
+        // Validar stock para bebidas
+        if (esBebida) {
+            const stock = parseFloat(item.stock || 0);
+            if (stock <= 0) {
+                showNotification(`<i class="fas fa-times-circle"></i> "${item.nombre}" está agotado`, 'error');
+                return;
             }
-        }, 5000);
+        }
+        
+        const existingItem = cart.find(ci => String(ci.id) === String(itemId));
+        
+        if (existingItem) {
+            // Validar stock antes de aumentar cantidad
+            if (esBebida) {
+                const stock = parseFloat(item.stock || 0);
+                if (existingItem.quantity >= stock) {
+                    showNotification(`<i class="fas fa-times-circle"></i> No hay suficiente stock de "${item.nombre}". Disponible: ${stock}`, 'error');
+                    return;
+                }
+            }
+            existingItem.quantity += 1;
+            existingItem.total = existingItem.quantity * existingItem.price;
+        } else {
+            cart.push({
+                id: item.id,
+                name: item.nombre,
+                price: item.precio,
+                quantity: 1,
+                total: item.precio,
+                category: item.categoria,
+                codigo: item.codigo,
+                prepTime: item.tiempoPreparacion || (esBebida ? 5 : 15),
+                tipo: esBebida ? 'bebida' : 'plato',
+                es_bebida: esBebida,
+                stock: item.stock
+            });
+        }
+        
+        saveCart();
+        renderMenu();
+        renderCart();
+        updateCartSummary();
+        updatePlaceOrderButton();
+        
+        showNotification(`<i class="fas fa-check-circle"></i> "${item.nombre}" ${esBebida ? '(Bebida)' : '(Plato)'} agregado al carrito!`, 'success');
     }
     
-    // Guardar carrito en localStorage
-    function saveCart() {
-        localStorage.setItem('restaurantCart', JSON.stringify(cart));
-    }
-    
-    // Cargar datos del formulario desde localStorage
-    function loadFormData() {
-        const savedCart = localStorage.getItem('restaurantCart');
-        if (savedCart) {
-            cart = JSON.parse(savedCart);
+    /**
+     * Aumentar cantidad
+     */
+    function increaseQuantity(itemId) {
+        const item = cart.find(ci => String(ci.id) === String(itemId));
+        if (item) {
+            // Validar stock para bebidas
+            if (item.es_bebida) {
+                const menuItem = menuItems.find(i => String(i.id) === String(itemId));
+                if (menuItem) {
+                    const stock = parseFloat(menuItem.stock || 0);
+                    if (item.quantity >= stock) {
+                        showNotification(`<i class="fas fa-times-circle"></i> No hay suficiente stock de "${item.name}". Disponible: ${stock}`, 'error');
+                        return;
+                    }
+                }
+            }
+            
+            item.quantity += 1;
+            item.total = item.quantity * item.price;
+            saveCart();
+            renderMenu();
             renderCart();
             updateCartSummary();
         }
     }
     
-    // Helper functions
-    function getCategoriaLabel(categoria) {
-        const labels = {
-            'entrada': 'Entrada',
-            'principal': 'Principal',
-            'postre': 'Postre',
-            'bebida': 'Bebida',
-            'rapida': 'Comida Rápida',
-            'especial': 'Especial'
-        };
-        return labels[categoria] || categoria;
+    /**
+     * Disminuir cantidad
+     */
+    function decreaseQuantity(itemId) {
+        const itemIndex = cart.findIndex(ci => String(ci.id) === String(itemId));
+        if (itemIndex !== -1) {
+            if (cart[itemIndex].quantity > 1) {
+                cart[itemIndex].quantity -= 1;
+                cart[itemIndex].total = cart[itemIndex].quantity * cart[itemIndex].price;
+            } else {
+                cart.splice(itemIndex, 1);
+            }
+            saveCart();
+            renderMenu();
+            renderCart();
+            updateCartSummary();
+            updatePlaceOrderButton();
+        }
     }
     
-    function getPopularityLabel(popularidad) {
-        const labels = {
-            'alta': '<span style="color: #4CAF50; font-weight: 600;">Alta</span>',
-            'media': '<span style="color: #ffb347; font-weight: 600;">Media</span>',
-            'baja': '<span style="color: #ff416c; font-weight: 600;">Baja</span>'
-        };
-        return labels[popularidad] || popularidad;
+    /**
+     * Remover del carrito
+     */
+    function removeFromCart(itemId) {
+        const item = cart.find(ci => String(ci.id) === String(itemId));
+        if (!item) return;
+        
+        if (confirm(`¿Eliminar "${item.name}" del carrito?`)) {
+            cart = cart.filter(item => String(item.id) !== String(itemId));
+            saveCart();
+            renderMenu();
+            renderCart();
+            updateCartSummary();
+            updatePlaceOrderButton();
+            
+            showNotification(`<i class="fas fa-trash-alt"></i> "${item.name}" eliminado del carrito`, 'success');
+        }
     }
     
-    function getPopularityIcon(popularidad) {
-        const icons = {
-            'alta': '<i class="fas fa-fire" style="color: #4CAF50;"></i>',
-            'media': '<i class="fas fa-star" style="color: #ffb347;"></i>',
-            'baja': '<i class="fas fa-chart-bar" style="color: #ff416c;"></i>'
-        };
-        return icons[popularidad] || '<i class="fas fa-box"></i>';
+    /**
+     * Vaciar carrito
+     */
+    function clearCart() {
+        if (cart.length === 0) return;
+        
+        if (confirm('¿Estás seguro de vaciar el carrito?')) {
+            cart = [];
+            saveCart();
+            renderMenu();
+            renderCart();
+            updateCartSummary();
+            updatePlaceOrderButton();
+            showNotification('<i class="fas fa-trash-alt"></i> Carrito vaciado', 'success');
+        }
     }
     
-    // Sidebar toggle
+    /**
+     * Renderizar carrito
+     */
+    function renderCart() {
+        const cartItemsContainer = document.getElementById('cartItemsContainer');
+        const orderSummary = document.getElementById('orderSummary');
+        
+        if (cart.length === 0) {
+            cartItemsContainer.innerHTML = `
+                <div class="empty-cart">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <h3>Tu carrito está vacío</h3>
+                    <p>Agrega platos o bebidas del menú</p>
+                </div>
+            `;
+            if (orderSummary) {
+                orderSummary.style.display = 'none';
+            }
+            return;
+        }
+        
+        cartItemsContainer.innerHTML = cart.map(item => `
+            <div class="cart-item">
+                <div class="cart-item-info">
+                    <div class="cart-item-name">
+                        ${item.name} 
+                        <span style="font-size: 0.9rem; color: ${item.es_bebida ? '#3b82f6' : '#ef4444'};">
+                            ${item.es_bebida ? '<i class="fas fa-glass-water"></i> Bebida' : '<i class="fas fa-utensils"></i> Plato'}
+                        </span>
+                    </div>
+                    <div class="cart-item-details">
+                        <span>${formatearMoneda(item.price)} c/u</span>
+                        <span>Código: ${item.codigo || 'N/A'}</span>
+                        <span>Categoría: ${getCategoriaLabel(item.category)}</span>
+                    </div>
+                </div>
+                <div class="cart-item-quantity">
+                    <button type="button" class="quantity-btn" onclick="decreaseQuantity('${item.id}')">-</button>
+                    <span class="quantity-value">${item.quantity}</span>
+                    <button type="button" class="quantity-btn" onclick="increaseQuantity('${item.id}')">+</button>
+                </div>
+                <div class="cart-item-price">${formatearMoneda(item.total)}</div>
+                <button type="button" class="remove-item" onclick="removeFromCart('${item.id}')" title="Eliminar del carrito">×</button>
+            </div>
+        `).join('');
+        
+        if (orderSummary) {
+            orderSummary.style.display = 'block';
+        }
+    }
+    
+    /**
+     * Actualizar resumen del carrito - SIN IVA NI ENVÍO
+     */
+    function updateCartSummary() {
+        const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
+        const total = subtotal;
+        
+        document.getElementById('subtotalDisplay').textContent = `${formatearMoneda(subtotal)}`;
+        document.getElementById('totalAmountDisplay').textContent = `${formatearMoneda(total)}`;
+        
+        document.getElementById('subtotalInput').value = subtotal.toFixed(2);
+        document.getElementById('envioInput').value = "0.00";
+        document.getElementById('totalInput').value = total.toFixed(2);
+        
+        document.getElementById('cartItemsInput').value = JSON.stringify(cart);
+    }
+    
+    /**
+     * Calcular costo de envío - SIEMPRE 0
+     */
+    function calculateShipping() {
+        return 0;
+    }
+    
+    /**
+     * Actualizar costo de envío cuando cambia el tipo de pedido
+     */
+    function updateShippingCost() {
+        updateCartSummary();
+    }
+    
+    // ========================================
+    // SIDEBAR Y UI
+    // ========================================
+    
+    /**
+     * Toggle del sidebar en móvil
+     */
     function toggleSidebar() {
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebarOverlay');
         sidebar.classList.toggle('open');
         overlay.classList.toggle('open');
     }
+    
+    // ========================================
+    // ESTILOS DINÁMICOS
+    // ========================================
     
     // Añadir animación CSS para notificaciones
     const style = document.createElement('style');
@@ -3794,7 +3921,6 @@ body {
     `;
     document.head.appendChild(style);
 </script>
-
 
 
 </body>

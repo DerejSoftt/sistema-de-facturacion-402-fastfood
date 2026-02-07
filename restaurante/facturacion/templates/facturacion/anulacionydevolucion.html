@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Devoluciones - Buscar Factura</title>
+    <link rel="icon" href="{% static 'img/fasfoot1.ico' %}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -760,11 +761,6 @@
             transform: scale(0.95);
         }
         
-        .qty-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
         .qty-input {
             width: 50px;
             height: 32px;
@@ -778,12 +774,6 @@
         
         .qty-input:focus {
             outline: none;
-        }
-        
-        .qty-input::-webkit-inner-spin-button,
-        .qty-input::-webkit-outer-spin-button {
-            opacity: 1;
-            height: 30px;
         }
         
         .product-total-price {
@@ -828,13 +818,6 @@
         .btn-confirm:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(79, 172, 254, 0.3);
-        }
-        
-        .btn-confirm:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none !important;
-            box-shadow: none !important;
         }
         
         .modal-total-section {
@@ -963,6 +946,76 @@
         .category-otros {
             background: #667eea;
             color: white;
+        }
+        
+        /* Debug Info Styles */
+        .debug-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 1rem;
+            display: none;
+        }
+        
+        .debug-header {
+            color: #856404;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .debug-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .debug-table th {
+            background: #ffd700;
+            padding: 0.5rem;
+            text-align: left;
+        }
+        
+        .debug-table td {
+            padding: 0.5rem;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .debug-button {
+            background: #ffc107;
+            color: #856404;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            margin-top: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .debug-button:hover {
+            background: #e0a800;
+        }
+        
+        /* Stock Reposition Info */
+        .stock-info {
+            background: #e8f5e9;
+            border: 1px solid #c8e6c9;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .stock-info h4 {
+            color: #2e7d32;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
         
         /* Responsive design */
@@ -1183,6 +1236,16 @@
                                 </div>
                             </div>
                             
+                            <!-- Información sobre reposición de stock -->
+                            <div class="stock-info">
+                                <h4><i class="fas fa-info-circle"></i> Información sobre reposición de stock:</h4>
+                                <ul style="color: #2e7d32; margin-left: 1.5rem;">
+                                    <li>Solo los productos con categoría <strong>"bebida"</strong> reponen stock</li>
+                                    <li>Los productos de otras categorías no afectan el inventario</li>
+                                    <li>El sistema buscará automáticamente los productos por código o nombre</li>
+                                </ul>
+                            </div>
+                            
                             <div class="invoice-customer">
                                 <h4><i class="fas fa-user"></i> Información del Cliente</h4>
                                 <div class="customer-info">
@@ -1204,11 +1267,14 @@
                         
                         <div class="invoice-items">
                             <h3><i class="fas fa-list"></i> Detalles de la Factura</h3>
+                            
+                            {% if items and items|length > 0 %}
                             <table class="items-table">
                                 <thead>
                                     <tr>
                                         <th>#</th>
                                         <th>Producto</th>
+                                        <th>Código</th>
                                         <th>Categoría</th>
                                         <th>Cantidad</th>
                                         <th>Precio Unitario</th>
@@ -1220,6 +1286,7 @@
                                     <tr>
                                         <td>{{ forloop.counter }}</td>
                                         <td>{{ item.nombre }}</td>
+                                        <td>{{ item.codigo|default:"No disponible" }}</td>
                                         <td>
                                             {% if item.categoria == 'bebida' %}
                                                 <span class="category-badge category-bebida">{{ item.categoria|upper }}</span>
@@ -1236,6 +1303,77 @@
                                     {% endfor %}
                                 </tbody>
                             </table>
+                            
+                            <!-- Botón para mostrar información de depuración -->
+                            <button class="debug-button" onclick="toggleDebugInfo()">
+                                <i class="fas fa-bug"></i> Mostrar información de depuración
+                            </button>
+                            
+                            <!-- Información de depuración (oculta por defecto) -->
+                            <div class="debug-info" id="debugInfo">
+                                <div class="debug-header">
+                                    <h4><i class="fas fa-bug"></i> Información de depuración</h4>
+                                    <button onclick="toggleDebugInfo()" style="background: none; border: none; color: #856404; cursor: pointer;">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <div><strong>Total de items:</strong> {{ items|length }}</div>
+                                <div><strong>Items JSON:</strong> {{ items_json|truncatechars:200 }}</div>
+                                
+                                <h5 style="margin-top: 1rem;">Detalle de Items desde la base de datos:</h5>
+                                <table class="debug-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Nombre</th>
+                                            <th>Código</th>
+                                            <th>Cantidad</th>
+                                            <th>Precio</th>
+                                            <th>Categoría</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in items %}
+                                        <tr>
+                                            <td>{{ forloop.counter }}</td>
+                                            <td>{{ item.nombre }}</td>
+                                            <td>{{ item.codigo|default:"No disponible" }}</td>
+                                            <td>{{ item.cantidad }}</td>
+                                            <td>${{ item.precio|floatformat:2 }}</td>
+                                            <td>{{ item.categoria }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" style="text-align: center;">No hay items</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            {% else %}
+                            <div style="text-align: center; padding: 2rem; background: #f8f9fa; border-radius: 10px; margin: 1rem 0;">
+                                <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #ffc107; margin-bottom: 1rem;"></i>
+                                <h4 style="color: #856404;">No se encontraron productos en esta factura</h4>
+                                <p style="color: #718096;">La factura no contiene items o no se pudieron cargar.</p>
+                                
+                                <!-- Botón para mostrar depuración incluso si no hay items -->
+                                <button class="debug-button" onclick="toggleDebugInfo()" style="margin-top: 1rem;">
+                                    <i class="fas fa-bug"></i> Mostrar información de depuración
+                                </button>
+                                
+                                <div class="debug-info" id="debugInfo">
+                                    <div class="debug-header">
+                                        <h4><i class="fas fa-bug"></i> Información de depuración</h4>
+                                        <button onclick="toggleDebugInfo()" style="background: none; border: none; color: #856404; cursor: pointer;">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    <div><strong>Items JSON:</strong> {{ items_json }}</div>
+                                    <div><strong>Campo items de factura:</strong> {{ factura.items|truncatechars:200 }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
                             
                             <div class="invoice-summary">
                                 <div class="summary-row">
@@ -1266,20 +1404,18 @@
                         </div>
                         
                         <!-- Sección de Acciones de Devolución -->
-                        {% if factura.estado == 'pagada' or factura.estado == 'parcialmente_devuelta' %}
+                        {% if factura.estado == 'pagada' %}
                         <div class="return-actions">
                             <h3><i class="fas fa-undo"></i> Acciones de Devolución</h3>
                             <div class="action-buttons">
-                                {% if factura.estado == 'pagada' %}
                                 <form method="POST" action="{% url 'procesar_devolucion_total' %}" style="display: inline;">
                                     {% csrf_token %}
                                     <input type="hidden" name="numero_factura" value="{{ factura.numero_factura }}">
-                                    <button type="submit" class="btn-return full" onclick="return confirm('¿Estás seguro de devolver TODOS los productos de esta factura?')">
+                                    <button type="submit" class="btn-return full" onclick="return confirmDevolucionTotal()">
                                         <i class="fas fa-undo"></i>
                                         <span>Devolver Todo</span>
                                     </button>
                                 </form>
-                                {% endif %}
                                 
                                 <button type="button" class="btn-return partial" onclick="abrirModalDevolucionParcial()">
                                     <i class="fas fa-list-check"></i>
@@ -1295,10 +1431,8 @@
                                 <i class="fas fa-info-circle"></i> Los productos de categoría "bebida" se reponen automáticamente en el inventario.
                             </p>
                         </div>
-                        {% endif %}
                         
                         <!-- Sección de Anulación -->
-                        {% if factura.estado == 'pagada' or factura.estado == 'pendiente' %}
                         <div class="return-actions">
                             <h3><i class="fas fa-ban"></i> Acciones de Anulación</h3>
                             <div class="action-buttons">
@@ -1312,9 +1446,8 @@
                                 <i class="fas fa-info-circle"></i> La anulación cambiará el estado de la factura y disminuirá el stock de bebidas.
                             </p>
                         </div>
-                        {% endif %}
                         
-                        {% if factura.estado == 'parcialmente_devuelta' and not factura.estado == 'pagada' %}
+                        {% elif factura.estado == 'parcialmente_devuelta' %}
                         <div class="return-actions">
                             <h3><i class="fas fa-info-circle"></i> Factura Parcialmente Devuelta</h3>
                             <p style="text-align: center; color: #667eea; margin-bottom: 1rem;">
@@ -1346,7 +1479,7 @@
                             </div>
                             {% endif %}
                         </div>
-                        {% elif factura.estado == 'pendiente' and not factura.estado == 'pagada' %}
+                        {% else %}
                         <div class="return-actions">
                             <h3><i class="fas fa-clock"></i> Factura Pendiente</h3>
                             <p style="text-align: center; color: #ffd700; margin-bottom: 1rem;">
@@ -1356,34 +1489,17 @@
                         {% endif %}
                         
                         <!-- Historial de Devoluciones -->
-                        {% if factura.productos_devueltos and factura.monto_devuelto > 0 %}
                         <div class="devoluciones-history">
                             <h3><i class="fas fa-history"></i> Historial de Devoluciones</h3>
-                            <div class="devolucion-item">
-                                <div class="devolucion-header">
-                                    <div>
-                                        <strong>Fecha:</strong> {{ factura.fecha_devolucion|date:"d/m/Y H:i"|default:"Fecha no registrada" }}
-                                    </div>
-                                    <div class="devolucion-type {% if factura.estado == 'totalmente_devuelta' %}total{% else %}parcial{% endif %}">
-                                        {% if factura.estado == 'totalmente_devuelta' %}TOTAL{% else %}PARCIAL{% endif %}
-                                    </div>
-                                </div>
-                                <div>
-                                    <strong>Monto Devuelto:</strong> ${{ factura.monto_devuelto|floatformat:2 }}
-                                </div>
-                                
-                                <div class="devolucion-products">
-                                    <strong>Productos Devueltos:</strong>
-                                    {% for producto in factura.productos_devueltos %}
-                                    <div class="devolucion-product-item">
-                                        <span>{{ producto.nombre }} (x{{ producto.cantidad }})</span>
-                                        <span>${{ producto.subtotal|floatformat:2 }}</span>
-                                    </div>
-                                    {% endfor %}
-                                </div>
+                            
+                            <div id="devolucionesContainer">
+                                <!-- Los productos devueltos se cargarán aquí dinámicamente -->
+                                <p id="sinDevoluciones" style="text-align: center; color: #718096;">
+                                    <i class="fas fa-info-circle"></i> 
+                                    No hay devoluciones registradas para esta factura.
+                                </p>
                             </div>
                         </div>
-                        {% endif %}
                     </div>
                     {% else %}
                     <!-- Initial empty state -->
@@ -1407,7 +1523,7 @@
             <div class="modal-content-partial">
                 <div class="modal-header-partial">
                     <h2><i class="fas fa-undo"></i> Devolución Parcial</h2>
-                    <button type="button" class="modal-close" onclick="cerrarModalDevolucionParcial()">&times;</button>
+                    <button class="modal-close" onclick="cerrarModalDevolucionParcial()">&times;</button>
                 </div>
                 <form method="POST" action="{% url 'procesar_devolucion_parcial' %}" id="formDevolucionParcial">
                     {% csrf_token %}
@@ -1427,7 +1543,7 @@
                     </div>
                     <div class="modal-footer-partial">
                         <button type="button" class="btn-cancel" onclick="cerrarModalDevolucionParcial()">Cancelar</button>
-                        <button type="submit" class="btn-confirm" id="confirmarDevolucionBtn" disabled>
+                        <button type="submit" class="btn-confirm" id="confirmarDevolucionBtn">
                             <i class="fas fa-check"></i> Procesar Devolución
                         </button>
                     </div>
@@ -1440,7 +1556,7 @@
             <div class="modal-content-partial">
                 <div class="modal-header-partial" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">
                     <h2><i class="fas fa-ban"></i> Anular Factura</h2>
-                    <button type="button" class="modal-close" onclick="cerrarModalAnulacion()">&times;</button>
+                    <button class="modal-close" onclick="cerrarModalAnulacion()">&times;</button>
                 </div>
                 <form method="POST" action="{% url 'procesar_anulacion_factura' %}" id="formAnulacion">
                     {% csrf_token %}
@@ -1454,9 +1570,9 @@
                             <h4 style="color: #856404; margin-bottom: 0.5rem;">
                                 <i class="fas fa-info-circle"></i> Información de la factura:
                             </h4>
-                            <div><strong>Número:</strong> {{ factura.numero_factura|default:'' }}</div>
+                            <div><strong>Número:</strong> {{ factura.numero_factura }}</div>
                             <div><strong>Cliente:</strong> {{ factura.nombre_cliente|default:"No especificado" }}</div>
-                            <div><strong>Total:</strong> ${{ factura.total|default:0|floatformat:2 }}</div>
+                            <div><strong>Total:</strong> ${{ factura.total|floatformat:2 }}</div>
                         </div>
                         
                         <div style="margin-bottom: 1.5rem;">
@@ -1493,517 +1609,748 @@
         </div>
     </div>
 
-    <script>
-        // Datos de la factura actual (si existe)
-        {% if factura %}
-        const facturaActual = {
-            numero: "{{ factura.numero_factura|escapejs }}",
-            estado: "{{ factura.estado|escapejs }}",
-            items: {{ items|safe|default:"[]" }},
-            productosDevueltos: {{ factura.productos_devueltos|safe|default:"[]" }}
-        };
-        {% else %}
-        const facturaActual = null;
-        {% endif %}
+   <script>
+    // Datos de la factura actual (si existe)
+    {% if factura %}
+    const facturaActual = {
+        numero: "{{ factura.numero_factura }}",
+        estado: "{{ factura.estado }}",
+        items: {{ items_json|safe }},
+        productosDisponibles: {{ productos_disponibles_json|safe }},
+        productosDevueltos: {{ productos_devueltos_json|safe }}
+    };
+    
+    console.log('✅ Factura actual cargada:', facturaActual.numero);
+    console.log('📦 Items en factura:', facturaActual.items.length);
+    console.log('✅ Productos disponibles para devolver:', facturaActual.productosDisponibles.length);
+    console.log('🔄 Productos ya devueltos:', facturaActual.productosDevueltos.length);
+    
+    if (facturaActual.items && facturaActual.items.length > 0) {
+        console.log('📋 Detalle de productos:');
+        facturaActual.items.forEach((item, index) => {
+            console.log(`  ${index + 1}. ${item.nombre || 'Sin nombre'}`);
+            console.log(`     Código: "${item.codigo || 'No disponible'}"`);
+            console.log(`     Categoría: "${item.categoria || 'No disponible'}"`);
+            console.log(`     Cantidad: ${item.cantidad || 0}`);
+            console.log(`     Precio: $${item.precio || 0}`);
+        });
+    } else {
+        console.warn('⚠️  No hay items en la factura');
+    }
+    
+    {% else %}
+    const facturaActual = null;
+    console.log('ℹ️  No hay factura cargada');
+    {% endif %}
+
+    // Inicializar la aplicación
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('🚀 DOM cargado completamente');
+        setupEventListeners();
         
-        // Inicializar la aplicación
-        document.addEventListener('DOMContentLoaded', function() {
-            setupEventListeners();
+        // Permitir búsqueda con Enter
+        const invoiceInput = document.getElementById('invoiceNumber');
+        if (invoiceInput) {
+            invoiceInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    this.form.submit();
+                }
+            });
+        }
+        
+        // Si hay factura cargada, preparar el modal
+        if (facturaActual) {
+            console.log('📄 Preparando modales para factura:', facturaActual.numero);
+            prepararModalDevolucionParcial();
+            prepararModalAnulacion();
+            cargarHistorialDevoluciones();
             
-            // Permitir búsqueda con Enter
-            const invoiceInput = document.getElementById('invoiceNumber');
-            if (invoiceInput) {
-                invoiceInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        this.form.submit();
+            // Mostrar información de depuración si hay problemas
+            if (!facturaActual.items || facturaActual.items.length === 0) {
+                console.warn('⚠️  La factura no tiene items. Mostrando información de depuración.');
+                setTimeout(() => {
+                    const debugInfo = document.getElementById('debugInfo');
+                    if (debugInfo) {
+                        debugInfo.style.display = 'block';
                     }
-                });
+                }, 1000);
             }
-            
-            // Si hay factura cargada, preparar el modal
-            if (facturaActual) {
-                prepararModalDevolucionParcial();
+        }
+    });
+    
+    // Configurar event listeners
+    function setupEventListeners() {
+        // Menú móvil
+        const menuToggle = document.getElementById('menuToggle');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        
+        if (menuToggle) {
+            menuToggle.addEventListener('click', toggleSidebar);
+        }
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', toggleSidebar);
+        }
+        
+        // Cerrar modales con ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                cerrarModalDevolucionParcial();
+                cerrarModalAnulacion();
             }
         });
+    }
+    
+    // Alternar barra lateral en móvil
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('open');
+    }
+    
+    // Limpiar campo de búsqueda
+    function clearInvoiceInput() {
+        const invoiceInput = document.getElementById('invoiceNumber');
+        if (invoiceInput) {
+            invoiceInput.value = '';
+            invoiceInput.focus();
+        }
         
-        // Configurar event listeners
-        function setupEventListeners() {
-            // Menú móvil
-            const menuToggle = document.getElementById('menuToggle');
-            const sidebarOverlay = document.getElementById('sidebarOverlay');
+        // Redirigir a la página sin parámetros
+        window.location.href = "{% url 'anulacionydevolucion' %}";
+    }
+    
+    // Alternar información de depuración
+    function toggleDebugInfo() {
+        const debugInfo = document.getElementById('debugInfo');
+        if (debugInfo) {
+            debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+    
+    // Confirmación personalizada para devolución total
+    function confirmDevolucionTotal() {
+        if (!facturaActual) return false;
+        
+        const bebidas = facturaActual.items.filter(item => 
+            item.categoria && item.categoria.toLowerCase() === 'bebida'
+        );
+        
+        let mensaje = '¿Estás seguro de devolver TODOS los productos de esta factura?\n\n';
+        
+        if (bebidas.length > 0) {
+            mensaje += `Se repondrá el stock de ${bebidas.length} producto(s) bebida:\n`;
+            bebidas.forEach((bebida, index) => {
+                mensaje += `  • ${bebida.nombre} (${bebida.cantidad} unidad(es))\n`;
+            });
+        } else {
+            mensaje += 'No hay productos bebida para reponer stock.\n';
+        }
+        
+        mensaje += `\nMonto total a devolver: $${facturaActual.items.reduce((sum, item) => 
+            sum + (item.cantidad * item.precio), 0).toFixed(2)}`;
+        
+        return confirm(mensaje);
+    }
+    
+    // Cargar historial de devoluciones
+    function cargarHistorialDevoluciones() {
+        if (!facturaActual || !facturaActual.productosDevueltos) {
+            console.warn('No hay productos devueltos para mostrar');
+            return;
+        }
+        
+        const container = document.getElementById('devolucionesContainer');
+        const sinDevoluciones = document.getElementById('sinDevoluciones');
+        
+        if (!container) return;
+        
+        // Verificar si hay productos devueltos
+        if (facturaActual.productosDevueltos && facturaActual.productosDevueltos.length > 0) {
+            // Ocultar mensaje "sin devoluciones"
+            if (sinDevoluciones) sinDevoluciones.style.display = 'none';
             
-            if (menuToggle) {
-                menuToggle.addEventListener('click', toggleSidebar);
-            }
-            if (sidebarOverlay) {
-                sidebarOverlay.addEventListener('click', toggleSidebar);
-            }
+            // Calcular monto total devuelto
+            let montoTotal = 0;
+            let bebidasDevueltas = 0;
             
-            // Cerrar modales con ESC
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    cerrarModalDevolucionParcial();
-                    cerrarModalAnulacion();
+            facturaActual.productosDevueltos.forEach(producto => {
+                montoTotal += parseFloat(producto.subtotal) || 0;
+                if (producto.categoria && producto.categoria.toLowerCase() === 'bebida') {
+                    bebidasDevueltas += parseInt(producto.cantidad) || 0;
                 }
             });
             
-            // Validar formulario de anulación
-            const formAnulacion = document.getElementById('formAnulacion');
-            if (formAnulacion) {
-                formAnulacion.addEventListener('submit', function(e) {
-                    const motivo = document.getElementById('motivoAnulacion').value.trim();
-                    if (!motivo) {
-                        e.preventDefault();
-                        mostrarAlerta('Debes ingresar un motivo para la anulación', 'warning');
-                        return false;
-                    }
-                    
-                    const confirmacion = confirm('⚠️ ¿Estás seguro de anular esta factura?\n\nEsta acción:\n1. Cambiará el estado a "Anulada"\n2. Disminuirá el stock de bebidas\n3. No se podrá deshacer');
-                    if (!confirmacion) {
-                        e.preventDefault();
-                    }
-                    return confirmacion;
-                });
-            }
+            // Crear encabezado con monto total
+            const headerHTML = `
+                <div style="background: #e8f4f8; border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="color: #2c3e50;">Total Devuelto:</strong>
+                            <div style="font-size: 1.8rem; font-weight: bold; color: #4CAF50;">
+                                $${montoTotal.toFixed(2)}
+                            </div>
+                        </div>
+                        <div style="color: #718096; font-size: 0.9rem; text-align: right;">
+                            <div><i class="fas fa-boxes"></i> ${facturaActual.productosDevueltos.length} producto(s) devuelto(s)</div>
+                            ${bebidasDevueltas > 0 ? `<div><i class="fas fa-wine-bottle"></i> ${bebidasDevueltas} bebida(s) repuesta(s) en stock</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Crear lista de productos
+            let productosHTML = '';
+            facturaActual.productosDevueltos.forEach((producto, index) => {
+                const esBebida = producto.categoria && producto.categoria.toLowerCase() === 'bebida';
+                productosHTML += `
+                    <div class="devolucion-product-item" style="animation-delay: ${index * 0.1}s;">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; color: #2c3e50;">${producto.nombre}</div>
+                            <div style="font-size: 0.85rem; color: #718096; margin-top: 0.25rem;">
+                                <span>Cantidad: ${producto.cantidad}</span>
+                                ${producto.codigo ? `<span style="margin-left: 1rem;">Código: ${producto.codigo}</span>` : ''}
+                                ${esBebida ? '<span style="margin-left: 1rem; color: #4CAF50;"><i class="fas fa-wine-bottle"></i> Bebida (stock repuesto)</span>' : ''}
+                            </div>
+                        </div>
+                        <div style="font-weight: 700; color: #4CAF50;">
+                            $${parseFloat(producto.subtotal || 0).toFixed(2)}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            // Actualizar contenedor
+            container.innerHTML = headerHTML + productosHTML;
+        } else {
+            // Mostrar mensaje "sin devoluciones"
+            if (sinDevoluciones) sinDevoluciones.style.display = 'block';
         }
-        
-        // Alternar barra lateral en móvil
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('open');
-        }
-        
-        // Limpiar campo de búsqueda
-        function clearInvoiceInput() {
-            const invoiceInput = document.getElementById('invoiceNumber');
-            if (invoiceInput) {
-                invoiceInput.value = '';
-                invoiceInput.focus();
-            }
-            
-            // Redirigir a la página sin parámetros
-            window.location.href = "{% url 'anulacionydevolucion' %}";
-        }
-        
-        // Preparar modal de devolución parcial
-        function prepararModalDevolucionParcial() {
-            if (!facturaActual) return;
-            
-            // Configurar el formulario
-            const form = document.getElementById('formDevolucionParcial');
-            if (form) {
-                form.onsubmit = function(e) {
-                    const productosSeleccionados = obtenerProductosSeleccionados();
-                    if (productosSeleccionados.length === 0) {
-                        e.preventDefault();
-                        mostrarAlerta('Debes seleccionar al menos un producto para devolver', 'warning');
-                        return false;
-                    }
-                    
-                    const total = calcularTotalDevolucion();
-                    return confirm(`¿Estás seguro de procesar la devolución de ${productosSeleccionados.length} producto(s) por un total de $${total.toFixed(2)}?`);
-                };
-            }
-        }
-        
-        // Abrir modal de devolución parcial
-        function abrirModalDevolucionParcial() {
-            if (!facturaActual) {
-                mostrarAlerta('No hay factura cargada', 'error');
-                return;
-            }
-            
-            if (facturaActual.estado !== 'pagada' && facturaActual.estado !== 'parcialmente_devuelta') {
-                mostrarAlerta('Solo se pueden devolver facturas pagadas o parcialmente devueltas', 'warning');
-                return;
-            }
-            
-            // Asegurarse de que los productos estén cargados
-            cargarProductosEnModal();
-            
-            // Mostrar modal
-            document.getElementById('partialReturnModal').classList.add('active');
-            document.body.style.overflow = 'hidden';
-        }
-        
-        // Cerrar modal de devolución parcial
-        function cerrarModalDevolucionParcial() {
-            document.getElementById('partialReturnModal').classList.remove('active');
-            document.body.style.overflow = '';
-            
-            // Resetear selecciones
-            resetearSeleccionesModal();
-        }
-        
-        // Abrir modal de anulación
-        function abrirModalAnulacion() {
-            if (!facturaActual) {
-                mostrarAlerta('No hay factura cargada', 'error');
-                return;
-            }
-            
-            if (facturaActual.estado !== 'pagada' && facturaActual.estado !== 'pendiente') {
-                mostrarAlerta('Solo se pueden anular facturas pagadas o pendientes', 'warning');
-                return;
-            }
-            
-            document.getElementById('anulacionModal').classList.add('active');
-            document.body.style.overflow = 'hidden';
-            
-            // Enfocar el campo de motivo
-            setTimeout(() => {
-                const motivoInput = document.getElementById('motivoAnulacion');
-                if (motivoInput) motivoInput.focus();
-            }, 100);
-        }
-        
-        // Cerrar modal de anulación
-        function cerrarModalAnulacion() {
-            document.getElementById('anulacionModal').classList.remove('active');
-            document.body.style.overflow = '';
-            
-            // Limpiar el formulario
-            const form = document.getElementById('formAnulacion');
-            if (form) form.reset();
-        }
-        
-        // Calcular cantidad ya devuelta de un producto
-        function calcularCantidadYaDevuelta(productoNombre) {
-            if (!facturaActual || !facturaActual.productosDevueltos) return 0;
-            
-            let totalDevuelto = 0;
-            if (Array.isArray(facturaActual.productosDevueltos)) {
-                facturaActual.productosDevueltos.forEach(producto => {
-                    if (producto.nombre === productoNombre) {
-                        totalDevuelto += producto.cantidad || 0;
-                    }
-                });
-            }
-            
-            return totalDevuelto;
+    }
+    
+    // Preparar modal de devolución parcial
+    function prepararModalDevolucionParcial() {
+        if (!facturaActual) {
+            console.warn('No hay factura actual para preparar el modal de devolución parcial');
+            return;
         }
         
         // Cargar productos en el modal
-        function cargarProductosEnModal() {
-            if (!facturaActual || !facturaActual.items) return;
+        cargarProductosEnModal();
+        
+        // Configurar el formulario
+        const form = document.getElementById('formDevolucionParcial');
+        if (form) {
+            form.onsubmit = function(e) {
+                const productosSeleccionados = obtenerProductosSeleccionados();
+                console.log('Productos seleccionados para devolución:', productosSeleccionados);
+                
+                if (productosSeleccionados.length === 0) {
+                    e.preventDefault();
+                    mostrarAlerta('Debes seleccionar al menos un producto para devolver', 'warning');
+                    return false;
+                }
+                
+                const total = calcularTotalDevolucion();
+                const bebidas = productosSeleccionados.filter(p => 
+                    p.categoria && p.categoria.toLowerCase() === 'bebida'
+                );
+                
+                let mensaje = `¿Estás seguro de procesar la devolución de ${productosSeleccionados.length} producto(s) por un total de $${total.toFixed(2)}?\n\n`;
+                
+                if (bebidas.length > 0) {
+                    mensaje += `Se repondrá el stock de ${bebidas.length} producto(s) bebida:\n`;
+                    bebidas.forEach((bebida, index) => {
+                        mensaje += `  • ${bebida.nombre} (${bebida.cantidad} unidad(es))\n`;
+                    });
+                }
+                
+                return confirm(mensaje);
+            };
+        }
+    }
+    
+    // Preparar modal de anulación
+    function prepararModalAnulacion() {
+        const formAnulacion = document.getElementById('formAnulacion');
+        if (formAnulacion) {
+            formAnulacion.onsubmit = function(e) {
+                const motivo = document.getElementById('motivoAnulacion').value.trim();
+                if (!motivo) {
+                    e.preventDefault();
+                    mostrarAlerta('Debes ingresar un motivo para la anulación', 'warning');
+                    return false;
+                }
+                
+                // Calcular cuántas bebidas se van a disminuir
+                const bebidas = facturaActual.items.filter(item => 
+                    item.categoria && item.categoria.toLowerCase() === 'bebida'
+                );
+                
+                let mensaje = '¿Estás seguro de anular esta factura?\n\n';
+                mensaje += 'EFECTOS:\n';
+                mensaje += '• La factura cambiará a estado "Anulada"\n';
+                
+                if (bebidas.length > 0) {
+                    mensaje += `• Se disminuirá el stock de ${bebidas.length} producto(s) bebida:\n`;
+                    bebidas.forEach((bebida, index) => {
+                        mensaje += `    ${bebida.nombre} (${bebida.cantidad} unidad(es))\n`;
+                    });
+                } else {
+                    mensaje += '• No hay productos bebida para ajustar stock\n';
+                }
+                
+                mensaje += '• No se podrán realizar devoluciones\n';
+                mensaje += '• Esta acción NO se puede deshacer\n\n';
+                mensaje += 'Motivo: ' + motivo;
+                
+                return confirm(mensaje);
+            };
+        }
+    }
+    
+    // Abrir modal de devolución parcial
+    function abrirModalDevolucionParcial() {
+        console.log('abrirModalDevolucionParcial llamado');
+        
+        if (!facturaActual) {
+            console.error('No hay factura cargada');
+            mostrarAlerta('No hay factura cargada', 'error');
+            return;
+        }
+        
+        if (facturaActual.estado !== 'pagada' && facturaActual.estado !== 'parcialmente_devuelta') {
+            console.warn('Estado de factura no válido para devolución:', facturaActual.estado);
+            mostrarAlerta('Solo se pueden devolver facturas pagadas o parcialmente devueltas', 'warning');
+            return;
+        }
+        
+        // Asegurarse de que los productos estén cargados
+        cargarProductosEnModal();
+        
+        // Mostrar modal
+        const modal = document.getElementById('partialReturnModal');
+        if (modal) {
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            console.log('Modal de devolución parcial abierto');
+        } else {
+            console.error('No se encontró el modal con id partialReturnModal');
+        }
+    }
+    
+    // Cerrar modal de devolución parcial
+    function cerrarModalDevolucionParcial() {
+        const modal = document.getElementById('partialReturnModal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
+        document.body.style.overflow = '';
+        
+        // Resetear selecciones
+        resetearSeleccionesModal();
+    }
+    
+    // Abrir modal de anulación
+    function abrirModalAnulacion() {
+        if (!facturaActual) {
+            mostrarAlerta('No hay factura cargada', 'error');
+            return;
+        }
+        
+        if (facturaActual.estado !== 'pagada' && facturaActual.estado !== 'pendiente') {
+            mostrarAlerta('Solo se pueden anular facturas pagadas o pendientes', 'warning');
+            return;
+        }
+        
+        const modal = document.getElementById('anulacionModal');
+        if (modal) {
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+    
+    // Cerrar modal de anulación
+    function cerrarModalAnulacion() {
+        const modal = document.getElementById('anulacionModal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
+        document.body.style.overflow = '';
+        
+        // Limpiar el formulario
+        const form = document.getElementById('formAnulacion');
+        if (form) form.reset();
+    }
+    
+    // Calcular cantidad ya devuelta de un producto
+    function calcularCantidadYaDevuelta(productoNombre) {
+        if (!facturaActual || !facturaActual.productosDevueltos) return 0;
+        
+        let totalDevuelto = 0;
+        const nombreBuscar = productoNombre.toLowerCase().trim();
+        
+        facturaActual.productosDevueltos.forEach(producto => {
+            const nombreProducto = (producto.nombre || '').toLowerCase().trim();
+            if (nombreProducto === nombreBuscar) {
+                totalDevuelto += parseFloat(producto.cantidad) || 0;
+            }
+        });
+        
+        console.log(`📊 Cantidad ya devuelta de "${productoNombre}": ${totalDevuelto}`);
+        return totalDevuelto;
+    }
+    
+    // Cargar productos en el modal
+    function cargarProductosEnModal() {
+        if (!facturaActual || !facturaActual.productosDisponibles) {
+            console.error('No hay productos disponibles para cargar en el modal');
+            return;
+        }
+        
+        const productList = document.getElementById('productListModal');
+        if (!productList) {
+            console.error('No se encontró el contenedor de productos en el modal');
+            return;
+        }
+        
+        productList.innerHTML = '';
+        
+        let tieneProductosDisponibles = false;
+        let productosBebida = 0;
+        
+        console.log('📦 Cargando productos disponibles en modal:', facturaActual.productosDisponibles.length);
+        
+        facturaActual.productosDisponibles.forEach((item, index) => {
+            console.log('Cargando producto en modal:', item);
+            const productoNombre = item.nombre || 'Producto sin nombre';
+            const cantidadDisponible = item.cantidad_disponible || 0;
+            const cantidadYaDevuelta = item.cantidad_ya_devuelta || 0;
+            const cantidadOriginal = item.cantidad || 0;
+            const codigoProducto = item.codigo || '';
+            const categoria = item.categoria || '';
             
-            const productList = document.getElementById('productListModal');
-            if (!productList) return;
-            
-            productList.innerHTML = '';
-            
-            let tieneProductosDisponibles = false;
-            
-            // Verificar que items sea un array
-            if (!Array.isArray(facturaActual.items)) {
-                console.error('Los items no son un array válido:', facturaActual.items);
+            // Solo mostrar productos que todavía se pueden devolver
+            if (cantidadDisponible <= 0) {
+                console.log(`Producto ${productoNombre} no disponible para devolver (ya devuelto completamente)`);
                 return;
             }
             
-            facturaActual.items.forEach((item, index) => {
-                if (!item) return;
-                
-                const productoNombre = item.nombre || `Producto ${index + 1}`;
-                const maxCantidad = parseInt(item.cantidad) || 1;
-                
-                // Calcular cantidad ya devuelta de este producto
-                const cantidadYaDevuelta = calcularCantidadYaDevuelta(productoNombre);
-                const cantidadDisponible = maxCantidad - cantidadYaDevuelta;
-                
-                // Solo mostrar productos que todavía se pueden devolver
-                if (cantidadDisponible <= 0) {
-                    return;
-                }
-                
-                tieneProductosDisponibles = true;
-                const categoria = item.categoria || '';
-                const esBebida = categoria.toLowerCase() === 'bebida';
-                const precio = parseFloat(item.precio) || 0;
-                
-                const productItem = document.createElement('div');
-                productItem.className = 'product-item-wrapper';
-                productItem.innerHTML = `
-                    <label class="product-item">
-                        <input type="checkbox" class="product-checkbox" 
-                               data-index="${index}"
-                               data-nombre="${productoNombre.replace(/"/g, '&quot;')}" 
-                               data-price="${precio}" 
-                               data-max-qty="${cantidadDisponible}"
-                               data-categoria="${categoria}"
-                               onchange="actualizarTotalDevolucion()">
-                        <div class="product-info">
-                            <div class="product-name">${productoNombre}</div>
-                            <div class="product-details">
-                                <div>Precio unitario: $${precio.toFixed(2)}</div>
-                                <div>Disponible para devolver: ${cantidadDisponible} de ${maxCantidad}</div>
-                                ${cantidadYaDevuelta > 0 ? `<div style="color: #667eea;">Ya devuelto: ${cantidadYaDevuelta}</div>` : ''}
-                                ${esBebida ? '<div style="color: #4CAF50;"><i class="fas fa-wine-bottle"></i> Bebida (stock se repone)</div>' : ''}
-                            </div>
-                        </div>
-                    </label>
-                    <div class="product-quantity-control">
-                        <div class="quantity-selector">
-                            <button type="button" class="qty-btn qty-minus" onclick="disminuirCantidad(${index})" title="Disminuir cantidad">
-                                <i class="fas fa-minus"></i>
-                            </button>
-                            <input type="number" class="qty-input product-qty-${index}" 
-                                   value="1" min="1" max="${cantidadDisponible}" 
-                                   onchange="actualizarCantidadDesdeInput(${index})"
-                                   oninput="validarCantidadInput(${index}, ${cantidadDisponible})">
-                            <button type="button" class="qty-btn qty-plus" onclick="aumentarCantidad(${index}, ${cantidadDisponible})" title="Aumentar cantidad">
-                                <i class="fas fa-plus"></i>
-                            </button>
-                        </div>
-                        <div class="product-total-price" id="price-${index}">$${precio.toFixed(2)}</div>
-                    </div>
-                `;
-                productList.appendChild(productItem);
-            });
+            tieneProductosDisponibles = true;
+            const esBebida = categoria.toLowerCase() === 'bebida';
+            if (esBebida) productosBebida++;
             
-            // Si no hay productos disponibles para devolver
-            if (!tieneProductosDisponibles) {
-                productList.innerHTML = `
-                    <div style="text-align: center; padding: 2rem; color: #718096;">
-                        <i class="fas fa-check-circle" style="font-size: 3rem; margin-bottom: 1rem; color: #4CAF50;"></i>
-                        <p><strong>Todos los productos han sido devueltos</strong></p>
-                        <p>No hay productos disponibles para devolver en esta factura.</p>
+            const productItem = document.createElement('div');
+            productItem.className = 'product-item-wrapper';
+            productItem.innerHTML = `
+                <label class="product-item">
+                    <input type="checkbox" class="product-checkbox" 
+                           data-index="${index}"
+                           data-nombre="${productoNombre}" 
+                           data-codigo="${codigoProducto}"
+                           data-price="${item.precio || 0}" 
+                           data-max-qty="${cantidadDisponible}"
+                           data-categoria="${categoria}"
+                           onchange="actualizarTotalDevolucion()">
+                    <div class="product-info">
+                        <div class="product-name">${productoNombre}</div>
+                        <div class="product-details">
+                            <div>Precio unitario: $${(item.precio || 0).toFixed(2)}</div>
+                            <div>Disponible para devolver: ${cantidadDisponible} de ${cantidadOriginal}</div>
+                            ${codigoProducto ? `<div>Código: <strong>${codigoProducto}</strong></div>` : '<div>Código: <em>No disponible</em></div>'}
+                            ${cantidadYaDevuelta > 0 ? `<div style="color: #667eea;">Ya devuelto: ${cantidadYaDevuelta}</div>` : ''}
+                            ${esBebida ? '<div style="color: #4CAF50;"><i class="fas fa-wine-bottle"></i> Bebida (stock se repone)</div>' : ''}
+                        </div>
                     </div>
-                `;
-                const confirmBtn = document.getElementById('confirmarDevolucionBtn');
-                if (confirmBtn) confirmBtn.disabled = true;
-            }
-            
+                </label>
+                <div class="product-quantity-control">
+                    <div class="quantity-selector">
+                        <button type="button" class="qty-btn qty-minus" onclick="disminuirCantidad(${index})" title="Disminuir cantidad">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <input type="number" class="qty-input product-qty-${index}" 
+                               value="1" min="1" max="${cantidadDisponible}" 
+                               onchange="actualizarCantidadDesdeInput(${index})"
+                               oninput="validarCantidadInput(${index}, ${cantidadDisponible})">
+                        <button type="button" class="qty-btn qty-plus" onclick="aumentarCantidad(${index}, ${cantidadDisponible})" title="Aumentar cantidad">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="product-total-price" id="price-${index}">$${(item.precio || 0).toFixed(2)}</div>
+                </div>
+            `;
+            productList.appendChild(productItem);
+        });
+        
+        // Si no hay productos disponibles para devolver
+        if (!tieneProductosDisponibles) {
+            productList.innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: #718096;">
+                    <i class="fas fa-check-circle" style="font-size: 3rem; margin-bottom: 1rem; color: #4CAF50;"></i>
+                    <p><strong>Todos los productos han sido devueltos</strong></p>
+                    <p>No hay productos disponibles para devolver en esta factura.</p>
+                </div>
+            `;
+            const confirmBtn = document.getElementById('confirmarDevolucionBtn');
+            if (confirmBtn) confirmBtn.disabled = true;
+        } else {
+            console.log(`✅ ${productosBebida} producto(s) bebida disponible(s) para reposición de stock`);
+        }
+        
+        actualizarTotalDevolucion();
+    }
+    
+    // Aumentar cantidad en el modal
+    function aumentarCantidad(index, maxCantidad) {
+        const input = document.querySelector(`.product-qty-${index}`);
+        if (!input) return;
+        
+        const currentValue = parseInt(input.value) || 1;
+        const newValue = currentValue + 1;
+        
+        if (newValue <= maxCantidad) {
+            input.value = newValue;
+            actualizarCantidad(index, newValue);
+        }
+    }
+    
+    // Disminuir cantidad en el modal
+    function disminuirCantidad(index) {
+        const input = document.querySelector(`.product-qty-${index}`);
+        if (!input) return;
+        
+        const currentValue = parseInt(input.value) || 1;
+        if (currentValue > 1) {
+            input.value = currentValue - 1;
+            actualizarCantidad(index, currentValue - 1);
+        }
+    }
+    
+    // Actualizar cantidad desde input
+    function actualizarCantidadDesdeInput(index) {
+        const input = document.querySelector(`.product-qty-${index}`);
+        if (!input) return;
+        
+        const cantidad = parseInt(input.value) || 1;
+        actualizarCantidad(index, cantidad);
+    }
+    
+    // Validar cantidad en input
+    function validarCantidadInput(index, maxCantidad) {
+        const input = document.querySelector(`.product-qty-${index}`);
+        if (!input) return;
+        
+        let value = parseInt(input.value) || 1;
+        
+        if (isNaN(value) || value < 1) {
+            value = 1;
+        } else if (value > maxCantidad) {
+            value = maxCantidad;
+        }
+        
+        input.value = value;
+        actualizarCantidad(index, value);
+    }
+    
+    // Actualizar cantidad de un producto
+    function actualizarCantidad(index, cantidad) {
+        const checkbox = document.querySelector(`.product-checkbox[data-index="${index}"]`);
+        if (!checkbox) return;
+        
+        // Validar cantidad máxima
+        const maxCantidad = parseInt(checkbox.dataset.maxQty) || 1;
+        if (cantidad > maxCantidad) {
+            cantidad = maxCantidad;
+            const input = document.querySelector(`.product-qty-${index}`);
+            if (input) input.value = cantidad;
+        }
+        
+        if (cantidad < 1) {
+            cantidad = 1;
+            const input = document.querySelector(`.product-qty-${index}`);
+            if (input) input.value = cantidad;
+        }
+        
+        if (checkbox.checked) {
             actualizarTotalDevolucion();
         }
+    }
+    
+    // Actualizar total de devolución
+    function actualizarTotalDevolucion() {
+        const selectedCheckboxes = document.querySelectorAll('.product-checkbox:checked');
+        let total = 0;
+        let productosSeleccionados = [];
         
-        // Aumentar cantidad en el modal
-        function aumentarCantidad(index, maxCantidad) {
-            const input = document.querySelector(`.product-qty-${index}`);
-            if (!input) return;
+        selectedCheckboxes.forEach(checkbox => {
+            const index = checkbox.dataset.index;
+            const precio = parseFloat(checkbox.dataset.price);
+            const cantidad = parseInt(document.querySelector(`.product-qty-${index}`).value) || 1;
+            const subtotal = precio * cantidad;
             
-            const currentValue = parseInt(input.value) || 1;
-            const newValue = currentValue + 1;
+            total += subtotal;
             
-            if (newValue <= maxCantidad) {
-                input.value = newValue;
-                actualizarCantidadDesdeInput(index);
-            }
-        }
-        
-        // Disminuir cantidad en el modal
-        function disminuirCantidad(index) {
-            const input = document.querySelector(`.product-qty-${index}`);
-            if (!input) return;
-            
-            const currentValue = parseInt(input.value) || 1;
-            if (currentValue > 1) {
-                input.value = currentValue - 1;
-                actualizarCantidadDesdeInput(index);
-            }
-        }
-        
-        // Actualizar cantidad desde input
-        function actualizarCantidadDesdeInput(index) {
-            const input = document.querySelector(`.product-qty-${index}`);
-            if (!input) return;
-            
-            const cantidad = parseInt(input.value) || 1;
-            actualizarCantidad(index, cantidad);
-        }
-        
-        // Validar cantidad en input
-        function validarCantidadInput(index, maxCantidad) {
-            const input = document.querySelector(`.product-qty-${index}`);
-            if (!input) return;
-            
-            let value = parseInt(input.value) || 1;
-            
-            if (isNaN(value) || value < 1) {
-                value = 1;
-            } else if (value > maxCantidad) {
-                value = maxCantidad;
+            // Actualizar precio mostrado
+            const priceElement = document.getElementById(`price-${index}`);
+            if (priceElement) {
+                priceElement.textContent = `$${subtotal.toFixed(2)}`;
             }
             
-            input.value = value;
-            actualizarCantidad(index, value);
-        }
-        
-        // Actualizar cantidad de un producto
-        function actualizarCantidad(index, cantidad) {
-            const checkbox = document.querySelector(`.product-checkbox[data-index="${index}"]`);
-            if (!checkbox) return;
-            
-            // Validar cantidad máxima
-            const maxCantidad = parseInt(checkbox.dataset.maxQty) || 1;
-            if (cantidad > maxCantidad) {
-                cantidad = maxCantidad;
-                const input = document.querySelector(`.product-qty-${index}`);
-                if (input) input.value = cantidad;
-            }
-            
-            if (cantidad < 1) {
-                cantidad = 1;
-                const input = document.querySelector(`.product-qty-${index}`);
-                if (input) input.value = cantidad;
-            }
-            
-            if (checkbox.checked) {
-                actualizarTotalDevolucion();
-            }
-        }
-        
-        // Actualizar total de devolución
-        function actualizarTotalDevolucion() {
-            const selectedCheckboxes = document.querySelectorAll('.product-checkbox:checked');
-            let total = 0;
-            let productosSeleccionados = [];
-            
-            selectedCheckboxes.forEach(checkbox => {
-                const index = checkbox.dataset.index;
-                const precio = parseFloat(checkbox.dataset.price) || 0;
-                const input = document.querySelector(`.product-qty-${index}`);
-                const cantidad = input ? parseInt(input.value) || 1 : 1;
-                const subtotal = precio * cantidad;
-                
-                total += subtotal;
-                
-                // Actualizar precio mostrado
-                const priceElement = document.getElementById(`price-${index}`);
-                if (priceElement) {
-                    priceElement.textContent = `$${subtotal.toFixed(2)}`;
-                }
-                
-                productosSeleccionados.push({
-                    nombre: checkbox.dataset.nombre,
-                    cantidad: cantidad,
-                    precio: precio,
-                    subtotal: subtotal,
-                    categoria: checkbox.dataset.categoria
-                });
+            productosSeleccionados.push({
+                nombre: checkbox.dataset.nombre,
+                codigo: checkbox.dataset.codigo || '',
+                cantidad: cantidad,
+                precio: precio,
+                subtotal: subtotal,
+                categoria: checkbox.dataset.categoria
             });
-            
-            // Actualizar total
-            const totalElement = document.getElementById('partialReturnTotal');
-            if (totalElement) {
-                totalElement.textContent = `$${total.toFixed(2)}`;
-            }
-            
-            // Actualizar input hidden con productos seleccionados
-            const productosInput = document.getElementById('productosDevueltosInput');
-            if (productosInput) {
-                productosInput.value = JSON.stringify(productosSeleccionados);
-            }
-            
-            // Habilitar/deshabilitar botón de confirmar
-            const confirmBtn = document.getElementById('confirmarDevolucionBtn');
-            if (confirmBtn) {
-                if (selectedCheckboxes.length > 0) {
-                    confirmBtn.disabled = false;
-                } else {
-                    confirmBtn.disabled = true;
-                }
-            }
+        });
+        
+        // Actualizar total
+        const totalElement = document.getElementById('partialReturnTotal');
+        if (totalElement) {
+            totalElement.textContent = `$${total.toFixed(2)}`;
         }
         
-        // Obtener productos seleccionados
-        function obtenerProductosSeleccionados() {
-            const selectedCheckboxes = document.querySelectorAll('.product-checkbox:checked');
-            let productos = [];
-            
-            selectedCheckboxes.forEach(checkbox => {
-                const index = checkbox.dataset.index;
-                const input = document.querySelector(`.product-qty-${index}`);
-                const cantidad = input ? parseInt(input.value) || 1 : 1;
-                
-                productos.push({
-                    nombre: checkbox.dataset.nombre,
-                    cantidad: cantidad,
-                    precio: parseFloat(checkbox.dataset.price) || 0,
-                    categoria: checkbox.dataset.categoria
-                });
-            });
-            
-            return productos;
+        // Actualizar input hidden con productos seleccionados
+        const productosInput = document.getElementById('productosDevueltosInput');
+        if (productosInput) {
+            productosInput.value = JSON.stringify(productosSeleccionados);
+            console.log('Productos a devolver:', productosSeleccionados);
         }
         
-        // Calcular total de devolución
-        function calcularTotalDevolucion() {
-            const selectedCheckboxes = document.querySelectorAll('.product-checkbox:checked');
-            let total = 0;
-            
-            selectedCheckboxes.forEach(checkbox => {
-                const index = checkbox.dataset.index;
-                const precio = parseFloat(checkbox.dataset.price) || 0;
-                const input = document.querySelector(`.product-qty-${index}`);
-                const cantidad = input ? parseInt(input.value) || 1 : 1;
-                total += precio * cantidad;
-            });
-            
-            return total;
-        }
-        
-        // Resetear selecciones del modal
-        function resetearSeleccionesModal() {
-            document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = false);
-            document.querySelectorAll('.qty-input').forEach(input => {
-                if (input) input.value = '1';
-            });
-            
-            const totalElement = document.getElementById('partialReturnTotal');
-            if (totalElement) {
-                totalElement.textContent = '$0.00';
-            }
-            
-            const confirmBtn = document.getElementById('confirmarDevolucionBtn');
-            if (confirmBtn) {
+        // Habilitar/deshabilitar botón de confirmar
+        const confirmBtn = document.getElementById('confirmarDevolucionBtn');
+        if (confirmBtn) {
+            if (selectedCheckboxes.length > 0) {
+                confirmBtn.disabled = false;
+            } else {
                 confirmBtn.disabled = true;
             }
         }
-        
-        // Mostrar mensaje para cambio de producto
-        function mostrarMensajeCambio() {
-            mostrarAlerta('La funcionalidad de cambio de producto está en desarrollo. Por ahora, usa la opción "Devolver Items" y crea una nueva factura para el cambio.', 'info');
-        }
-        
-        // Mostrar alerta
-        function mostrarAlerta(mensaje, tipo = 'info') {
-            // Crear elemento de alerta
-            const alerta = document.createElement('div');
-            alerta.className = `alert alert-${tipo}`;
-            
-            // Icono según tipo
-            let icono = 'info-circle';
-            if (tipo === 'success') icono = 'check-circle';
-            if (tipo === 'error') icono = 'exclamation-circle';
-            if (tipo === 'warning') icono = 'exclamation-triangle';
-            
-            alerta.innerHTML = `
-                <i class="fas fa-${icono}"></i>
-                ${mensaje}
-            `;
-            
-            // Agregar al contenedor de mensajes
-            const mensajesContainer = document.querySelector('.messages-container');
-            if (mensajesContainer) {
-                mensajesContainer.appendChild(alerta);
-                
-                // Remover después de 5 segundos
-                setTimeout(() => {
-                    if (alerta.parentElement) {
-                        alerta.style.opacity = '0';
-                        alerta.style.transition = 'opacity 0.3s';
-                        setTimeout(() => {
-                            if (alerta.parentElement) {
-                                alerta.remove();
-                            }
-                        }, 300);
-                    }
-                }, 5000);
-            }
-        }
-    </script>
+    }
     
+    // Obtener productos seleccionados
+    function obtenerProductosSeleccionados() {
+        const selectedCheckboxes = document.querySelectorAll('.product-checkbox:checked');
+        let productos = [];
+        
+        selectedCheckboxes.forEach(checkbox => {
+            const index = checkbox.dataset.index;
+            const cantidad = parseInt(document.querySelector(`.product-qty-${index}`).value) || 1;
+            
+            productos.push({
+                nombre: checkbox.dataset.nombre,
+                codigo: checkbox.dataset.codigo || '',
+                cantidad: cantidad,
+                precio: parseFloat(checkbox.dataset.price),
+                categoria: checkbox.dataset.categoria
+            });
+        });
+        
+        return productos;
+    }
+    
+    // Calcular total de devolución
+    function calcularTotalDevolucion() {
+        const selectedCheckboxes = document.querySelectorAll('.product-checkbox:checked');
+        let total = 0;
+        
+        selectedCheckboxes.forEach(checkbox => {
+            const index = checkbox.dataset.index;
+            const precio = parseFloat(checkbox.dataset.price);
+            const cantidad = parseInt(document.querySelector(`.product-qty-${index}`).value) || 1;
+            total += precio * cantidad;
+        });
+        
+        return total;
+    }
+    
+    // Resetear selecciones del modal
+    function resetearSeleccionesModal() {
+        document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = false);
+        document.querySelectorAll('.qty-input').forEach(input => {
+            if (input) input.value = '1';
+        });
+        
+        // Resetear todos los precios individuales
+        document.querySelectorAll('.product-total-price').forEach((priceEl, index) => {
+            const checkbox = document.querySelector(`.product-checkbox[data-index="${index}"]`);
+            if (checkbox) {
+                const precio = parseFloat(checkbox.dataset.price) || 0;
+                priceEl.textContent = `$${precio.toFixed(2)}`;
+            }
+        });
+        
+        const totalElement = document.getElementById('partialReturnTotal');
+        if (totalElement) {
+            totalElement.textContent = '$0.00';
+        }
+        
+        const confirmBtn = document.getElementById('confirmarDevolucionBtn');
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+        }
+    }
+    
+    // Mostrar mensaje para cambio de producto
+    function mostrarMensajeCambio() {
+        mostrarAlerta('La funcionalidad de cambio de producto está en desarrollo. Por ahora, usa la opción "Devolver Items" y crea una nueva factura para el cambio.', 'info');
+    }
+    
+    // Mostrar alerta
+    function mostrarAlerta(mensaje, tipo = 'info') {
+        // Crear elemento de alerta
+        const alerta = document.createElement('div');
+        alerta.className = `alert alert-${tipo}`;
+        
+        // Icono según tipo
+        let icono = 'info-circle';
+        if (tipo === 'success') icono = 'check-circle';
+        if (tipo === 'error') icono = 'exclamation-circle';
+        if (tipo === 'warning') icono = 'exclamation-triangle';
+        
+        alerta.innerHTML = `
+            <i class="fas fa-${icono}"></i>
+            ${mensaje}
+        `;
+        
+        // Agregar al contenedor de mensajes
+        const mensajesContainer = document.querySelector('.messages-container');
+        if (mensajesContainer) {
+            mensajesContainer.appendChild(alerta);
+            
+            // Remover después de 5 segundos
+            setTimeout(() => {
+                if (alerta.parentElement) {
+                    alerta.style.opacity = '0';
+                    alerta.style.transition = 'opacity 0.3s';
+                    setTimeout(() => {
+                        if (alerta.parentElement) {
+                            alerta.remove();
+                        }
+                    }, 300);
+                }
+            }, 5000);
+        }
+    }
+    
+    // Mostrar loading
+    function mostrarLoading() {
+        const loadingElement = document.getElementById('loadingSpinner');
+
+if (loadingElement) {
+        loadingElement.style.display = 'block';
+    }
+}
+
+// Ocultar loading
+function ocultarLoading() {
+    const loadingElement = document.getElementById('loadingSpinner');
+    if (loadingElement) {
+        loadingElement.style.display = 'none';
+    }
+}
+    </script>
 </body>
 </html>

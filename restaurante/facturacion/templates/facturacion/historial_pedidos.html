@@ -1,9 +1,10 @@
-<!DOCTYPE html>
+<!DOCTYPE html>{% load static %}
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Historial de Pedidos Pagados - Restaurante</title>
+    <link rel="icon" href="{% static 'img/fasfoot1.ico' %}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Usa los mismos estilos que gestiondepedidos.html o crea un CSS específico */
@@ -891,7 +892,10 @@
                         <div class="controls-header">
                             <h3>Buscar en el Historial</h3>
                             <div style="display: flex; gap: 1rem;">
-                                <button class="btn btn-warning btn-sm" onclick="window.location.href='{% url 'gestiondepedidos' %}'" type="button">
+                                <button class="btn btn-warning btn-sm" 
+                                        type="button"
+                                        data-url="{% url 'gestiondepedidos' %}" 
+                                        onclick="window.location.href=this.dataset.url">
                                     <span><i class="fas fa-arrow-left"></i></span>
                                     <span>Volver a Activos</span>
                                 </button>

@@ -13,14 +13,14 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import os
 
-from dotenv import load_dotenv
 # from dotenv import load_dotenv
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# load_dotenv()
 load_dotenv()
+# load_dotenv()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -117,6 +117,32 @@ DATABASES = {
     }
 }
 
+
+
+
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.mysql",
+#         "NAME": "restaurante",
+#         "USER": "root",
+#         "PASSWORD": "",
+#         "HOST": "localhost",
+#         "PORT": "3306",
+#         "OPTIONS": {
+#             # Usar offset numérico en lugar de nombre de zona
+#             "init_command": "SET time_zone = '-04:00'",  # Para República Dominicana (UTC-4)
+#             # Otras opciones importantes
+#             "charset": "utf8mb4",
+#             "use_unicode": True,
+#         },
+#         # Esto es crucial para MySQL con Django
+        
+#     }
+# }
+
+
+
+
 # En tu settings.py, agrega esto:
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -155,11 +181,11 @@ STATIC_ROOT = BASE_DIR / "staticfiles"   # aquí se copiará todo
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-#TIME_ZONE = 'America/Santo_Domingo'  # Mantener para Django
+TIME_ZONE = 'America/Santo_Domingo'  # Mantener para Django
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# TIME_ZONE = 'UTC'
 
 USE_I18N = True
 

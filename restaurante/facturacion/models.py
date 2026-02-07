@@ -6,7 +6,8 @@ from decimal import Decimal
 from django.db.models import Max
 import re
 from django.contrib.auth.models import User
-
+import json
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class Producto(models.Model):
     # Opciones de categoría
@@ -598,8 +599,13 @@ class HistorialEstadoPedido(models.Model):
         ordering = ['-fecha_cambio']
 
 
-from django.utils import timezone
+from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
+from decimal import Decimal
+import json
+from django.core.serializers.json import DjangoJSONEncoder
+
 
 class Factura(models.Model):
     """Modelo para almacenar facturas generadas"""
@@ -672,10 +678,10 @@ class Factura(models.Model):
     estado = models.CharField(
         max_length=30,
         choices=ESTADO_FACTURA_CHOICES,
-        default='pendiente',  # CAMBIADO: Ahora por defecto es 'pendiente'
+        default='pendiente',
         verbose_name="Estado de la Factura"
     )
-
+    
     productos_devueltos = models.JSONField(
         null=True,
         blank=True,
@@ -687,6 +693,11 @@ class Factura(models.Model):
         null=True,
         blank=True,
         verbose_name="Fecha de Devolución"
+    )
+    
+    motivo_anulacion = models.TextField(
+        blank=True,
+        verbose_name="Motivo de Anulación"
     )
     
     # Totales
@@ -705,6 +716,12 @@ class Factura(models.Model):
         decimal_places=2,
         default=0,
         verbose_name="Costo de Envío"
+    )
+    descuento = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name="Descuento"
     )
     total = models.DecimalField(
         max_digits=10,
@@ -772,16 +789,242 @@ class Factura(models.Model):
         super().save(*args, **kwargs)
     
     def get_items_detalle(self):
-        """Obtener los items de la factura como lista"""
+        """Obtener los items de la factura como lista normalizada"""
         try:
-            return json.loads(self.items) if isinstance(self.items, str) else self.items
-        except:
+            # Obtener items como JSON
+            items_raw = self.items
+            
+            print(f"\n🔍 GET_ITEMS_DETALLE - Factura: {self.numero_factura}")
+            print(f"   Tipo de items_raw: {type(items_raw)}")
+            
+            # Si items_raw es None o vacío
+            if not items_raw:
+                print(f"   ❌ Campo 'items' está vacío o es None")
+                return []
+            
+            # Si es una cadena, intentar convertir a JSON
+            if isinstance(items_raw, str):
+                print(f"   📝 Es una cadena, intentando parsear JSON...")
+                print(f"   📝 Longitud: {len(items_raw)}")
+                
+                items_raw = items_raw.strip()
+                
+                if not items_raw:
+                    print(f"   ❌ Cadena vacía después de strip()")
+                    return []
+                
+                try:
+                    items = json.loads(items_raw)
+                    print(f"   ✅ JSON parseado exitosamente")
+                except json.JSONDecodeError as e:
+                    print(f"   ❌ Error de decodificación JSON: {e}")
+                    try:
+                        if items_raw.startswith("'") and items_raw.endswith("'"):
+                            items_raw = items_raw[1:-1].replace("'", '"')
+                        items_raw = items_raw.replace("'", '"')
+                        items = json.loads(items_raw)
+                        print(f"   ✅ JSON reparado y parseado")
+                    except Exception as e2:
+                        print(f"   ❌ No se pudo reparar el JSON: {e2}")
+                        return []
+            else:
+                items = items_raw
+                print(f"   ✅ Ya es de tipo: {type(items)}")
+            
+            # Si items es un diccionario, convertirlo a lista
+            if isinstance(items, dict):
+                print(f"   🔄 Convirtiendo diccionario a lista...")
+                if 'items' in items:
+                    items = items['items']
+                elif 'productos' in items:
+                    items = items['productos']
+                else:
+                    items = [items]
+            
+            # Asegurarse de que items es una lista
+            if not isinstance(items, list):
+                print(f"   ⚠️  Items no es una lista, es: {type(items)}. Convirtiendo...")
+                items = [items] if items else []
+            
+            print(f"   📋 Total de items encontrados: {len(items)}")
+            
+            if not items:
+                print(f"   ⚠️  Lista de items vacía")
+                return []
+            
+            # Normalizar estructura
+            items_normalizados = []
+            
+            for i, item in enumerate(items):
+                print(f"\n   🔍 Procesando item {i+1}:")
+                
+                nombre = (
+                    item.get('nombre') or 
+                    item.get('name') or 
+                    item.get('producto') or 
+                    item.get('product') or 
+                    f'Producto {i+1}'
+                )
+                
+                print(f"      Nombre: {nombre}")
+                
+                # Asegurar que cantidad sea numérico
+                cantidad_str = str(item.get('cantidad') or item.get('quantity') or item.get('qty') or '1')
+                try:
+                    cantidad = float(cantidad_str)
+                except (ValueError, TypeError):
+                    cantidad = 1.0
+                    print(f"      ⚠️  Cantidad inválida '{cantidad_str}', usando 1.0")
+                
+                print(f"      Cantidad: {cantidad}")
+                
+                # Asegurar que precio sea numérico
+                precio_str = str(item.get('precio') or item.get('price') or item.get('unit_price') or '0')
+                try:
+                    precio = float(precio_str)
+                except (ValueError, TypeError):
+                    precio = 0.0
+                    print(f"      ⚠️  Precio inválido '{precio_str}', usando 0.0")
+                
+                print(f"      Precio: {precio}")
+                
+                # Calcular subtotal
+                subtotal = cantidad * precio
+                
+                # Obtener categoría
+                categoria = (
+                    item.get('categoria') or 
+                    item.get('category') or 
+                    item.get('categ') or 
+                    'otro'
+                ).lower()
+                
+                print(f"      Categoría: {categoria}")
+                
+                # Obtener IDs
+                producto_id = item.get('producto_id') or item.get('product_id') or item.get('id')
+                
+                # Obtener código
+                codigo = item.get('codigo') or item.get('code') or ''
+                
+                # Buscar producto en la base de datos para completar información faltante
+                if not codigo or categoria == 'otro':
+                    from .models import Producto  # Import local para evitar circular
+                    producto_db = None
+                    
+                    # Buscar por ID primero
+                    if producto_id:
+                        try:
+                            producto_db = Producto.objects.filter(id=producto_id).first()
+                            if producto_db:
+                                print(f"      ✅ Producto encontrado por ID: {producto_db.nombre}")
+                        except Exception as e:
+                            print(f"      ❌ Error al buscar producto por ID: {e}")
+                    
+                    # Si no se encontró por ID, buscar por nombre
+                    if not producto_db and nombre:
+                        try:
+                            producto_db = Producto.objects.filter(
+                                nombre__iexact=nombre.strip()
+                            ).first()
+                            if producto_db:
+                                print(f"      ✅ Producto encontrado por nombre: {producto_db.nombre}")
+                        except Exception as e:
+                            print(f"      ❌ Error al buscar producto por nombre: {e}")
+                    
+                    # Completar información con datos de la base de datos
+                    if producto_db:
+                        if not codigo:
+                            codigo = producto_db.codigo
+                            print(f"      ✅ Código actualizado: {codigo}")
+                        if categoria == 'otro':
+                            categoria = producto_db.categoria.lower()
+                            print(f"      ✅ Categoría actualizada: {categoria}")
+                
+                items_normalizados.append({
+                    'producto_id': producto_id,
+                    'codigo': codigo,
+                    'nombre': nombre,
+                    'cantidad': cantidad,
+                    'precio': precio,
+                    'subtotal': subtotal,
+                    'categoria': categoria
+                })
+            
+            print(f"\n   ✅ Items normalizados: {len(items_normalizados)}")
+            return items_normalizados
+            
+        except Exception as e:
+            print(f"\n❌ ERROR en get_items_detalle para factura {self.numero_factura}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return []
+    
+    def get_cantidad_ya_devuelta(self, producto_nombre):
+        """Calcular cuántas unidades de un producto ya fueron devueltas"""
+        total_devuelto = 0
+        
+        # Obtener todas las devoluciones de esta factura
+        devoluciones = self.devoluciones.all()
+        
+        for devolucion in devoluciones:
+            if devolucion.productos_devueltos:
+                for producto in devolucion.productos_devueltos:
+                    # Comparar nombres (case-insensitive y sin espacios extra)
+                    nombre_dev = str(producto.get('nombre', '')).strip().lower()
+                    nombre_buscar = str(producto_nombre).strip().lower()
+                    
+                    if nombre_dev == nombre_buscar:
+                        total_devuelto += float(producto.get('cantidad', 0))
+        
+        return total_devuelto
+    
+    def get_productos_disponibles_devolucion(self):
+        """Obtener productos con cantidades disponibles para devolución"""
+        items = self.get_items_detalle()
+        productos_disponibles = []
+        
+        for item in items:
+            nombre = item.get('nombre', '')
+            cantidad_original = float(item.get('cantidad', 0))
+            cantidad_devuelta = self.get_cantidad_ya_devuelta(nombre)
+            cantidad_disponible = cantidad_original - cantidad_devuelta
+            
+            if cantidad_disponible > 0:
+                item_copy = item.copy()
+                item_copy['cantidad_disponible'] = cantidad_disponible
+                item_copy['cantidad_ya_devuelta'] = cantidad_devuelta
+                productos_disponibles.append(item_copy)
+        
+        return productos_disponibles
+    
+    def get_resumen_devoluciones(self):
+        """Obtener resumen completo de devoluciones"""
+        devoluciones = self.devoluciones.all()
+        resumen = {
+            'total_devuelto': Decimal('0.00'),
+            'productos': {}
+        }
+        
+        for devolucion in devoluciones:
+            resumen['total_devuelto'] += devolucion.monto_devuelto
+            
+            if devolucion.productos_devueltos:
+                for producto in devolucion.productos_devueltos:
+                    nombre = producto.get('nombre', '')
+                    cantidad = float(producto.get('cantidad', 0))
+                    
+                    if nombre in resumen['productos']:
+                        resumen['productos'][nombre] += cantidad
+                    else:
+                        resumen['productos'][nombre] = cantidad
+        
+        return resumen
     
     def get_cantidad_items(self):
         """Obtener cantidad total de items"""
         items = self.get_items_detalle()
-        return sum(item.get('quantity', 0) for item in items)
+        return sum(item.get('cantidad', 0) for item in items)
     
     def marcar_como_pagada(self):
         """Marcar la factura como pagada y actualizar el estado del pedido"""
@@ -799,13 +1042,41 @@ class Factura(models.Model):
         self.fecha_impresion = timezone.now()
         self.save()
     
+    def get_resumen_productos(self):
+        """Obtener resumen de productos para depuración"""
+        items = self.get_items_detalle()
+        resumen = []
+        
+        for item in items:
+            resumen.append({
+                'nombre': item.get('nombre', 'Desconocido'),
+                'codigo': item.get('codigo', 'Sin código'),
+                'cantidad': item.get('cantidad', 0),
+                'categoria': item.get('categoria', 'Desconocida')
+            })
+        
+        return resumen
+    
+    def imprimir_info_depuracion(self):
+        """Imprimir información de depuración en consola"""
+        print(f"\n{'='*60}")
+        print(f"📄 FACTURA: {self.numero_factura}")
+        print(f"📦 Items en factura ({len(self.get_items_detalle())}):")
+        
+        for i, item in enumerate(self.get_items_detalle(), 1):
+            print(f"  {i}. {item.get('nombre', 'Sin nombre')}")
+            print(f"     Código: '{item.get('codigo', 'Sin código')}'")
+            print(f"     Cantidad: {item.get('cantidad', 0)}")
+            print(f"     Categoría: '{item.get('categoria', '')}'")
+            print(f"     Precio: ${item.get('precio', 0):.2f}")
+        
+        print(f"{'='*60}\n")
+    
     class Meta:
         verbose_name = "Factura"
         verbose_name_plural = "Facturas"
         ordering = ['-fecha_factura']
 
-
-# models.py - Agrega este modelo
 class SalidaProducto(models.Model):
     MOTIVOS = [
         ('venta', 'Venta'),
@@ -919,3 +1190,84 @@ class Devolucion(models.Model):
         verbose_name = "Devolución"
         verbose_name_plural = "Devoluciones"
         ordering = ['-fecha_devolucion']
+        
+        
+        
+        
+        
+        
+class Cliente(models.Model):
+    cedula = models.CharField(
+        max_length=11,
+        unique=True,
+        verbose_name="Cédula",
+        help_text="Debe contener exactamente 11 dígitos"
+    )
+    nombre_completo = models.CharField(
+        max_length=200,
+        verbose_name="Nombre Completo"
+    )
+    direccion = models.TextField(
+        verbose_name="Dirección"
+    )
+    telefono_principal = models.CharField(
+        max_length=10,
+        verbose_name="Teléfono Principal"
+    )
+    telefono_alternativo = models.CharField(
+        max_length=10,
+        blank=True,
+        null=True,
+        verbose_name="Teléfono Alternativo"
+    )
+    limite_credito = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        validators=[MinValueValidator(0)],
+        verbose_name="Límite de Crédito"
+    )
+    dias_credito = models.PositiveIntegerField(
+        default=30,
+        validators=[MaxValueValidator(365)],
+        verbose_name="Días de Crédito"
+    )
+    notas_credito = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Notas sobre Crédito"
+    )
+    fecha_registro = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de Registro"
+    )
+    fecha_actualizacion = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Fecha de Actualización"
+    )
+    activo = models.BooleanField(
+        default=True,
+        verbose_name="Cliente Activo"
+    )
+
+    class Meta:
+        verbose_name = "Cliente"
+        verbose_name_plural = "Clientes"
+        ordering = ['nombre_completo']
+        indexes = [
+            models.Index(fields=['cedula']),
+            models.Index(fields=['nombre_completo']),
+        ]
+
+    def __str__(self):
+        return f"{self.nombre_completo} ({self.cedula})"
+
+    @property
+    def tiene_credito(self):
+        """Verifica si el cliente tiene crédito disponible"""
+        return self.limite_credito > 0
+
+    @property
+    def venta_contado(self):
+        """Verifica si el cliente es solo al contado"""
+        return self.dias_credito == 0
