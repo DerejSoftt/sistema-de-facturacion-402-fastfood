@@ -1,12 +1,14 @@
-{% load humanize %}
+{% load humanize %} {% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión de Pedidos - Restaurante</title>
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="icon" href="{% static 'img/fasfoot1.ico' %}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
+
         * {
             margin: 0;
             padding: 0;
@@ -17,6 +19,7 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             min-height: 100vh;
+            overflow-x: hidden;
         }
         
         /* App container */
@@ -25,16 +28,20 @@
             min-height: 100vh;
         }
         
-        /* Sidebar styles */
+        /* Sidebar styles - FIJADO */
         .sidebar {
             width: 260px;
-            height: 900px;
+            height: 100vh;
             background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
             box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
             display: flex;
             flex-direction: column;
             transition: transform 0.3s ease;
-             position: fixed;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 1000;
+            overflow-y: auto;
         }
         
         .sidebar-header {
@@ -44,11 +51,15 @@
             font-size: 1.25rem;
             font-weight: bold;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 1001;
         }
         
         .sidebar-nav {
             flex: 1;
             padding: 1rem 0;
+            overflow-y: auto;
         }
         
         .nav-item {
@@ -87,7 +98,7 @@
             position: fixed;
             top: 1rem;
             left: 1rem;
-            z-index: 1000;
+            z-index: 1002;
             background: #ff7e5f;
             border: none;
             padding: 0.75rem;
@@ -121,11 +132,12 @@
             padding: 2rem;
             overflow-x: hidden;
             margin-left: 260px;
+            width: calc(100% - 260px);
         }
         
         .container {
             width: 100%;
-            max-width: 1500px;
+            max-width: 1400px;
             margin: 0 auto;
             background: white;
             border-radius: 25px;
@@ -251,9 +263,7 @@
         }
         
         .controls-header h3::before {
-            content: "";
-            font-family: "Font Awesome 6 Free";
-            font-weight: 900;
+            content: "🔍";
             font-size: 1.2rem;
         }
         
@@ -307,32 +317,6 @@
         .btn-danger:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 10px rgba(255, 65, 108, 0.4);
-        }
-        
-        .btn-success {
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-            color: white;
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-            box-shadow: 0 4px 6px rgba(76, 175, 80, 0.3);
-        }
-        
-        .btn-success:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 10px rgba(76, 175, 80, 0.4);
-        }
-        
-        .btn-info {
-            background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
-            color: white;
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-            box-shadow: 0 4px 6px rgba(33, 150, 243, 0.3);
-        }
-        
-        .btn-info:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 10px rgba(33, 150, 243, 0.4);
         }
         
         .btn-sm {
@@ -421,7 +405,7 @@
             flex-wrap: wrap;
         }
         
-        /* Pedidos Table */
+        /* Platos Table */
         .table-container {
             background: white;
             border-radius: 20px;
@@ -435,7 +419,7 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 1200px;
+            min-width: 800px;
         }
         
         thead {
@@ -468,11 +452,9 @@
             color: #4a5568;
         }
         
-        /* Status badges */
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
+        /* Category badges */
+        .category-badge {
+            display: inline-block;
             padding: 0.5rem 1rem;
             border-radius: 20px;
             font-size: 0.85rem;
@@ -481,120 +463,35 @@
             letter-spacing: 0.5px;
         }
         
-        .status-pendiente {
-            background: linear-gradient(135deg, rgba(255, 179, 71, 0.1) 0%, rgba(255, 204, 51, 0.1) 100%);
-            color: #d69e2e;
+        .category-entrada { 
+            background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%); 
+            color: #7c2d12; 
         }
-        
-        .status-preparacion {
-            background: linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 203, 243, 0.1) 100%);
-            color: #3182ce;
+        .category-principal { 
+            background: linear-gradient(135deg, #f687b3 0%, #ed64a6 100%); 
+            color: #702459; 
         }
-        
-        .status-listo {
-            background: linear-gradient(135deg, rgba(56, 161, 105, 0.1) 0%, rgba(72, 187, 120, 0.1) 100%);
-            color: #38a169;
+        .category-postre { 
+            background: linear-gradient(135deg, #fbd38d 0%, #f6ad55 100%); 
+            color: #7c2d12; 
         }
-        
-        .status-entregado {
-            background: linear-gradient(135deg, rgba(123, 97, 255, 0.1) 0%, rgba(155, 135, 255, 0.1) 100%);
-            color: #805ad5;
+        .category-bebida { 
+            background: linear-gradient(135deg, #bee3f8 0%, #90cdf4 100%); 
+            color: #2c5282; 
         }
-        
-        .status-cancelado {
-            background: linear-gradient(135deg, rgba(245, 101, 101, 0.1) 0%, rgba(229, 62, 62, 0.1) 100%);
-            color: #e53e3e;
+        .category-rapida { 
+            background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%); 
+            color: #22543d; 
         }
-        
-        .status-icon {
-            font-size: 1rem;
-        }
-        
-        /* Order type badges */
-        .order-type-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-        
-        .type-restaurante {
-            background: linear-gradient(135deg, rgba(255, 126, 95, 0.1) 0%, rgba(254, 180, 123, 0.1) 100%);
-            color: #ff7e5f;
-        }
-        
-        .type-domicilio {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
-            color: #667eea;
-        }
-        
-        .type-recoger {
-            background: linear-gradient(135deg, rgba(72, 187, 120, 0.1) 0%, rgba(56, 161, 105, 0.1) 100%);
-            color: #48bb78;
-        }
-        
-        /* Customer info */
-        .customer-info {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-        
-        .customer-name {
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        
-        .customer-phone {
-            font-size: 0.9rem;
-            color: #4a5568;
-        }
-        
-        /* Order items */
-        .order-items {
-            max-width: 300px;
-        }
-        
-        .order-item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.5rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid #f1f1f1;
-        }
-        
-        .item-name {
-            font-weight: 500;
-            color: #2c3e50;
-        }
-        
-        .item-details {
-            display: flex;
-            gap: 1rem;
-            font-size: 0.85rem;
-            color: #718096;
-        }
-        
-        .item-total {
-            font-weight: 600;
-            color: #ff7e5f;
-        }
-        
-        /* Order total */
-        .order-total {
-            font-weight: 700;
-            color: #2c3e50;
-            font-size: 1.1rem;
+        .category-especial { 
+            background: linear-gradient(135deg, #e9d8fd 0%, #d6bcfa 100%); 
+            color: #44337a; 
         }
         
         /* Action buttons */
         .action-buttons {
             display: flex;
             gap: 0.5rem;
-            flex-wrap: wrap;
         }
         
         .btn-icon {
@@ -628,415 +525,6 @@
             color: white;
         }
         
-        .btn-view:hover {
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-            color: white;
-        }
-        
-        /* Modal para ver detalles */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-        }
-        
-        .modal.active {
-            display: flex;
-            animation: fadeIn 0.3s ease-out;
-        }
-        
-        .modal-content {
-            background: white;
-            border-radius: 20px;
-            width: 100%;
-            max-width: 800px;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
-        }
-        
-        .modal-header {
-            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
-            color: white;
-            padding: 2rem;
-            border-radius: 20px 20px 0 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .modal-header h3 {
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
-        
-        .modal-close {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-        
-        .modal-close:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-        
-        .modal-body {
-            padding: 2rem;
-        }
-        
-        /* Modal para cambiar estado */
-        .status-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1001;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-        }
-        
-        .status-modal.active {
-            display: flex;
-            animation: fadeIn 0.3s ease-out;
-        }
-        
-        .status-modal-content {
-            background: white;
-            border-radius: 20px;
-            width: 100%;
-            max-width: 500px;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
-        }
-        
-        .status-modal-header {
-            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
-            color: white;
-            padding: 1.5rem;
-            border-radius: 20px 20px 0 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .status-modal-header h3 {
-            font-size: 1.3rem;
-            font-weight: 700;
-        }
-        
-        .status-modal-body {
-            padding: 2rem;
-        }
-        
-        .status-option {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 1rem;
-            margin-bottom: 0.75rem;
-            border: 2px solid #e0e6ff;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .status-option:hover {
-            border-color: #ff7e5f;
-            background: #f8f9ff;
-            transform: translateY(-2px);
-        }
-        
-        .status-option.selected {
-            border-color: #ff7e5f;
-            background: rgba(255, 126, 95, 0.1);
-        }
-        
-        .status-option-icon {
-            font-size: 1.5rem;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 10px;
-        }
-        
-        .status-option-label {
-            flex: 1;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        
-        /* Modal para editar pedido */
-        .edit-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1002;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-        }
-        
-        .edit-modal.active {
-            display: flex;
-            animation: fadeIn 0.3s ease-out;
-        }
-        
-        .edit-modal-content {
-            background: white;
-            border-radius: 20px;
-            width: 100%;
-            max-width: 900px;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
-        }
-        
-        .edit-modal-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 2rem;
-            border-radius: 20px 20px 0 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .edit-modal-header h3 {
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
-        
-        .edit-modal-body {
-            padding: 2rem;
-        }
-        
-        /* Estilos para edición de items */
-        .order-item-edit {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem;
-            margin-bottom: 0.5rem;
-            background: #f8f9ff;
-            border-radius: 10px;
-            transition: all 0.3s ease;
-        }
-        
-        .order-item-edit:hover {
-            background: #e6fffa;
-            transform: translateX(5px);
-        }
-        
-        /* Estilos para formularios en modal de edición */
-        .edit-form-group {
-            margin-bottom: 1.5rem;
-        }
-        
-        .edit-form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            color: #4a5568;
-        }
-        
-        .edit-form-group input,
-        .edit-form-group select,
-        .edit-form-group textarea {
-            width: 100%;
-            padding: 0.75rem;
-            border-radius: 8px;
-            border: 2px solid #e0e6ff;
-            transition: all 0.3s ease;
-        }
-        
-        .edit-form-group input:focus,
-        .edit-form-group select:focus,
-        .edit-form-group textarea:focus {
-            border-color: #ff7e5f;
-            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.2);
-            outline: none;
-        }
-        
-        /* Barra de búsqueda en modal */
-        .search-bebidas {
-            position: relative;
-            margin-bottom: 1rem;
-        }
-        
-        .search-bebidas input {
-            width: 100%;
-            padding: 0.75rem 0.75rem 0.75rem 2.5rem;
-            border-radius: 8px;
-            border: 2px solid #e0e6ff;
-            font-size: 0.95rem;
-        }
-        
-        .search-bebidas input:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
-            outline: none;
-        }
-        
-        .search-bebidas-icon {
-            position: absolute;
-            left: 0.75rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #667eea;
-            font-size: 1rem;
-        }
-        
-        .search-bebidas-btn {
-            position: absolute;
-            right: 0.5rem;
-            top: 50%;
-            transform: translateY(-50%);
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 0.25rem 0.75rem;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.85rem;
-        }
-        
-        /* Select de bebidas */
-        .bebidas-select {
-            width: 100%;
-            height: 120px;
-            padding: 0.5rem;
-            border-radius: 8px;
-            border: 2px solid #e0e6ff;
-            overflow-y: auto;
-        }
-        
-        .bebidas-select option {
-            padding: 0.5rem;
-            border-bottom: 1px solid #f1f1f1;
-            cursor: pointer;
-        }
-        
-        .bebidas-select option:hover {
-            background: #f8f9ff;
-        }
-        
-        .bebidas-select option:checked {
-            background: #667eea;
-            color: white;
-        }
-        
-        /* Controles de cantidad */
-        .cantidad-controls {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .cantidad-btn {
-            width: 35px;
-            height: 35px;
-            border-radius: 5px;
-            border: 2px solid #e0e6ff;
-            background: white;
-            cursor: pointer;
-            font-size: 1.2rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .cantidad-btn:hover {
-            background: #f8f9ff;
-            border-color: #667eea;
-        }
-        
-        .cantidad-input {
-            width: 80px;
-            padding: 0.75rem;
-            text-align: center;
-            border-radius: 8px;
-            border: 2px solid #e0e6ff;
-        }
-        
-        /* Grid para formulario de agregar items */
-        .items-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr 1fr auto;
-            gap: 1rem;
-            align-items: end;
-        }
-        
-        /* Indicadores de stock */
-        .stock-indicator {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-            margin-top: 0.25rem;
-        }
-        
-        .stock-icon {
-            font-size: 0.9rem;
-        }
-        
-        .stock-text {
-            font-size: 0.8rem;
-            color: #718096;
-        }
-        
-        .stock-high {
-            color: #38a169;
-        }
-        
-        .stock-medium {
-            color: #d69e2e;
-        }
-        
-        .stock-low {
-            color: #e53e3e;
-        }
-        
-        /* Checkbox personalizado */
-        .checkbox-container {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            cursor: pointer;
-            user-select: none;
-        }
-        
-        .checkbox-container input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-        }
-        
         /* Pagination */
         .pagination {
             display: flex;
@@ -1055,17 +543,12 @@
             transition: all 0.2s;
             font-weight: 600;
             color: #4a5568;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
         }
         
         .page-btn:hover {
             background: #f8f9ff;
             border-color: #ff7e5f;
             color: #ff7e5f;
-            text-decoration: none;
         }
         
         .page-btn.active {
@@ -1100,26 +583,10 @@
             color: #4a5568;
         }
         
-        /* Date badge */
-        .date-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: #f8f9ff;
-            border-radius: 10px;
-            font-size: 0.9rem;
-            color: #4a5568;
-        }
-        
         /* Responsive design */
-        @media (max-width: 1400px) {
+        @media (max-width: 1200px) {
             .stats-container {
                 grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .items-grid {
-                grid-template-columns: 1fr;
             }
         }
         
@@ -1147,6 +614,8 @@
             
             .main-content {
                 padding: 5rem 1rem 1rem;
+                margin-left: 0;
+                width: 100%;
             }
             
             .content {
@@ -1185,10 +654,7 @@
             }
             
             .action-buttons {
-                flex-direction: row;
-                flex-wrap: nowrap;
-                justify-content: center;
-                gap: 0.5rem;
+                flex-direction: column;
             }
             
             .table-container {
@@ -1196,23 +662,7 @@
             }
             
             table {
-                min-width: 1400px;
-            }
-            
-            .modal-content,
-            .status-modal-content,
-            .edit-modal-content {
-                margin: 1rem;
-            }
-            
-            .items-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .order-item-edit {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 1rem;
+                min-width: 1000px;
             }
         }
         
@@ -1225,52 +675,381 @@
                 width: 100%;
                 justify-content: center;
             }
-            
-            .modal-body,
-            .status-modal-body,
-            .edit-modal-body {
-                padding: 1.5rem;
+        }
+        
+        /* Estilos para Modales */
+        .modal, .status-modal, .edit-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            overflow-y: auto;
+        }
+        
+        .modal.active, .status-modal.active, .edit-modal.active {
+            display: flex;
+        }
+        
+        .modal-content, .status-modal-content, .edit-modal-content {
+            background: white;
+            border-radius: 20px;
+            max-width: 900px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        
+        @keyframes modalSlideIn {
+            from { 
+                opacity: 0; 
+                transform: translateY(-50px); 
             }
-            
-            .action-buttons {
-                flex-direction: row;
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-            
-            .btn-icon {
-                width: 35px;
-                height: 35px;
-                font-size: 0.9rem;
+            to { 
+                opacity: 1; 
+                transform: translateY(0); 
             }
         }
-
-        /* Notificaciones personalizadas */
-        .custom-notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 1rem 1.5rem;
-            border-radius: 10px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            z-index: 10000;
-            animation: slideIn 0.3s ease-out;
-            font-weight: 600;
+        
+        .modal-header, .status-modal-header, .edit-modal-header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h3, .status-modal-header h3, .edit-modal-header h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .modal-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 2rem;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
-            gap: 10px;
-            max-width: 400px;
-            white-space: pre-line;
+            justify-content: center;
+            transition: all 0.3s;
+            line-height: 1;
         }
         
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
         }
         
-        @keyframes slideOut {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
+        .modal-body, .status-modal-body, .edit-modal-body {
+            padding: 2rem;
+        }
+        
+        /* Estilos para items del pedido en modales */
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #f8f9ff;
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            border: 1px solid #e0e6ff;
+        }
+        
+        .order-item-edit {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #f8f9ff;
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            border: 2px solid #e0e6ff;
+            transition: all 0.3s;
+        }
+        
+        .order-item-edit:hover {
+            border-color: #ff7e5f;
+            box-shadow: 0 5px 15px rgba(255, 126, 95, 0.1);
+        }
+        
+        /* Estilos para opciones de estado */
+        .status-option {
+            padding: 1.5rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .status-option:hover {
+            border-color: #ff7e5f;
+            background: #f8f9ff;
+            transform: translateX(5px);
+        }
+        
+        .status-option.selected {
+            border-color: #ff7e5f;
+            background: linear-gradient(135deg, #fff5f0 0%, #fff8f5 100%);
+            box-shadow: 0 5px 15px rgba(255, 126, 95, 0.2);
+        }
+        
+        .status-option-icon {
+            font-size: 2rem;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .status-option-label {
+            flex: 1;
+        }
+        
+        .status-option-label div:first-child {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 0.25rem;
+        }
+        
+        .status-option-label div:last-child {
+            font-size: 0.9rem;
+            color: #718096;
+        }
+        
+        /* Estilos para controles de cantidad */
+        .cantidad-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: white;
+            border-radius: 10px;
+            padding: 0.25rem;
+            border: 2px solid #e0e6ff;
+        }
+        
+        .cantidad-btn {
+            width: 30px;
+            height: 30px;
+            border: none;
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .cantidad-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 10px rgba(255, 126, 95, 0.3);
+        }
+        
+        .cantidad-input {
+            width: 50px;
+            text-align: center;
+            border: none;
+            font-weight: 700;
+            font-size: 1rem;
+            color: #2c3e50;
+        }
+        
+        /* Estilos para formularios de edición */
+        .edit-form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .edit-form-group label {
+            display: block;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+        }
+        
+        .edit-form-group input,
+        .edit-form-group textarea,
+        .edit-form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .edit-form-group input:focus,
+        .edit-form-group textarea:focus,
+        .edit-form-group select:focus {
+            outline: none;
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.1);
+        }
+        
+        /* Estilos para lista de productos disponibles */
+        #productosDisponiblesList {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+        
+        .producto-item {
+            padding: 1rem;
+            background: #f8f9ff;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        
+        .producto-item:hover {
+            border-color: #ff7e5f;
+            background: white;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(255, 126, 95, 0.2);
+        }
+        
+        .producto-item strong {
+            display: block;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+        
+        .producto-item span {
+            color: #ff7e5f;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        
+        /* Estilos para búsqueda de productos */
+        .search-bebidas {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: white;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            padding: 0.5rem;
+            transition: all 0.3s;
+        }
+        
+        .search-bebidas:focus-within {
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.1);
+        }
+        
+        .search-bebidas-icon {
+            padding: 0 0.5rem;
+            color: #ff7e5f;
+            font-size: 1.2rem;
+        }
+        
+        .search-bebidas input {
+            flex: 1;
+            border: none;
+            outline: none;
+            padding: 0.5rem;
+            font-size: 1rem;
+            background: transparent;
+        }
+        
+        .search-bebidas-btn {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 10px rgba(255, 126, 95, 0.2);
+        }
+        
+        .search-bebidas-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(255, 126, 95, 0.3);
+        }
+        
+        .search-bebidas-btn:active {
+            transform: translateY(0);
+        }
+        
+        /* Ajuste para botón eliminar en edición */
+        .order-item-edit .btn-danger {
+            margin-left: 1rem;
+        }
+        
+        /* Estilos para estado actual en modal de edición */
+        .edit-modal .status-badge {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .edit-modal .status-badge.pendiente {
+            background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);
+            color: white;
+        }
+        
+        .edit-modal .status-badge.preparando {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .edit-modal .status-badge.listo {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+        }
+        
+        .edit-modal .status-badge.completado {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        
+        .edit-modal .status-badge.cancelado {
+            background: linear-gradient(135deg, #f857a6 0%, #ff5858 100%);
+            color: white;
         }
     </style>
 </head>
@@ -1349,11 +1128,50 @@
                     <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>Gestión de Usuarios</span>
                 </a>
+                <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
                 {% endif %}
                 
-                <!-- Menú para otros grupos... -->
+                <!-- Menú para Gerente -->
                 {% if "Gerente" in user_groups and not user.is_superuser %}
-                <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
+                <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
                 {% endif %}
                 
                 {% if "Cajero" in user_groups and not user.is_superuser %}
@@ -1405,6 +1223,10 @@
                     <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>Gestión de Usuarios</span>
                 </a>
+                <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
                 {% endif %}
                 
                 <!-- Cerrar sesión para todos -->
@@ -1446,7 +1268,7 @@
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
-                            <div class="stat-value" id="ingresosHoy">${{ estadisticas.ingresos_hoy|floatformat:2|intcomma }}</div>
+                            <div class="stat-value" id="ingresosHoy">$<span id="ingresosHoyValor">{{ estadisticas.ingresos_hoy }}</span></div>
                             <div class="stat-label">Ingresos Hoy</div>
                         </div>
                         <div class="stat-card">
@@ -1461,7 +1283,10 @@
                         <div class="controls-header">
                             <h3>Buscar y Filtrar Pedidos Activos</h3>
                             <div style="display: flex; gap: 1rem;">
-                                <button class="btn btn-success btn-sm" onclick="window.location.href='{% url 'historial_pedidos' %}'" type="button">
+                                <button class="btn btn-success btn-sm" 
+                                        type="button"
+                                        data-url="{% url 'historial_pedidos' %}" 
+                                        onclick="window.location.href=this.dataset.url">
                                     <span><i class="fas fa-history"></i></span>
                                     <span>Ver Historial Pagados</span>
                                 </button>
@@ -1652,13 +1477,25 @@
                                         </td>
                                         <td>
                                             <div class="action-buttons">
-                                                <button class="btn-icon btn-view" onclick="viewOrderDetails({{ pedido.id }})" title="Ver detalles">
+                                                <button class="btn-icon btn-view" 
+                                                        data-id="{{ pedido.id }}" 
+                                                        onclick="viewOrderDetails(this.dataset.id)" 
+                                                        title="Ver detalles">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
-                                                <button class="btn-icon btn-edit" onclick="openEditModal({{ pedido.id }})" title="Editar pedido">
+
+                                                <button class="btn-icon btn-edit" 
+                                                        data-id="{{ pedido.id }}" 
+                                                        onclick="openEditModal(this.dataset.id)" 
+                                                        title="Editar pedido">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
-                                                <button class="btn-icon btn-danger" onclick="deleteOrder({{ pedido.id }})" title="Eliminar pedido de la vista">
+
+                                                <button class="btn-icon btn-danger" 
+                                                        data-id="{{ pedido.id }}" 
+                                                        data-nombre="{{ pedido.nombre|escapejs }}"
+                                                        onclick="deleteOrder(this.dataset.id, this.dataset.nombre)" 
+                                                        title="Eliminar pedido">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </div>
@@ -1751,1056 +1588,1443 @@
     <!-- Agregar CSRF token para las peticiones AJAX -->
     {% csrf_token %}
 
-    <script>
-        // Variables globales
-        let currentOrder = null;
-        
-        // Inicializar la aplicación
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('=== INICIANDO GESTIÓN DE PEDIDOS ===');
-            
-            setupEventListeners();
-            
-            // Si hay filtros aplicados, restaurarlos
-            restoreFilters();
+<script>
+// Variables globales
+let currentOrder = null;
+
+// Inicializar la aplicación
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== INICIANDO GESTIÓN DE PEDIDOS ===');
+    
+    setupEventListeners();
+    
+    // Si hay filtros aplicados, restaurarlos
+    restoreFilters();
+});
+
+// Configurar event listeners
+function setupEventListeners() {
+    // Formatear ingresos del día con formato RD
+    const ingresosElement = document.getElementById('ingresosHoyValor');
+    if (ingresosElement) {
+        const valor = parseFloat(ingresosElement.textContent) || 0;
+        ingresosElement.textContent = valor.toLocaleString('es-DO', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
         });
-        
-        // Configurar event listeners
-        function setupEventListeners() {
-            // Botón para exportar pedidos
-            const exportBtn = document.querySelector('.btn-primary[onclick*="exportOrders"]');
-            if (exportBtn) {
-                exportBtn.onclick = exportOrders;
+    }
+    
+    // Botón para exportar pedidos
+    const exportBtn = document.querySelector('.btn-primary[onclick*="exportOrders"]');
+    if (exportBtn) {
+        exportBtn.onclick = exportOrders;
+    }
+    
+    // Formulario de filtros - enviar al cambiar
+    const filterSelects = document.querySelectorAll('.filter-select');
+    filterSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            // Actualizar la URL con los filtros
+            updateURLFilters();
+        });
+    });
+    
+    // Buscar al presionar Enter
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                updateURLFilters();
             }
-            
-            // Formulario de filtros - enviar al cambiar
-            const filterSelects = document.querySelectorAll('.filter-select');
-            filterSelects.forEach(select => {
-                select.addEventListener('change', function() {
-                    // Actualizar la URL con los filtros
-                    updateURLFilters();
-                });
-            });
-            
-            // Buscar al presionar Enter
-            const searchInput = document.getElementById('searchInput');
-            if (searchInput) {
-                searchInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        updateURLFilters();
-                    }
-                });
+        });
+    }
+}
+
+// Restaurar filtros desde URL
+function restoreFilters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    const filters = {
+        'search': urlParams.get('search') || '',
+        'estado': urlParams.get('estado') || '',
+        'tipo': urlParams.get('tipo') || '',
+        'fecha': urlParams.get('fecha') || '',
+        'sort': urlParams.get('sort') || 'fecha_desc'
+    };
+    
+    // Establecer valores en los inputs
+    Object.keys(filters).forEach(key => {
+        const element = document.querySelector(`[name="${key}"]`);
+        if (element && filters[key]) {
+            element.value = filters[key];
+        }
+    });
+}
+
+// Actualizar URL con filtros
+function updateURLFilters() {
+    const form = document.getElementById('filterForm');
+    const formData = new FormData(form);
+    const params = new URLSearchParams();
+    
+    for (const [key, value] of formData.entries()) {
+        if (value) {
+            params.append(key, value);
+        }
+    }
+    
+    // Mantener el parámetro de página si existe
+    const currentParams = new URLSearchParams(window.location.search);
+    const page = currentParams.get('page');
+    if (page) {
+        params.append('page', page);
+    }
+    
+    // Actualizar URL y recargar
+    window.location.href = `${window.location.pathname}?${params.toString()}`;
+}
+
+// Función para exportar pedidos
+function exportOrders() {
+    showNotification('Funcionalidad de exportación en desarrollo', 'info');
+}
+
+// Función para ver detalles del pedido
+function viewOrderDetails(pedidoId) {
+    console.log('Cargando detalles del pedido:', pedidoId);
+    
+    fetch(`/gestiondepedidos/detalle/${pedidoId}/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: Pedido no encontrado`);
             }
-        }
-        
-        // Restaurar filtros desde URL
-        function restoreFilters() {
-            const urlParams = new URLSearchParams(window.location.search);
-            
-            const filters = {
-                'search': urlParams.get('search') || '',
-                'estado': urlParams.get('estado') || '',
-                'tipo': urlParams.get('tipo') || '',
-                'fecha': urlParams.get('fecha') || '',
-                'sort': urlParams.get('sort') || 'fecha_desc'
-            };
-            
-            // Establecer valores en los inputs
-            Object.keys(filters).forEach(key => {
-                const element = document.querySelector(`[name="${key}"]`);
-                if (element && filters[key]) {
-                    element.value = filters[key];
-                }
-            });
-        }
-        
-        // Actualizar URL con filtros
-        function updateURLFilters() {
-            const form = document.getElementById('filterForm');
-            const formData = new FormData(form);
-            const params = new URLSearchParams();
-            
-            for (const [key, value] of formData.entries()) {
-                if (value) {
-                    params.append(key, value);
-                }
-            }
-            
-            // Mantener el parámetro de página si existe
-            const currentParams = new URLSearchParams(window.location.search);
-            const page = currentParams.get('page');
-            if (page) {
-                params.append('page', page);
-            }
-            
-            // Actualizar URL y recargar
-            window.location.href = `${window.location.pathname}?${params.toString()}`;
-        }
-        
-        // Función para exportar pedidos
-        function exportOrders() {
-            showNotification('Funcionalidad de exportación en desarrollo', 'info');
-        }
-        
-        // Función para ver detalles del pedido
-        function viewOrderDetails(pedidoId) {
-            console.log('Cargando detalles del pedido:', pedidoId);
-            
-            fetch(`/gestiondepedidos/detalle/${pedidoId}/`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Error ${response.status}: Pedido no encontrado`);
-                    }
-                    return response.json();
-                })
-                .then(pedido => {
-                    console.log('Detalles cargados:', pedido);
-                    cargarDetallesPedido(pedido);
-                    document.getElementById('orderModal').classList.add('active');
-                })
-                .catch(error => {
-                    console.error('Error al cargar pedido:', error);
-                    showNotification('Error: ' + error.message, 'error');
-                });
-        }
-        
-        // Función para cargar detalles en el modal
-        function cargarDetallesPedido(pedido) {
-            const modalBody = document.getElementById('modalBody');
-            
-            // Formatear items
-            let itemsHTML = '';
-            if (pedido.items && pedido.items.length > 0) {
-                itemsHTML = pedido.items.map(item => `
-                    <tr>
-                        <td>${item.name || item.nombre}</td>
-                        <td>${item.quantity || item.cantidad}</td>
-                        <td>$${(item.price || item.precio || 0).toFixed(2)}</td>
-                        <td>$${(item.total || item.subtotal || 0).toFixed(2)}</td>
-                    </tr>
-                `).join('');
-            }
-            
-            // Determinar icono y color según estado
-            const estadoInfo = getEstadoInfo(pedido.estado);
-            const tipoInfo = getTipoInfo(pedido.tipo_pedido);
-            
-            modalBody.innerHTML = `
-                <div style="background: white; border-radius: 15px; padding: 2rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
-                        <div>
-                            <h2 style="color: #2c3e50; margin-bottom: 0.5rem;">Pedido #${pedido.codigo_pedido}</h2>
-                            <div style="color: #718096;">${pedido.fecha_pedido}</div>
-                        </div>
-                        <span class="status-badge ${estadoInfo.class}">
-                            <span class="status-icon">${estadoInfo.icon}</span>
-                            ${pedido.estado_display}
-                        </span>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
-                        <div>
-                            <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-user"></i> Información del Cliente</h4>
-                            <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
-                                <div style="margin-bottom: 0.5rem;">
-                                    <strong>Nombre:</strong> ${pedido.nombre_cliente || 'No especificado'}
-                                </div>
-                                ${pedido.telefono_cliente ? `
-                                    <div style="margin-bottom: 0.5rem;">
-                                        <strong>Teléfono:</strong> ${pedido.telefono_cliente}
-                                    </div>
-                                ` : ''}
-                                ${pedido.direccion_entrega ? `
-                                    <div style="margin-bottom: 0.5rem;">
-                                        <strong>Dirección:</strong> ${pedido.direccion_entrega}
-                                    </div>
-                                ` : ''}
-                                <div style="margin-bottom: 0.5rem;">
-                                    <strong>Tipo:</strong> ${tipoInfo.icon} ${pedido.tipo_pedido_display}
-                                </div>
-                                ${pedido.mesa_numero ? `
-                                    <div style="margin-bottom: 0.5rem;">
-                                        <strong>Mesa:</strong> ${pedido.mesa_numero}
-                                    </div>
-                                ` : ''}
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-dollar-sign"></i> Resumen de Pago</h4>
-                            <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                    <span>Subtotal:</span>
-                                    <span>$${pedido.subtotal.toFixed(2)}</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                    <span>Envío:</span>
-                                    <span>$${pedido.envio.toFixed(2)}</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; color: #ff7e5f; padding-top: 0.5rem; border-top: 1px solid #e0e6ff;">
-                                    <span>Total:</span>
-                                    <span>$${pedido.total.toFixed(2)}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-utensils"></i> Items del Pedido (${pedido.cantidad_items || pedido.items?.length || 0})</h4>
-                        <div style="overflow-x: auto;">
-                            <table style="width: 100%; border-collapse: collapse;">
-                                <thead>
-                                    <tr style="background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); color: white;">
-                                        <th style="padding: 1rem; text-align: left;">Producto</th>
-                                        <th style="padding: 1rem; text-align: center;">Cantidad</th>
-                                        <th style="padding: 1rem; text-align: right;">Precio Unitario</th>
-                                        <th style="padding: 1rem; text-align: right;">Subtotal</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${itemsHTML || `
-                                        <tr>
-                                            <td colspan="4" style="padding: 2rem; text-align: center; color: #718096;">
-                                                No hay items en este pedido
-                                            </td>
-                                        </tr>
-                                    `}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    
-                    ${pedido.notas ? `
-                        <div style="margin-top: 2rem;">
-                            <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-sticky-note"></i> Notas</h4>
-                            <div style="background: #fff7ed; padding: 1rem; border-radius: 10px; border-left: 4px solid #ed8936;">
-                                ${pedido.notas}
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    ${pedido.tiempo_preparacion ? `
-                        <div style="margin-top: 1rem; padding: 1rem; background: #e6fffa; border-radius: 10px; border-left: 4px solid #38a169;">
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <span><i class="fas fa-clock"></i></span>
-                                <span><strong>Tiempo estimado de preparación:</strong> ${pedido.tiempo_preparacion}</span>
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
-                        <button class="btn btn-warning" onclick="closeModal()">Cerrar</button>
-                        <button class="btn btn-info" onclick="openStatusModal(${pedido.id})">
-                            <span><i class="fas fa-sync-alt"></i></span>
-                            <span>Cambiar Estado</span>
-                        </button>
-                    </div>
+            return response.json();
+        })
+        .then(pedido => {
+            console.log('Detalles cargados:', pedido);
+            cargarDetallesPedido(pedido);
+            document.getElementById('orderModal').classList.add('active');
+        })
+        .catch(error => {
+            console.error('Error al cargar pedido:', error);
+            showNotification('Error: ' + error.message, 'error');
+        });
+}
+
+// Función para cargar detalles en el modal
+function cargarDetallesPedido(pedido) {
+    const modalBody = document.getElementById('modalBody');
+    
+    // Formatear items
+    let itemsHTML = '';
+    if (pedido.items && pedido.items.length > 0) {
+        itemsHTML = pedido.items.map(item => `
+            <tr>
+                <td>${item.name || item.nombre}</td>
+                <td>${item.quantity || item.cantidad}</td>
+                <td>$${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td>$${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            </tr>
+        `).join('');
+    }
+    
+    // Determinar icono y color según estado
+    const estadoInfo = getEstadoInfo(pedido.estado);
+    const tipoInfo = getTipoInfo(pedido.tipo_pedido);
+    
+    modalBody.innerHTML = `
+        <div style="background: white; border-radius: 15px; padding: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
+                <div>
+                    <h2 style="color: #2c3e50; margin-bottom: 0.5rem;">Pedido #${pedido.codigo_pedido}</h2>
+                    <div style="color: #718096;">${pedido.fecha_pedido}</div>
                 </div>
-            `;
-        }
-        
-        // Función para abrir modal de edición
-        function openEditModal(pedidoId) {
-            console.log('Abriendo modal para editar pedido:', pedidoId);
+                <span class="status-badge ${estadoInfo.class}">
+                    <span class="status-icon">${estadoInfo.icon}</span>
+                    ${pedido.estado_display}
+                </span>
+            </div>
             
-            fetch(`/gestiondepedidos/detalle/${pedidoId}/`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Error ${response.status}: Pedido no encontrado`);
-                    }
-                    return response.json();
-                })
-                .then(pedido => {
-                    console.log('Pedido cargado para edición:', pedido);
-                    cargarDatosEdicion(pedido);
-                    document.getElementById('editModal').classList.add('active');
-                })
-                .catch(error => {
-                    console.error('Error al cargar pedido:', error);
-                    showNotification('Error: ' + error.message, 'error');
-                });
-        }
-        
-        // Función para cargar datos en el modal de edición
-        function cargarDatosEdicion(pedido) {
-            const modalBody = document.getElementById('editModalBody');
-            
-            // Formatear items actuales
-            let itemsHTML = '';
-            if (pedido.items && pedido.items.length > 0) {
-                itemsHTML = pedido.items.map((item, index) => `
-                    <div class="order-item-edit" data-index="${index}" data-id="${item.id || ''}">
-                        <div style="flex: 2;">
-                            <strong>${item.name || item.nombre}</strong>
-                            <div style="font-size: 0.9rem; color: #718096;">
-                                Precio: $${(item.price || item.precio || 0).toFixed(2)}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                <div>
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-user"></i> Información del Cliente</h4>
+                    <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
+                        <div style="margin-bottom: 0.5rem;">
+                            <strong>Nombre:</strong> ${pedido.nombre_cliente || 'No especificado'}
+                        </div>
+                        ${pedido.telefono_cliente ? `
+                            <div style="margin-bottom: 0.5rem;">
+                                <strong>Teléfono:</strong> ${pedido.telefono_cliente}
                             </div>
-                        </div>
-                        <div class="cantidad-controls">
-                            <button type="button" class="cantidad-btn" onclick="cambiarCantidad(${index}, -1)">-</button>
-                            <input type="number" class="cantidad-input" 
-                                   value="${item.quantity || item.cantidad || 1}" 
-                                   min="1" 
-                                   onchange="actualizarTotalItem(${index}, this.value)"
-                                   data-precio="${item.price || item.precio || 0}"
-                                   id="cantidad-${index}">
-                            <button type="button" class="cantidad-btn" onclick="cambiarCantidad(${index}, 1)">+</button>
-                        </div>
-                        <div style="font-weight: bold; color: #ff7e5f; min-width: 80px; text-align: right;" id="total-item-${index}">
-                            $${(item.total || item.subtotal || 0).toFixed(2)}
-                        </div>
-                        <button type="button" class="btn-icon btn-danger" onclick="eliminarItem(${index})" title="Eliminar item">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                `).join('');
-            }
-            
-            modalBody.innerHTML = `
-                <input type="hidden" id="editPedidoId" value="${pedido.id}">
-                
-                <div class="edit-form-group">
-                    <label><i class="fas fa-clipboard"></i> Información del Pedido</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                        <div>
-                            <div style="font-weight: 600;">Código:</div>
-                            <div>${pedido.codigo_pedido}</div>
-                        </div>
-                        <div>
-                            <div style="font-weight: 600;">Estado Actual:</div>
-                            <div>
-                                <span class="status-badge ${getEstadoClass(pedido.estado)}">
-                                    ${pedido.estado_display}
-                                </span>
+                        ` : ''}
+                        ${pedido.direccion_entrega ? `
+                            <div style="margin-bottom: 0.5rem;">
+                                <strong>Dirección:</strong> ${pedido.direccion_entrega}
                             </div>
+                        ` : ''}
+                        <div style="margin-bottom: 0.5rem;">
+                            <strong>Tipo:</strong> ${tipoInfo.icon} ${pedido.tipo_pedido_display}
                         </div>
+                        ${pedido.mesa_numero ? `
+                            <div style="margin-bottom: 0.5rem;">
+                                <strong>Mesa:</strong> ${pedido.mesa_numero}
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
                 
-                <div class="edit-form-group">
-                    <label><i class="fas fa-user"></i> Información del Cliente</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                        <div>
-                            <label for="editNombreCliente">Nombre *</label>
-                            <input type="text" id="editNombreCliente" 
-                                   value="${pedido.nombre_cliente || ''}" 
-                                   placeholder="Nombre del cliente"
-                                   required>
+                <div>
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-dollar-sign"></i> Resumen de Pago</h4>
+                    <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                            <span>Subtotal:</span>
+                            <span>$${pedido.subtotal.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                         </div>
-                        <div>
-                            <label for="editTelefonoCliente">Teléfono</label>
-                            <input type="tel" id="editTelefonoCliente" 
-                                   value="${pedido.telefono_cliente || ''}" 
-                                   placeholder="Teléfono">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                            <span>Envío:</span>
+                            <span>$${pedido.envio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; color: #ff7e5f; padding-top: 0.5rem; border-top: 1px solid #e0e6ff;">
+                            <span>Total:</span>
+                            <span>$${pedido.total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                         </div>
                     </div>
                 </div>
-                
-                <div class="edit-form-group">
-                    <label><i class="fas fa-utensils"></i> Items del Pedido</label>
-                    <div id="itemsContainer" style="max-height: 300px; overflow-y: auto; padding: 0.5rem; border: 1px solid #e0e6ff; border-radius: 8px;">
-                        ${itemsHTML || '<p style="color: #718096; text-align: center; padding: 2rem;">No hay items en este pedido</p>'}
+            </div>
+            
+            <div>
+                <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-utensils"></i> Items del Pedido (${pedido.cantidad_items || pedido.items?.length || 0})</h4>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); color: white;">
+                                <th style="padding: 1rem; text-align: left;">Producto</th>
+                                <th style="padding: 1rem; text-align: center;">Cantidad</th>
+                                <th style="padding: 1rem; text-align: right;">Precio Unitario</th>
+                                <th style="padding: 1rem; text-align: right;">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsHTML || `
+                                <tr>
+                                    <td colspan="4" style="padding: 2rem; text-align: center; color: #718096;">
+                                        No hay items en este pedido
+                                    </td>
+                                </tr>
+                            `}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            ${pedido.notas ? `
+                <div style="margin-top: 2rem;">
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-sticky-note"></i> Notas</h4>
+                    <div style="background: #fff7ed; padding: 1rem; border-radius: 10px; border-left: 4px solid #ed8936;">
+                        ${pedido.notas}
                     </div>
                 </div>
-                
-                <!-- Sección para agregar nuevos productos -->
-                <div class="edit-form-group">
-                    <label><i class="fas fa-plus-circle"></i> Agregar Nuevos Productos</label>
-                    
-                    <div class="search-bebidas" style="margin-bottom: 1rem;">
-                        <span class="search-bebidas-icon"><i class="fas fa-search"></i></span>
-                        <input type="text" id="buscarProducto" placeholder="Buscar bebidas, platos..." 
-                               oninput="buscarProductosDisponibles()">
-                        <button type="button" class="search-bebidas-btn" onclick="buscarProductosDisponibles()">Buscar</button>
-                    </div>
-                    
-                    <div style="margin-bottom: 1rem;">
-                        <label for="tipoProducto">Tipo de Producto:</label>
-                        <select id="tipoProducto" onchange="buscarProductosDisponibles()" style="width: 100%; padding: 0.75rem;">
-                            <option value="todos">Todos</option>
-                            <option value="bebida">Bebidas</option>
-                            <option value="plato">Platos</option>
-                        </select>
-                    </div>
-                    
-                    <div id="productosDisponibles" style="max-height: 200px; overflow-y: auto; border: 1px solid #e0e6ff; border-radius: 8px; padding: 0.5rem;">
-                        <p style="color: #718096; text-align: center; padding: 1rem;">Busca productos para agregar</p>
+            ` : ''}
+            
+            ${pedido.tiempo_preparacion ? `
+                <div style="margin-top: 1rem; padding: 1rem; background: #e6fffa; border-radius: 10px; border-left: 4px solid #38a169;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span><i class="fas fa-clock"></i></span>
+                        <span><strong>Tiempo estimado de preparación:</strong> ${pedido.tiempo_preparacion}</span>
                     </div>
                 </div>
-                
-                <div class="edit-form-group">
-                    <label><i class="fas fa-sticky-note"></i> Notas Adicionales</label>
-                    <textarea id="editNotas" rows="3" placeholder="Notas del pedido...">${pedido.notas || ''}</textarea>
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e0e6ff;">
-                    <div>
-                        <strong style="font-size: 1.2rem;">Total: $</strong>
-                        <span id="totalPedidoEdit" style="font-size: 1.5rem; font-weight: bold; color: #ff7e5f;">
-                            ${pedido.total.toFixed(2)}
-                        </span>
-                    </div>
-                    <div style="display: flex; gap: 1rem;">
-                        <button type="button" class="btn btn-warning" onclick="closeEditModal()">Cancelar</button>
-                        <button type="button" class="btn btn-primary" onclick="guardarCambiosPedido()">
-                            <span><i class="fas fa-save"></i></span>
-                            <span>Guardar Cambios</span>
-                        </button>
-                    </div>
-                </div>
-            `;
+            ` : ''}
             
-            // Inicializar búsqueda de productos
-            buscarProductosDisponibles();
-        }
-        
-        // Función para buscar productos disponibles
-        function buscarProductosDisponibles() {
-            const searchTerm = document.getElementById('buscarProducto')?.value || '';
-            const tipoProducto = document.getElementById('tipoProducto')?.value || 'todos';
-            
-            console.log('Buscando productos:', searchTerm, tipoProducto);
-            
-            fetch(`/gestiondepedidos/platos-disponibles/?search=${encodeURIComponent(searchTerm)}&tipo=${tipoProducto}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Error en la respuesta del servidor');
-                    }
-                    return response.json();
-                })
-                .then(productos => {
-                    const container = document.getElementById('productosDisponibles');
-                    if (!container) return;
-                    
-                    if (!productos || productos.length === 0) {
-                        container.innerHTML = '<p style="color: #718096; text-align: center; padding: 1rem;">No se encontraron productos</p>';
-                        return;
-                    }
-                    
-                    container.innerHTML = productos.map(producto => `
-                        <div class="producto-item" style="padding: 0.75rem; border-bottom: 1px solid #f1f1f1; cursor: pointer; transition: background-color 0.2s;" 
-                             onclick="agregarProductoAPedido(${JSON.stringify(producto).replace(/"/g, '&quot;')})"
-                             onmouseover="this.style.backgroundColor='#f8f9ff'"
-                             onmouseout="this.style.backgroundColor='transparent'">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div style="flex: 1;">
-                                    <strong>${producto.nombre}</strong>
-                                    <div style="font-size: 0.85rem; color: #718096;">
-                                        ${producto.categoria || producto.tipo} - $${producto.precio.toFixed(2)}
-                                    </div>
-                                </div>
-                                <div style="margin-left: 1rem;">
-                                    <span style="color: #38a169; font-size: 1.2rem;"><i class="fas fa-plus-circle"></i></span>
-                                </div>
-                            </div>
-                            ${producto.cantidad_disponible !== null && producto.cantidad_disponible !== undefined ? `
-                                <div class="stock-indicator" style="margin-top: 0.25rem;">
-                                    <span class="stock-icon ${producto.stock_status === 'high' ? 'stock-high' : producto.stock_status === 'medium' ? 'stock-medium' : 'stock-low'}">
-                                        ${producto.stock_icon || '<i class="fas fa-box"></i>'}
-                                    </span>
-                                    <span class="stock-text">${producto.stock_label || 'Disponible'}</span>
-                                </div>
-                            ` : ''}
-                        </div>
-                    `).join('');
-                })
-                .catch(error => {
-                    console.error('Error al buscar productos:', error);
-                    const container = document.getElementById('productosDisponibles');
-                    if (container) {
-                        container.innerHTML = '<p style="color: #e53e3e; text-align: center; padding: 1rem;">Error al cargar productos</p>';
-                    }
-                });
-        }
-        
-        // Función para agregar producto al pedido
-        function agregarProductoAPedido(producto) {
-            const itemsContainer = document.getElementById('itemsContainer');
-            
-            // Si el contenedor está vacío, limpiar el mensaje
-            if (itemsContainer.innerHTML.includes('No hay items')) {
-                itemsContainer.innerHTML = '';
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+                <button class="btn btn-warning" onclick="closeModal()">Cerrar</button>
+                <button class="btn btn-info" onclick="openStatusModal(${pedido.id})">
+                    <span><i class="fas fa-sync-alt"></i></span>
+                    <span>Cambiar Estado</span>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Función para abrir modal de edición
+function openEditModal(pedidoId) {
+    console.log('Abriendo modal para editar pedido:', pedidoId);
+    
+    fetch(`/gestiondepedidos/detalle/${pedidoId}/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: Pedido no encontrado`);
             }
-            
-            // Crear nuevo item con ID único
-            const itemId = `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            const precio = parseFloat(producto.precio) || 0;
-            const cantidad = 1;
-            const total = precio * cantidad;
-            
-            const nuevoItemHTML = `
-                <div class="order-item-edit" data-id="${producto.id}" data-unique-id="${itemId}">
+            return response.json();
+        })
+        .then(pedido => {
+            console.log('Pedido cargado para edición:', pedido);
+            cargarDatosEdicion(pedido);
+            document.getElementById('editModal').classList.add('active');
+        })
+        .catch(error => {
+            console.error('Error al cargar pedido:', error);
+            showNotification('Error: ' + error.message, 'error');
+        });
+}
+
+// Función para cargar datos en el modal de edición
+function cargarDatosEdicion(pedido) {
+    const modalBody = document.getElementById('editModalBody');
+    
+    // Formatear items actuales
+    let itemsHTML = '';
+    if (pedido.items && pedido.items.length > 0) {
+        itemsHTML = pedido.items.map((item, index) => {
+            // Asegurar que el ID sea string y esté disponible
+            const itemId = item.id ? String(item.id) : '';
+            return `
+                <div class="order-item-edit" data-index="${index}" data-id="${itemId}">
                     <div style="flex: 2;">
-                        <strong>${producto.nombre}</strong>
+                        <strong>${item.name || item.nombre}</strong>
                         <div style="font-size: 0.9rem; color: #718096;">
-                            Precio: $${precio.toFixed(2)}
+                            Precio: $${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                         </div>
                     </div>
                     <div class="cantidad-controls">
-                        <button type="button" class="cantidad-btn" onclick="cambiarCantidadEdit('${itemId}', -1)">-</button>
+                        <button type="button" class="cantidad-btn" onclick="cambiarCantidad(${index}, -1)">-</button>
                         <input type="number" class="cantidad-input" 
-                               value="${cantidad}" 
+                               value="${item.quantity || item.cantidad || 1}" 
                                min="1" 
-                               onchange="actualizarTotalItemEdit('${itemId}', this.value)"
-                               data-precio="${precio}"
-                               id="cantidad-input-${itemId}">
-                        <button type="button" class="cantidad-btn" onclick="cambiarCantidadEdit('${itemId}', 1)">+</button>
+                               onchange="actualizarTotalItem(${index}, this.value)"
+                               data-precio="${item.price || item.precio || 0}"
+                               id="cantidad-${index}">
+                        <button type="button" class="cantidad-btn" onclick="cambiarCantidad(${index}, 1)">+</button>
                     </div>
-                    <div style="font-weight: bold; color: #ff7e5f; min-width: 80px; text-align: right;" id="total-item-${itemId}">
-                        $${total.toFixed(2)}
+                    <div style="font-weight: bold; color: #ff7e5f; min-width: 80px; text-align: right;" id="total-item-${index}">
+                        $${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </div>
-                    <button type="button" class="btn-icon btn-danger" onclick="eliminarItemEdit('${itemId}')" title="Eliminar item">
+                    <button type="button" class="btn-icon btn-danger" onclick="eliminarItem(${index})" title="Eliminar item">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
             `;
-            
-            itemsContainer.innerHTML += nuevoItemHTML;
-            calcularTotalPedidoEdit();
-            
-            showNotification(`<i class="fas fa-check-circle"></i> ${producto.nombre} agregado al pedido`, 'success');
-        }
+        }).join('');
+    }
+    
+    modalBody.innerHTML = `
+        <input type="hidden" id="editPedidoId" value="${pedido.id}">
         
-        // Función para cambiar cantidad (edición)
-        function cambiarCantidadEdit(itemId, cambio) {
-            const input = document.getElementById(`cantidad-input-${itemId}`);
-            if (!input) return;
-            
-            let nuevaCantidad = parseInt(input.value) + cambio;
-            if (nuevaCantidad < 1) nuevaCantidad = 1;
-            
-            input.value = nuevaCantidad;
-            actualizarTotalItemEdit(itemId, nuevaCantidad);
-        }
-        
-        // Función para actualizar total de item (edición)
-        function actualizarTotalItemEdit(itemId, cantidad) {
-            const input = document.getElementById(`cantidad-input-${itemId}`);
-            if (!input) return;
-            
-            const precio = parseFloat(input.dataset.precio) || 0;
-            const total = precio * parseInt(cantidad);
-            
-            const totalElement = document.getElementById(`total-item-${itemId}`);
-            if (totalElement) {
-                totalElement.textContent = `$${total.toFixed(2)}`;
-            }
-            
-            calcularTotalPedidoEdit();
-        }
-        
-        // Función para eliminar item (edición)
-        function eliminarItemEdit(itemId) {
-            const itemDiv = document.querySelector(`.order-item-edit[data-unique-id="${itemId}"]`);
-            if (itemDiv && confirm('¿Estás seguro de eliminar este item?')) {
-                itemDiv.remove();
-                calcularTotalPedidoEdit();
-                
-                // Si no quedan items, mostrar mensaje
-                const itemsContainer = document.getElementById('itemsContainer');
-                if (itemsContainer.children.length === 0) {
-                    itemsContainer.innerHTML = '<p style="color: #718096; text-align: center; padding: 2rem;">No hay items en este pedido</p>';
-                }
-            }
-        }
-        
-        // Función para calcular total del pedido (edición)
-        function calcularTotalPedidoEdit() {
-            let total = 0;
-            
-            document.querySelectorAll('.order-item-edit').forEach(item => {
-                const totalText = item.querySelector('div[style*="color: #ff7e5f"]').textContent;
-                const itemTotal = parseFloat(totalText.replace('$', '')) || 0;
-                total += itemTotal;
-            });
-            
-            const totalElement = document.getElementById('totalPedidoEdit');
-            if (totalElement) {
-                totalElement.textContent = total.toFixed(2);
-            }
-            
-            return total;
-        }
-        
-        // Función para cambiar cantidad (items originales)
-        function cambiarCantidad(index, cambio) {
-            const input = document.getElementById(`cantidad-${index}`);
-            if (!input) return;
-            
-            let nuevaCantidad = parseInt(input.value) + cambio;
-            if (nuevaCantidad < 1) nuevaCantidad = 1;
-            
-            input.value = nuevaCantidad;
-            actualizarTotalItem(index, nuevaCantidad);
-        }
-        
-        // Función para actualizar total de item (items originales)
-        function actualizarTotalItem(index, cantidad) {
-            const input = document.getElementById(`cantidad-${index}`);
-            if (!input) return;
-            
-            const precio = parseFloat(input.dataset.precio) || 0;
-            const total = precio * parseInt(cantidad);
-            
-            const totalElement = document.getElementById(`total-item-${index}`);
-            if (totalElement) {
-                totalElement.textContent = `$${total.toFixed(2)}`;
-            }
-            
-            calcularTotalPedidoEdit();
-        }
-        
-        // Función para eliminar item (items originales)
-        function eliminarItem(index) {
-            const itemDiv = document.querySelector(`.order-item-edit[data-index="${index}"]`);
-            if (itemDiv && confirm('¿Estás seguro de eliminar este item?')) {
-                itemDiv.remove();
-                calcularTotalPedidoEdit();
-            }
-        }
-        
-        // Función para guardar cambios del pedido
-        function guardarCambiosPedido() {
-            const pedidoId = document.getElementById('editPedidoId').value;
-            const nombreCliente = document.getElementById('editNombreCliente').value;
-            const telefonoCliente = document.getElementById('editTelefonoCliente').value;
-            const notas = document.getElementById('editNotas').value;
-            
-            // Validar nombre del cliente
-            if (!nombreCliente.trim()) {
-                showNotification('<i class="fas fa-exclamation-circle"></i> El nombre del cliente es obligatorio', 'error');
-                document.getElementById('editNombreCliente').focus();
-                return;
-            }
-            
-            // Recopilar todos los items
-            const items = [];
-            document.querySelectorAll('.order-item-edit').forEach(itemDiv => {
-                const nombre = itemDiv.querySelector('strong').textContent;
-                const cantidadInput = itemDiv.querySelector('.cantidad-input');
-                const cantidad = parseInt(cantidadInput.value) || 1;
-                const precio = parseFloat(cantidadInput.dataset.precio) || 0;
-                const total = precio * cantidad;
-                
-                items.push({
-                    name: nombre,
-                    quantity: cantidad,
-                    price: precio,
-                    total: total
-                });
-            });
-            
-            // Validar que haya al menos un item
-            if (items.length === 0) {
-                showNotification('<i class="fas fa-exclamation-circle"></i> El pedido debe tener al menos un item', 'error');
-                return;
-            }
-            
-            // Preparar datos para enviar
-            const formData = new FormData();
-            formData.append('nuevos_items', JSON.stringify(items));
-            formData.append('nombre_cliente', nombreCliente);
-            formData.append('telefono_cliente', telefonoCliente);
-            formData.append('notas', notas);
-            
-            // Agregar CSRF token
-            const csrfToken = getCSRFToken();
-            if (csrfToken) {
-                formData.append('csrfmiddlewaretoken', csrfToken);
-            }
-            
-            console.log('Enviando datos para editar pedido:', {
-                pedidoId,
-                nombreCliente,
-                telefonoCliente,
-                cantidadItems: items.length,
-                total: calcularTotalPedidoEdit()
-            });
-            
-            // Mostrar indicador de carga
-            const saveBtn = document.querySelector('.btn-primary[onclick="guardarCambiosPedido()"]');
-            const originalText = saveBtn.innerHTML;
-            saveBtn.innerHTML = '<span><i class="fas fa-hourglass-half"></i></span><span>Guardando...</span>';
-            saveBtn.disabled = true;
-            
-            // Enviar datos al servidor
-            fetch(`/gestiondepedidos/editar/${pedidoId}/`, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Error ${response.status}: ${response.statusText}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    showNotification(`<i class="fas fa-check-circle"></i> ${data.mensaje}`, 'success');
-                    closeEditModal();
-                    
-                    // Recargar la página después de un breve retraso
-                    setTimeout(() => {
-                        location.reload();
-                    }, 1500);
-                } else {
-                    throw new Error(data.error || 'Error desconocido');
-                }
-            })
-            .catch(error => {
-                console.error('Error al guardar cambios:', error);
-                showNotification(`<i class="fas fa-exclamation-circle"></i> Error: ${error.message}`, 'error');
-                
-                // Restaurar botón
-                saveBtn.innerHTML = originalText;
-                saveBtn.disabled = false;
-            });
-        }
-        
-        // Función para abrir modal de cambio de estado
-        function openStatusModal(pedidoId) {
-            currentOrder = pedidoId;
-            
-            const estados = [
-                { value: 'pendiente', label: 'Pendiente', icon: '<i class="fas fa-clock"></i>', description: 'El pedido está pendiente de confirmación' },
-                { value: 'confirmado', label: 'Confirmado', icon: '<i class="fas fa-check"></i>', description: 'El pedido ha sido confirmado' },
-                { value: 'preparacion', label: 'En Preparación', icon: '<i class="fas fa-concierge-bell"></i>', description: 'El pedido está siendo preparado' },
-                { value: 'listo', label: 'Listo', icon: '<i class="fas fa-rocket"></i>', description: 'El pedido está listo para servir/entregar' },
-                { value: 'entregado', label: 'Entregado', icon: '<i class="fas fa-box"></i>', description: 'El pedido ha sido entregado' },
-                { value: 'completado', label: 'Completado', icon: '<i class="fas fa-flag-checkered"></i>', description: 'El pedido ha sido completado' },
-                { value: 'cancelado', label: 'Cancelado', icon: '<i class="fas fa-times-circle"></i>', description: 'El pedido ha sido cancelado' }
-            ];
-            
-            const modalBody = document.getElementById('statusModalBody');
-            modalBody.innerHTML = `
-                <input type="hidden" id="statusPedidoId" value="${pedidoId}">
-                
-                <div style="margin-bottom: 1.5rem;">
-                    <p>Selecciona el nuevo estado para el pedido:</p>
+        <div class="edit-form-group">
+            <label><i class="fas fa-clipboard"></i> Información del Pedido</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <div style="font-weight: 600;">Código:</div>
+                    <div>${pedido.codigo_pedido}</div>
                 </div>
+                <div>
+                    <div style="font-weight: 600;">Estado Actual:</div>
+                    <div>
+                        <span class="status-badge ${getEstadoClass(pedido.estado)}">
+                            ${pedido.estado_display}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="edit-form-group">
+            <label><i class="fas fa-user"></i> Información del Cliente</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                    <label for="editNombreCliente">Nombre *</label>
+                    <input type="text" id="editNombreCliente" 
+                           value="${pedido.nombre_cliente || ''}" 
+                           placeholder="Nombre del cliente"
+                           required>
+                </div>
+                <div>
+                    <label for="editTelefonoCliente">Teléfono</label>
+                    <input type="tel" id="editTelefonoCliente" 
+                           value="${pedido.telefono_cliente || ''}" 
+                           placeholder="Teléfono">
+                </div>
+            </div>
+        </div>
+        
+        <div class="edit-form-group">
+            <label><i class="fas fa-utensils"></i> Items del Pedido</label>
+            <div id="itemsContainer" style="max-height: 300px; overflow-y: auto; padding: 0.5rem; border: 1px solid #e0e6ff; border-radius: 8px;">
+                ${itemsHTML || '<p style="color: #718096; text-align: center; padding: 2rem;">No hay items en este pedido</p>'}
+            </div>
+        </div>
+        
+        <!-- Sección para agregar nuevos productos -->
+        <div class="edit-form-group">
+            <label><i class="fas fa-plus-circle"></i> Agregar Nuevos Productos</label>
+            
+            <div class="search-bebidas" style="margin-bottom: 1rem;">
+                <span class="search-bebidas-icon"><i class="fas fa-search"></i></span>
+                <input type="text" id="buscarProducto" placeholder="Buscar bebidas, platos..." 
+                       oninput="buscarProductosDisponibles()">
+                <button type="button" class="search-bebidas-btn" onclick="buscarProductosDisponibles()">Buscar</button>
+            </div>
+            
+            <div style="margin-bottom: 1rem;">
+                <label for="tipoProducto">Tipo de Producto:</label>
+                <select id="tipoProducto" onchange="buscarProductosDisponibles()" style="width: 100%; padding: 0.75rem;">
+                    <option value="todos">Todos</option>
+                    <option value="bebida">Bebidas</option>
+                    <option value="plato">Platos</option>
+                </select>
+            </div>
+            
+            <div id="productosDisponibles" style="max-height: 200px; overflow-y: auto; border: 1px solid #e0e6ff; border-radius: 8px; padding: 0.5rem;">
+                <p style="color: #718096; text-align: center; padding: 1rem;">Busca productos para agregar</p>
+            </div>
+        </div>
+        
+        <div class="edit-form-group">
+            <label><i class="fas fa-sticky-note"></i> Notas Adicionales</label>
+            <textarea id="editNotas" rows="3" placeholder="Notas del pedido...">${pedido.notas || ''}</textarea>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e0e6ff;">
+            <div>
+                <strong style="font-size: 1.2rem;">Total: $</strong>
+                <span id="totalPedidoEdit" style="font-size: 1.5rem; font-weight: bold; color: #ff7e5f;">
+                    ${pedido.total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                </span>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button type="button" class="btn btn-warning" onclick="closeEditModal()">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarCambiosPedido()">
+                    <span><i class="fas fa-save"></i></span>
+                    <span>Guardar Cambios</span>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Inicializar búsqueda de productos
+    buscarProductosDisponibles();
+}
+
+// Función para buscar productos disponibles
+function buscarProductosDisponibles() {
+    const searchTerm = document.getElementById('buscarProducto')?.value || '';
+    const tipoProducto = document.getElementById('tipoProducto')?.value || 'todos';
+    
+    console.log('Buscando productos:', searchTerm, tipoProducto);
+    
+    fetch(`/gestiondepedidos/platos-disponibles/?search=${encodeURIComponent(searchTerm)}&tipo=${tipoProducto}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error en la respuesta del servidor');
+            }
+            return response.json();
+        })
+        .then(productos => {
+            const container = document.getElementById('productosDisponibles');
+            if (!container) return;
+            
+            if (!productos || productos.length === 0) {
+                container.innerHTML = '<p style="color: #718096; text-align: center; padding: 1rem;">No se encontraron productos</p>';
+                return;
+            }
+            
+            container.innerHTML = productos.map(producto => {
+                // Determinar si el producto tiene stock
+                let puedeAgregar = true;
+                let estiloBoton = 'color: #38a169;';
+                let iconoBoton = 'fa-plus-circle';
+                let mensajeHover = 'Click para agregar';
                 
-                <div id="statusOptions">
-                    ${estados.map(estado => `
-                        <div class="status-option" data-value="${estado.value}" onclick="seleccionarEstado('${estado.value}')">
-                            <div class="status-option-icon">
-                                ${estado.icon}
+                if (producto.tipo === 'bebida' && producto.cantidad_disponible !== null) {
+                    if (producto.cantidad_disponible <= 0) {
+                        puedeAgregar = false;
+                        estiloBoton = 'color: #e53e3e;';
+                        iconoBoton = 'fa-ban';
+                        mensajeHover = 'Sin stock disponible';
+                    } else if (producto.cantidad_disponible < 5) {
+                        estiloBoton = 'color: #d69e2e;';
+                        iconoBoton = 'fa-exclamation-triangle';
+                        mensajeHover = 'Stock bajo';
+                    }
+                }
+                
+                const onClick = puedeAgregar ? 
+                    `onclick="agregarProductoAPedido(${JSON.stringify(producto).replace(/"/g, '&quot;')})"` : 
+                    `onclick="showNotification('\\u26A0 No se puede agregar ${producto.nombre}: ${mensajeHover}', 'error')"`;
+                
+                return `
+                    <div class="producto-item" style="padding: 0.75rem; border-bottom: 1px solid #f1f1f1; cursor: ${puedeAgregar ? 'pointer' : 'not-allowed'}; opacity: ${puedeAgregar ? '1' : '0.7'};" 
+                         ${onClick}
+                         title="${mensajeHover}"
+                         onmouseover="this.style.backgroundColor='${puedeAgregar ? '#f8f9ff' : '#f7fafc'}'"
+                         onmouseout="this.style.backgroundColor='transparent'">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="flex: 1;">
+                                <strong>${producto.nombre}</strong>
+                                <div style="font-size: 0.85rem; color: #718096;">
+                                    ${producto.categoria || producto.tipo} - $${producto.precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                </div>
+                                ${producto.cantidad_disponible !== null && producto.cantidad_disponible !== undefined ? `
+                                    <div class="stock-indicator" style="margin-top: 0.25rem; padding: 0.25rem 0.5rem; border-radius: 4px; background: ${producto.cantidad_disponible <= 0 ? '#fed7d7' : producto.cantidad_disponible < 5 ? '#feebc8' : '#c6f6d5'};">
+                                        <span style="color: ${producto.cantidad_disponible <= 0 ? '#e53e3e' : producto.cantidad_disponible < 5 ? '#d69e2e' : '#38a169'}; font-size: 0.8rem;">
+                                            <i class="fas ${producto.cantidad_disponible <= 0 ? 'fa-times-circle' : producto.cantidad_disponible < 5 ? 'fa-exclamation-triangle' : 'fa-check-circle'}"></i>
+                                            ${producto.cantidad_disponible <= 0 ? 'SIN STOCK' : producto.cantidad_disponible < 5 ? `Stock bajo: ${producto.cantidad_disponible}` : `Stock: ${producto.cantidad_disponible}`}
+                                        </span>
+                                    </div>
+                                ` : ''}
                             </div>
-                            <div class="status-option-label">
-                                <div>${estado.label}</div>
-                                <div style="font-size: 0.85rem; color: #718096; font-weight: normal;">${estado.description}</div>
+                            <div style="margin-left: 1rem;">
+                                <span style="${estiloBoton} font-size: 1.2rem;">
+                                    <i class="fas ${iconoBoton}"></i>
+                                </span>
                             </div>
                         </div>
-                    `).join('')}
+                    </div>
+                `;
+            }).join('');
+        })
+        .catch(error => {
+            console.error('Error al buscar productos:', error);
+            const container = document.getElementById('productosDisponibles');
+            if (container) {
+                container.innerHTML = '<p style="color: #e53e3e; text-align: center; padding: 1rem;">Error al cargar productos</p>';
+            }
+        });
+}
+
+// Función para verificar stock de productos
+async function verificarStockProductos(items) {
+    try {
+        const response = await fetch('/gestiondepedidos/verificar-stock-multiples/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ items: items })
+        });
+        
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error al verificar stock:', error);
+        return { exito: false, productos_sin_stock: [], mensaje: 'Error al verificar stock' };
+    }
+}
+
+// Función para verificar stock de un item específico
+async function verificarStockItem(itemUniqueId, nuevaCantidad) {
+    const itemDiv = document.querySelector(`.order-item-edit[data-unique-id="${itemUniqueId}"]`);
+    if (!itemDiv) return { exito: true, producto: null };
+    
+    const id = itemDiv.getAttribute('data-id');
+    const nombre = itemDiv.querySelector('strong').textContent;
+    
+    // Solo verificar productos de bebida
+    if (id && id.startsWith('PROD-')) {
+        const item = [{
+            id: id,
+            name: nombre,
+            quantity: nuevaCantidad
+        }];
+        
+        try {
+            const data = await verificarStockProductos(item);
+            return data;
+        } catch (error) {
+            console.error('Error al verificar stock:', error);
+            return { exito: false, producto: { nombre: nombre, mensaje: 'Error al verificar stock' } };
+        }
+    }
+    
+    return { exito: true, producto: null };
+}
+
+// Función para agregar producto al pedido CON verificación de stock
+async function agregarProductoAPedido(producto) {
+    // Verificar stock si es bebida
+    if (producto.tipo === 'bebida' && producto.cantidad_disponible !== null && producto.cantidad_disponible <= 0) {
+        showNotification(`<i class="fas fa-exclamation-circle"></i> No se puede agregar ${producto.nombre}: Sin stock disponible`, 'error');
+        return;
+    }
+    
+    // Si tiene stock bajo, mostrar advertencia
+    if (producto.tipo === 'bebida' && producto.cantidad_disponible !== null && producto.cantidad_disponible < 5) {
+        if (!confirm(`⚠️ ${producto.nombre} tiene stock bajo (${producto.cantidad_disponible} unidades). ¿Desea agregarlo de todos modos?`)) {
+            return;
+        }
+    }
+    
+    const itemsContainer = document.getElementById('itemsContainer');
+    
+    // Si el contenedor está vacío, limpiar el mensaje
+    if (itemsContainer.innerHTML.includes('No hay items')) {
+        itemsContainer.innerHTML = '';
+    }
+    
+    // Crear nuevo item con ID único
+    const itemUniqueId = `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const precio = parseFloat(producto.precio) || 0;
+    const cantidad = 1;
+    const total = precio * cantidad;
+    
+    const nuevoItemHTML = `
+        <div class="order-item-edit" data-id="${producto.id}" data-unique-id="${itemUniqueId}">
+            <div style="flex: 2;">
+                <strong>${producto.nombre}</strong>
+                <div style="font-size: 0.9rem; color: #718096;">
+                    Precio: $${precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    ${producto.cantidad_disponible !== null ? ` | Stock disponible: ${producto.cantidad_disponible}` : ''}
                 </div>
-                
-                <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
-                    <button class="btn btn-warning" onclick="closeStatusModal()">Cancelar</button>
-                    <button class="btn btn-primary" id="confirmStatusBtn" onclick="confirmarCambioEstado()" disabled>
-                        <span><i class="fas fa-save"></i></span>
-                        <span>Confirmar Cambio</span>
-                    </button>
-                </div>
+            </div>
+            <div class="cantidad-controls">
+                <button type="button" class="cantidad-btn" onclick="cambiarCantidadEdit('${itemUniqueId}', -1)">-</button>
+                <input type="number" class="cantidad-input" 
+                       value="${cantidad}" 
+                       min="1" 
+                       max="${producto.cantidad_disponible !== null ? producto.cantidad_disponible : ''}"
+                       onchange="actualizarTotalItemEdit('${itemUniqueId}', this.value)"
+                       data-precio="${precio}"
+                       id="cantidad-input-${itemUniqueId}">
+                <button type="button" class="cantidad-btn" onclick="cambiarCantidadEdit('${itemUniqueId}', 1)">+</button>
+            </div>
+            <div style="font-weight: bold; color: #ff7e5f; min-width: 80px; text-align: right;" id="total-item-${itemUniqueId}">
+                $${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+            </div>
+            <button type="button" class="btn-icon btn-danger" onclick="eliminarItemEdit('${itemUniqueId}')" title="Eliminar item" style="margin-left: 1rem;">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    
+    itemsContainer.innerHTML += nuevoItemHTML;
+    calcularTotalPedidoEdit();
+    
+    showNotification(`<i class="fas fa-check-circle"></i> ${producto.nombre} agregado al pedido`, 'success');
+}
+
+// Función para cambiar cantidad (edición - items nuevos)
+async function cambiarCantidadEdit(itemUniqueId, cambio) {
+    const input = document.getElementById(`cantidad-input-${itemUniqueId}`);
+    if (!input) return;
+    
+    let nuevaCantidad = parseInt(input.value) + cambio;
+    if (nuevaCantidad < 1) {
+        nuevaCantidad = 1;
+    }
+    
+    // Verificar stock antes de cambiar
+    const result = await verificarStockItem(itemUniqueId, nuevaCantidad);
+    
+    if (result.exito) {
+        input.value = nuevaCantidad;
+        actualizarTotalItemEdit(itemUniqueId, nuevaCantidad);
+    } else {
+        // Si no hay stock, NO cambiar la cantidad y mostrar mensaje
+        showNotification(`<i class="fas fa-exclamation-circle"></i> ${result.productos_sin_stock[0]?.mensaje || 'Stock insuficiente'}`, 'error');
+        
+        // Revertir al valor anterior
+        const valorActual = parseInt(input.value);
+        input.value = valorActual;
+        
+        // Si intentaba incrementar y no hay stock, deshabilitar botón +
+        if (cambio > 0) {
+            const btnIncrementar = input.nextElementSibling;
+            if (btnIncrementar) {
+                btnIncrementar.disabled = true;
+                btnIncrementar.style.opacity = '0.5';
+                setTimeout(() => {
+                    btnIncrementar.disabled = false;
+                    btnIncrementar.style.opacity = '1';
+                }, 2000);
+            }
+        }
+    }
+}
+
+// Función para actualizar total de item (edición - items nuevos)
+async function actualizarTotalItemEdit(itemUniqueId, cantidad) {
+    const input = document.getElementById(`cantidad-input-${itemUniqueId}`);
+    if (!input) return;
+    
+    // Verificar stock si es producto de bebida
+    const id = input.closest('.order-item-edit').getAttribute('data-id');
+    if (id && id.startsWith('PROD-')) {
+        const result = await verificarStockItem(itemUniqueId, cantidad);
+        if (!result.exito) {
+            // Si no hay stock, revertir al valor anterior
+            const valorAnterior = parseInt(input.value) || 1;
+            input.value = valorAnterior;
+            showNotification(`<i class="fas fa-exclamation-circle"></i> ${result.productos_sin_stock[0]?.mensaje || 'Stock insuficiente'}`, 'error');
+            return;
+        }
+    }
+    
+    const precio = parseFloat(input.dataset.precio) || 0;
+    const total = precio * parseInt(cantidad);
+    
+    const totalElement = document.getElementById(`total-item-${itemUniqueId}`);
+    if (totalElement) {
+        totalElement.textContent = `$${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    }
+    
+    calcularTotalPedidoEdit();
+}
+
+// Función para eliminar item (edición - items nuevos)
+function eliminarItemEdit(itemUniqueId) {
+    const itemDiv = document.querySelector(`.order-item-edit[data-unique-id="${itemUniqueId}"]`);
+    if (itemDiv && confirm('¿Estás seguro de eliminar este item?')) {
+        itemDiv.remove();
+        calcularTotalPedidoEdit();
+        
+        // Si no quedan items, mostrar mensaje
+        const itemsContainer = document.getElementById('itemsContainer');
+        if (itemsContainer.children.length === 0) {
+            itemsContainer.innerHTML = '<p style="color: #718096; text-align: center; padding: 2rem;">No hay items en este pedido</p>';
+        }
+    }
+}
+
+// Función para calcular total del pedido (edición)
+function calcularTotalPedidoEdit() {
+    let total = 0;
+    
+    document.querySelectorAll('.order-item-edit').forEach(item => {
+        const totalText = item.querySelector('div[style*="color: #ff7e5f"]').textContent;
+        const itemTotal = parseFloat(totalText.replace('$', '')) || 0;
+        total += itemTotal;
+    });
+    
+    const totalElement = document.getElementById('totalPedidoEdit');
+    if (totalElement) {
+        totalElement.textContent = total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+    
+    return total;
+}
+
+// Función para cambiar cantidad (items originales)
+function cambiarCantidad(index, cambio) {
+    const input = document.getElementById(`cantidad-${index}`);
+    if (!input) return;
+    
+    let nuevaCantidad = parseInt(input.value) + cambio;
+    if (nuevaCantidad < 1) nuevaCantidad = 1;
+    
+    input.value = nuevaCantidad;
+    actualizarTotalItem(index, nuevaCantidad);
+}
+
+// Función para actualizar total de item (items originales)
+function actualizarTotalItem(index, cantidad) {
+    const input = document.getElementById(`cantidad-${index}`);
+    if (!input) return;
+    
+    const precio = parseFloat(input.dataset.precio) || 0;
+    const total = precio * parseInt(cantidad);
+    
+    const totalElement = document.getElementById(`total-item-${index}`);
+    if (totalElement) {
+        totalElement.textContent = `$${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    }
+    
+    calcularTotalPedidoEdit();
+}
+
+// Función para eliminar item (items originales)
+function eliminarItem(index) {
+    const itemDiv = document.querySelector(`.order-item-edit[data-index="${index}"]`);
+    if (itemDiv && confirm('¿Estás seguro de eliminar este item?')) {
+        itemDiv.remove();
+        calcularTotalPedidoEdit();
+        
+        // Si no quedan items, mostrar mensaje
+        const itemsContainer = document.getElementById('itemsContainer');
+        if (itemsContainer.children.length === 0) {
+            itemsContainer.innerHTML = '<p style="color: #718096; text-align: center; padding: 2rem;">No hay items en este pedido</p>';
+        }
+    }
+}
+
+// Función para verificar stock antes de guardar - AHORA BLOQUEA COMPLETAMENTE
+async function verificarStockAntesDeGuardar() {
+    const items = [];
+    document.querySelectorAll('.order-item-edit').forEach(itemDiv => {
+        const id = itemDiv.getAttribute('data-id');
+        const nombre = itemDiv.querySelector('strong').textContent;
+        const cantidadInput = itemDiv.querySelector('.cantidad-input');
+        const cantidad = parseInt(cantidadInput.value) || 1;
+        const precio = parseFloat(cantidadInput.dataset.precio) || 0;
+        
+        items.push({
+            id: id,
+            name: nombre,
+            quantity: cantidad,
+            price: precio,
+            total: precio * cantidad
+        });
+    });
+    
+    const data = await verificarStockProductos(items);
+    
+    if (data.exito) {
+        return true;
+    } else {
+        // Mostrar error y NO permitir continuar
+        let mensajeError = `<div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1.5rem; color: #e53e3e;">⛔</span>
+            <div>
+                <strong style="color: #e53e3e;">¡NO SE PUEDE GUARDAR!</strong><br>
+                ${data.mensaje}<br>
+                <small>Productos con stock insuficiente:</small>
+            </div>
+        </div>`;
+        
+        // Lista de productos sin stock
+        data.productos_sin_stock.forEach(producto => {
+            mensajeError += `<div style="margin-top: 0.5rem; padding: 0.5rem; background: #fed7d7; border-radius: 5px;">
+                <strong>${producto.nombre}</strong>: Stock actual ${producto.stock_actual}, solicitado ${producto.cantidad_solicitada}
+            </div>`;
+        });
+        
+        mensajeError += `<div style="margin-top: 1rem; font-size: 0.9rem;">
+            <i class="fas fa-info-circle"></i> Por favor, ajuste las cantidades antes de guardar.
+        </div>`;
+        
+        showNotification(mensajeError, 'error');
+        
+        // Destacar los productos sin stock
+        data.productos_sin_stock.forEach(producto => {
+            const itemDivs = document.querySelectorAll('.order-item-edit');
+            itemDivs.forEach(div => {
+                const nombre = div.querySelector('strong').textContent;
+                if (nombre === producto.nombre) {
+                    div.style.border = '2px solid #e53e3e';
+                    div.style.background = '#fed7d7';
+                    div.style.animation = 'shake 0.5s';
+                    
+                    const cantidadInput = div.querySelector('.cantidad-input');
+                    if (cantidadInput) {
+                        cantidadInput.style.border = '2px solid #e53e3e';
+                        cantidadInput.style.color = '#e53e3e';
+                        cantidadInput.style.fontWeight = 'bold';
+                        cantidadInput.focus();
+                    }
+                }
+            });
+        });
+        
+        // Agregar animación shake si no existe
+        if (!document.querySelector('#shake-animation')) {
+            const style = document.createElement('style');
+            style.id = 'shake-animation';
+            style.textContent = `
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+                    20%, 40%, 60%, 80% { transform: translateX(5px); }
+                }
             `;
-            
-            document.getElementById('statusModal').classList.add('active');
+            document.head.appendChild(style);
         }
         
-        // Función para seleccionar estado
-        function seleccionarEstado(estadoValue) {
-            // Remover selección anterior
-            document.querySelectorAll('.status-option').forEach(option => {
-                option.classList.remove('selected');
-            });
-            
-            // Marcar como seleccionado
-            const selectedOption = document.querySelector(`.status-option[data-value="${estadoValue}"]`);
-            if (selectedOption) {
-                selectedOption.classList.add('selected');
-            }
-            
-            // Habilitar botón de confirmación
-            document.getElementById('confirmStatusBtn').disabled = false;
-        }
+        return false;
+    }
+}
+
+// Función para guardar cambios del pedido - AHORA BLOQUEA SI NO HAY STOCK
+async function guardarCambiosPedido() {
+    const pedidoId = document.getElementById('editPedidoId').value;
+    const nombreCliente = document.getElementById('editNombreCliente').value;
+    const telefonoCliente = document.getElementById('editTelefonoCliente').value;
+    const notas = document.getElementById('editNotas').value;
+    
+    // Validar nombre del cliente
+    if (!nombreCliente.trim()) {
+        showNotification('<i class="fas fa-exclamation-circle"></i> El nombre del cliente es obligatorio', 'error');
+        document.getElementById('editNombreCliente').focus();
+        return;
+    }
+    
+    // 1. Primero verificar stock - AHORA BLOQUEA COMPLETAMENTE
+    const stockOk = await verificarStockAntesDeGuardar();
+    if (!stockOk) {
+        return; // NO continuar si no hay stock suficiente
+    }
+    
+    // Recopilar todos los items con su ID
+    const items = [];
+    document.querySelectorAll('.order-item-edit').forEach(itemDiv => {
+        const id = itemDiv.getAttribute('data-id');
+        const nombre = itemDiv.querySelector('strong').textContent;
+        const cantidadInput = itemDiv.querySelector('.cantidad-input');
+        const cantidad = parseInt(cantidadInput.value) || 1;
+        const precio = parseFloat(cantidadInput.dataset.precio) || 0;
+        const total = precio * cantidad;
         
-        // Función para confirmar cambio de estado
-        function confirmarCambioEstado() {
-            const pedidoId = currentOrder;
-            const selectedOption = document.querySelector('.status-option.selected');
-            
-            if (!selectedOption) {
-                showNotification('<i class="fas fa-times-circle"></i> Por favor selecciona un estado', 'error');
-                return;
-            }
-            
-            const nuevoEstado = selectedOption.dataset.value;
-            
-            if (!confirm(`¿Estás seguro de cambiar el estado del pedido a "${selectedOption.querySelector('.status-option-label div').textContent}"?`)) {
-                return;
-            }
-            
-            // Preparar datos
-            const formData = new FormData();
-            formData.append('estado', nuevoEstado);
-            
-            const csrfToken = getCSRFToken();
-            if (csrfToken) {
-                formData.append('csrfmiddlewaretoken', csrfToken);
-            }
-            
-            // Mostrar indicador de carga
-            const confirmBtn = document.getElementById('confirmStatusBtn');
-            const originalText = confirmBtn.innerHTML;
-            confirmBtn.innerHTML = '<span><i class="fas fa-hourglass-half"></i></span><span>Cambiando...</span>';
-            confirmBtn.disabled = true;
-            
-            // Enviar solicitud
-            fetch(`/gestiondepedidos/cambiar-estado/${pedidoId}/`, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showNotification(`<i class="fas fa-check-circle"></i> Estado cambiado a ${data.estado_display}`, 'success');
-                    closeStatusModal();
-                    
-                    // Actualizar la fila en la tabla
-                    const row = document.querySelector(`tr[data-order-id="${pedidoId}"]`);
-                    if (row) {
-                        const estadoCell = row.querySelector('td:nth-child(7)');
-                        if (estadoCell) {
-                            const estadoInfo = getEstadoInfo(nuevoEstado);
-                            estadoCell.innerHTML = `
-                                <span class="status-badge ${estadoInfo.class}">
-                                    <span class="status-icon">${estadoInfo.icon}</span>
-                                    ${data.estado_display}
-                                </span>
-                            `;
-                        }
-                    }
-                    
-                    // Actualizar estadísticas
-                    updateStats();
-                } else {
-                    throw new Error(data.error || 'Error desconocido');
-                }
-            })
-            .catch(error => {
-                console.error('Error al cambiar estado:', error);
-                showNotification(`<i class="fas fa-exclamation-circle"></i> Error: ${error.message}`, 'error');
-                
-                // Restaurar botón
-                confirmBtn.innerHTML = originalText;
-                confirmBtn.disabled = false;
-            });
+        items.push({
+            id: id,
+            name: nombre,
+            quantity: cantidad,
+            price: precio,
+            total: total
+        });
+    });
+    
+    // Validar que haya al menos un item
+    if (items.length === 0) {
+        showNotification('<i class="fas fa-exclamation-circle"></i> El pedido debe tener al menos un item', 'error');
+        return;
+    }
+    
+    console.log('Items a enviar:', items);
+    
+    // Preparar datos para enviar
+    const formData = new FormData();
+    formData.append('nuevos_items', JSON.stringify(items));
+    formData.append('nombre_cliente', nombreCliente);
+    formData.append('telefono_cliente', telefonoCliente);
+    formData.append('notas', notas);
+    
+    // Agregar CSRF token
+    const csrfToken = getCSRFToken();
+    if (csrfToken) {
+        formData.append('csrfmiddlewaretoken', csrfToken);
+    }
+    
+    console.log('Enviando datos para editar pedido:', {
+        pedidoId,
+        nombreCliente,
+        telefonoCliente,
+        cantidadItems: items.length,
+        items: items,
+        total: calcularTotalPedidoEdit()
+    });
+    
+    // Mostrar indicador de carga
+    const saveBtn = document.querySelector('.btn-primary[onclick="guardarCambiosPedido()"]');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<span><i class="fas fa-hourglass-half"></i></span><span>Guardando...</span>';
+    saveBtn.disabled = true;
+    
+    // Enviar datos al servidor
+    fetch(`/gestiondepedidos/editar/${pedidoId}/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
         }
-        
-        // Función para eliminar pedido
-        function deleteOrder(pedidoId) {
-            if (!confirm('¿Estás seguro de eliminar este pedido? Esta acción no se puede deshacer.')) {
-                return;
-            }
-            
-            // Preparar datos
-            const formData = new FormData();
-            formData.append('eliminar_vista', 'true');
-            
-            const csrfToken = getCSRFToken();
-            if (csrfToken) {
-                formData.append('csrfmiddlewaretoken', csrfToken);
-            }
-            
-            // Enviar solicitud
-            fetch(`/gestiondepedidos/eliminar/${pedidoId}/`, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showNotification(`<i class="fas fa-check-circle"></i> ${data.mensaje}`, 'success');
-                    
-                    // Eliminar la fila de la tabla
-                    const row = document.querySelector(`tr[data-order-id="${pedidoId}"]`);
-                    if (row) {
-                        row.remove();
-                    }
-                    
-                    // Actualizar estadísticas
-                    updateStats();
-                    
-                    // Mostrar mensaje si no hay pedidos
-                    const tbody = document.querySelector('#pedidosBody');
-                    if (tbody && tbody.children.length === 0) {
-                        tbody.innerHTML = `
-                            <tr class="empty-state">
-                                <td colspan="8">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                    </svg>
-                                    <h3>No se encontraron pedidos</h3>
-                                    <p>Todos los pedidos están pagados o no hay pedidos con los filtros aplicados</p>
-                                    <div style="margin-top: 1rem;">
-                                        <a href="{% url 'historial_pedidos' %}" class="btn btn-success" style="text-decoration: none;">
-                                            <span><i class="fas fa-history"></i></span>
-                                            <span>Ver Historial de Pagados</span>
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                        `;
-                    }
-                } else {
-                    throw new Error(data.error || 'Error al eliminar el pedido');
-                }
-            })
-            .catch(error => {
-                console.error('Error al eliminar pedido:', error);
-                showNotification(`<i class="fas fa-exclamation-circle"></i> ${error.message}`, 'error');
-            });
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
         }
-        
-        // Función para actualizar estadísticas
-        function updateStats() {
-            // Contar pedidos en la tabla
-            const totalRows = document.querySelectorAll('#pedidosTable tbody tr:not(.empty-state)').length;
-            const totalElement = document.getElementById('totalPedidos');
-            if (totalElement) {
-                totalElement.textContent = totalRows;
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showNotification(`<i class="fas fa-check-circle"></i> ${data.mensaje}`, 'success');
+            
+            // Mostrar alertas de stock si existen
+            if (data.alertas) {
+                mostrarAlertasStock(data.alertas);
             }
             
-            // Contar pedidos pendientes
-            const pendientes = document.querySelectorAll('.status-pendiente').length;
-            const pendientesElement = document.getElementById('pedidosPendientes');
-            if (pendientesElement) {
-                pendientesElement.textContent = pendientes;
-            }
-        }
-        
-        // Funciones de utilidad
-        function getCSRFToken() {
-            const token = document.querySelector('[name=csrfmiddlewaretoken]');
-            return token ? token.value : '';
-        }
-        
-        function showNotification(message, type = 'success') {
-            // Remover notificaciones anteriores
-            const existing = document.querySelectorAll('.custom-notification');
-            existing.forEach(n => n.remove());
+            closeEditModal();
             
-            // Crear notificación
-            const notification = document.createElement('div');
-            notification.className = 'custom-notification';
-            
-            const colors = {
-                success: { bg: '#38a169', color: '#ffffff' },
-                error: { bg: '#e53e3e', color: '#ffffff' },
-                info: { bg: '#3182ce', color: '#ffffff' },
-                warning: { bg: '#d69e2e', color: '#ffffff' }
-            };
-            
-            const color = colors[type] || colors.success;
-            
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: ${color.bg};
-                color: ${color.color};
-                padding: 1rem 1.5rem;
-                border-radius: 10px;
-                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-                z-index: 10000;
-                animation: slideIn 0.3s ease-out;
-                font-weight: 600;
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                max-width: 400px;
-                white-space: pre-line;
-            `;
-            
-            notification.innerHTML = message;
-            document.body.appendChild(notification);
-            
-            // Remover después de 5 segundos
+            // Recargar la página después de un breve retraso
             setTimeout(() => {
-                notification.style.animation = 'slideOut 0.3s ease-out';
-                setTimeout(() => notification.remove(), 300);
-            }, 5000);
+                location.reload();
+            }, 1500);
+        } else {
+            throw new Error(data.error || 'Error desconocido');
         }
+    })
+    .catch(error => {
+        console.error('Error al guardar cambios:', error);
+        showNotification(`<i class="fas fa-exclamation-circle"></i> Error: ${error.message}`, 'error');
         
-        function getEstadoClass(estado) {
-            const clases = {
-                'pendiente': 'status-pendiente',
-                'confirmado': 'status-pendiente',
-                'preparacion': 'status-preparacion',
-                'listo': 'status-listo',
-                'entregado': 'status-entregado',
-                'completado': 'status-entregado',
-                'cancelado': 'status-cancelado'
-            };
-            return clases[estado] || 'status-pendiente';
+        // Restaurar botón
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
+    });
+}
+
+// Función para mostrar alertas de stock
+function mostrarAlertasStock(alertas) {
+    if (!alertas || alertas.length === 0) return;
+    
+    console.log('Mostrando alertas de stock:', alertas);
+    
+    // Agrupar alertas por tipo
+    const alertasCero = alertas.filter(a => a.tipo === 'advertencia');
+    const alertasBajo = alertas.filter(a => a.tipo === 'bajo_stock');
+    
+    // Mostrar alertas de stock cero primero (más críticas)
+    alertasCero.forEach(alerta => {
+        showNotification(`
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.5rem; color: #e53e3e;">⚠️</span>
+                <div>
+                    <strong style="color: #e53e3e;">¡ATENCIÓN!</strong><br>
+                    ${alerta.mensaje}<br>
+                    <small>Stock anterior: ${alerta.stock_anterior}, Solicitado: ${alerta.cantidad_solicitada}</small>
+                </div>
+            </div>
+        `, 'error');
+    });
+    
+    // Mostrar alertas de stock bajo después
+    alertasBajo.forEach(alerta => {
+        showNotification(`
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.5rem; color: #d69e2e;">📉</span>
+                <div>
+                    <strong style="color: #d69e2e;">Stock Bajo</strong><br>
+                    ${alerta.mensaje}
+                </div>
+            </div>
+        `, 'warning');
+    });
+    
+    // Agregar botón para ir al inventario si hay alertas críticas
+    if (alertasCero.length > 0) {
+        setTimeout(() => {
+            const notif = document.createElement('div');
+            notif.className = 'custom-notification';
+            notif.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: #2c3e50;
+                color: white;
+                padding: 1rem;
+                border-radius: 10px;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+                z-index: 10001;
+                animation: slideIn 0.3s ease-out;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                max-width: 300px;
+            `;
+            
+            notif.innerHTML = `
+                <div style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-exclamation-triangle" style="color: #ff6b6b;"></i>
+                    ¡Stock Crítico!
+                </div>
+                <div style="font-size: 0.9rem;">
+                    Hay ${alertasCero.length} producto(s) con stock cero o negativo
+                </div>
+                <button onclick="window.location.href='/inventario/'" 
+                        style="background: #ff7e5f; color: white; border: none; 
+                               padding: 8px 16px; border-radius: 6px; 
+                               cursor: pointer; font-weight: bold;">
+                    <i class="fas fa-boxes"></i> Ir a Inventario
+                </button>
+            `;
+            
+            document.body.appendChild(notif);
+            
+            // Remover después de 10 segundos
+            setTimeout(() => {
+                notif.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => notif.remove(), 300);
+            }, 10000);
+        }, 1500);
+    }
+}
+
+// Función para abrir modal de cambio de estado
+function openStatusModal(pedidoId) {
+    currentOrder = pedidoId;
+    
+    const estados = [
+        { value: 'pendiente', label: 'Pendiente', icon: '<i class="fas fa-clock"></i>', description: 'El pedido está pendiente de confirmación' },
+        { value: 'confirmado', label: 'Confirmado', icon: '<i class="fas fa-check"></i>', description: 'El pedido ha sido confirmado' },
+        { value: 'preparacion', label: 'En Preparación', icon: '<i class="fas fa-concierge-bell"></i>', description: 'El pedido está siendo preparado' },
+        { value: 'listo', label: 'Listo', icon: '<i class="fas fa-rocket"></i>', description: 'El pedido está listo para servir/entregar' },
+        { value: 'entregado', label: 'Entregado', icon: '<i class="fas fa-box"></i>', description: 'El pedido ha sido entregado' },
+        { value: 'completado', label: 'Completado', icon: '<i class="fas fa-flag-checkered"></i>', description: 'El pedido ha sido completado' },
+        { value: 'cancelado', label: 'Cancelado', icon: '<i class="fas fa-times-circle"></i>', description: 'El pedido ha sido cancelado' }
+    ];
+    
+    const modalBody = document.getElementById('statusModalBody');
+    modalBody.innerHTML = `
+        <input type="hidden" id="statusPedidoId" value="${pedidoId}">
+        
+        <div style="margin-bottom: 1.5rem;">
+            <p>Selecciona el nuevo estado para el pedido:</p>
+        </div>
+        
+        <div id="statusOptions">
+            ${estados.map(estado => `
+                <div class="status-option" data-value="${estado.value}" onclick="seleccionarEstado('${estado.value}')">
+                    <div class="status-option-icon">
+                        ${estado.icon}
+                    </div>
+                    <div class="status-option-label">
+                        <div>${estado.label}</div>
+                        <div style="font-size: 0.85rem; color: #718096; font-weight: normal;">${estado.description}</div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+        
+        <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+            <button class="btn btn-warning" onclick="closeStatusModal()">Cancelar</button>
+            <button class="btn btn-primary" id="confirmStatusBtn" onclick="confirmarCambioEstado()" disabled>
+                <span><i class="fas fa-save"></i></span>
+                <span>Confirmar Cambio</span>
+            </button>
+        </div>
+    `;
+    
+    document.getElementById('statusModal').classList.add('active');
+}
+
+// Función para seleccionar estado
+function seleccionarEstado(estadoValue) {
+    // Remover selección anterior
+    document.querySelectorAll('.status-option').forEach(option => {
+        option.classList.remove('selected');
+    });
+    
+    // Marcar como seleccionado
+    const selectedOption = document.querySelector(`.status-option[data-value="${estadoValue}"]`);
+    if (selectedOption) {
+        selectedOption.classList.add('selected');
+    }
+    
+    // Habilitar botón de confirmación
+    document.getElementById('confirmStatusBtn').disabled = false;
+}
+
+// Función para confirmar cambio de estado
+function confirmarCambioEstado() {
+    const pedidoId = currentOrder;
+    const selectedOption = document.querySelector('.status-option.selected');
+    
+    if (!selectedOption) {
+        showNotification('<i class="fas fa-times-circle"></i> Por favor selecciona un estado', 'error');
+        return;
+    }
+    
+    const nuevoEstado = selectedOption.dataset.value;
+    
+    if (!confirm(`¿Estás seguro de cambiar el estado del pedido a "${selectedOption.querySelector('.status-option-label div').textContent}"?`)) {
+        return;
+    }
+    
+    // Preparar datos
+    const formData = new FormData();
+    formData.append('estado', nuevoEstado);
+    
+    const csrfToken = getCSRFToken();
+    if (csrfToken) {
+        formData.append('csrfmiddlewaretoken', csrfToken);
+    }
+    
+    // Mostrar indicador de carga
+    const confirmBtn = document.getElementById('confirmStatusBtn');
+    const originalText = confirmBtn.innerHTML;
+    confirmBtn.innerHTML = '<span><i class="fas fa-hourglass-half"></i></span><span>Cambiando...</span>';
+    confirmBtn.disabled = true;
+    
+    // Enviar solicitud
+    fetch(`/gestiondepedidos/cambiar-estado/${pedidoId}/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
         }
-        
-        function getEstadoInfo(estado) {
-            const info = {
-                'pendiente': { class: 'status-pendiente', icon: '<i class="fas fa-clock"></i>' },
-                'confirmado': { class: 'status-pendiente', icon: '<i class="fas fa-check"></i>' },
-                'preparacion': { class: 'status-preparacion', icon: '<i class="fas fa-concierge-bell"></i>' },
-                'listo': { class: 'status-listo', icon: '<i class="fas fa-rocket"></i>' },
-                'entregado': { class: 'status-entregado', icon: '<i class="fas fa-box"></i>' },
-                'completado': { class: 'status-entregado', icon: '<i class="fas fa-flag-checkered"></i>' },
-                'cancelado': { class: 'status-cancelado', icon: '<i class="fas fa-times-circle"></i>' }
-            };
-            return info[estado] || { class: 'status-pendiente', icon: '<i class="fas fa-question-circle"></i>' };
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`<i class="fas fa-check-circle"></i> Estado cambiado a ${data.estado_display}`, 'success');
+            
+            // Mostrar alertas de stock si existen
+            if (data.alertas) {
+                mostrarAlertasStock(data.alertas);
+            }
+            
+            closeStatusModal();
+            
+            // Actualizar la fila en la tabla
+            const row = document.querySelector(`tr[data-order-id="${pedidoId}"]`);
+            if (row) {
+                const estadoCell = row.querySelector('td:nth-child(7)');
+                if (estadoCell) {
+                    const estadoInfo = getEstadoInfo(nuevoEstado);
+                    estadoCell.innerHTML = `
+                        <span class="status-badge ${estadoInfo.class}">
+                            <span class="status-icon">${estadoInfo.icon}</span>
+                            ${data.estado_display}
+                        </span>
+                    `;
+                }
+            }
+            
+            // Actualizar estadísticas
+            updateStats();
+        } else {
+            throw new Error(data.error || 'Error desconocido');
         }
+    })
+    .catch(error => {
+        console.error('Error al cambiar estado:', error);
+        showNotification(`<i class="fas fa-exclamation-circle"></i> Error: ${error.message}`, 'error');
         
-        function getTipoInfo(tipo) {
-            const info = {
-                'restaurante': { icon: '<i class="fas fa-utensils"></i>', label: 'Restaurante' },
-                'domicilio': { icon: '<i class="fas fa-truck"></i>', label: 'Domicilio' },
-                'recoger': { icon: '<i class="fas fa-walking"></i>', label: 'Recoger' },
-                'mesa': { icon: '<i class="fas fa-utensils"></i>', label: 'Mesa' },
-                'delivery': { icon: '<i class="fas fa-truck"></i>', label: 'Delivery' },
-                'llevar': { icon: '<i class="fas fa-walking"></i>', label: 'Para llevar' }
-            };
-            return info[tipo] || { icon: '<i class="fas fa-box"></i>', label: tipo };
+        // Restaurar botón
+        confirmBtn.innerHTML = originalText;
+        confirmBtn.disabled = false;
+    });
+}
+
+// Función para eliminar pedido
+function deleteOrder(pedidoId) {
+    if (!confirm('¿Estás seguro de eliminar este pedido? Esta acción no se puede deshacer.')) {
+        return;
+    }
+    
+    // Preparar datos
+    const formData = new FormData();
+    formData.append('eliminar_vista', 'true');
+    
+    const csrfToken = getCSRFToken();
+    if (csrfToken) {
+        formData.append('csrfmiddlewaretoken', csrfToken);
+    }
+    
+    // Enviar solicitud
+    fetch(`/gestiondepedidos/eliminar/${pedidoId}/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
         }
-        
-        // Funciones para cerrar modales
-        function closeModal() {
-            document.getElementById('orderModal').classList.remove('active');
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`<i class="fas fa-check-circle"></i> ${data.mensaje}`, 'success');
+            
+            // Mostrar alertas de stock si existen
+            if (data.alertas) {
+                mostrarAlertasStock(data.alertas);
+            }
+            
+            // Eliminar la fila de la tabla
+            const row = document.querySelector(`tr[data-order-id="${pedidoId}"]`);
+            if (row) {
+                row.remove();
+            }
+            
+            // Actualizar estadísticas
+            updateStats();
+            
+            // Mostrar mensaje si no hay pedidos
+            const tbody = document.querySelector('#pedidosBody');
+            if (tbody && tbody.children.length === 0) {
+                tbody.innerHTML = `
+                    <tr class="empty-state">
+                        <td colspan="8">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            <h3>No se encontraron pedidos</h3>
+                            <p>Todos los pedidos están pagados o no hay pedidos con los filtros aplicados</p>
+                            <div style="margin-top: 1rem;">
+                                <a href="{% url 'historial_pedidos' %}" class="btn btn-success" style="text-decoration: none;">
+                                    <span><i class="fas fa-history"></i></span>
+                                    <span>Ver Historial de Pagados</span>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+        } else {
+            throw new Error(data.error || 'Error al eliminar el pedido');
         }
-        
-        function closeStatusModal() {
-            document.getElementById('statusModal').classList.remove('active');
-            currentOrder = null;
+    })
+    .catch(error => {
+        console.error('Error al eliminar pedido:', error);
+        showNotification(`<i class="fas fa-exclamation-circle"></i> ${error.message}`, 'error');
+    });
+}
+
+// Función para actualizar estadísticas
+function updateStats() {
+    // Contar pedidos en la tabla
+    const totalRows = document.querySelectorAll('#pedidosTable tbody tr:not(.empty-state)').length;
+    const totalElement = document.getElementById('totalPedidos');
+    if (totalElement) {
+        totalElement.textContent = totalRows;
+    }
+    
+    // Contar pedidos pendientes
+    const pendientes = document.querySelectorAll('.status-pendiente').length;
+    const pendientesElement = document.getElementById('pedidosPendientes');
+    if (pendientesElement) {
+        pendientesElement.textContent = pendientes;
+    }
+}
+
+// Funciones de utilidad
+function getCSRFToken() {
+    const token = document.querySelector('[name=csrfmiddlewaretoken]');
+    return token ? token.value : '';
+}
+
+function showNotification(message, type = 'success') {
+    // Remover notificaciones anteriores
+    const existing = document.querySelectorAll('.custom-notification');
+    existing.forEach(n => n.remove());
+    
+    // Crear notificación
+    const notification = document.createElement('div');
+    notification.className = 'custom-notification';
+    
+    const colors = {
+        success: { bg: '#38a169', color: '#ffffff' },
+        error: { bg: '#e53e3e', color: '#ffffff' },
+        info: { bg: '#3182ce', color: '#ffffff' },
+        warning: { bg: '#d69e2e', color: '#ffffff' }
+    };
+    
+    const color = colors[type] || colors.success;
+    
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${color.bg};
+        color: ${color.color};
+        padding: 1rem 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        z-index: 10000;
+        animation: slideIn 0.3s ease-out;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        max-width: 400px;
+        white-space: pre-line;
+    `;
+    
+    notification.innerHTML = message;
+    document.body.appendChild(notification);
+    
+    // Animaciones CSS para notificaciones
+    if (!document.querySelector('#notification-styles')) {
+        const style = document.createElement('style');
+        style.id = 'notification-styles';
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Remover después de 5 segundos
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => notification.remove(), 300);
+    }, 5000);
+}
+
+function getEstadoClass(estado) {
+    const clases = {
+        'pendiente': 'status-pendiente',
+        'confirmado': 'status-pendiente',
+        'preparacion': 'status-preparacion',
+        'listo': 'status-listo',
+        'entregado': 'status-entregado',
+        'completado': 'status-entregado',
+        'cancelado': 'status-cancelado'
+    };
+    return clases[estado] || 'status-pendiente';
+}
+
+function getEstadoInfo(estado) {
+    const info = {
+        'pendiente': { class: 'status-pendiente', icon: '<i class="fas fa-clock"></i>' },
+        'confirmado': { class: 'status-pendiente', icon: '<i class="fas fa-check"></i>' },
+        'preparacion': { class: 'status-preparacion', icon: '<i class="fas fa-concierge-bell"></i>' },
+        'listo': { class: 'status-listo', icon: '<i class="fas fa-rocket"></i>' },
+        'entregado': { class: 'status-entregado', icon: '<i class="fas fa-box"></i>' },
+        'completado': { class: 'status-entregado', icon: '<i class="fas fa-flag-checkered"></i>' },
+        'cancelado': { class: 'status-cancelado', icon: '<i class="fas fa-times-circle"></i>' }
+    };
+    return info[estado] || { class: 'status-pendiente', icon: '<i class="fas fa-question-circle"></i>' };
+}
+
+function getTipoInfo(tipo) {
+    const info = {
+        'restaurante': { icon: '<i class="fas fa-utensils"></i>', label: 'Restaurante' },
+        'domicilio': { icon: '<i class="fas fa-truck"></i>', label: 'Domicilio' },
+        'recoger': { icon: '<i class="fas fa-walking"></i>', label: 'Recoger' },
+        'mesa': { icon: '<i class="fas fa-utensils"></i>', label: 'Mesa' },
+        'delivery': { icon: '<i class="fas fa-truck"></i>', label: 'Delivery' },
+        'llevar': { icon: '<i class="fas fa-walking"></i>', label: 'Para llevar' }
+    };
+    return info[tipo] || { icon: '<i class="fas fa-box"></i>', label: tipo };
+}
+
+// Funciones para cerrar modales
+function closeModal() {
+    document.getElementById('orderModal').classList.remove('active');
+}
+
+function closeStatusModal() {
+    document.getElementById('statusModal').classList.remove('active');
+    currentOrder = null;
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').classList.remove('active');
+}
+
+// Función para alternar sidebar
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('open');
+}
+
+// Cerrar sidebar al hacer clic en overlay
+document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
+
+// Añadir animaciones CSS para notificaciones si no existen
+if (!document.querySelector('#notification-styles')) {
+    const style = document.createElement('style');
+    style.id = 'notification-styles';
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
-        
-        function closeEditModal() {
-            document.getElementById('editModal').classList.remove('active');
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
         }
-        
-        // Función para alternar sidebar
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('open');
-        }
-        
-        // Cerrar sidebar al hacer clic en overlay
-        document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
-    </script>
+    `;
+    document.head.appendChild(style);
+}
+
+console.log('✅ JavaScript de gestión de pedidos cargado correctamente');
+</script>
 </body>
 </html>

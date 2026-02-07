@@ -1,14 +1,15 @@
-{% load humanize %}
+{% load humanize %} {% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Facturación - Restaurante</title>
+    <link rel="icon" href="{% static 'img/fasfoot1.ico' %}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <!-- Boxicons -->
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <style>
+   <style>
         /* Estilos mantenidos del original */
         * {
             margin: 0;
@@ -27,7 +28,7 @@
             min-height: 100vh;
         }
         
-        /* Sidebar styles - Mantenido */
+        /* Sidebar styles - FIXED */
         .sidebar {
             width: 260px;
             background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
@@ -35,6 +36,12 @@
             display: flex;
             flex-direction: column;
             transition: transform 0.3s ease;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 1000;
+            overflow-y: auto;
         }
         
         .sidebar-header {
@@ -87,7 +94,7 @@
             position: fixed;
             top: 1rem;
             left: 1rem;
-            z-index: 1000;
+            z-index: 1001;
             background: #ff7e5f;
             border: none;
             padding: 0.75rem;
@@ -115,11 +122,13 @@
             z-index: 998;
         }
         
-        /* Main content area */
+        /* Main content area - adjusted for fixed sidebar */
         .main-content {
             flex: 1;
             padding: 2rem;
             overflow-x: hidden;
+            margin-left: 260px;
+            width: calc(100% - 260px);
         }
         
         .container {
@@ -837,11 +846,6 @@
             }
             
             .sidebar {
-                position: fixed;
-                top: 0;
-                left: 0;
-                bottom: 0;
-                z-index: 999;
                 transform: translateX(-100%);
             }
             
@@ -855,6 +859,8 @@
             
             .main-content {
                 padding: 5rem 1rem 1rem;
+                margin-left: 0;
+                width: 100%;
             }
             
             .content {
@@ -1031,11 +1037,50 @@
                 <span class="nav-icon"><i class="fas fa-users"></i></span>
                 <span>Gestión de Usuarios</span>
             </a>
+            <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                <span>Dashboard</span>
+            </a>
             {% endif %}
             
-            <!-- Menú para otros grupos... -->
+            <!-- Menú para Gerente -->
             {% if "Gerente" in user_groups and not user.is_superuser %}
-            <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
+            <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-box"></i></span>
+                <span>Entrada de Productos</span>
+            </a>
+            <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-list"></i></span>
+                <span>Inventario</span>
+            </a>
+            <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                <span>Entrada de Platos</span>
+            </a>
+            <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                <span>Gestión de Platos</span>
+            </a>
+            <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                <span>Pedidos</span>
+            </a>
+            <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-list"></i></span>
+                <span>Gestión de Pedidos</span>
+            </a>
+            <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                <span>Facturación</span>
+            </a>
+            <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
+                <span>Salida de Productos</span>
+            </a>
+            <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                <span>Dashboard</span>
+            </a>
             {% endif %}
             
             {% if "Cajero" in user_groups and not user.is_superuser %}
@@ -1086,6 +1131,10 @@
             <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
                 <span class="nav-icon"><i class="fas fa-users"></i></span>
                 <span>Gestión de Usuarios</span>
+            </a>
+            <a href="{% url 'dashbort' %}" class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                <span>Dashboard</span>
             </a>
             {% endif %}
             
@@ -1140,8 +1189,8 @@
                             <h3>Buscar y Filtrar Pedidos</h3>
                             <div style="display: flex; gap: 1rem;">
                                 <button class="btn btn-info btn-sm" onclick="exportInvoices()">
-                                    <i class="fas fa-download"></i>
-                                    <span>Exportar</span>
+                                    <i class="fas fa-print"></i>
+                                    <span>Cuadre</span>
                                 </button>
                             </div>
                         </div>
@@ -1460,6 +1509,15 @@
             return;
         }
         
+        // Función para formatear moneda al estilo RD (punto para miles, coma para decimales)
+        function formatearMoneda(valor) {
+            const numero = parseFloat(valor) || 0;
+            return numero.toLocaleString('es-DO', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+        
         // Mostrar estado vacío si no hay pedidos
         if (filteredOrders.length === 0) {
             pedidosBody.innerHTML = `
@@ -1577,7 +1635,7 @@
                         </div>
                     </td>
                     <td>
-                        <div class="invoice-total">$${(order.total || 0).toFixed(2)}</div>
+                        <div class="invoice-total">$${formatearMoneda(order.total || 0)}</div>
                     </td>
                     <td>
                         <span class="status-badge ${estadoClass}">
@@ -1620,13 +1678,20 @@
                 })
                 .reduce((sum, invoice) => sum + (invoice.total || 0), 0);
                 
-            ingresosMesElement.textContent = `$${ingresosMes.toFixed(2)}`;
+            ingresosMesElement.textContent = `$${ingresosMes.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         }
         
-        // Facturas pendientes (ahora siempre 0)
+        // Facturas pendientes (pedidos sin factura)
         const facturasPendientesElement = document.getElementById('facturasPendientes');
         if (facturasPendientesElement) {
-            facturasPendientesElement.textContent = 0;
+            // Contar pedidos que no tienen factura asociada
+            const pedidosSinFactura = orders.filter(order => {
+                // Verificar si existe una factura con este pedido_id
+                const tieneFactura = invoices.some(invoice => invoice.pedido_id === order.id);
+                return !tieneFactura;
+            }).length;
+            
+            facturasPendientesElement.textContent = pedidosSinFactura;
         }
         
         // Promedio por factura
@@ -1634,7 +1699,7 @@
         if (promedioFacturaElement) {
             const promedioFactura = invoices.length > 0 ? 
                 invoices.reduce((sum, invoice) => sum + (invoice.total || 0), 0) / invoices.length : 0;
-            promedioFacturaElement.textContent = `$${promedioFactura.toFixed(2)}`;
+            promedioFacturaElement.textContent = `$${promedioFactura.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         }
     }
     
@@ -1676,8 +1741,8 @@
                 <tr>
                     <td>${item.name || item.nombre || 'Producto'}</td>
                     <td>${item.quantity || item.cantidad || 1}</td>
-                    <td>$${(item.price || item.precio || 0).toFixed(2)}</td>
-                    <td>$${(item.total || item.subtotal || 0).toFixed(2)}</td>
+                    <td>$${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td>$${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                 </tr>
             `).join('');
         } else {
@@ -1725,13 +1790,13 @@
                 <div class="invoice-client">
                     <h4>DETALLES FINANCIEROS</h4>
                     <div style="margin-bottom: 0.5rem;">
-                        <strong>Subtotal:</strong> $${(order.subtotal || 0).toFixed(2)}
+                        <strong>Subtotal:</strong> $${(order.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </div>
                     <div style="margin-bottom: 0.5rem;">
-                        <strong>Envío:</strong> $${(order.envio || 0).toFixed(2)}
+                        <strong>Envío:</strong> $${(order.envio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </div>
                     <div style="margin-bottom: 0.5rem;">
-                        <strong>Total:</strong> $${(order.total || 0).toFixed(2)}
+                        <strong>Total:</strong> $${(order.total || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </div>
                 </div>
             </div>
@@ -1775,7 +1840,7 @@
         
         currentOrder = order;
         document.getElementById('pedidoId').value = pedidoId;
-        document.getElementById('totalAmount').value = `$${(order.total || 0).toFixed(2)}`;
+        document.getElementById('totalAmount').value = `$${(order.total || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         
         // Mostrar modal
         document.getElementById('createInvoiceModal').classList.add('active');
@@ -1870,7 +1935,7 @@
         btn.disabled = true;
         btn.innerHTML = '<span>⏳</span><span>Procesando...</span>';
         
-        showNotification(`<i class="fas fa-credit-card"></i> Procesando pago de $${total.toFixed(2)}...`, 'info');
+        showNotification(`<i class="fas fa-credit-card"></i> Procesando pago de $${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}...`, 'info');
         
         // Cerrar modal
         closeCreateInvoiceModal();
@@ -1882,15 +1947,10 @@
         }, 1000);
     }
     
-    // Exportar facturas
+    // Generar cuadre del día (PDF)
     function exportInvoices() {
-        if (invoices.length === 0) {
-            showNotification('No hay facturas para exportar', 'warning');
-            return;
-        }
-        
-        // Redirigir a la vista de exportación
-        window.location.href = "{% url 'exportar_facturas' %}";
+        // Abrir el PDF del ticket del día en una nueva ventana
+        window.open("{% url 'generar_pdf_ticket_dia' %}", '_blank');
     }
     
     // Cerrar modales

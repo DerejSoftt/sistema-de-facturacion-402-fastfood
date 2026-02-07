@@ -1,0 +1,2493 @@
+{% load static %}
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuentas por Cobrar - Sistema de Gestión</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* ===== ESTILOS GENERALES ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+            color: #333;
+        }
+
+        /* ===== ESTRUCTURA PRINCIPAL ===== */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: 260px;
+            height: 100vh;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            padding: 1.5rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 1001;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 1rem 0;
+            overflow-y: auto;
+        }
+
+        .nav-item {
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #ecf0f1;
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-left-color: #ff7e5f;
+            color: #ff7e5f;
+            transform: translateX(5px);
+        }
+
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            border-left-color: #ff7e5f;
+            color: #ff7e5f;
+            font-weight: 600;
+        }
+
+        .nav-icon {
+            font-size: 1.25rem;
+        }
+
+        /* ===== MENÚ MÓVIL ===== */
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 1002;
+            background: #ff7e5f;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: white;
+            transition: all 0.3s;
+        }
+
+        .menu-toggle:hover {
+            background: #ff6b4a;
+            transform: scale(1.05);
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 998;
+        }
+
+        /* ===== CONTENIDO PRINCIPAL ===== */
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-x: hidden;
+            margin-left: 260px;
+            width: calc(100% - 260px);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 25px;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 2.5rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.1)"/></svg>');
+            background-size: cover;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            position: relative;
+            z-index: 1;
+        }
+
+        .header p {
+            opacity: 0.95;
+            font-size: 1.1rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ===== CONTENIDO ===== */
+        .content {
+            padding: 2.5rem;
+        }
+
+        /* ===== TARJETAS DE ESTADÍSTICAS ===== */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+            padding: 1.5rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(255, 126, 95, 0.1);
+            border: 1px solid rgba(255, 126, 95, 0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(255, 126, 95, 0.2);
+        }
+
+        .stat-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            display: block;
+            color: #ff7e5f;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: #4a5568;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        /* ===== SECCIÓN DE CONTROLES ===== */
+        .controls-section {
+            background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(255, 126, 95, 0.1);
+            border: 1px solid rgba(255, 126, 95, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .controls-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .controls-header h3 {
+            color: #2c3e50;
+            font-size: 1.4rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ===== BOTONES ===== */
+        .btn {
+            padding: 1rem 2.5rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            box-shadow: 0 10px 20px rgba(255, 126, 95, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(255, 126, 95, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            box-shadow: 0 10px 20px rgba(17, 153, 142, 0.3);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 25px rgba(17, 153, 142, 0.4);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
+            color: #2c3e50;
+            box-shadow: 0 4px 6px rgba(255, 179, 71, 0.3);
+        }
+
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(255, 179, 71, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            color: white;
+            box-shadow: 0 4px 6px rgba(255, 65, 108, 0.3);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(255, 65, 108, 0.4);
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-info:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+
+        /* ===== FORMULARIOS ===== */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #2c3e50;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 1rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: white;
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.05);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 300px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 1rem 1rem 1rem 3.5rem;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            color: #ff7e5f;
+        }
+
+        .filter-select {
+            padding: 1rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            font-size: 1rem;
+            background: white;
+            min-width: 180px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.05);
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: #ff7e5f;
+            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.2);
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        /* ===== TABLAS ===== */
+        .table-container {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(255, 126, 95, 0.1);
+            border: 1px solid rgba(255, 126, 95, 0.1);
+            margin-bottom: 2rem;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+
+        thead {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+        }
+
+        thead th {
+            padding: 1.5rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid rgba(255, 126, 95, 0.1);
+            transition: all 0.2s;
+        }
+
+        tbody tr:hover {
+            background: #f8f9ff;
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(255, 126, 95, 0.1);
+        }
+
+        tbody td {
+            padding: 1.5rem;
+            color: #4a5568;
+        }
+
+        /* ===== ESTILOS ESPECÍFICOS PARA CUENTAS POR COBRAR ===== */
+        .deuda-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .deuda-alta {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            color: white;
+        }
+
+        .deuda-media {
+            background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
+            color: #2c3e50;
+        }
+
+        .deuda-baja {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+        }
+
+        .vencido-badge {
+            background: linear-gradient(135deg, #8B0000 0%, #B22222 100%);
+            color: white;
+            padding: 0.4rem 0.8rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .cliente-row {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .cliente-row:hover {
+            background: #f8f9ff;
+            transform: translateX(5px);
+        }
+
+        .factura-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #f8f9ff;
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            border-left: 4px solid #ff7e5f;
+        }
+
+        .factura-item.vencida {
+            border-left: 4px solid #ff416c;
+            background: #fff5f5;
+        }
+
+        .factura-item.pagada {
+            border-left: 4px solid #43e97b;
+            background: #f0fff4;
+        }
+
+        .pago-form {
+            background: #f8f9ff;
+            padding: 1.5rem;
+            border-radius: 15px;
+            margin-top: 1.5rem;
+            border: 2px solid #e0e6ff;
+        }
+
+        .metodo-pago {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .metodo-pago-option {
+            flex: 1;
+            padding: 1rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .metodo-pago-option:hover {
+            border-color: #ff7e5f;
+            background: #fff5f0;
+        }
+
+        .metodo-pago-option.selected {
+            border-color: #ff7e5f;
+            background: linear-gradient(135deg, #fff5f0 0%, #fff8f5 100%);
+            box-shadow: 0 5px 15px rgba(255, 126, 95, 0.2);
+        }
+
+        .pago-realizado {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            margin-top: 1rem;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .resumen-deuda {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            margin-bottom: 1.5rem;
+        }
+
+        .resumen-deuda h4 {
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .resumen-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .resumen-total {
+            font-size: 1.3rem;
+            font-weight: 700;
+            border-top: 2px solid rgba(255, 255, 255, 0.2);
+            padding-top: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .dias-vencimiento {
+            font-size: 0.85rem;
+            color: #718096;
+        }
+
+        .dias-vencimiento.vencido {
+            color: #ff416c;
+            font-weight: 600;
+        }
+
+        .historial-pagos {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+
+        .pago-item {
+            padding: 0.75rem;
+            border-bottom: 1px solid #e0e6ff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pago-item:last-child {
+            border-bottom: none;
+        }
+
+        /* ===== MODALES ===== */
+        .modal,
+        .cuentas-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            overflow-y: auto;
+        }
+
+        .modal.active,
+        .cuentas-modal.active {
+            display: flex;
+        }
+
+        .modal-content,
+        .cuentas-modal-content {
+            background: white;
+            border-radius: 20px;
+            max-width: 1000px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header,
+        .cuentas-modal-header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3,
+        .cuentas-modal-header h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .modal-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 2rem;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
+        }
+
+        .modal-body,
+        .cuentas-modal-body {
+            padding: 2rem;
+        }
+
+        /* ===== TABS EN MODAL ===== */
+        .cuentas-tabs {
+            display: flex;
+            border-bottom: 2px solid #e0e6ff;
+            margin-bottom: 1.5rem;
+        }
+
+        .cuentas-tab {
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            color: #718096;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .cuentas-tab:hover {
+            color: #ff7e5f;
+        }
+
+        .cuentas-tab.active {
+            color: #ff7e5f;
+            border-bottom: 3px solid #ff7e5f;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* ===== BOTONES DE ACCIÓN ===== */
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-icon {
+            padding: 0.5rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 1rem;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e9ecff 100%);
+            color: #667eea;
+        }
+
+        .btn-icon:hover {
+            transform: scale(1.1);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .btn-view:hover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-edit:hover {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            color: white;
+        }
+
+        /* ===== PAGINACIÓN ===== */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+
+        .page-btn {
+            padding: 0.75rem 1.25rem;
+            border: 2px solid #e0e6ff;
+            background: white;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .page-btn:hover {
+            background: #f8f9ff;
+            border-color: #ff7e5f;
+            color: #ff7e5f;
+        }
+
+        .page-btn.active {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            color: white;
+            border-color: #ff7e5f;
+        }
+
+        .page-info {
+            padding: 0 1rem;
+            color: #4a5568;
+            font-weight: 600;
+        }
+
+        /* ===== ESTADO VACÍO ===== */
+        .empty-state {
+            text-align: center;
+            padding: 4rem;
+            color: #a0aec0;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1rem;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: #4a5568;
+        }
+
+        /* ===== RANGO DE FECHAS ===== */
+        .rango-fechas {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            margin-bottom: 1rem;
+        }
+
+        .rango-fechas .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        /* ===== NOTIFICACIONES ===== */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            z-index: 10000;
+            animation: slideIn 0.3s ease-out;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 400px;
+        }
+
+        .notification.success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .notification.error {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+        }
+
+        .notification.info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .notification.warning {
+            background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 1200px) {
+            .stats-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: block;
+            }
+
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                z-index: 999;
+                transform: translateX(-100%);
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .sidebar-overlay.open {
+                display: block;
+            }
+
+            .main-content {
+                padding: 5rem 1rem 1rem;
+                margin-left: 0;
+                width: 100%;
+            }
+
+            .content {
+                padding: 1.5rem;
+            }
+
+            .header {
+                padding: 2rem 1.5rem;
+            }
+
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .stats-container {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .controls-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .filter-row {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .search-box {
+                min-width: 100%;
+            }
+
+            .filter-select {
+                width: 100%;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .table-container {
+                border-radius: 15px;
+            }
+
+            table {
+                min-width: 1000px;
+            }
+
+            .metodo-pago {
+                flex-direction: column;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .rango-fechas {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Botón menú móvil -->
+    <button class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></button>
+
+    <div class="app-container">
+        <!-- Barra lateral -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-utensils"></i> Restaurante Gourmet
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active">
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                    <span>Cuentas por Cobrar</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Clientes</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-cog"></i></span>
+                    <span>Configuración</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
+                    <span>Cerrar Sesión</span>
+                </a>
+            </nav>
+        </div>
+
+        <!-- Overlay para móvil -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- Contenido principal -->
+        <div class="main-content">
+            <div class="container">
+                <!-- Encabezado -->
+                <div class="header">
+                    <h1><i class="fas fa-file-invoice-dollar"></i> Cuentas por Cobrar</h1>
+                    <p>Gestiona las deudas pendientes de los clientes y registra los pagos recibidos</p>
+                    <div
+                        style="margin-top: 1rem; background: rgba(255, 255, 255, 0.2); padding: 0.5rem 1rem; border-radius: 10px; font-size: 0.9rem;">
+                        <strong><i class="fas fa-lightbulb"></i> Nota:</strong>
+                        Solo se muestran clientes con facturas pendientes de pago.
+                    </div>
+                </div>
+
+                <!-- Contenido -->
+                <div class="content">
+                    <!-- Tarjetas de estadísticas -->
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <span class="stat-icon"><i class="fas fa-users"></i></span>
+                            <div class="stat-value" id="totalClientes">12</div>
+                            <div class="stat-label">Clientes con Deuda</div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon"><i class="fas fa-file-invoice"></i></span>
+                            <div class="stat-value" id="facturasPendientes">24</div>
+                            <div class="stat-label">Facturas Pendientes</div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
+                            <div class="stat-value" id="totalDeuda">$<span id="totalDeudaValor">45,820.50</span></div>
+                            <div class="stat-label">Deuda Total</div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon"><i class="fas fa-exclamation-triangle"></i></span>
+                            <div class="stat-value" id="facturasVencidas">8</div>
+                            <div class="stat-label">Facturas Vencidas</div>
+                        </div>
+                    </div>
+
+                    <!-- Controles de búsqueda y filtro -->
+                    <div class="controls-section">
+                        <div class="controls-header">
+                            <h3>Buscar y Filtrar Cuentas por Cobrar</h3>
+                            <div style="display: flex; gap: 1rem;">
+                                <button class="btn btn-success btn-sm" id="btnHistorial">
+                                    <span><i class="fas fa-history"></i></span>
+                                    <span>Ver Historial</span>
+                                </button>
+                                <button class="btn btn-primary btn-sm" id="btnExportar">
+                                    <span><i class="fas fa-file-export"></i></span>
+                                    <span>Exportar Reporte</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <form id="filterForm">
+                            <div class="form-group">
+                                <label for="searchInput"><i class="fas fa-search"></i> Buscar Cliente</label>
+                                <div class="search-box">
+                                    <span class="search-icon"><i class="fas fa-search"></i></span>
+                                    <input type="text" id="searchInput" name="search"
+                                        placeholder="Buscar por cédula, nombre o teléfono...">
+                                </div>
+                            </div>
+
+                            <div class="filter-row">
+                                <div class="form-group" style="flex: 1;">
+                                    <label for="deudaFilter"><i class="fas fa-filter"></i> Nivel de Deuda</label>
+                                    <select class="filter-select" id="deudaFilter" name="nivel_deuda">
+                                        <option value="">Todos los niveles</option>
+                                        <option value="alta">Deuda Alta</option>
+                                        <option value="media">Deuda Media</option>
+                                        <option value="baja">Deuda Baja</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group" style="flex: 1;">
+                                    <label for="vencimientoFilter"><i class="fas fa-calendar-times"></i> Estado de
+                                        Vencimiento</label>
+                                    <select class="filter-select" id="vencimientoFilter" name="vencimiento">
+                                        <option value="">Todos</option>
+                                        <option value="vencidas">Vencidas</option>
+                                        <option value="por_vencer">Por Vencer</option>
+                                        <option value="al_dia">Al Día</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group" style="flex: 1;">
+                                    <label for="dateFilter"><i class="fas fa-calendar"></i> Rango de Fechas</label>
+                                    <div class="rango-fechas">
+                                        <div>
+                                            <label style="font-size: 0.8rem;">Desde</label>
+                                            <input type="date" class="filter-select" id="fechaDesde" name="fecha_desde">
+                                        </div>
+                                        <div>
+                                            <label style="font-size: 0.8rem;">Hasta</label>
+                                            <input type="date" class="filter-select" id="fechaHasta" name="fecha_hasta">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button type="button" class="btn btn-primary" id="btnFiltrar"
+                                    style="height: fit-content; margin-top: 1.5rem;">
+                                    <span><i class="fas fa-filter"></i></span>
+                                    <span>Filtrar</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Tabla de cuentas por cobrar -->
+                    <div class="table-container">
+                        <table id="cuentasTable">
+                            <thead>
+                                <tr>
+                                    <th>Cédula</th>
+                                    <th>Cliente</th>
+                                    <th>Contacto</th>
+                                    <th>Facturas Pendientes</th>
+                                    <th>Total Adeudado</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cuentasBody">
+                                <!-- Los datos se cargarán dinámicamente con JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Paginación -->
+                    <div class="pagination" id="pagination">
+                        <button class="page-btn" id="prevPage">← Anterior</button>
+                        <span class="page-info" id="pageInfo">Página 1 de 3</span>
+                        <button class="page-btn" id="nextPage">Siguiente →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para detalles del cliente -->
+    <div class="cuentas-modal" id="cuentasModal">
+        <div class="cuentas-modal-content">
+            <div class="cuentas-modal-header">
+                <h3><i class="fas fa-file-invoice-dollar"></i> Detalles de Cuenta por Cobrar</h3>
+                <button class="modal-close" id="closeCuentasModal">×</button>
+            </div>
+            <div class="cuentas-modal-body" id="cuentasModalBody">
+                <!-- Los detalles se cargarán dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para registrar pago -->
+    <div class="modal" id="pagoModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-money-bill-wave"></i> Registrar Pago</h3>
+                <button class="modal-close" id="closePagoModal">×</button>
+            </div>
+            <div class="modal-body" id="pagoModalBody">
+                <!-- El formulario se cargará dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // ===== DATOS DE EJEMPLO =====
+        const clientesData = [
+            {
+                id: 1,
+                cedula: "001-1234567-8",
+                nombre_completo: "Juan Pérez Rodríguez",
+                telefono: "(809) 555-1234",
+                email: "juan.perez@email.com",
+                direccion: "Calle Principal #123, Santo Domingo",
+                tipo_cliente: "Frecuente",
+                notas: "Cliente puntual con pagos",
+                cantidad_facturas: 3,
+                facturas_vencidas: 1,
+                total_adeudado: 12500.75,
+                deuda_vencida: 4500.00,
+                nivel_deuda: "media",
+                facturas: [
+                    {
+                        id: 101,
+                        numero: "FAC-2023-00123",
+                        fecha_emision: "2023-10-15",
+                        fecha_vencimiento: "2023-11-15",
+                        dias_vencimiento: -15,
+                        vencida: true,
+                        monto_total: 8500.00,
+                        saldo_pendiente: 4500.00,
+                        concepto: "Cena de negocios",
+                        descripcion: "Cena para 8 personas con bebidas",
+                        notas: "Cliente solicitó factura con NCF"
+                    },
+                    {
+                        id: 102,
+                        numero: "FAC-2023-00145",
+                        fecha_emision: "2023-11-20",
+                        fecha_vencimiento: "2023-12-20",
+                        dias_vencimiento: 5,
+                        vencida: false,
+                        monto_total: 5000.00,
+                        saldo_pendiente: 5000.00,
+                        concepto: "Almuerzo ejecutivo",
+                        descripcion: "Almuerzo para 5 personas"
+                    },
+                    {
+                        id: 103,
+                        numero: "FAC-2023-00167",
+                        fecha_emision: "2023-12-05",
+                        fecha_vencimiento: "2024-01-05",
+                        dias_vencimiento: 20,
+                        vencida: false,
+                        monto_total: 3000.75,
+                        saldo_pendiente: 3000.75,
+                        concepto: "Reunión familiar"
+                    }
+                ],
+                historial_pagos: [
+                    {
+                        fecha: "2023-11-10",
+                        monto: 4000.00,
+                        metodo: "Efectivo",
+                        referencia: "REC-001"
+                    },
+                    {
+                        fecha: "2023-10-05",
+                        monto: 3000.00,
+                        metodo: "Tarjeta",
+                        referencia: "TRF-456"
+                    }
+                ]
+            },
+            {
+                id: 2,
+                cedula: "002-9876543-2",
+                nombre_completo: "María García López",
+                telefono: "(809) 555-5678",
+                email: "maria.garcia@email.com",
+                direccion: "Avenida Central #456, Santiago",
+                tipo_cliente: "Corporativo",
+                notas: "Empresa ABC Corp",
+                cantidad_facturas: 5,
+                facturas_vencidas: 3,
+                total_adeudado: 32500.50,
+                deuda_vencida: 22500.50,
+                nivel_deuda: "alta",
+                facturas: [
+                    {
+                        id: 201,
+                        numero: "FAC-2023-00234",
+                        fecha_emision: "2023-09-10",
+                        fecha_vencimiento: "2023-10-10",
+                        dias_vencimiento: -50,
+                        vencida: true,
+                        monto_total: 12000.00,
+                        saldo_pendiente: 12000.00,
+                        concepto: "Evento corporativo"
+                    },
+                    {
+                        id: 202,
+                        numero: "FAC-2023-00256",
+                        fecha_emision: "2023-10-15",
+                        fecha_vencimiento: "2023-11-15",
+                        dias_vencimiento: -15,
+                        vencida: true,
+                        monto_total: 8500.50,
+                        saldo_pendiente: 8500.50,
+                        concepto: "Capacitación"
+                    }
+                ],
+                historial_pagos: [
+                    {
+                        fecha: "2023-08-15",
+                        monto: 5000.00,
+                        metodo: "Transferencia",
+                        referencia: "TRF-789"
+                    }
+                ]
+            },
+            {
+                id: 3,
+                cedula: "003-4567890-1",
+                nombre_completo: "Carlos Rodríguez Martínez",
+                telefono: "(809) 555-9012",
+                email: "carlos.rodriguez@email.com",
+                direccion: "Calle Secundaria #789, La Vega",
+                tipo_cliente: "Regular",
+                cantidad_facturas: 1,
+                facturas_vencidas: 0,
+                total_adeudado: 3500.25,
+                deuda_vencida: 0,
+                nivel_deuda: "baja",
+                facturas: [
+                    {
+                        id: 301,
+                        numero: "FAC-2023-00345",
+                        fecha_emision: "2023-12-10",
+                        fecha_vencimiento: "2024-01-10",
+                        dias_vencimiento: 15,
+                        vencida: false,
+                        monto_total: 3500.25,
+                        saldo_pendiente: 3500.25,
+                        concepto: "Cena familiar"
+                    }
+                ],
+                historial_pagos: []
+            }
+        ];
+
+        // ===== VARIABLES GLOBALES =====
+        let currentPage = 1;
+        const itemsPerPage = 5;
+        let filteredClientes = [...clientesData];
+        let currentClienteId = null;
+        let currentFacturaId = null;
+
+        // ===== FUNCIONES DE INICIALIZACIÓN =====
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('=== SISTEMA DE CUENTAS POR COBRAR INICIADO ===');
+
+            // Inicializar componentes
+            initSidebar();
+            initFilters();
+            initButtons();
+            initModals();
+
+            // Cargar datos iniciales
+            loadClientes();
+            updateStats();
+
+            // Establecer fechas por defecto
+            setDefaultDates();
+        });
+
+        // ===== FUNCIONES DEL SIDEBAR =====
+        function initSidebar() {
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+            menuToggle.addEventListener('click', toggleSidebar);
+            sidebarOverlay.addEventListener('click', toggleSidebar);
+
+            // Cerrar sidebar al hacer clic en un enlace (en móviles)
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', function () {
+                    if (window.innerWidth <= 768) {
+                        toggleSidebar();
+                    }
+                });
+            });
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('open');
+        }
+
+        // ===== FUNCIONES DE FILTROS =====
+        function initFilters() {
+            const btnFiltrar = document.getElementById('btnFiltrar');
+            const searchInput = document.getElementById('searchInput');
+            const deudaFilter = document.getElementById('deudaFilter');
+            const vencimientoFilter = document.getElementById('vencimientoFilter');
+            const fechaDesde = document.getElementById('fechaDesde');
+            const fechaHasta = document.getElementById('fechaHasta');
+
+            btnFiltrar.addEventListener('click', applyFilters);
+            searchInput.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') applyFilters();
+            });
+
+            deudaFilter.addEventListener('change', applyFilters);
+            vencimientoFilter.addEventListener('change', applyFilters);
+            fechaDesde.addEventListener('change', applyFilters);
+            fechaHasta.addEventListener('change', applyFilters);
+        }
+
+        function setDefaultDates() {
+            const today = new Date();
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+
+            document.getElementById('fechaDesde').valueAsDate = thirtyDaysAgo;
+            document.getElementById('fechaHasta').valueAsDate = today;
+        }
+
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const nivelDeuda = document.getElementById('deudaFilter').value;
+            const vencimiento = document.getElementById('vencimientoFilter').value;
+            const fechaDesde = document.getElementById('fechaDesde').value;
+            const fechaHasta = document.getElementById('fechaHasta').value;
+
+            filteredClientes = clientesData.filter(cliente => {
+                // Filtro por búsqueda
+                const matchesSearch = searchTerm === '' ||
+                    cliente.cedula.toLowerCase().includes(searchTerm) ||
+                    cliente.nombre_completo.toLowerCase().includes(searchTerm) ||
+                    cliente.telefono.includes(searchTerm);
+
+                // Filtro por nivel de deuda
+                const matchesDeuda = nivelDeuda === '' || cliente.nivel_deuda === nivelDeuda;
+
+                // Filtro por vencimiento
+                let matchesVencimiento = true;
+                if (vencimiento !== '') {
+                    if (vencimiento === 'vencidas') {
+                        matchesVencimiento = cliente.facturas_vencidas > 0;
+                    } else if (vencimiento === 'por_vencer') {
+                        // Facturas que vencen en los próximos 7 días
+                        const tienePorVencer = cliente.facturas.some(f =>
+                            f.dias_vencimiento > 0 && f.dias_vencimiento <= 7
+                        );
+                        matchesVencimiento = tienePorVencer && cliente.facturas_vencidas === 0;
+                    } else if (vencimiento === 'al_dia') {
+                        matchesVencimiento = cliente.facturas_vencidas === 0;
+                    }
+                }
+
+                // Filtro por rango de fechas (si hay fechas seleccionadas)
+                let matchesFecha = true;
+                if (fechaDesde || fechaHasta) {
+                    const clienteTieneFacturasEnRango = cliente.facturas.some(factura => {
+                        const fechaFactura = new Date(factura.fecha_emision);
+                        const desde = fechaDesde ? new Date(fechaDesde) : null;
+                        const hasta = fechaHasta ? new Date(fechaHasta) : null;
+
+                        if (desde && hasta) {
+                            return fechaFactura >= desde && fechaFactura <= hasta;
+                        } else if (desde) {
+                            return fechaFactura >= desde;
+                        } else if (hasta) {
+                            return fechaFactura <= hasta;
+                        }
+                        return true;
+                    });
+                    matchesFecha = clienteTieneFacturasEnRango;
+                }
+
+                return matchesSearch && matchesDeuda && matchesVencimiento && matchesFecha;
+            });
+
+            currentPage = 1;
+            loadClientes();
+            updateStats();
+        }
+
+        // ===== FUNCIONES DE BOTONES =====
+        function initButtons() {
+            document.getElementById('btnHistorial').addEventListener('click', function () {
+                showNotification('Funcionalidad de historial en desarrollo', 'info');
+            });
+
+            document.getElementById('btnExportar').addEventListener('click', function () {
+                exportToExcel();
+            });
+
+            document.getElementById('prevPage').addEventListener('click', function () {
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadClientes();
+                }
+            });
+
+            document.getElementById('nextPage').addEventListener('click', function () {
+                const totalPages = Math.ceil(filteredClientes.length / itemsPerPage);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadClientes();
+                }
+            });
+        }
+
+        // ===== FUNCIONES DE MODALES =====
+        function initModals() {
+            // Botones de cierre
+            document.getElementById('closeCuentasModal').addEventListener('click', closeCuentasModal);
+            document.getElementById('closePagoModal').addEventListener('click', closePagoModal);
+
+            // Cerrar modal al hacer clic fuera
+            document.querySelectorAll('.modal, .cuentas-modal').forEach(modal => {
+                modal.addEventListener('click', function (e) {
+                    if (e.target === this) {
+                        if (this.id === 'cuentasModal') closeCuentasModal();
+                        if (this.id === 'pagoModal') closePagoModal();
+                    }
+                });
+            });
+
+            // Cerrar con tecla ESC
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    closeCuentasModal();
+                    closePagoModal();
+                }
+            });
+        }
+
+        // ===== FUNCIONES DE CARGA DE DATOS =====
+        function loadClientes() {
+            const tbody = document.getElementById('cuentasBody');
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const pageClientes = filteredClientes.slice(startIndex, endIndex);
+
+            if (pageClientes.length === 0) {
+                tbody.innerHTML = `
+                    <tr class="empty-state">
+                        <td colspan="7">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <h3>No hay clientes con deudas pendientes</h3>
+                            <p>No se encontraron resultados con los filtros aplicados</p>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                tbody.innerHTML = pageClientes.map(cliente => `
+                    <tr class="cliente-row" data-cliente-id="${cliente.id}">
+                        <td style="font-weight: 700; color: #2c3e50;">${cliente.cedula}</td>
+                        <td>
+                            <div class="customer-info">
+                                <div class="customer-name">
+                                    ${cliente.nombre_completo}
+                                    ${cliente.tipo_cliente ?
+                        `<div style="font-size: 0.85rem; color: #718096;">${cliente.tipo_cliente}</div>` : ''}
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="contact-info">
+                                ${cliente.telefono ?
+                        `<div><i class="fas fa-phone"></i> ${cliente.telefono}</div>` : ''}
+                                ${cliente.email ?
+                        `<div><i class="fas fa-envelope"></i> ${cliente.email}</div>` : ''}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="facturas-count">
+                                <span class="badge" style="background: #667eea; color: white; padding: 0.5rem 1rem; border-radius: 12px; font-weight: 600;">
+                                    ${cliente.cantidad_facturas} factura(s)
+                                </span>
+                                ${cliente.facturas_vencidas > 0 ?
+                        `<div class="vencido-badge" style="margin-top: 0.25rem;">
+                                        ${cliente.facturas_vencidas} vencida(s)
+                                    </div>` : ''}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="deuda-total">
+                                <span style="font-weight: 700; font-size: 1.2rem; color: #ff7e5f;">
+                                    $${formatCurrency(cliente.total_adeudado)}
+                                </span>
+                                ${cliente.deuda_vencida > 0 ?
+                        `<div style="font-size: 0.85rem; color: #ff416c; margin-top: 0.25rem;">
+                                        $${formatCurrency(cliente.deuda_vencida)} vencida
+                                    </div>` : ''}
+                            </div>
+                        </td>
+                        <td>
+                            ${cliente.nivel_deuda === 'alta' ?
+                        `<span class="deuda-badge deuda-alta">
+                                    <i class="fas fa-exclamation-triangle"></i> Alta
+                                </span>` :
+                        cliente.nivel_deuda === 'media' ?
+                            `<span class="deuda-badge deuda-media">
+                                    <i class="fas fa-exclamation-circle"></i> Media
+                                </span>` :
+                            `<span class="deuda-badge deuda-baja">
+                                    <i class="fas fa-check-circle"></i> Baja
+                                </span>`}
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn-icon btn-view" onclick="verDetallesCliente(${cliente.id})" title="Ver detalles y facturas">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn-icon btn-edit" onclick="registrarPago(${cliente.id})" title="Registrar pago">
+                                    <i class="fas fa-money-bill-wave"></i>
+                                </button>
+                                <button class="btn-icon btn-warning" onclick="contactarCliente('${cliente.telefono}')" title="Contactar cliente">
+                                    <i class="fas fa-phone"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+
+                // Agregar evento click a las filas
+                document.querySelectorAll('.cliente-row').forEach(row => {
+                    row.addEventListener('click', function (e) {
+                        if (!e.target.closest('.action-buttons')) {
+                            const clienteId = this.getAttribute('data-cliente-id');
+                            verDetallesCliente(parseInt(clienteId));
+                        }
+                    });
+                });
+            }
+
+            updatePagination();
+        }
+
+        function updateStats() {
+            const totalClientes = filteredClientes.length;
+            const totalFacturas = filteredClientes.reduce((sum, c) => sum + c.cantidad_facturas, 0);
+            const totalDeuda = filteredClientes.reduce((sum, c) => sum + c.total_adeudado, 0);
+            const facturasVencidas = filteredClientes.reduce((sum, c) => sum + c.facturas_vencidas, 0);
+
+            document.getElementById('totalClientes').textContent = totalClientes;
+            document.getElementById('facturasPendientes').textContent = totalFacturas;
+            document.getElementById('totalDeudaValor').textContent = formatCurrency(totalDeuda);
+            document.getElementById('facturasVencidas').textContent = facturasVencidas;
+        }
+
+        function updatePagination() {
+            const totalPages = Math.ceil(filteredClientes.length / itemsPerPage);
+            document.getElementById('pageInfo').textContent = `Página ${currentPage} de ${totalPages}`;
+
+            document.getElementById('prevPage').disabled = currentPage === 1;
+            document.getElementById('nextPage').disabled = currentPage === totalPages;
+        }
+
+        // ===== FUNCIONES DE DETALLES DEL CLIENTE =====
+        function verDetallesCliente(clienteId) {
+            currentClienteId = clienteId;
+            const cliente = clientesData.find(c => c.id === clienteId);
+
+            if (!cliente) {
+                showNotification('Cliente no encontrado', 'error');
+                return;
+            }
+
+            const modalBody = document.getElementById('cuentasModalBody');
+
+            // Calcular resumen
+            const totalFacturas = cliente.cantidad_facturas;
+            const facturasVencidas = cliente.facturas_vencidas;
+            const totalDeuda = cliente.total_adeudado;
+            const deudaVencida = cliente.deuda_vencida;
+
+            // Generar HTML de facturas
+            const facturasHTML = cliente.facturas.map(factura => {
+                const claseVencida = factura.vencida ? 'vencida' : '';
+                const diasTexto = factura.dias_vencimiento > 0 ?
+                    `Vence en ${factura.dias_vencimiento} días` :
+                    factura.dias_vencimiento === 0 ?
+                        'Vence hoy' :
+                        `Vencida hace ${Math.abs(factura.dias_vencimiento)} días`;
+
+                return `
+                    <div class="factura-item ${claseVencida}" data-factura-id="${factura.id}">
+                        <div style="flex: 2;">
+                            <strong>Factura #${factura.numero}</strong>
+                            <div style="font-size: 0.9rem; color: #718096;">
+                                Fecha: ${formatDate(factura.fecha_emision)} | Vence: ${formatDate(factura.fecha_vencimiento)}
+                            </div>
+                            <div class="dias-vencimiento ${factura.vencida ? 'vencido' : ''}">
+                                <i class="fas ${factura.vencida ? 'fa-exclamation-triangle' : 'fa-calendar-alt'}"></i>
+                                ${diasTexto}
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 1.1rem; font-weight: 700; color: #2c3e50;">
+                                $${formatCurrency(factura.monto_total)}
+                            </div>
+                            <div style="font-size: 0.9rem; color: #ff7e5f;">
+                                Saldo: $${formatCurrency(factura.saldo_pendiente)}
+                            </div>
+                        </div>
+                        <button class="btn-icon btn-view" onclick="verDetalleFactura(${factura.id})" style="margin-left: 1rem;" title="Ver detalle">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+
+            // Historial de pagos
+            const historialHTML = cliente.historial_pagos && cliente.historial_pagos.length > 0 ?
+                cliente.historial_pagos.map(pago => `
+                    <div class="pago-item">
+                        <div>
+                            <strong>${formatDate(pago.fecha)}</strong>
+                            <div style="font-size: 0.85rem; color: #718096;">${pago.metodo}</div>
+                        </div>
+                        <div style="font-weight: 700; color: #38a169;">
+                            +$${formatCurrency(pago.monto)}
+                        </div>
+                    </div>
+                `).join('') :
+                '<p style="color: #718096; text-align: center; padding: 1rem;">No hay historial de pagos</p>';
+
+            modalBody.innerHTML = `
+                <div class="cuentas-tabs">
+                    <div class="cuentas-tab active" onclick="cambiarTab('facturas')">Facturas Pendientes</div>
+                    <div class="cuentas-tab" onclick="cambiarTab('pagos')">Historial de Pagos</div>
+                    <div class="cuentas-tab" onclick="cambiarTab('info')">Información del Cliente</div>
+                </div>
+                
+                <!-- Resumen de deuda -->
+                <div class="resumen-deuda">
+                    <h4>Resumen de Deuda</h4>
+                    <div class="resumen-item">
+                        <span>Total Facturas Pendientes:</span>
+                        <span>${totalFacturas}</span>
+                    </div>
+                    <div class="resumen-item">
+                        <span>Facturas Vencidas:</span>
+                        <span style="color: #ff416c;">${facturasVencidas}</span>
+                    </div>
+                    <div class="resumen-item">
+                        <span>Deuda Total:</span>
+                        <span>$${formatCurrency(totalDeuda)}</span>
+                    </div>
+                    <div class="resumen-item">
+                        <span>Deuda Vencida:</span>
+                        <span style="color: #ff416c;">$${formatCurrency(deudaVencida)}</span>
+                    </div>
+                    <div class="resumen-item resumen-total">
+                        <span>Saldo Pendiente:</span>
+                        <span>$${formatCurrency(totalDeuda)}</span>
+                    </div>
+                </div>
+                
+                <!-- Tab de Facturas Pendientes -->
+                <div id="tab-facturas" class="tab-content active">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h4 style="color: #2c3e50;">Facturas Pendientes (${totalFacturas})</h4>
+                        <button class="btn btn-primary btn-sm" onclick="registrarPago(${cliente.id})">
+                            <span><i class="fas fa-money-bill-wave"></i></span>
+                            <span>Registrar Pago</span>
+                        </button>
+                    </div>
+                    
+                    <div id="facturasContainer" style="max-height: 400px; overflow-y: auto;">
+                        ${facturasHTML || '<p style="color: #718096; text-align: center; padding: 2rem;">No hay facturas pendientes</p>'}
+                    </div>
+                    
+                    <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+                        <button class="btn btn-warning" onclick="enviarRecordatorio(${cliente.id})">
+                            <span><i class="fas fa-envelope"></i></span>
+                            <span>Enviar Recordatorio</span>
+                        </button>
+                        <button class="btn btn-info" onclick="generarEstadoCuenta(${cliente.id})">
+                            <span><i class="fas fa-file-pdf"></i></span>
+                            <span>Generar Estado de Cuenta</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Tab de Historial de Pagos -->
+                <div id="tab-pagos" class="tab-content">
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem;">Historial de Pagos</h4>
+                    <div class="historial-pagos">
+                        ${historialHTML}
+                    </div>
+                </div>
+                
+                <!-- Tab de Información del Cliente -->
+                <div id="tab-info" class="tab-content">
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem;">Información del Cliente</h4>
+                    <div style="background: #f8f9ff; padding: 1.5rem; border-radius: 15px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                            <div>
+                                <strong>Cédula:</strong>
+                                <div>${cliente.cedula}</div>
+                            </div>
+                            <div>
+                                <strong>Nombre:</strong>
+                                <div>${cliente.nombre_completo}</div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                            <div>
+                                <strong>Teléfono:</strong>
+                                <div>${cliente.telefono || 'No registrado'}</div>
+                            </div>
+                            <div>
+                                <strong>Email:</strong>
+                                <div>${cliente.email || 'No registrado'}</div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div>
+                                <strong>Dirección:</strong>
+                                <div>${cliente.direccion || 'No registrada'}</div>
+                            </div>
+                            <div>
+                                <strong>Tipo de Cliente:</strong>
+                                <div>${cliente.tipo_cliente || 'Regular'}</div>
+                            </div>
+                        </div>
+                        
+                        ${cliente.notas ? `
+                            <div style="margin-top: 1rem;">
+                                <strong>Notas:</strong>
+                                <div style="background: #fff7ed; padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
+                                    ${cliente.notas}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+                    <button class="btn btn-warning" onclick="closeCuentasModal()">Cerrar</button>
+                </div>
+            `;
+
+            document.getElementById('cuentasModal').classList.add('active');
+        }
+
+        function cambiarTab(tabName) {
+            // Remover clase active de todas las tabs
+            document.querySelectorAll('.cuentas-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Remover clase active de todos los contenidos
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // Agregar clase active a la tab seleccionada
+            document.querySelector(`.cuentas-tab[onclick*="${tabName}"]`).classList.add('active');
+
+            // Mostrar el contenido correspondiente
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+        }
+
+        function verDetalleFactura(facturaId) {
+            const cliente = clientesData.find(c => c.facturas.some(f => f.id === facturaId));
+            const factura = cliente.facturas.find(f => f.id === facturaId);
+
+            const modalBody = document.getElementById('cuentasModalBody');
+
+            modalBody.innerHTML = `
+                <div style="background: white; border-radius: 15px; padding: 2rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
+                        <div>
+                            <h2 style="color: #2c3e50; margin-bottom: 0.5rem;">Factura #${factura.numero}</h2>
+                            <div style="color: #718096;">${cliente.nombre_completo}</div>
+                        </div>
+                        <div>
+                            ${factura.vencida ?
+                    '<span class="vencido-badge"><i class="fas fa-exclamation-triangle"></i> VENCIDA</span>' :
+                    '<span class="deuda-badge deuda-baja"><i class="fas fa-check-circle"></i> PENDIENTE</span>'
+                }
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                        <div>
+                            <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-calendar"></i> Fechas</h4>
+                            <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
+                                <div style="margin-bottom: 0.5rem;">
+                                    <strong>Fecha de Emisión:</strong> ${formatDate(factura.fecha_emision)}
+                                </div>
+                                <div style="margin-bottom: 0.5rem;">
+                                    <strong>Fecha de Vencimiento:</strong> ${formatDate(factura.fecha_vencimiento)}
+                                </div>
+                                <div style="margin-bottom: 0.5rem; ${factura.vencida ? 'color: #ff416c; font-weight: 600;' : ''}">
+                                    <strong>Estado:</strong> ${factura.vencida ? 'VENCIDA' : 'PENDIENTE'}
+                                </div>
+                                ${factura.dias_vencimiento !== undefined ? `
+                                    <div style="margin-bottom: 0.5rem;">
+                                        <strong>Días:</strong> ${factura.dias_vencimiento > 0 ?
+                        `Vence en ${factura.dias_vencimiento} días` :
+                        factura.dias_vencimiento === 0 ?
+                            'Vence hoy' :
+                            `Vencida hace ${Math.abs(factura.dias_vencimiento)} días`}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-dollar-sign"></i> Montos</h4>
+                            <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span>Subtotal:</span>
+                                    <span>$${formatCurrency(factura.monto_total * 0.82)}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span>ITBIS (18%):</span>
+                                    <span>$${formatCurrency(factura.monto_total * 0.18)}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; margin-bottom: 0.5rem;">
+                                    <span>Total:</span>
+                                    <span>$${formatCurrency(factura.monto_total)}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; color: #ff7e5f; padding-top: 0.5rem; border-top: 1px solid #e0e6ff;">
+                                    <span>Saldo Pendiente:</span>
+                                    <span>$${formatCurrency(factura.saldo_pendiente)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 2rem;">
+                        <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-file-alt"></i> Detalles de la Factura</h4>
+                        <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
+                            <div style="margin-bottom: 0.5rem;">
+                                <strong>Concepto:</strong> ${factura.concepto || 'Venta de productos/servicios'}
+                            </div>
+                            ${factura.descripcion ? `
+                                <div style="margin-bottom: 0.5rem;">
+                                    <strong>Descripción:</strong> ${factura.descripcion}
+                                </div>
+                            ` : ''}
+                            ${factura.notas ? `
+                                <div style="margin-bottom: 0.5rem;">
+                                    <strong>Notas:</strong> ${factura.notas}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                        <button class="btn btn-warning" onclick="verDetallesCliente(${cliente.id})">
+                            <span><i class="fas fa-arrow-left"></i></span>
+                            <span>Volver al Cliente</span>
+                        </button>
+                        <button class="btn btn-primary" onclick="registrarPagoFactura(${factura.id})">
+                            <span><i class="fas fa-money-bill-wave"></i></span>
+                            <span>Registrar Pago</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ===== FUNCIONES DE PAGOS =====
+        function registrarPago(clienteId) {
+            currentClienteId = clienteId;
+            const cliente = clientesData.find(c => c.id === clienteId);
+
+            const modalBody = document.getElementById('pagoModalBody');
+            const totalPendiente = cliente.total_adeudado;
+
+            modalBody.innerHTML = `
+                <input type="hidden" id="pagoClienteId" value="${clienteId}">
+                
+                <div style="background: #f8f9ff; padding: 1.5rem; border-radius: 15px; margin-bottom: 1.5rem;">
+                    <div style="text-align: center; margin-bottom: 1rem;">
+                        <div style="font-size: 1.2rem; color: #2c3e50; margin-bottom: 0.5rem;">
+                            <strong>${cliente.nombre_completo}</strong>
+                        </div>
+                        <div style="color: #718096;">Cédula: ${cliente.cedula}</div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <div style="color: #718096; margin-bottom: 0.5rem;">Saldo Pendiente Total</div>
+                        <div style="font-size: 2rem; font-weight: 700; color: #ff7e5f;">
+                            $${formatCurrency(totalPendiente)}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="pago-form">
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-money-bill-wave"></i> Registrar Pago</h4>
+                    
+                    <div class="form-group">
+                        <label for="montoPago"><i class="fas fa-dollar-sign"></i> Monto a Pagar *</label>
+                        <input type="number" id="montoPago" 
+                               min="0.01" 
+                               max="${totalPendiente}"
+                               step="0.01"
+                               value="${totalPendiente}"
+                               placeholder="0.00"
+                               oninput="actualizarSaldoRestante()">
+                        <div style="font-size: 0.85rem; color: #718096; margin-top: 0.25rem;">
+                            Máximo: $${formatCurrency(totalPendiente)}
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="fechaPago"><i class="fas fa-calendar"></i> Fecha de Pago *</label>
+                        <input type="date" id="fechaPago" value="${new Date().toISOString().split('T')[0]}">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><i class="fas fa-credit-card"></i> Método de Pago *</label>
+                        <div class="metodo-pago">
+                            <div class="metodo-pago-option" onclick="seleccionarMetodoPago('efectivo')">
+                                <div style="font-size: 2rem; margin-bottom: 0.5rem;">
+                                    <i class="fas fa-money-bill-wave"></i>
+                                </div>
+                                <div>Efectivo</div>
+                            </div>
+                            <div class="metodo-pago-option" onclick="seleccionarMetodoPago('tarjeta')">
+                                <div style="font-size: 2rem; margin-bottom: 0.5rem;">
+                                    <i class="fas fa-credit-card"></i>
+                                </div>
+                                <div>Tarjeta</div>
+                            </div>
+                            <div class="metodo-pago-option" onclick="seleccionarMetodoPago('transferencia')">
+                                <div style="font-size: 2rem; margin-bottom: 0.5rem;">
+                                    <i class="fas fa-university"></i>
+                                </div>
+                                <div>Transferencia</div>
+                            </div>
+                        </div>
+                        <input type="hidden" id="metodoPago" value="efectivo">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="referenciaPago"><i class="fas fa-receipt"></i> Referencia/Comprobante</label>
+                        <input type="text" id="referenciaPago" placeholder="Número de referencia, comprobante, etc.">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="notasPago"><i class="fas fa-sticky-note"></i> Notas Adicionales</label>
+                        <textarea id="notasPago" rows="2" placeholder="Observaciones sobre el pago..."></textarea>
+                    </div>
+                    
+                    <div id="saldoRestanteContainer" style="background: #e6fffa; padding: 1rem; border-radius: 10px; margin-top: 1rem; display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>Saldo Restante:</strong>
+                                <div style="color: #718096; font-size: 0.9rem;">Después de este pago</div>
+                            </div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #38a169;" id="saldoRestante">
+                                $0.00
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                        <button class="btn btn-warning" onclick="closePagoModal()">Cancelar</button>
+                        <button class="btn btn-primary" onclick="procesarPago()">
+                            <span><i class="fas fa-check-circle"></i></span>
+                            <span>Registrar Pago</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            seleccionarMetodoPago('efectivo');
+            actualizarSaldoRestante();
+
+            document.getElementById('pagoModal').classList.add('active');
+        }
+
+        function registrarPagoFactura(facturaId) {
+            currentFacturaId = facturaId;
+            const cliente = clientesData.find(c => c.facturas.some(f => f.id === facturaId));
+            const factura = cliente.facturas.find(f => f.id === facturaId);
+
+            const modalBody = document.getElementById('pagoModalBody');
+
+            modalBody.innerHTML = `
+                <input type="hidden" id="pagoFacturaId" value="${facturaId}">
+                <input type="hidden" id="pagoClienteId" value="${cliente.id}">
+                
+                <div style="background: #f8f9ff; padding: 1.5rem; border-radius: 15px; margin-bottom: 1.5rem;">
+                    <div style="text-align: center; margin-bottom: 1rem;">
+                        <div style="font-size: 1.2rem; color: #2c3e50; margin-bottom: 0.5rem;">
+                            <strong>Factura #${factura.numero}</strong>
+                        </div>
+                        <div style="color: #718096;">${cliente.nombre_completo}</div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <div style="color: #718096; margin-bottom: 0.5rem;">Saldo Pendiente de esta Factura</div>
+                        <div style="font-size: 2rem; font-weight: 700; color: #ff7e5f;">
+                            $${formatCurrency(factura.saldo_pendiente)}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="pago-form">
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-money-bill-wave"></i> Registrar Pago</h4>
+                    
+                    <div class="form-group">
+                        <label for="montoPago"><i class="fas fa-dollar-sign"></i> Monto a Pagar *</label>
+                        <input type="number" id="montoPago" 
+                               min="0.01" 
+                               max="${factura.saldo_pendiente}"
+                               step="0.01"
+                               value="${factura.saldo_pendiente}"
+                               placeholder="0.00"
+                               oninput="actualizarSaldoRestanteFactura()">
+                        <div style="font-size: 0.85rem; color: #718096; margin-top: 0.25rem;">
+                            Máximo: $${formatCurrency(factura.saldo_pendiente)}
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="fechaPago"><i class="fas fa-calendar"></i> Fecha de Pago *</label>
+                        <input type="date" id="fechaPago" value="${new Date().toISOString().split('T')[0]}">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><i class="fas fa-credit-card"></i> Método de Pago *</label>
+                        <div class="metodo-pago">
+                            <div class="metodo-pago-option" onclick="seleccionarMetodoPago('efectivo')">
+                                <div style="font-size: 2rem; margin-bottom: 0.5rem;">
+                                    <i class="fas fa-money-bill-wave"></i>
+                                </div>
+                                <div>Efectivo</div>
+                            </div>
+                            <div class="metodo-pago-option" onclick="seleccionarMetodoPago('tarjeta')">
+                                <div style="font-size: 2rem; margin-bottom: 0.5rem;">
+                                    <i class="fas fa-credit-card"></i>
+                                </div>
+                                <div>Tarjeta</div>
+                            </div>
+                            <div class="metodo-pago-option" onclick="seleccionarMetodoPago('transferencia')">
+                                <div style="font-size: 2rem; margin-bottom: 0.5rem;">
+                                    <i class="fas fa-university"></i>
+                                </div>
+                                <div>Transferencia</div>
+                            </div>
+                        </div>
+                        <input type="hidden" id="metodoPago" value="efectivo">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="referenciaPago"><i class="fas fa-receipt"></i> Referencia/Comprobante</label>
+                        <input type="text" id="referenciaPago" placeholder="Número de referencia, comprobante, etc.">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="notasPago"><i class="fas fa-sticky-note"></i> Notas Adicionales</label>
+                        <textarea id="notasPago" rows="2" placeholder="Observaciones sobre el pago..."></textarea>
+                    </div>
+                    
+                    <div id="saldoRestanteContainer" style="background: #e6fffa; padding: 1rem; border-radius: 10px; margin-top: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>Saldo Restante de la Factura:</strong>
+                                <div style="color: #718096; font-size: 0.9rem;">Después de este pago</div>
+                            </div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #38a169;" id="saldoRestanteFactura">
+                                $0.00
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                        <button class="btn btn-warning" onclick="closePagoModal()">Cancelar</button>
+                        <button class="btn btn-primary" onclick="procesarPagoFactura()">
+                            <span><i class="fas fa-check-circle"></i></span>
+                            <span>Registrar Pago</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            seleccionarMetodoPago('efectivo');
+            actualizarSaldoRestanteFactura();
+
+            document.getElementById('pagoModal').classList.add('active');
+        }
+
+        function seleccionarMetodoPago(metodo) {
+            // Remover selección anterior
+            document.querySelectorAll('.metodo-pago-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+
+            // Marcar como seleccionado
+            const selectedOption = document.querySelector(`.metodo-pago-option[onclick*="${metodo}"]`);
+            if (selectedOption) {
+                selectedOption.classList.add('selected');
+            }
+
+            // Actualizar valor oculto
+            document.getElementById('metodoPago').value = metodo;
+        }
+
+        function actualizarSaldoRestante() {
+            const montoPago = parseFloat(document.getElementById('montoPago').value) || 0;
+            const clienteId = document.getElementById('pagoClienteId').value;
+            const cliente = clientesData.find(c => c.id === parseInt(clienteId));
+
+            if (!cliente) return;
+
+            const totalPendiente = cliente.total_adeudado;
+            const saldoRestante = totalPendiente - montoPago;
+            const saldoElement = document.getElementById('saldoRestante');
+            const container = document.getElementById('saldoRestanteContainer');
+
+            if (saldoElement) {
+                saldoElement.textContent = `$${formatCurrency(saldoRestante)}`;
+                saldoElement.style.color = saldoRestante > 0 ? '#ff7e5f' : '#38a169';
+
+                if (saldoRestante > 0) {
+                    container.style.display = 'block';
+                } else {
+                    container.style.display = 'none';
+                }
+            }
+        }
+
+        function actualizarSaldoRestanteFactura() {
+            const montoPago = parseFloat(document.getElementById('montoPago').value) || 0;
+            const facturaId = document.getElementById('pagoFacturaId').value;
+
+            // Encontrar la factura
+            let saldoFactura = 0;
+            for (const cliente of clientesData) {
+                const factura = cliente.facturas.find(f => f.id === parseInt(facturaId));
+                if (factura) {
+                    saldoFactura = factura.saldo_pendiente;
+                    break;
+                }
+            }
+
+            const saldoRestante = saldoFactura - montoPago;
+            const saldoElement = document.getElementById('saldoRestanteFactura');
+
+            if (saldoElement) {
+                saldoElement.textContent = `$${formatCurrency(saldoRestante)}`;
+                saldoElement.style.color = saldoRestante > 0 ? '#ff7e5f' : '#38a169';
+            }
+        }
+
+        function procesarPago() {
+            const clienteId = parseInt(document.getElementById('pagoClienteId').value);
+            const monto = parseFloat(document.getElementById('montoPago').value) || 0;
+            const fecha = document.getElementById('fechaPago').value;
+            const metodo = document.getElementById('metodoPago').value;
+            const referencia = document.getElementById('referenciaPago').value;
+            const notas = document.getElementById('notasPago').value;
+
+            // Validaciones
+            if (!monto || monto <= 0) {
+                showNotification('El monto del pago debe ser mayor a 0', 'error');
+                return;
+            }
+
+            if (!fecha) {
+                showNotification('La fecha de pago es requerida', 'error');
+                return;
+            }
+
+            // En una implementación real, aquí se enviaría al servidor
+            showNotification(`Pago de $${formatCurrency(monto)} registrado exitosamente`, 'success');
+            closePagoModal();
+
+            // Simular actualización de datos
+            setTimeout(() => {
+                loadClientes();
+                updateStats();
+            }, 1000);
+        }
+
+        function procesarPagoFactura() {
+            const facturaId = parseInt(document.getElementById('pagoFacturaId').value);
+            const monto = parseFloat(document.getElementById('montoPago').value) || 0;
+            const fecha = document.getElementById('fechaPago').value;
+            const metodo = document.getElementById('metodoPago').value;
+            const referencia = document.getElementById('referenciaPago').value;
+            const notas = document.getElementById('notasPago').value;
+
+            // Validaciones
+            if (!monto || monto <= 0) {
+                showNotification('El monto del pago debe ser mayor a 0', 'error');
+                return;
+            }
+
+            if (!fecha) {
+                showNotification('La fecha de pago es requerida', 'error');
+                return;
+            }
+
+            // En una implementación real, aquí se enviaría al servidor
+            showNotification(`Pago de $${formatCurrency(monto)} registrado para la factura`, 'success');
+            closePagoModal();
+
+            // Simular actualización de datos
+            setTimeout(() => {
+                loadClientes();
+                updateStats();
+            }, 1000);
+        }
+
+        // ===== FUNCIONES AUXILIARES =====
+        function contactarCliente(telefono) {
+            if (telefono && telefono !== 'No registrado') {
+                if (confirm(`¿Desea llamar al cliente al número ${telefono}?`)) {
+                    // En un entorno real, esto iniciaría una llamada
+                    showNotification(`Llamando a ${telefono}...`, 'info');
+                }
+            } else {
+                showNotification('El cliente no tiene teléfono registrado', 'error');
+            }
+        }
+
+        function enviarRecordatorio(clienteId) {
+            const cliente = clientesData.find(c => c.id === clienteId);
+            if (cliente && confirm(`¿Enviar recordatorio de pago a ${cliente.nombre_completo}?`)) {
+                showNotification(`Recordatorio enviado a ${cliente.email || 'el cliente'}`, 'success');
+            }
+        }
+
+        function generarEstadoCuenta(clienteId) {
+            const cliente = clientesData.find(c => c.id === clienteId);
+            if (cliente) {
+                showNotification(`Generando estado de cuenta para ${cliente.nombre_completo}...`, 'info');
+                // En una implementación real, aquí se generaría el PDF
+            }
+        }
+
+        function closeCuentasModal() {
+            document.getElementById('cuentasModal').classList.remove('active');
+            currentClienteId = null;
+        }
+
+        function closePagoModal() {
+            document.getElementById('pagoModal').classList.remove('active');
+            currentClienteId = null;
+            currentFacturaId = null;
+        }
+
+        // ===== FUNCIONES DE FORMATO =====
+        function formatCurrency(amount) {
+            return parseFloat(amount).toLocaleString('es-DO', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('es-DO', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+
+        // ===== FUNCIONES DE EXPORTACIÓN =====
+        function exportToExcel() {
+            showNotification('Exportando datos a Excel...', 'info');
+
+            // En una implementación real, aquí se generaría el archivo Excel
+            setTimeout(() => {
+                showNotification('Reporte exportado exitosamente', 'success');
+            }, 1500);
+        }
+
+        // ===== FUNCIONES DE NOTIFICACIÓN =====
+        function showNotification(message, type = 'success') {
+            // Remover notificaciones anteriores
+            const existing = document.querySelectorAll('.notification');
+            existing.forEach(n => n.remove());
+
+            // Crear notificación
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <i class="fas ${type === 'success' ? 'fa-check-circle' :
+                    type === 'error' ? 'fa-exclamation-circle' :
+                        type === 'info' ? 'fa-info-circle' :
+                            'fa-exclamation-triangle'}"></i>
+                <span>${message}</span>
+            `;
+
+            document.body.appendChild(notification);
+
+            // Remover después de 5 segundos
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+
+        // ===== INICIALIZACIÓN FINAL =====
+        console.log('✅ Sistema de Cuentas por Cobrar cargado correctamente');
+    </script>
+</body>
+
+</html>

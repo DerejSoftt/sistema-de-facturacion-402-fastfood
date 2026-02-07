@@ -1,73 +1,37 @@
 {% load humanize %}
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Restaurante</title>
+    <link rel="icon" href="{% static 'img/fasfoot1.ico' %}">
     <!-- Incluir Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* TODOS LOS ESTILOS IGUAL QUE ANTES */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             min-height: 100vh;
         }
-        
-        /* ... TODOS LOS ESTILOS ANTERIORES SE MANTIENEN IGUAL ... */
-        
-        /* Botón de impresión PDF - Mantenemos el mismo estilo */
-        .print-pdf-btn {
-            margin-top: 15px;
-            width: 100%;
-            padding: 0.75rem;
-            background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-size: 0.9rem;
-            box-shadow: 0 4px 10px rgba(33, 150, 243, 0.2);
-        }
-        
-        .print-pdf-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(33, 150, 243, 0.3);
-            background: linear-gradient(135deg, #1976D2 0%, #1E88E5 100%);
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
-            min-height: 100vh;
-        }
-        
+
         /* App container */
         .app-container {
             display: flex;
             min-height: 100vh;
         }
-        
-        /* Sidebar styles - Mismo diseño */
+
+        /* Sidebar styles - Ahora es fijo */
         .sidebar {
             width: 260px;
             background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
@@ -75,8 +39,29 @@
             display: flex;
             flex-direction: column;
             transition: transform 0.3s ease;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
         }
-        
+
+        /* Barra de scroll personalizada para sidebar */
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 126, 95, 0.5);
+            border-radius: 3px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 126, 95, 0.8);
+        }
+
         .sidebar-header {
             background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             color: white;
@@ -85,12 +70,12 @@
             font-weight: bold;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
-        
+
         .sidebar-nav {
             flex: 1;
             padding: 1rem 0;
         }
-        
+
         .nav-item {
             padding: 1rem 1.5rem;
             display: flex;
@@ -102,25 +87,25 @@
             cursor: pointer;
             border-left: 3px solid transparent;
         }
-        
+
         .nav-item:hover {
             background: rgba(255, 255, 255, 0.1);
             border-left-color: #ff7e5f;
             color: #ff7e5f;
             transform: translateX(5px);
         }
-        
+
         .nav-item.active {
             background: rgba(255, 255, 255, 0.15);
             border-left-color: #ff7e5f;
             color: #ff7e5f;
             font-weight: 600;
         }
-        
+
         .nav-icon {
             font-size: 1.25rem;
         }
-        
+
         /* Mobile menu toggle */
         .menu-toggle {
             display: none;
@@ -138,12 +123,12 @@
             color: white;
             transition: all 0.3s;
         }
-        
+
         .menu-toggle:hover {
             background: #ff6b4a;
             transform: scale(1.05);
         }
-        
+
         .sidebar-overlay {
             display: none;
             position: fixed;
@@ -154,14 +139,15 @@
             background: rgba(0, 0, 0, 0.5);
             z-index: 998;
         }
-        
-        /* Main content area */
+
+        /* Main content area - Ahora con margen izquierdo */
         .main-content {
             flex: 1;
             padding: 2rem;
             overflow-x: hidden;
+            margin-left: 260px;
         }
-        
+
         .container {
             width: 100%;
             max-width: 1600px;
@@ -172,13 +158,20 @@
             overflow: hidden;
             animation: fadeIn 0.5s ease-out;
         }
-        
+
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
-        
-        /* Header - Mismo diseño */
+
+        /* Header */
         .header {
             background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             color: white;
@@ -187,7 +180,7 @@
             position: relative;
             overflow: hidden;
         }
-        
+
         .header::before {
             content: "";
             position: absolute;
@@ -198,7 +191,7 @@
             background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.1)"/></svg>');
             background-size: cover;
         }
-        
+
         .header h1 {
             font-size: 2.2rem;
             font-weight: bold;
@@ -207,18 +200,18 @@
             position: relative;
             z-index: 1;
         }
-        
+
         .header p {
             opacity: 0.95;
             font-size: 1.1rem;
             position: relative;
             z-index: 1;
         }
-        
+
         .content {
             padding: 2.5rem;
         }
-        
+
         /* Welcome Section */
         .welcome-section {
             display: flex;
@@ -231,18 +224,18 @@
             border: 1px solid rgba(255, 126, 95, 0.1);
             margin-bottom: 2.5rem;
         }
-        
+
         .welcome-text h2 {
             color: #2c3e50;
             font-size: 1.8rem;
             margin-bottom: 0.5rem;
         }
-        
+
         .welcome-text p {
             color: #4a5568;
             font-size: 1.1rem;
         }
-        
+
         .date-info {
             background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             color: white;
@@ -250,26 +243,26 @@
             border-radius: 15px;
             box-shadow: 0 5px 15px rgba(255, 126, 95, 0.3);
         }
-        
+
         .current-date {
             font-size: 1.1rem;
             font-weight: 600;
             margin-bottom: 0.25rem;
         }
-        
+
         .current-time {
             font-size: 1.5rem;
             font-weight: 700;
         }
-        
-        /* Stats Cards - Modern Design */
+
+        /* Stats Cards */
         .stats-container {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 1.5rem;
             margin-bottom: 2.5rem;
         }
-        
+
         .stat-card {
             background: white;
             padding: 1.5rem;
@@ -280,12 +273,12 @@
             position: relative;
             overflow: hidden;
         }
-        
+
         .stat-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
         }
-        
+
         .stat-card::before {
             content: "";
             position: absolute;
@@ -295,38 +288,38 @@
             height: 4px;
             border-radius: 20px 20px 0 0;
         }
-        
+
         .stat-card.venta-dia::before {
             background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
         }
-        
+
         .stat-card.venta-mes::before {
             background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
         }
-        
+
         .stat-card.gastos::before {
             background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
         }
-        
+
         .stat-card.ganancias::before {
             background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
         }
-        
+
         .stat-card.pedidos::before {
             background: linear-gradient(135deg, #9C27B0 0%, #673AB7 100%);
         }
-        
+
         .stat-card.clientes::before {
             background: linear-gradient(135deg, #00BCD4 0%, #0097A7 100%);
         }
-        
+
         .stat-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 1rem;
         }
-        
+
         .stat-icon {
             width: 60px;
             height: 60px;
@@ -337,31 +330,31 @@
             font-size: 1.8rem;
             color: white;
         }
-        
+
         .stat-card.venta-dia .stat-icon {
             background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
         }
-        
+
         .stat-card.venta-mes .stat-icon {
             background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
         }
-        
+
         .stat-card.gastos .stat-icon {
             background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
         }
-        
+
         .stat-card.ganancias .stat-icon {
             background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
         }
-        
+
         .stat-card.pedidos .stat-icon {
             background: linear-gradient(135deg, #9C27B0 0%, #673AB7 100%);
         }
-        
+
         .stat-card.clientes .stat-icon {
             background: linear-gradient(135deg, #00BCD4 0%, #0097A7 100%);
         }
-        
+
         .stat-trend {
             display: flex;
             align-items: center;
@@ -371,70 +364,76 @@
             padding: 0.25rem 0.75rem;
             border-radius: 20px;
         }
-        
+
         .trend-up {
             background: rgba(76, 175, 80, 0.1);
             color: #4CAF50;
         }
-        
+
         .trend-down {
             background: rgba(244, 67, 54, 0.1);
             color: #F44336;
         }
-        
+
         .trend-neutral {
             background: rgba(158, 158, 158, 0.1);
             color: #9E9E9E;
         }
-        
+
         .stat-value {
             font-size: 2.2rem;
             font-weight: 700;
             margin-bottom: 0.5rem;
         }
-        
+
         .stat-card.venta-dia .stat-value {
             color: #4CAF50;
         }
-        
+
         .stat-card.venta-mes .stat-value {
             color: #2196F3;
         }
-        
+
         .stat-card.gastos .stat-value {
             color: #ff416c;
         }
-        
+
         .stat-card.ganancias .stat-value {
             color: #ffb347;
         }
-        
+
         .stat-card.pedidos .stat-value {
             color: #9C27B0;
         }
-        
+
         .stat-card.clientes .stat-value {
             color: #00BCD4;
         }
-        
+
         .stat-label {
             color: #4a5568;
             font-size: 0.95rem;
             font-weight: 600;
             margin-bottom: 0.25rem;
         }
-        
+
         .stat-detail {
             color: #718096;
             font-size: 0.85rem;
         }
-        
-        /* Botón de impresión PDF */
-        .print-pdf-btn {
+
+        /* Contenedor de botones PDF */
+        .pdf-buttons-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
             margin-top: 15px;
+        }
+
+        /* Botones de impresión PDF */
+        .print-pdf-btn {
             width: 100%;
             padding: 0.75rem;
-            background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
             color: white;
             border: none;
             border-radius: 12px;
@@ -446,19 +445,36 @@
             justify-content: center;
             gap: 8px;
             font-size: 0.9rem;
-            box-shadow: 0 4px 10px rgba(33, 150, 243, 0.2);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
         }
-        
+
         .print-pdf-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(33, 150, 243, 0.3);
-            background: linear-gradient(135deg, #1976D2 0%, #1E88E5 100%);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
         }
-        
+
         .print-pdf-btn:active {
             transform: translateY(0);
         }
-        
+
+        /* Botón para impresora 80mm */
+        .print-pdf-btn.ticket {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        }
+
+        .print-pdf-btn.ticket:hover {
+            background: linear-gradient(135deg, #45a049 0%, #3d8b40 100%);
+        }
+
+        /* Botón para A4 */
+        .print-pdf-btn.a4 {
+            background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
+        }
+
+        .print-pdf-btn.a4:hover {
+            background: linear-gradient(135deg, #1976D2 0%, #1E88E5 100%);
+        }
+
         /* Debug Section */
         .debug-section {
             background: #f8f9fa;
@@ -470,20 +486,20 @@
             font-size: 13px;
             color: #495057;
         }
-        
+
         .debug-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
         }
-        
+
         .debug-header h3 {
             color: #2c3e50;
             font-size: 1.2rem;
             font-weight: 600;
         }
-        
+
         .debug-toggle {
             background: #6c757d;
             color: white;
@@ -494,45 +510,46 @@
             font-size: 0.9rem;
             transition: all 0.3s;
         }
-        
+
         .debug-toggle:hover {
             background: #5a6268;
         }
-        
+
         .debug-content {
             display: none;
             overflow-x: auto;
         }
-        
+
         .debug-content.show {
             display: block;
         }
-        
+
         .debug-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
         }
-        
-        .debug-table th, .debug-table td {
+
+        .debug-table th,
+        .debug-table td {
             border: 1px solid #dee2e6;
             padding: 8px;
             text-align: left;
         }
-        
+
         .debug-table th {
             background-color: #e9ecef;
             font-weight: 600;
         }
-        
+
         .debug-table tr:nth-child(even) {
             background-color: #f8f9fa;
         }
-        
+
         .debug-table tr:hover {
             background-color: #e9ecef;
         }
-        
+
         /* Charts Section */
         .charts-section {
             display: grid;
@@ -540,7 +557,7 @@
             gap: 1.5rem;
             margin-bottom: 2.5rem;
         }
-        
+
         .chart-card {
             background: white;
             padding: 1.5rem;
@@ -548,25 +565,25 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
             border: 1px solid rgba(0, 0, 0, 0.05);
         }
-        
+
         .chart-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 1.5rem;
         }
-        
+
         .chart-header h3 {
             color: #2c3e50;
             font-size: 1.3rem;
             font-weight: 700;
         }
-        
+
         .chart-actions {
             display: flex;
             gap: 0.5rem;
         }
-        
+
         .chart-btn {
             background: #f8f9ff;
             border: 1px solid #e0e6ff;
@@ -578,23 +595,23 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        
+
         .chart-btn:hover {
             background: #e0e6ff;
         }
-        
+
         .chart-btn.active {
             background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             color: white;
             border-color: #ff7e5f;
         }
-        
+
         .chart-container {
             width: 100%;
             height: 300px;
             position: relative;
         }
-        
+
         /* Recent Activity */
         .activity-section {
             background: white;
@@ -604,26 +621,26 @@
             border: 1px solid rgba(0, 0, 0, 0.05);
             margin-bottom: 2.5rem;
         }
-        
+
         .activity-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 1.5rem;
         }
-        
+
         .activity-header h3 {
             color: #2c3e50;
             font-size: 1.3rem;
             font-weight: 700;
         }
-        
+
         .activity-list {
             display: flex;
             flex-direction: column;
             gap: 1rem;
         }
-        
+
         .activity-item {
             display: flex;
             align-items: center;
@@ -633,12 +650,12 @@
             border-radius: 15px;
             transition: all 0.2s;
         }
-        
+
         .activity-item:hover {
             transform: translateX(5px);
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
         }
-        
+
         .activity-icon {
             width: 50px;
             height: 50px;
@@ -649,55 +666,55 @@
             font-size: 1.5rem;
             color: white;
         }
-        
+
         .activity-icon.venta {
             background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
         }
-        
+
         .activity-icon.pedido {
             background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
         }
-        
+
         .activity-icon.gasto {
             background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
         }
-        
+
         .activity-icon.factura {
             background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
         }
-        
+
         .activity-icon.cliente {
             background: linear-gradient(135deg, #9C27B0 0%, #673AB7 100%);
         }
-        
+
         .activity-content {
             flex: 1;
         }
-        
+
         .activity-title {
             font-weight: 600;
             color: #2c3e50;
             margin-bottom: 0.25rem;
         }
-        
+
         .activity-time {
             font-size: 0.85rem;
             color: #718096;
         }
-        
+
         .activity-amount {
             font-weight: 700;
             font-size: 1.1rem;
         }
-        
+
         .activity-amount.positive {
             color: #4CAF50;
         }
-        
+
         .activity-amount.negative {
             color: #ff416c;
         }
-        
+
         /* Top Products */
         .products-section {
             background: white;
@@ -706,25 +723,25 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
             border: 1px solid rgba(0, 0, 0, 0.05);
         }
-        
+
         .products-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 1.5rem;
         }
-        
+
         .products-header h3 {
             color: #2c3e50;
             font-size: 1.3rem;
             font-weight: 700;
         }
-        
+
         .products-table {
             width: 100%;
             border-collapse: collapse;
         }
-        
+
         .products-table th {
             text-align: left;
             padding: 1rem;
@@ -733,19 +750,19 @@
             font-weight: 600;
             border-bottom: 2px solid #e0e6ff;
         }
-        
+
         .products-table td {
             padding: 1rem;
             border-bottom: 1px solid #e0e6ff;
             color: #4a5568;
         }
-        
+
         .product-info {
             display: flex;
             align-items: center;
             gap: 1rem;
         }
-        
+
         .product-icon {
             width: 40px;
             height: 40px;
@@ -757,13 +774,13 @@
             color: white;
             font-size: 1.2rem;
         }
-        
+
         .product-sales {
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
-        
+
         .sales-bar {
             flex: 1;
             height: 8px;
@@ -771,25 +788,25 @@
             border-radius: 4px;
             overflow: hidden;
         }
-        
+
         .sales-fill {
             height: 100%;
             border-radius: 4px;
         }
-        
+
         .sales-fill.high {
             background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
         }
-        
+
         .sales-fill.medium {
             background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
         }
-        
+
         .sales-fill.low {
             background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
         }
-        
-        /* Botones - Mismo estilo */
+
+        /* Botones */
         .btn {
             padding: 0.75rem 1.5rem;
             border: none;
@@ -803,29 +820,29 @@
             justify-content: center;
             gap: 10px;
         }
-        
+
         .btn-primary {
             background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             color: white;
             box-shadow: 0 10px 20px rgba(255, 126, 95, 0.3);
         }
-        
+
         .btn-primary:hover {
             transform: translateY(-3px);
             box-shadow: 0 15px 25px rgba(255, 126, 95, 0.4);
         }
-        
+
         .btn-info {
             background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
             color: white;
             box-shadow: 0 4px 6px rgba(33, 150, 243, 0.3);
         }
-        
+
         .btn-info:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 10px rgba(33, 150, 243, 0.4);
         }
-        
+
         /* Modal para PDF */
         .pdf-modal {
             display: none;
@@ -839,11 +856,11 @@
             align-items: center;
             justify-content: center;
         }
-        
+
         .pdf-modal.active {
             display: flex;
         }
-        
+
         .pdf-modal-content {
             background: white;
             border-radius: 15px;
@@ -853,7 +870,7 @@
             overflow: hidden;
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
         }
-        
+
         .pdf-modal-header {
             background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
             color: white;
@@ -862,12 +879,12 @@
             justify-content: space-between;
             align-items: center;
         }
-        
+
         .pdf-modal-header h3 {
             font-size: 1.3rem;
             font-weight: 700;
         }
-        
+
         .pdf-modal-close {
             background: none;
             border: none;
@@ -883,22 +900,22 @@
             justify-content: center;
             transition: all 0.3s;
         }
-        
+
         .pdf-modal-close:hover {
             background: rgba(255, 255, 255, 0.2);
         }
-        
+
         .pdf-modal-body {
             padding: 0;
             height: calc(90vh - 70px);
         }
-        
+
         .pdf-iframe {
             width: 100%;
             height: 100%;
             border: none;
         }
-        
+
         .pdf-actions {
             display: flex;
             gap: 10px;
@@ -906,7 +923,7 @@
             background: #f8f9fa;
             border-top: 1px solid #dee2e6;
         }
-        
+
         .pdf-action-btn {
             flex: 1;
             padding: 0.75rem;
@@ -920,39 +937,39 @@
             gap: 8px;
             transition: all 0.3s;
         }
-        
+
         .pdf-action-btn.print {
             background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
             color: white;
         }
-        
+
         .pdf-action-btn.download {
             background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
             color: white;
         }
-        
+
         .pdf-action-btn.close {
             background: #6c757d;
             color: white;
         }
-        
+
         .pdf-action-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
         }
-        
+
         /* Responsive design */
         @media (max-width: 1200px) {
             .charts-section {
                 grid-template-columns: 1fr;
             }
         }
-        
+
         @media (max-width: 768px) {
             .menu-toggle {
                 display: block;
             }
-            
+
             .sidebar {
                 position: fixed;
                 top: 0;
@@ -960,155 +977,296 @@
                 bottom: 0;
                 z-index: 999;
                 transform: translateX(-100%);
+                height: 100vh;
+                overflow-y: auto;
             }
-            
+
             .sidebar.open {
                 transform: translateX(0);
             }
-            
+
             .sidebar-overlay.open {
                 display: block;
             }
-            
+
             .main-content {
                 padding: 5rem 1rem 1rem;
+                margin-left: 0;
             }
-            
+
             .content {
                 padding: 1.5rem;
             }
-            
+
             .header {
                 padding: 2rem 1.5rem;
             }
-            
+
             .header h1 {
                 font-size: 1.8rem;
             }
-            
+
             .welcome-section {
                 flex-direction: column;
                 gap: 1.5rem;
                 text-align: center;
             }
-            
+
             .stats-container {
                 grid-template-columns: 1fr;
             }
-            
+
             .charts-section {
                 grid-template-columns: 1fr;
             }
-            
+
             .chart-card {
                 min-width: 100%;
             }
-            
+
             .activity-item {
                 flex-direction: column;
                 text-align: center;
             }
-            
+
             .products-table {
                 display: block;
                 overflow-x: auto;
             }
-            
+
             .debug-table {
                 display: block;
                 overflow-x: auto;
             }
-            
+
             .pdf-modal-content {
                 width: 95%;
                 height: 95vh;
             }
-            
+
             .pdf-actions {
                 flex-direction: column;
             }
         }
-        
+
         @media (max-width: 480px) {
             .chart-actions {
                 flex-wrap: wrap;
             }
-            
+
             .chart-btn {
                 flex: 1;
                 min-width: 60px;
             }
-            
+
             .stat-value {
                 font-size: 1.8rem;
             }
-            
+
             .charts-section {
                 grid-template-columns: 1fr;
             }
-            
+
             .chart-card {
                 min-width: 100%;
             }
         }
     </style>
 </head>
+
 <body>
     <!-- Mobile menu toggle -->
-    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-    
+    <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+
     <div class="app-container">
         <!-- Sidebar navigation -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                🍽️ Mi Restaurante
+                <i class="fas fa-utensils"></i> 404 FASTFOOD
             </div>
             <nav class="sidebar-nav">
-                <a href="" class="nav-item active">
-                    <span class="nav-icon">📊</span>
-                    <span>Dashboard</span>
-                </a>
-                <a href="" class="nav-item">
-                    <span class="nav-icon">📦</span>
-                    <span>Entrada de Productos</span>
-                </a>
-                <a href="{% url 'inventario' %}" class="nav-item">
-                    <span class="nav-icon">📋</span>
-                    <span>Inventario</span>
-                </a>
-                <a href="" class="nav-item">
-                    <span class="nav-icon">🍽️</span>
-                    <span>Entrada de Platos</span>
-                </a>
-                <a href="" class="nav-item">
-                    <span class="nav-icon">📊</span>
-                    <span>Gestión de Platos</span>
-                </a>
-                <a href="{% url 'pedidos' %}" class="nav-item">
-                    <span class="nav-icon">🛒</span>
+                <!-- Verificar grupos sin template tag -->
+                {% with user_groups=user.groups.all|join:"," %}
+
+                <!-- Menú para Usuario Normal (excluye superusuarios) -->
+                {% if "Usuario Normal" in user_groups and not user.is_superuser %}
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                     <span>Pedidos</span>
                 </a>
-                <a href="" class="nav-item">
-                    <span class="nav-icon">📋</span>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
                     <span>Gestión de Pedidos</span>
                 </a>
-                <a href="{% url 'facturacion' %}" class="nav-item">
-                    <span class="nav-icon">🧾</span>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                     <span>Facturación</span>
                 </a>
+                <a href="{% url 'salida' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                {% endif %}
+
+                <!-- Menú para Administrador -->
+                {% if "Administrador" in user_groups and not user.is_superuser %}
+                <a href="{% url 'entradadeproductos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'roles' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Gestión de Usuarios</span>
+                </a>
+                {% endif %}
+
+                <!-- Menú para otros grupos... -->
+                {% if "Gerente" in user_groups and not user.is_superuser %}
+                <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
+                {% endif %}
+
+                {% if "Cajero" in user_groups and not user.is_superuser %}
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                    <span>Facturación</span>
+                </a>
+                {% endif %}
+
+                <!-- Menú EXCLUSIVO para superusuarios -->
+                {% if user.is_superuser %}
+                <a href="{% url 'entradadeproductos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'roles' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Gestión de Usuarios</span>
+                </a>
+
+                 <a href="{% url 'anulacionydevolucion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Devolucion</span>
+                </a>
+
+
+                <!-- Dashboard solo para superusuario -->
+                <a href="{% url 'dashbort' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
+                {% endif %}
+
+                <!-- Cerrar sesión para todos -->
+                <a href="{% url 'logout' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-door-open"></i></span>
+                    <span>Cerrar Sesión</span>
+                </a>
+
+                {% endwith %}
             </nav>
         </div>
-        
+
         <!-- Overlay for mobile sidebar -->
         <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
-        
+
         <div class="main-content">
             <div class="container">
                 <div class="header">
-                    <h1>📊 Dashboard del Restaurante</h1>
+                    <h1><i class="fas fa-chart-bar"></i> Dashboard del Restaurante</h1>
                     <p>Visión general de ventas, gastos y rendimiento del negocio</p>
                 </div>
-                
+
                 <div class="content">
                     <!-- Welcome Section -->
                     <div class="welcome-section">
@@ -1121,20 +1279,146 @@
                             <div class="current-time" id="currentTime">{{ hora_actual }}</div>
                         </div>
                     </div>
-                    
+
                     <!-- Debug Section -->
                     <div class="debug-section">
                         <div class="debug-header">
-                            <h3>🔍 Información de Depuración</h3>
+                            <h3><i class="fas fa-search"></i> Información de Depuración</h3>
                             <button class="debug-toggle" onclick="toggleDebug()">Mostrar Depuración</button>
                         </div>
                         <div class="debug-content" id="debugContent">
                             <p><strong>Fecha local del servidor:</strong> {{ fecha_actual }} {{ hora_actual }}</p>
-                            <p><strong>Fecha de hoy para filtros:</strong> {{ hoy|date:"Y-m-d" }}</p>
-                            <p><strong>Venta del día calculada (facturas pagadas):</strong> ${{ venta_dia|floatformat:2|intcomma }}</p>
+                            <p><strong>Fecha de hoy para filtros:</strong> {{ hoy|date:"d-m-Y" }}</p>
+                            <p><strong>Venta del día calculada (facturas pagadas):</strong> ${{
+                                venta_dia|floatformat:2|intcomma }}</p>
                             <p><strong>Total facturas hoy en base de datos:</strong> {{ total_facturas_hoy }}</p>
                             <p><strong>Total facturas del mes:</strong> {{ total_facturas_mes }}</p>
-                            
+                            <p><strong>Rango del día (6 AM - 5:59 AM):</strong> {{ rango_dia_inicio }} a {{
+                                rango_dia_fin }}</p>
+
+                            <h4 style="margin-top: 15px;">Verificación de Datos de la Base de Datos:</h4>
+                            <table class="debug-table">
+                                <thead>
+                                    <tr>
+                                        <th>Métrica</th>
+                                        <th>Valor</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Total Facturas en DB</td>
+                                        <td>{{ total_facturas_db }}</td>
+                                        <td>
+                                            {% if total_facturas_db > 0 %}
+                                            <span style="color: #4CAF50;">✓ OK</span>
+                                            {% else %}
+                                            <span style="color: #ff416c;">✗ Sin facturas</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Total Facturas Pagadas</td>
+                                        <td>{{ total_facturas_pagadas_db }}</td>
+                                        <td>
+                                            {% if total_facturas_pagadas_db > 0 %}
+                                            <span style="color: #4CAF50;">✓ OK</span>
+                                            {% else %}
+                                            <span style="color: #ff416c;">✗ Sin facturas pagadas</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Primera Factura</td>
+                                        <td>{{ primera_factura_fecha }}</td>
+                                        <td>-</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Última Factura</td>
+                                        <td>{{ ultima_factura_fecha }}</td>
+                                        <td>-</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Facturas Mes Pasado ({{ mes_pasado_nombre }})</td>
+                                        <td>{{ facturas_mes_pasado }}</td>
+                                        <td>
+                                            {% if facturas_mes_pasado > 0 %}
+                                            <span style="color: #4CAF50;">✓ Hay datos</span>
+                                            {% else %}
+                                            <span style="color: #ff416c;">✗ Sin datos del mes pasado</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Venta Mes Pasado</td>
+                                        <td>${{ venta_mes_pasado|floatformat:2|intcomma }}</td>
+                                        <td>-</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <h4 style="margin-top: 15px;">Datos para Gráficos (Raw):</h4>
+                            <table class="debug-table">
+                                <thead>
+                                    <tr>
+                                        <th>Gráfico</th>
+                                        <th>Etiquetas</th>
+                                        <th>Datos</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Semana (7 días)</td>
+                                        <td>{{ dias_grafico }}</td>
+                                        <td>{{ ventas_grafico }}</td>
+                                        <td>
+                                            {% if ventas_grafico == '[0, 0, 0, 0, 0, 0, 0]' %}
+                                            <span style="color: #ff416c;">⚠️ TODOS CEROS</span>
+                                            {% else %}
+                                            <span style="color: #4CAF50;">✓ Datos válidos</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Categorías</td>
+                                        <td>{{ categorias_grafico }}</td>
+                                        <td>{{ ventas_categorias_grafico }}</td>
+                                        <td>
+                                            {% if ventas_categorias_grafico == '[0, 0, 0, 0, 0]' %}
+                                            <span style="color: #ff9800;">⚠️ Revisar datos</span>
+                                            {% else %}
+                                            <span style="color: #4CAF50;">✓ OK</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Mensual (4 semanas)</td>
+                                        <td>{{ labels_mensuales_json }}</td>
+                                        <td>{{ proyeccion_mensual_json }}</td>
+                                        <td>
+                                            {% if proyeccion_mensual_json == '[0, 0, 0, 0]' %}
+                                            <span style="color: #ff9800;">⚠️ Sin datos</span>
+                                            {% else %}
+                                            <span style="color: #4CAF50;">✓ OK</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Anual (12 meses)</td>
+                                        <td>{{ labels_anuales_json }}</td>
+                                        <td>{{ proyeccion_anual_json }}</td>
+                                        <td>
+                                            {% if proyeccion_anual_json == '[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]' %}
+                                            <span style="color: #ff9800;">⚠️ Sin datos</span>
+                                            {% else %}
+                                            <span style="color: #4CAF50;">✓ OK</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
                             <h4 style="margin-top: 15px;">Facturas del día de hoy ({{ hoy|date:"Y-m-d" }}):</h4>
                             <table class="debug-table">
                                 <thead>
@@ -1150,14 +1434,14 @@
                                     {% for factura in facturas_hoy_todas %}
                                     <tr>
                                         <td>{{ factura.numero_factura }}</td>
-                                        <td>{{ factura.fecha_factura|date:"Y-m-d H:i:s" }}</td>
+                                        <td>{{ factura.fecha_factura|date:"d-m-Y h:i:s" }}</td>
                                         <td>{{ factura.nombre_cliente|default:"-" }}</td>
                                         <td>${{ factura.total|floatformat:2|intcomma }}</td>
                                         <td>
                                             {% if factura.estado == 'pagada' %}
-                                                <span style="color: #4CAF50; font-weight: bold;">{{ factura.estado }}</span>
+                                            <span style="color: #4CAF50; font-weight: bold;">{{ factura.estado }}</span>
                                             {% else %}
-                                                <span style="color: #ff416c;">{{ factura.estado }}</span>
+                                            <span style="color: #ff416c;">{{ factura.estado }}</span>
                                             {% endif %}
                                         </td>
                                     </tr>
@@ -1173,15 +1457,15 @@
                                         <td>${{ venta_dia|floatformat:2|intcomma }}</td>
                                         <td>
                                             {% if venta_dia > 0 %}
-                                                <span style="color: #4CAF50;">✓ Contabilizado</span>
+                                            <span style="color: #4CAF50;">✓ Contabilizado</span>
                                             {% else %}
-                                                <span style="color: #ff416c;">✗ Sin ventas</span>
+                                            <span style="color: #ff416c;">✗ Sin ventas</span>
                                             {% endif %}
                                         </td>
                                     </tr>
                                 </tfoot>
                             </table>
-                            
+
                             <h4 style="margin-top: 15px;">Todas las facturas (últimas 10):</h4>
                             <table class="debug-table">
                                 <thead>
@@ -1197,7 +1481,7 @@
                                     {% for factura in todas_facturas %}
                                     <tr>
                                         <td>{{ factura.numero_factura }}</td>
-                                        <td>{{ factura.fecha_factura|date:"Y-m-d H:i:s" }}</td>
+                                        <td>{{ factura.fecha_factura|date:"d-m-Y h:i:s" }}</td>
                                         <td>{{ factura.nombre_cliente|default:"-" }}</td>
                                         <td>${{ factura.total|floatformat:2|intcomma }}</td>
                                         <td>{{ factura.estado }}</td>
@@ -1209,24 +1493,29 @@
                                     {% endfor %}
                                 </tbody>
                             </table>
-                            
-                            <div style="margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
-                                <p><strong>Nota:</strong> La venta del día solo incluye facturas con estado "pagada".</p>
+
+                            <div
+                                style="margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
+                                <p><strong>Nota:</strong> La venta del día solo incluye facturas con estado "pagada".
+                                </p>
                                 <p>Facturas con estado "pendiente" o "anulada" no se incluyen en las estadísticas.</p>
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Stats Cards -->
                     <div class="stats-container">
                         <div class="stat-card venta-dia">
                             <div class="stat-header">
-                                <div class="stat-icon">💰</div>
-                                <div class="stat-trend {% if venta_dia > 0 %}trend-up{% else %}trend-neutral{% endif %}">
-                                    <span>{% if venta_dia > 0 %}📈{% else %}📊{% endif %}</span>
+                                <div class="stat-icon"><i class="fas fa-dollar-sign"></i></div>
+                                <div
+                                    class="stat-trend {% if venta_dia > 0 %}trend-up{% else %}trend-neutral{% endif %}">
+                                    <span>{% if venta_dia > 0 %}<i class="fas fa-arrow-up"></i>{% else %}<i
+                                            class="fas fa-chart-line"></i>{% endif %}</span>
                                     <span>
-                                        {% if venta_dia > 0 %}+{% endif %}
-                                        {% if venta_dia > 0 %}12%{% else %}0%{% endif %}
+                                        {% if venta_dia > 0 %}12%
+                                        {% else %}0%
+                                        {% endif %}
                                     </span>
                                 </div>
                             </div>
@@ -1234,28 +1523,39 @@
                             <div class="stat-label">Venta del Día</div>
                             <div class="stat-detail">
                                 {% if venta_dia > 0 %}
-                                    {{ total_facturas_hoy }} factura(s) hoy
+                                {{ total_facturas_hoy }} factura(s) hoy
                                 {% else %}
-                                    No hay ventas registradas hoy
+                                No hay ventas registradas hoy
                                 {% endif %}
                             </div>
-                            <!-- Botón para generar PDF - Versión simplificada -->
-                            <button class="print-pdf-btn" onclick="generarPDFTicket(event)" 
+                            <!-- Botones para generar PDF -->
+                            <div class="pdf-buttons-container">
+                                <button class="print-pdf-btn ticket" onclick="generarPDFTicket(event)"
                                     data-pdf-url="{% url 'generar_pdf_ticket_dia' %}">
-                                <span>📄</span>
-                                <span>Generar PDF para Impresora 80mm</span>
-                            </button>
+                                    <span><i class="fas fa-file-pdf"></i></span>
+                                    <span>Ticket Cuadre</span>
+                                </button>
+                                <button class="print-pdf-btn a4" onclick="generarPDFA4(event)"
+                                    data-pdf-url="{% url 'generar_pdf_a4_dia' %}">
+                                    <span><i class="fas fa-file-pdf"></i></span>
+                                    <span>Reporte General</span>
+                                </button>
+                            </div>
                         </div>
-                        
-                        <!-- ... EL RESTO DE TARJETAS IGUAL ... -->
+
                         <div class="stat-card venta-mes">
                             <div class="stat-header">
-                                <div class="stat-icon">📅</div>
-                                <div class="stat-trend {% if venta_mes > 0 %}trend-up{% else %}trend-neutral{% endif %}">
-                                    <span>{% if venta_mes > 0 %}📈{% else %}📊{% endif %}</span>
+                                <div class="stat-icon"><i class="fas fa-calendar-alt"></i></div>
+                                <div
+                                    class="stat-trend {% if venta_mes > 0 %}trend-up{% else %}trend-neutral{% endif %}">
+                                    <span>{% if venta_mes > 0 %}
+                                        <i class="fas fa-arrow-up"></i>
+                                        {% else %}<i class="fas fa-chart-line"></i>
+                                        {% endif %}
+                                    </span>
                                     <span>
-                                        {% if venta_mes > 0 %}+{% endif %}
-                                        {% if venta_mes > 0 %}18%{% else %}0%{% endif %}
+                                        {% if venta_mes > 0 %}18%{% else %}0%
+                                        {% endif %}
                                     </span>
                                 </div>
                             </div>
@@ -1263,47 +1563,77 @@
                             <div class="stat-label">Venta del Mes</div>
                             <div class="stat-detail">{{ total_facturas_mes }} factura(s) este mes</div>
                         </div>
-                        
+
                         <div class="stat-card gastos">
                             <div class="stat-header">
-                                <div class="stat-icon">📉</div>
-                                <div class="stat-trend {% if gastos_totales > venta_mes|divisibleby:2 %}trend-down{% else %}trend-up{% endif %}">
-                                    <span>{% if gastos_totales > venta_mes|divisibleby:2 %}📉{% else %}📈{% endif %}</span>
+                                <div class="stat-icon"><i class="fas fa-arrow-down"></i></div>
+                                <div
+                                    class="stat-trend {% if gastos_totales > venta_mes|divisibleby:2 %}trend-down{% else %}trend-up{% endif %}">
+                                    <span>{% if gastos_totales > venta_mes|divisibleby:2 %}<i
+                                            class="fas fa-arrow-down"></i>
+                                        {% else %}
+                                        <i class="fas fa-arrow-up"></i>
+                                        {%endif %}
+                                    </span>
                                     <span>
-                                        {% if gastos_totales > venta_mes|divisibleby:2 %}+{% else %}-{% endif %}
+                                        {% if gastos_totales > venta_mes|divisibleby:2 %}+
+                                        {% else %}-
+                                        {% endif %}
                                         5%
                                     </span>
                                 </div>
                             </div>
-                            <div class="stat-value" id="gastosTotales">${{ gastos_totales|floatformat:2|intcomma }}</div>
+                            <div class="stat-value" id="gastosTotales">${{ gastos_totales|floatformat:2|intcomma }}
+                            </div>
                             <div class="stat-label">Gastos Totales</div>
                             <div class="stat-detail">Costo estimado de productos</div>
                         </div>
-                        
+
                         <div class="stat-card ganancias">
                             <div class="stat-header">
-                                <div class="stat-icon">💵</div>
-                                <div class="stat-trend {% if ganancias_netas > 0 %}trend-up{% else %}trend-down{% endif %}">
-                                    <span>{% if ganancias_netas > 0 %}📈{% else %}📉{% endif %}</span>
+                                <div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div>
+                                <div
+                                    class="stat-trend {% if ganancias_netas > 0 %}trend-up{% else %}trend-down{% endif %}">
                                     <span>
-                                        {% if ganancias_netas > 0 %}+{% elif ganancias_netas < 0 %}-{% endif %}
-                                        {% if ganancias_netas > 0 %}25%{% elif ganancias_netas < 0 %}15%{% else %}0%{% endif %}
+                                        {% if ganancias_netas > 0 %}
+                                        <i class="fas fa-arrow-up"></i>
+                                        {% else %}
+                                        <i class="fas fa-arrow-down"></i>
+                                        {% endif %}
                                     </span>
+                                    <span>
+                                        {% if ganancias_netas > 0 %}
+                                        25%
+                                        {% elif ganancias_netas < 0 %} 15% {% else %} 0% {% endif %} </span>
                                 </div>
                             </div>
-                            <div class="stat-value" id="gananciasNetas">${{ ganancias_netas|floatformat:2|intcomma }}</div>
+                            <div class="stat-value" id="gananciasNetas">${{ ganancias_netas|floatformat:2|intcomma }}
+                            </div>
                             <div class="stat-label">Ganancias Netas</div>
                             <div class="stat-detail">Después de gastos</div>
                         </div>
-                        
+
                         <div class="stat-card pedidos">
                             <div class="stat-header">
-                                <div class="stat-icon">🛒</div>
-                                <div class="stat-trend {% if total_pedidos > 0 %}trend-up{% else %}trend-neutral{% endif %}">
-                                    <span>{% if total_pedidos > 0 %}📈{% else %}📊{% endif %}</span>
+                                <div class="stat-icon"><i class="fas fa-shopping-cart"></i></div>
+                                <div
+                                    class="stat-trend {% if total_pedidos > 0 %}trend-up{% else %}trend-neutral{% endif %}">
                                     <span>
-                                        {% if total_pedidos > 0 %}+{% endif %}
-                                        {% if total_pedidos > 10 %}15%{% elif total_pedidos > 0 %}5%{% else %}0%{% endif %}
+                                        {% if total_pedidos > 0 %}
+                                        <i class="fas fa-arrow-up"></i>
+                                        {% else %}
+                                        <i class="fas fa-chart-line"></i>
+                                        {% endif %}
+                                    </span>
+
+                                    <span>
+                                        {% if total_pedidos > 10 %}
+                                        15%
+                                        {% elif total_pedidos > 0 %}
+                                        5%
+                                        {% else %}
+                                        0%
+                                        {% endif %}
                                     </span>
                                 </div>
                             </div>
@@ -1311,12 +1641,14 @@
                             <div class="stat-label">Pedidos Hoy</div>
                             <div class="stat-detail">Total de pedidos recibidos</div>
                         </div>
-                        
+
                         <div class="stat-card clientes">
                             <div class="stat-header">
-                                <div class="stat-icon">👥</div>
-                                <div class="stat-trend {% if nuevos_clientes > 0 %}trend-up{% else %}trend-neutral{% endif %}">
-                                    <span>{% if nuevos_clientes > 0 %}📈{% else %}📊{% endif %}</span>
+                                <div class="stat-icon"><i class="fas fa-users"></i></div>
+                                <div
+                                    class="stat-trend {% if nuevos_clientes > 0 %}trend-up{% else %}trend-neutral{% endif %}">
+                                    <span>{% if nuevos_clientes > 0 %}<i class="fas fa-arrow-up"></i>{% else %}<i
+                                            class="fas fa-chart-line"></i>{% endif %}</span>
                                     <span>
                                         {% if nuevos_clientes > 0 %}+{% endif %}
                                         {{ nuevos_clientes|add:"0" }}
@@ -1328,26 +1660,30 @@
                             <div class="stat-detail">Clientes únicos este mes</div>
                         </div>
                     </div>
-                    
+
                     <!-- Charts Section -->
                     <div class="charts-section">
                         <div class="chart-card">
                             <div class="chart-header">
-                                <h3>📈 Tendencias de Ventas</h3>
+                                <h3><i class="fas fa-chart-line"></i> Tendencias de Ventas</h3>
                                 <div class="chart-actions">
                                     <button class="chart-btn active" onclick="setChartPeriod('week')">Semana</button>
                                     <button class="chart-btn" onclick="setChartPeriod('month')">Mes</button>
                                     <button class="chart-btn" onclick="setChartPeriod('year')">Año</button>
+                                    <button class="chart-btn" onclick="diagnosticarDatosGraficos()"
+                                        title="Diagnosticar datos">
+                                        <i class="fas fa-stethoscope"></i>
+                                    </button>
                                 </div>
                             </div>
                             <div class="chart-container">
                                 <canvas id="salesChart"></canvas>
                             </div>
                         </div>
-                        
+
                         <div class="chart-card">
                             <div class="chart-header">
-                                <h3>🍽️ Distribución de Ventas por Categoría</h3>
+                                <h3><i class="fas fa-utensils"></i> Distribución de Ventas por Categoría</h3>
                                 <div class="chart-actions">
                                     <button class="chart-btn active" onclick="setCategoryChart('type')">Tipo</button>
                                     <button class="chart-btn" onclick="setCategoryChart('time')">Horario</button>
@@ -1359,13 +1695,13 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Recent Activity -->
                     <div class="activity-section">
                         <div class="activity-header">
-                            <h3>📋 Actividad Reciente</h3>
+                            <h3><i class="fas fa-clipboard-list"></i> Actividad Reciente</h3>
                             <button class="btn btn-info" onclick="refreshActivities()">
-                                <span>🔄</span>
+                                <span><i class="fas fa-sync-alt"></i></span>
                                 <span>Actualizar</span>
                             </button>
                         </div>
@@ -1373,16 +1709,16 @@
                             {% for factura in actividades %}
                             <div class="activity-item">
                                 <div class="activity-icon factura">
-                                    🧾
+                                    <i class="fas fa-receipt"></i>
                                 </div>
                                 <div class="activity-content">
                                     <div class="activity-title">Factura {{ factura.numero_factura }}</div>
                                     <div class="activity-time">
-                                        {{ factura.fecha_factura|date:"d/m/Y H:i" }} • 
+                                        {{ factura.fecha_factura|date:"d/m/Y h:i" }} •
                                         {% if factura.nombre_cliente %}
-                                            Cliente: {{ factura.nombre_cliente }}
+                                        Cliente: {{ factura.nombre_cliente }}
                                         {% else %}
-                                            Cliente: No especificado
+                                        Cliente: No especificado
                                         {% endif %}
                                         • Estado: {{ factura.estado }}
                                     </div>
@@ -1392,7 +1728,7 @@
                             {% empty %}
                             <div class="activity-item">
                                 <div class="activity-icon factura">
-                                    📋
+                                    <i class="fas fa-clipboard-list"></i>
                                 </div>
                                 <div class="activity-content">
                                     <div class="activity-title">No hay actividades recientes</div>
@@ -1403,13 +1739,13 @@
                             {% endfor %}
                         </div>
                     </div>
-                    
+
                     <!-- Top Products -->
                     <div class="products-section">
                         <div class="products-header">
-                            <h3>🏆 Productos Más Vendidos</h3>
+                            <h3><i class="fas fa-trophy"></i> Productos Más Vendidos</h3>
                             <button class="btn btn-primary" onclick="viewAllProducts()">
-                                <span>👁️</span>
+                                <span><i class="fas fa-eye"></i></span>
                                 <span>Ver Todos</span>
                             </button>
                         </div>
@@ -1428,18 +1764,27 @@
                                     <td>
                                         <div class="product-info">
                                             <div class="product-icon">
-                                                {% if "pizza" in producto.nombre.lower %}🍕
-                                                {% elif "hamburguesa" in producto.nombre.lower %}🍔
-                                                {% elif "ensalada" in producto.nombre.lower %}🥗
-                                                {% elif "pasta" in producto.nombre.lower %}🍝
-                                                {% elif "sushi" in producto.nombre.lower %}🍣
-                                                {% elif "bebida" in producto.nombre.lower or "jugo" in producto.nombre.lower or "gaseosa" in producto.nombre.lower %}🥤
-                                                {% elif "postre" in producto.nombre.lower or "helado" in producto.nombre.lower or "torta" in producto.nombre.lower %}🍰
-                                                {% else %}🍽️
+                                                {% if "pizza" in producto.nombre.lower %}<i
+                                                    class="fas fa-pizza-slice"></i>
+                                                {% elif "hamburguesa" in producto.nombre.lower %}<i
+                                                    class="fas fa-hamburger"></i>
+                                                {% elif "ensalada" in producto.nombre.lower %}<i
+                                                    class="fas fa-leaf"></i>
+                                                {% elif "pasta" in producto.nombre.lower %}<i
+                                                    class="fas fa-bowl-food"></i>
+                                                {% elif "sushi" in producto.nombre.lower %}<i class="fas fa-fish"></i>
+                                                {% elif "bebida" in producto.nombre.lower or "jugo" in
+                                                producto.nombre.lower or "gaseosa" in producto.nombre.lower %}<i
+                                                    class="fas fa-glass-whiskey"></i>
+                                                {% elif "postre" in producto.nombre.lower or "helado" in
+                                                producto.nombre.lower or "torta" in producto.nombre.lower %}<i
+                                                    class="fas fa-birthday-cake"></i>
+                                                {% else %}<i class="fas fa-utensils"></i>
                                                 {% endif %}
                                             </div>
                                             <div>
-                                                <div style="font-weight: 600;">{{ producto.nombre|truncatechars:30 }}</div>
+                                                <div style="font-weight: 600;">{{ producto.nombre|truncatechars:30 }}
+                                                </div>
                                                 <div style="font-size: 0.85rem; color: #718096;">Producto vendido</div>
                                             </div>
                                         </div>
@@ -1450,12 +1795,13 @@
                                                 {% if productos_top.0.cantidad > 0 %}
                                                 {% with max_cantidad=productos_top.0.cantidad %}
                                                 {% widthratio producto.cantidad max_cantidad 100 as porcentaje %}
-                                                <div class="sales-fill 
-                                                    {% if porcentaje|add:'0' > 70 %}high
-                                                    {% elif porcentaje|add:'0' > 40 %}medium
-                                                    {% else %}low
-                                                    {% endif %}" 
-                                                    style="width: {{ porcentaje }}%">
+                                                <div class="sales-bar" style="--progreso: {{ porcentaje }}%;">
+                                                    <div class="sales-fill 
+                                                        {% if porcentaje|add:'0' > 70 %}high
+                                                        {% elif porcentaje|add:'0' > 40 %}medium
+                                                        {% else %}low
+                                                        {% endif %}">
+                                                    </div>
                                                 </div>
                                                 {% endwith %}
                                                 {% endif %}
@@ -1463,10 +1809,11 @@
                                             <span style="font-weight: 600;">{{ producto.cantidad|floatformat:0 }}</span>
                                         </div>
                                     </td>
-                                    <td style="font-weight: 700; color: #4CAF50;">${{ producto.ingresos|floatformat:2|intcomma }}</td>
+                                    <td style="font-weight: 700; color: #4CAF50;">${{
+                                        producto.ingresos|floatformat:2|intcomma }}</td>
                                     <td>
                                         <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                            <span>📈</span>
+                                            <span><i class="fas fa-arrow-up"></i></span>
                                             <span style="font-weight: 600; color: #4CAF50;">
                                                 +{{ producto.cantidad|divisibleby:5|add:"10" }}%
                                             </span>
@@ -1476,8 +1823,9 @@
                                 {% empty %}
                                 <tr>
                                     <td colspan="4" style="text-align: center; padding: 2rem; color: #718096;">
-                                        <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
-                                            <div style="font-size: 3rem;">📊</div>
+                                        <div
+                                            style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+                                            <div style="font-size: 3rem;"><i class="fas fa-chart-bar"></i></div>
                                             <div>No hay datos de productos vendidos</div>
                                             <div style="font-size: 0.9rem;">Genera facturas para ver estadísticas</div>
                                         </div>
@@ -1496,60 +1844,136 @@
         // Variables globales
         let currentChartPeriod = 'week';
         let currentCategoryChart = 'type';
-        
+
         // Variables para los gráficos
         let salesChartInstance = null;
         let categoryChartInstance = null;
-        
+
+        // Variables para almacenar datos procesados desde Django
+        let semanaData = null;
+        let mesData = null;
+        let anioData = null;
+        let semanaLabels = null;
+        let mesLabels = null;
+        let anioLabels = null;
+        let categoriasData = null;
+        let ventasCategoriasData = null;
+
         // Inicializar la aplicación
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             updateDateTime();
-            
-            // Inicializar gráficos con datos de Django
+
+            // Cargar datos procesados desde Django
+            cargarDatosProcesados();
+
+            // Inicializar gráficos
             initSalesChart();
             initCategoryChart();
-            
+
             // Actualizar fecha y hora cada segundo
             setInterval(updateDateTime, 1000);
-            
+
             // Verificar consistencia de datos
             checkDataConsistency();
-            
+
             // Actualizar estadísticas cada 30 segundos
             setInterval(updateStats, 30000);
+
+            // Ejecutar diagnóstico después de 2 segundos
+            setTimeout(diagnosticarDatosGraficos, 2000);
         });
-        
+
+        // Función para cargar datos procesados desde Django
+        function cargarDatosProcesados() {
+            try {
+                console.log('Cargando datos del gráfico...');
+
+                semanaLabels = JSON.parse('{{ dias_grafico|escapejs }}');
+                semanaData = JSON.parse('{{ ventas_grafico|escapejs }}');
+                mesLabels = JSON.parse('{{ labels_mensuales_json|escapejs }}');
+                mesData = JSON.parse('{{ proyeccion_mensual_json|escapejs }}');
+                anioLabels = JSON.parse('{{ labels_anuales_json|escapejs }}');
+                anioData = JSON.parse('{{ proyeccion_anual_json|escapejs }}');
+                categoriasData = JSON.parse('{{ categorias_grafico|escapejs }}');
+                ventasCategoriasData = JSON.parse('{{ ventas_categorias_grafico|escapejs }}');
+
+                console.log('Datos de semana cargados:', semanaLabels, semanaData);
+                console.log('Datos mensuales cargados:', mesLabels, mesData);
+                console.log('Datos anuales cargados:', anioLabels, anioData);
+                console.log('Datos categorías cargados:', categoriasData, ventasCategoriasData);
+
+                // Verificar que los datos no estén vacíos
+                if (semanaData.every(val => val === 0)) {
+                    console.warn('Los datos de ventas de la semana están vacíos o son cero');
+                    // Mostrar mensaje al usuario
+                    showNotification('No hay datos de ventas para mostrar en el gráfico. Verifica que tengas facturas pagadas en el sistema.', 'info');
+                }
+
+            } catch (e) {
+                console.error('Error cargando datos procesados:', e);
+                // En caso de error, usar datos vacíos
+                semanaLabels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+                semanaData = [0, 0, 0, 0, 0, 0, 0];
+                mesLabels = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
+                mesData = [0, 0, 0, 0];
+                anioLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                anioData = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+                categoriasData = ['Entradas', 'Platos Fuertes', 'Postres', 'Bebidas', 'Otros'];
+                ventasCategoriasData = [0, 0, 0, 0, 0];
+            }
+        }
+
         // Función para formatear números con comas
         function formatNumberWithCommas(num) {
             if (typeof num === 'undefined' || num === null) return '0';
             return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         }
-        
+
         // Función para actualizar estadísticas vía AJAX
         function updateStats() {
             fetch('/dashboard/stats/')
-                .then(response => response.json())
-                .then(data => {
-                    const formattedVentaDia = '$' + formatNumberWithCommas(data.venta_dia.toFixed(2));
-                    document.getElementById('ventaDia').textContent = formattedVentaDia;
-                    document.getElementById('totalPedidos').textContent = data.total_pedidos;
-                    console.log('Estadísticas actualizadas:', data);
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
                 })
-                .catch(error => console.error('Error al actualizar estadísticas:', error));
+                .then(data => {
+                    if (data.status === 'success') {
+                        const formattedVentaDia = '$' + formatNumberWithCommas(data.venta_dia.toFixed(2));
+                        document.getElementById('ventaDia').textContent = formattedVentaDia;
+                        document.getElementById('ventaMes').textContent = '$' + formatNumberWithCommas(data.venta_mes.toFixed(2));
+                        document.getElementById('gastosTotales').textContent = '$' + formatNumberWithCommas(data.gastos_totales.toFixed(2));
+                        document.getElementById('gananciasNetas').textContent = '$' + formatNumberWithCommas(data.ganancias_netas.toFixed(2));
+                        document.getElementById('totalPedidos').textContent = data.total_pedidos;
+                        document.getElementById('nuevosClientes').textContent = data.nuevos_clientes;
+
+                        // Actualizar fecha y hora
+                        document.getElementById('currentDate').textContent = data.fecha_actual;
+                        document.getElementById('currentTime').textContent = data.hora_actual;
+
+                        console.log('Estadísticas actualizadas:', data);
+                    } else {
+                        console.error('Error en la respuesta del servidor:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al actualizar estadísticas:', error);
+                    // No mostrar error al usuario para no interrumpir la experiencia
+                });
         }
-        
+
         // Función para verificar consistencia de datos
         function checkDataConsistency() {
             const ventaDiaElement = document.getElementById('ventaDia');
             const actividades = document.querySelectorAll('.activity-item');
-            
+
             if (ventaDiaElement && actividades.length > 0) {
                 const ventaDiaText = ventaDiaElement.textContent;
                 const ventaDiaValue = parseFloat(ventaDiaText.replace(/[$,]/g, '')) || 0;
-                
+
                 let ventaCalculada = 0;
-                
-                // Calcular venta del día manualmente desde las actividades
+
                 actividades.forEach(actividad => {
                     const amountElement = actividad.querySelector('.activity-amount');
                     if (amountElement && amountElement.classList.contains('positive')) {
@@ -1558,52 +1982,71 @@
                         ventaCalculada += amountValue;
                     }
                 });
-                
-                // Si hay discrepancia, mostrar advertencia
+
                 if (ventaCalculada > 0 && ventaDiaValue === 0) {
-                    console.warn('⚠️ Discrepancia encontrada: Hay actividades de hoy pero venta del día es $0');
-                    console.log('Venta calculada desde actividades: $' + ventaCalculada.toFixed(2));
-                    console.log('Venta del día en dashboard: $' + ventaDiaValue.toFixed(2));
-                    
-                    // Mostrar notificación al usuario
-                    showNotification('⚠️ Hay actividades de hoy pero venta del día es $0. Revisa la sección de depuración.', 'info');
+                    console.warn('Discrepancia encontrada: Hay actividades de hoy pero venta del día es $0');
+                    showNotification('Hay actividades de hoy pero venta del día es $0. Revisa la sección de depuración.', 'info');
                 }
             }
         }
-        
+
+        // Función para diagnóstico de datos
+        function diagnosticarDatosGraficos() {
+            console.log('=== DIAGNÓSTICO DE DATOS DE GRÁFICOS ===');
+
+            // Verificar datos de semana
+            console.log('Datos de semana:', semanaData);
+            console.log('Etiquetas semana:', semanaLabels);
+
+            // Verificar si todos son ceros
+            const todosCerosSemana = semanaData.every(val => val === 0);
+            if (todosCerosSemana) {
+                console.warn('⚠️ ADVERTENCIA: Todos los datos de la semana son 0');
+                console.log('Posibles causas:');
+                console.log('1. No hay facturas en la base de datos');
+                console.log('2. Las facturas no tienen estado "pagada"');
+                console.log('3. Las fechas de las facturas no coinciden con el rango consultado');
+                console.log('4. El período de 6:00 AM a 5:59 AM no coincide con las fechas de facturas');
+
+                // Mostrar alerta al usuario
+                showNotification('No hay datos de ventas para mostrar. Verifica que tengas facturas pagadas en el sistema.', 'warning');
+            } else {
+                console.log('✅ Datos de semana OK');
+            }
+
+            // Verificar datos de categorías
+            console.log('Datos de categorías:', ventasCategoriasData);
+            console.log('Etiquetas categorías:', categoriasData);
+
+            // Verificar datos mensuales
+            console.log('Datos mensuales:', mesData);
+            console.log('Etiquetas mensuales:', mesLabels);
+
+            // Verificar datos anuales
+            console.log('Datos anuales:', anioData);
+            console.log('Etiquetas anuales:', anioLabels);
+
+            console.log('=== FIN DIAGNÓSTICO ===');
+        }
+
         // Inicializar gráfico de ventas
         function initSalesChart() {
             const ctx = document.getElementById('salesChart').getContext('2d');
-            
-            // Usar datos de Django
-            let diasData = [];
-            let ventasData = [];
-            
-            try {
-                diasData = JSON.parse('{{ dias_grafico|escapejs }}');
-                ventasData = JSON.parse('{{ ventas_grafico|escapejs }}');
-            } catch (e) {
-                console.error('Error parseando datos de gráfico:', e);
-                diasData = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-                ventasData = [0, 0, 0, 0, 0, 0, 0];
-            }
-            
-            const weekData = {
-                labels: diasData,
-                datasets: [{
-                    label: 'Ventas ($)',
-                    data: ventasData,
-                    borderColor: '#ff7e5f',
-                    backgroundColor: 'rgba(255, 126, 95, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4
-                }]
-            };
-            
+
             const config = {
                 type: 'line',
-                data: weekData,
+                data: {
+                    labels: semanaLabels,
+                    datasets: [{
+                        label: 'Ventas ($)',
+                        data: semanaData,
+                        borderColor: '#ff7e5f',
+                        backgroundColor: 'rgba(255, 126, 95, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -1613,7 +2056,7 @@
                             mode: 'index',
                             intersect: false,
                             callbacks: {
-                                label: function(context) {
+                                label: function (context) {
                                     return `Ventas: $${formatNumberWithCommas(context.parsed.y.toFixed(2))}`;
                                 }
                             }
@@ -1624,7 +2067,7 @@
                             beginAtZero: true,
                             grid: { color: 'rgba(0, 0, 0, 0.05)' },
                             ticks: {
-                                callback: function(value) {
+                                callback: function (value) {
                                     return '$' + formatNumberWithCommas(value);
                                 }
                             }
@@ -1635,26 +2078,14 @@
                     }
                 }
             };
-            
+
             salesChartInstance = new Chart(ctx, config);
         }
-        
+
         // Inicializar gráfico de categorías
         function initCategoryChart() {
             const ctx = document.getElementById('categoryChart').getContext('2d');
-            
-            let categoriasData = [];
-            let ventasCategoriasData = [];
-            
-            try {
-                categoriasData = JSON.parse('{{ categorias_grafico|escapejs }}');
-                ventasCategoriasData = JSON.parse('{{ ventas_categorias_grafico|escapejs }}');
-            } catch (e) {
-                console.error('Error parseando datos de categorías:', e);
-                categoriasData = ['Sin datos'];
-                ventasCategoriasData = [100];
-            }
-            
+
             const typeData = {
                 labels: categoriasData,
                 datasets: [{
@@ -1676,7 +2107,7 @@
                     borderWidth: 2
                 }]
             };
-            
+
             const config = {
                 type: 'doughnut',
                 data: typeData,
@@ -1694,7 +2125,7 @@
                         },
                         tooltip: {
                             callbacks: {
-                                label: function(context) {
+                                label: function (context) {
                                     const label = context.label || '';
                                     const value = context.parsed || 0;
                                     const total = context.dataset.data.reduce((a, b) => a + b, 0);
@@ -1707,77 +2138,49 @@
                     cutout: '65%'
                 }
             };
-            
+
             categoryChartInstance = new Chart(ctx, config);
         }
-        
+
         // Actualizar gráfico de ventas según período
         function updateSalesChart(period) {
             if (!salesChartInstance) return;
-            
+
             let labels, data;
-            
-            switch(period) {
+
+            switch (period) {
                 case 'week':
-                    // Datos reales de Django
-                    try {
-                        labels = JSON.parse('{{ dias_grafico|escapejs }}');
-                        data = JSON.parse('{{ ventas_grafico|escapejs }}');
-                    } catch (e) {
-                        labels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-                        data = [0, 0, 0, 0, 0, 0, 0];
-                    }
+                    labels = semanaLabels;
+                    data = semanaData;
                     break;
                 case 'month':
-                    // Para el mes, usaríamos datos mensuales si los tuviéramos
-                    labels = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
-                    data = [
-                        {{ venta_mes|default:"0" }} * 0.25,
-                        {{ venta_mes|default:"0" }} * 0.30,
-                        {{ venta_mes|default:"0" }} * 0.35,
-                        {{ venta_mes|default:"0" }} * 0.10
-                    ];
+                    labels = mesLabels;
+                    data = mesData;
                     break;
                 case 'year':
-                    labels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-                    data = [
-                        {{ venta_mes|default:"0" }} * 0.8,
-                        {{ venta_mes|default:"0" }} * 0.9,
-                        {{ venta_mes|default:"0" }} * 1.0,
-                        {{ venta_mes|default:"0" }} * 0.95,
-                        {{ venta_mes|default:"0" }} * 1.1,
-                        {{ venta_mes|default:"0" }} * 1.15,
-                        {{ venta_mes|default:"0" }} * 1.25,
-                        {{ venta_mes|default:"0" }} * 1.2,
-                        {{ venta_mes|default:"0" }} * 1.3,
-                        {{ venta_mes|default:"0" }} * 1.4,
-                        {{ venta_mes|default:"0" }} * 1.35,
-                        {{ venta_mes|default:"0" }} * 1.5
-                    ];
+                    labels = anioLabels;
+                    data = anioData;
                     break;
+                default:
+                    labels = semanaLabels;
+                    data = semanaData;
             }
-            
+
             salesChartInstance.data.labels = labels;
             salesChartInstance.data.datasets[0].data = data;
             salesChartInstance.update();
         }
-        
+
         // Actualizar gráfico de categorías
         function updateCategoryChart(type) {
             if (!categoryChartInstance) return;
-            
+
             let labels, data, backgroundColor, borderColor;
-            
-            switch(type) {
+
+            switch (type) {
                 case 'type':
-                    // Datos reales de Django
-                    try {
-                        labels = JSON.parse('{{ categorias_grafico|escapejs }}');
-                        data = JSON.parse('{{ ventas_categorias_grafico|escapejs }}');
-                    } catch (e) {
-                        labels = ['Sin datos'];
-                        data = [100];
-                    }
+                    labels = categoriasData;
+                    data = ventasCategoriasData;
                     backgroundColor = [
                         'rgba(255, 126, 95, 0.8)',
                         'rgba(76, 175, 80, 0.8)',
@@ -1793,7 +2196,7 @@
                         'rgba(156, 39, 176, 1)'
                     ];
                     break;
-                    
+
                 case 'time':
                     labels = ['Mañana', 'Mediodía', 'Tarde', 'Noche'];
                     data = [20, 45, 25, 10];
@@ -1810,7 +2213,7 @@
                         'rgba(156, 39, 176, 1)'
                     ];
                     break;
-                    
+
                 case 'method':
                     labels = ['Efectivo', 'Tarjeta', 'Transferencia'];
                     data = [35, 50, 15];
@@ -1826,34 +2229,34 @@
                     ];
                     break;
             }
-            
+
             categoryChartInstance.data.labels = labels;
             categoryChartInstance.data.datasets[0].data = data;
             categoryChartInstance.data.datasets[0].backgroundColor = backgroundColor;
             categoryChartInstance.data.datasets[0].borderColor = borderColor;
             categoryChartInstance.update();
         }
-        
+
         // Configurar período del gráfico
         function setChartPeriod(period) {
             currentChartPeriod = period;
-            
+
             // Actualizar botones activos
             document.querySelectorAll('.chart-actions .chart-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
             event.target.classList.add('active');
-            
-            // Actualizar el gráfico
+
+            // Actualizar el gráfico con datos ya procesados
             updateSalesChart(period);
-            
+
             showNotification(`Mostrando tendencias de ${getPeriodLabel(period)}`, 'success');
         }
-        
+
         // Configurar gráfico de categorías
         function setCategoryChart(type) {
             currentCategoryChart = type;
-            
+
             // Actualizar botones activos
             const chartActions = event.target.closest('.chart-actions');
             if (chartActions) {
@@ -1862,46 +2265,46 @@
                 });
                 event.target.classList.add('active');
             }
-            
+
             // Actualizar el gráfico
             updateCategoryChart(type);
-            
+
             showNotification(`Mostrando distribución por ${getCategoryLabel(type)}`, 'success');
         }
-        
+
         // Actualizar fecha y hora en tiempo real
         function updateDateTime() {
             const now = new Date();
-            const dateOptions = { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
+            const dateOptions = {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
             };
-            const timeOptions = { 
-                hour: '2-digit', 
-                minute: '2-digit', 
+            const timeOptions = {
+                hour: '2-digit',
+                minute: '2-digit',
                 second: '2-digit',
-                hour12: false 
+                hour12: false
             };
-            
-            document.getElementById('currentDate').textContent = 
+
+            document.getElementById('currentDate').textContent =
                 now.toLocaleDateString('es-ES', dateOptions);
-            document.getElementById('currentTime').textContent = 
+            document.getElementById('currentTime').textContent =
                 now.toLocaleTimeString('es-ES', timeOptions);
         }
-        
+
         // Refrescar actividades (recarga la página)
         function refreshActivities() {
             location.reload();
             showNotification('Actualizando actividades...', 'success');
         }
-        
+
         // Mostrar/ocultar información de depuración
         function toggleDebug() {
             const debugContent = document.getElementById('debugContent');
             const toggleButton = event.target;
-            
+
             if (debugContent.classList.contains('show')) {
                 debugContent.classList.remove('show');
                 toggleButton.textContent = 'Mostrar Depuración';
@@ -1910,38 +2313,44 @@
                 toggleButton.textContent = 'Ocultar Depuración';
             }
         }
-        
-        // =============================================
-        // FUNCIÓN PRINCIPAL SIMPLIFICADA PARA PDF
-        // =============================================
+
+        // Función para generar PDF Ticket
         function generarPDFTicket(event) {
-            showNotification('📄 Generando ticket PDF para impresora 80mm...', 'info');
-            
-            // Obtener el botón que se hizo clic
+            showNotification('Generando ticket PDF para impresora 80mm...', 'info');
+
             const button = event.target.closest('.print-pdf-btn');
-            
-            // Obtener la URL del atributo data-pdf-url
             const pdfUrl = button.getAttribute('data-pdf-url');
-            
+
             if (!pdfUrl) {
-                showNotification('❌ Error: No se encontró la URL del PDF', 'error');
+                showNotification('Error: No se encontró la URL del PDF', 'error');
                 return;
             }
-            
-            // Crear URL completa
+
             const fullUrl = window.location.origin + pdfUrl;
-            
-            console.log('Abriendo PDF en nueva pestaña:', fullUrl);
-            
-            // Abrir en nueva pestaña (evita problemas de iframe)
             window.open(fullUrl, '_blank');
         }
-        
+
+        // Función para generar PDF A4
+        function generarPDFA4(event) {
+            showNotification('Generando PDF A4...', 'info');
+
+            const button = event.target.closest('.print-pdf-btn');
+            const pdfUrl = button.getAttribute('data-pdf-url');
+
+            if (!pdfUrl) {
+                showNotification('Error: No se encontró la URL del PDF', 'error');
+                return;
+            }
+
+            const fullUrl = window.location.origin + pdfUrl;
+            window.open(fullUrl, '_blank');
+        }
+
         // Ver todos los productos
         function viewAllProducts() {
             showNotification('Redirigiendo a gestión de productos...', 'info');
         }
-        
+
         // Helper functions
         function getPeriodLabel(period) {
             const labels = {
@@ -1951,7 +2360,7 @@
             };
             return labels[period] || period;
         }
-        
+
         function getCategoryLabel(type) {
             const labels = {
                 'type': 'tipo de producto',
@@ -1960,53 +2369,44 @@
             };
             return labels[type] || type;
         }
-        
+
         // Mostrar notificación
         function showNotification(message, type = 'success') {
-            // Crear elemento de notificación
             const notification = document.createElement('div');
             notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: ${type === 'error' ? 'linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)' : 
-                           type === 'info' ? 'linear-gradient(135deg, #2196F3 0%, #21CBF3 100%)' : 
-                           type === 'warning' ? 'linear-gradient(135deg, #ffb347 0%, #ffcc33 100%)' :
-                           'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)'};
-                color: white;
-                padding: 1rem 1.5rem;
-                border-radius: 12px;
-                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-                z-index: 1000;
-                animation: slideIn 0.3s ease-out;
-                font-weight: 600;
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                max-width: 400px;
-            `;
-            
-            notification.innerHTML = message;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'error' ? 'linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)' :
+                    type === 'info' ? 'linear-gradient(135deg, #2196F3 0%, #21CBF3 100%)' :
+                        type === 'warning' ? 'linear-gradient(135deg, #ffb347 0%, #ffcc33 100%)' :
+                            'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)'};
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 400px;
+        `;
+
+            // Crear icono según el tipo de notificación
+            let icon = '';
+            if (type === 'success') icon = '<i class="fas fa-check-circle"></i>';
+            else if (type === 'error') icon = '<i class="fas fa-exclamation-circle"></i>';
+            else if (type === 'warning') icon = '<i class="fas fa-exclamation-triangle"></i>';
+            else icon = '<i class="fas fa-info-circle"></i>';
+
+            notification.innerHTML = icon + ' ' + message;
             document.body.appendChild(notification);
-            
-            // Remover después de 5 segundos
-            setTimeout(() => {
-                notification.style.animation = 'slideOut 0.3s ease-out';
-                setTimeout(() => notification.remove(), 300);
-            }, 5000);
-        }
-        
-        // Sidebar toggle
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('open');
-        }
-        
-        // Añadir animación CSS para notificaciones
-        const style = document.createElement('style');
-        style.textContent = `
+
+            // Asegurarse de que las animaciones CSS estén definidas
+            const style = document.createElement('style');
+            style.textContent = `
             @keyframes slideIn {
                 from { transform: translateX(100%); opacity: 0; }
                 to { transform: translateX(0); opacity: 1; }
@@ -2016,15 +2416,54 @@
                 to { transform: translateX(100%); opacity: 0; }
             }
         `;
-        document.head.appendChild(style);
-        
+            if (!document.getElementById('notification-styles')) {
+                style.id = 'notification-styles';
+                document.head.appendChild(style);
+            }
+
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 5000);
+        }
+
+        // Sidebar toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('open');
+        }
+
         // Función de respaldo si algo falla
         function generarPDFRespaldo() {
             const url = '/facturacion/generar-pdf-ticket-dia/';
             const fullUrl = window.location.origin + url;
             window.open(fullUrl, '_blank');
-            showNotification('📄 Abriendo PDF...', 'info');
+            showNotification('Abriendo PDF...', 'info');
+        }
+
+        // Añadir animación CSS para notificaciones si no existe
+        if (!document.getElementById('notification-styles')) {
+            const style = document.createElement('style');
+            style.id = 'notification-styles';
+            style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+            document.head.appendChild(style);
         }
     </script>
 </body>
+
 </html>

@@ -30,6 +30,9 @@ urlpatterns = [
     path('gestiondepedidos/platos-disponibles/', views.platos_disponibles, name='platos_disponibles'),
     path('gestiondepedidos/editar/<int:pedido_id>/', views.editar_pedido, name='editar_pedido'),
     path('gestiondepedidos/historial/', views.historial_pedidos_pagados, name='historial_pedidos'),
+      path('verificar-stock/<int:producto_id>/', views.verificar_stock, name='verificar_stock'),
+    # Añade esta ruta adicional
+path('gestiondepedidos/verificar-stock-multiples/', views.verificar_stock_multiples, name='verificar_stock_multiples_gestion'),
 
     path('facturacion/', views.facturacion, name='facturacion'),
     path('crear/', views.crear_factura, name='crear_factura'),
@@ -50,5 +53,16 @@ urlpatterns = [
     path('dashbort', views.dashbort, name='dashbort'),
     path('dashboard/stats/', views.dashboard_stats, name='dashboard_stats'),
    path('generar-pdf-ticket-dia/', views.generar_pdf_ticket_dia, name='generar_pdf_ticket_dia'),
-  
+     
+   
+   path('anulacionydevolucion', views.anulacionydevolucion, name='anulacionydevolucion'),
+   path('procesar-devolucion-total/', views.procesar_devolucion_total, name='procesar_devolucion_total'),
+   path('procesar-devolucion-parcial/', views.procesar_devolucion_parcial, name='procesar_devolucion_parcial'),
+    path('procesar-anulacion-factura/', views.procesar_anulacion_factura, name='procesar_anulacion_factura'),
+    
+     
+    path('productos-vendidos-dia/', views.productos_vendidos_dia, name='productos_vendidos_dia'),    # URL para productos vendidos del día
+    path('generar-pdf-productos-dia-a4/', views.generar_pdf_productos_dia_a4, name='generar_pdf_a4_dia'), # URL para generar PDF de productos vendidos en A4
+    path('registrodeclientes/', views.registrodeclientes, name='registrodeclientes'),  # URL para registro de clientes
+    path('registro-clientes/', views.registrodeclientes, name='registro_clientes'),
 ]

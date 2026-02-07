@@ -12,21 +12,43 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
+
+# from dotenv import load_dotenv
+from dotenv import load_dotenv
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+load_dotenv()
+# load_dotenv()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-m8))quru4uo6-(e#rgth5p5$1qo*f)h9h&h23tdmxhiu-77udo'
+
+# SECRET_KEY = 'django-insecure-m8))quru4uo6-(e#rgth5p5$1qo*f)h9h&h23tdmxhiu-77udo'
+# SECRET_KEY = os.environ.get('SECRET_KEY')
+# DEBUG = os.getenv("DEBUG", "False") == "True"
+# ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# DEBUG = True
+#
+# ALLOWED_HOSTS = ['cottaged-willy-delorse.ngrok-free.dev', 'localhost', '127.0.0.1']
 
-ALLOWED_HOSTS = ['cottaged-willy-delorse.ngrok-free.dev', 'localhost', '127.0.0.1']
+# SECRET_KEY = 'django-insecure-m8))quru4uo6-(e#rgth5p5$1qo*f)h9h&h23tdmxhiu-77udo'
+SECRET_KEY = os.environ.get('SECRET_KEY')
+DEBUG = os.getenv("DEBUG", "False") == "True"
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
+
+# SECURITY WARNING: don't run with debug turned on in production!
+# DEBUG = True
+#
+# ALLOWED_HOSTS = ['cottaged-willy-delorse.ngrok-free.dev', 'localhost', '127.0.0.1']
+
 # ALLOWED_HOSTS = []
+CSRF_TRUSTED_ORIGINS = ['https://65.181.125.215','http://127.0.0.1','http://localhost']
 
 
 # Application definition
@@ -44,6 +66,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -52,6 +75,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 ROOT_URLCONF = 'restaurante.urls'
 
 TEMPLATES = [
@@ -76,29 +100,48 @@ WSGI_APPLICATION = 'restaurante.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-TIME_ZONE = 'America/Santo_Domingo'  # Mantener para Django
-USE_TZ = True
-
-
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": "restaurante",
-        "USER": "root",
-        "PASSWORD": "",
-        "HOST": "localhost",
-        "PORT": "3306",
-        "OPTIONS": {
-            # Usar offset numérico en lugar de nombre de zona
-            "init_command": "SET time_zone = '-04:00'",  # Para República Dominicana (UTC-4)
-            # Otras opciones importantes
-            "charset": "utf8mb4",
-            "use_unicode": True,
-        },
-        # Esto es crucial para MySQL con Django
-        "TIME_ZONE": TIME_ZONE,
+
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        # 'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('DB_NAME'),
+        'USER': os.environ.get('DB_USER'),
+        'PASSWORD': os.environ.get('DB_PASSWORD'),
+        'HOST': os.environ.get('DB_HOST'),
+        'PORT': os.environ.get('DB_PORT'),
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'", # esto es para mysql
+        }
+
     }
 }
+
+
+
+
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.mysql",
+#         "NAME": "restaurante",
+#         "USER": "root",
+#         "PASSWORD": "",
+#         "HOST": "localhost",
+#         "PORT": "3306",
+#         "OPTIONS": {
+#             # Usar offset numérico en lugar de nombre de zona
+#             "init_command": "SET time_zone = '-04:00'",  # Para República Dominicana (UTC-4)
+#             # Otras opciones importantes
+#             "charset": "utf8mb4",
+#             "use_unicode": True,
+#         },
+#         # Esto es crucial para MySQL con Django
+        
+#     }
+# }
+
+
+
 
 # En tu settings.py, agrega esto:
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -125,22 +168,24 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / "facturacion" / "static"]
+STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"   # aquí se copiará todo
 
 
-
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
+#
+# MEDIA_URL = '/media/'
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+#
 
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
+TIME_ZONE = 'America/Santo_Domingo'  # Mantener para Django
+
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
@@ -150,4 +195,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+
+#STATIC_URL = 'static/'
+
+

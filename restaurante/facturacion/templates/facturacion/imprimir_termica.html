@@ -1,18 +1,59 @@
+{% load static %}
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <title>Factura Térmica - {{ factura.numero_factura }}</title>
+
     <style>
         @media print {
             body {
                 width: 70mm;
                 margin-left: 15px;
                 font-family: 'Courier New', monospace;
-                font-size: 12px;
+                font-size: 14px;
                 padding: 5px;
+            
+            }}
+            .header { text-align: center; margin-bottom: 5px; }
+            .header .logo-img { 
+                width: 50px !important; 
+                height: 50px !important; 
+                display: block;
+                margin: 0 auto 1px auto;
             }
+            .header h2 { margin-top: 0; margin-bottom: 3px; }
+            .info { margin: 0px 0;  }
+            .info-row { display: flex; justify-content: space-between; font-size: 13px; }
+            .items { width: 100%; margin: 10px 0; }
+            .items th { text-align: left; border-bottom: 1px dashed #000; font-size: 13px; }
+            .items td { padding: 2px 0; font-size: 13px; }
+            .item-name { width: 50%; }
+            .item-qty { width: 15%; text-align: center; }
+            .item-price { width: 20%; text-align: right; }
+            .item-total { width: 15%; text-align: right; }
+            .totals { margin-top: 10px; }
+            .total-row { display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; }
+            .total-row.grand-total { 
+                font-size: 20px !important; 
+                font-weight: bold !important;
+                margin-top: 10px !important; 
+                padding-top: 8px !important; 
+                padding-bottom: 8px !important;
+                border-top: 2px solid #000 !important;
+                border-bottom: 2px solid #000 !important;
+                background-color: #f0f0f0 !important;
+            }
+            .footer { text-align: center; margin-top: 15px; font-size: 11px; }
+
             .header { text-align: center; margin-bottom: 5px; font-size: 17px;}
+            .header .logo-img { 
+                width: 50px !important; 
+                height: 50px !important; 
+                display: block;
+                margin: 0 auto 2px auto;
+            }
+            .header h2 { margin-top: 0; margin-bottom: 3px; }
             .info { margin: 0px 0;  font-size: 17px;}
             .info-row { display: flex; justify-content: space-between; }
             .items { width: 100%; margin: 10px 0; }
@@ -25,8 +66,9 @@
             .totals { margin-top: 10px; }
             .total-row { display: flex; justify-content: space-between; font-size: 17px;}
             .footer { text-align: center; margin-top: 15px; font-size: 14px; }
+
             hr { border: none; border-top: 1px dashed #000; }
-        }
+        
         @page {
             size: 80mm auto;
             margin: 0;
@@ -64,6 +106,8 @@
 </head>
 <body>
     <div class="header">
+        <!-- Logo del restaurante -->
+        <img src="{% static 'img/fastfood.png' %}" alt="402 FASTFOOD" class="logo-img" style="width: 50px; height: 50px; margin-bottom: 5px;">
         <h2>{{ empresa.nombre }}</h2>
         <p>{{ empresa.direccion }}</p>
         <p>Tel: {{ empresa.telefono }}</p>
@@ -78,7 +122,7 @@
         </div>
         <div class="info-row">
             <span>FECHA:</span>
-            <span>{{ factura.fecha_factura|date:"d/m/Y H:i" }}</span>
+            <span>{{ factura.fecha_factura|date:"d/m/Y h:i" }}</span>
         </div>
         <div class="info-row">
             <span>PEDIDO:</span>
@@ -194,8 +238,12 @@
             <span>Envío:</span>
             <span>${{ factura.envio|floatformat:2 }}</span>
         </div>
+
+        <div class="total-row grand-total">
+
         {% endif %}
         <div class="total-row" style="font-weight: bold; margin-top: 5px; padding-top: 5px; border-top: 2px solid #000;">
+
             <span>TOTAL:</span>
             <span>${{ factura.subtotal|floatformat:2 }}</span>
         </div>
