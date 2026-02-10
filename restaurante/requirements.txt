@@ -1,8 +1,15 @@
 asgiref==3.11.0
 charset-normalizer==3.4.4
 Django==4.2.20
+gunicorn==23.0.0
+load-dotenv==0.1.0
 mysqlclient==2.2.7
+packaging==25.0
 pillow==12.1.0
+python-dotenv==1.2.1
 reportlab==4.4.7
+setuptools==80.9.0
 sqlparse==0.5.5
 tzdata==2025.3
+wheel==0.45.1
+whitenoise==6.11.0
