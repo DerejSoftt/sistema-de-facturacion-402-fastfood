@@ -1718,96 +1718,107 @@ def procesar_pedidos_para_template(pedidos_queryset):
 
 @csrf_exempt
 def historial_pedidos_pagados(request):
-    """Vista para ver el historial de pedidos ya pagados"""
+    """Vista para ver el historial de facturas emitidas con paginación."""
     from zoneinfo import ZoneInfo
 
     tz_rd = ZoneInfo('America/Santo_Domingo')
     # Obtener parámetros de filtrado
     search = request.GET.get('search', '')
-    tipo_pedido = request.GET.get('tipo', '')
+    tipo_pedido = request.GET.get('tipo_pedido', request.GET.get('tipo', ''))
     fecha = request.GET.get('fecha', '')
     page = request.GET.get('page', 1)
 
-    # Subconsulta para pedidos con facturas pagadas
-    facturas_pagadas = Factura.objects.filter(
-        pedido_id=OuterRef('pk'),
+    # Consulta base: solo facturas pagadas
+    facturas = Factura.objects.filter(
         estado='pagada'
-    )
-
-    # Consulta: solo pedidos CON facturas pagadas
-    pedidos = Pedido.objects.annotate(
-        factura_pagada_annotated=Exists(facturas_pagadas)  # Cambiado el nombre
-    ).filter(
-        factura_pagada_annotated=True  # Solo pedidos CON facturas pagadas
-    ).select_related('mesa').order_by('-fecha_pedido')
+    ).select_related('pedido').order_by('-fecha_factura')
 
     # Aplicar filtros
     if search:
-        pedidos = pedidos.filter(
-            Q(codigo_pedido__icontains=search) |
+        facturas = facturas.filter(
+            Q(numero_factura__icontains=search) |
             Q(nombre_cliente__icontains=search) |
             Q(telefono_cliente__icontains=search) |
-            Q(codigo_delivery__icontains=search)
+            Q(numero_mesa_codigo__icontains=search) |
+            Q(pedido__codigo_pedido__icontains=search)
         )
 
     if tipo_pedido:
-        pedidos = pedidos.filter(tipo_pedido=tipo_pedido)
+        facturas = facturas.filter(tipo_pedido=tipo_pedido)
 
     if fecha:
         today = datetime.now().date()
         if fecha == 'hoy':
-            pedidos = pedidos.filter(fecha_pedido__date=today)
+            facturas = facturas.filter(fecha_factura__date=today)
         elif fecha == 'ayer':
             yesterday = today - timedelta(days=1)
-            pedidos = pedidos.filter(fecha_pedido__date=yesterday)
+            facturas = facturas.filter(fecha_factura__date=yesterday)
         elif fecha == 'semana':
             week_ago = today - timedelta(days=7)
-            pedidos = pedidos.filter(fecha_pedido__date__gte=week_ago)
+            facturas = facturas.filter(fecha_factura__date__gte=week_ago)
         elif fecha == 'mes':
             month_ago = today - timedelta(days=30)
-            pedidos = pedidos.filter(fecha_pedido__date__gte=month_ago)
+            facturas = facturas.filter(fecha_factura__date__gte=month_ago)
 
-    # Paginación
-    paginator = Paginator(pedidos, 20)
+    # Paginación de 20 facturas por página
+    paginator = Paginator(facturas, 20)
     page_obj = paginator.get_page(page)
 
-    # Procesar pedidos para template
+    # Procesar facturas para template (reutiliza estructura de la tabla actual)
     pedidos_procesados = []
-    for pedido in page_obj:
-        # Obtener la factura pagada asociada
-        factura = Factura.objects.filter(
-            pedido=pedido, estado='pagada').first()
+    for factura in page_obj:
+        fecha_base = factura.fecha_factura or timezone.now()
+        fecha_local = timezone.localtime(fecha_base, tz_rd)
 
-        fecha_local = timezone.localtime(pedido.fecha_pedido, tz_rd)
+        pedido_asociado = factura.pedido
+        if pedido_asociado:
+            tipo_pedido_display = pedido_asociado.get_tipo_pedido_display()
+        else:
+            tipos = {
+                'mesa': 'Comer en Restaurante',
+                'delivery': 'Domicilio',
+                'llevar': 'Recoger en Local',
+            }
+            tipo_pedido_display = tipos.get(factura.tipo_pedido, factura.tipo_pedido.title() if factura.tipo_pedido else 'No definido')
 
         pedido_procesado = {
-            'id': pedido.id,
-            'codigo_pedido': pedido.codigo_pedido,
-            'nombre_cliente': pedido.nombre_cliente or '',
-            'tipo_pedido': pedido.tipo_pedido,
-            'estado': 'pagado',
-            'estado_display': 'Pagado',
-            'total': float(pedido.total),
+            'id': pedido_asociado.id if pedido_asociado else '',
+            'codigo_pedido': pedido_asociado.codigo_pedido if pedido_asociado else 'N/A',
+            'nombre_cliente': factura.nombre_cliente or 'Cliente no registrado',
+            'telefono_cliente': factura.telefono_cliente or '',
+            'direccion_entrega': factura.direccion_entrega or '',
+            'tipo_pedido': factura.tipo_pedido,
+            'tipo_pedido_display': tipo_pedido_display,
+            'estado': factura.estado,
+            'estado_display': factura.get_estado_display(),
+            'total': float(factura.total or 0),
             'fecha_formateada': fecha_local.strftime('%d/%m/%Y %I:%M'),
-            'mesa_numero': pedido.mesa.numero_display if pedido.mesa else '',
-            'factura_numero': factura.numero_factura if factura else '',
-            'factura_fecha': factura.fecha_factura if factura else pedido.fecha_pedido,
-            'metodo_pago': factura.metodo_pago if factura else '',
+            'mesa_numero': factura.numero_mesa_codigo or '',
+            'factura_numero': factura.numero_factura,
+            'factura_fecha': factura.fecha_factura,
+            'metodo_pago': factura.metodo_pago or '',
         }
         pedidos_procesados.append(pedido_procesado)
 
     # Estadísticas
-    total_pedidos_pagados = pedidos.count()
+    total_facturas_emitidas = facturas.count()
     ingresos_totales = Factura.objects.filter(
         estado='pagada').aggregate(total=Sum('total'))['total'] or 0
+    hoy = datetime.now().date()
+    inicio_mes = hoy.replace(day=1)
+    ingresos_mes_actual = Factura.objects.filter(
+        estado='pagada',
+        fecha_factura__date__gte=inicio_mes
+    ).aggregate(total=Sum('total'))['total'] or 0
 
     context = {
         'user': request.user,
-        'page_title': 'Historial de Pedidos Pagados',
+        'page_title': 'Historial de Facturas Emitidas',
         'pedidos': pedidos_procesados,
         'estadisticas': {
-            'total_pedidos': total_pedidos_pagados,
+            'total_pedidos': total_facturas_emitidas,
             'ingresos_totales': ingresos_totales,
+            'ingresos_mes_actual': ingresos_mes_actual,
         },
         'filtros': {
             'search': search,

@@ -30,11 +30,18 @@
         /* Sidebar (usa el mismo que gestiondepedidos) */
         .sidebar {
             width: 260px;
+            height: 100vh;
             background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
             box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
             display: flex;
             flex-direction: column;
             transition: transform 0.3s ease;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 1000;
+            overflow-y: auto;
+            overflow-x: hidden;
         }
         
         .sidebar-header {
@@ -44,11 +51,16 @@
             font-size: 1.25rem;
             font-weight: bold;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 1001;
         }
         
         .sidebar-nav {
             flex: 1;
             padding: 1rem 0;
+            overflow-y: auto;
+            overflow-x: hidden;
         }
         
         .nav-item {
@@ -65,15 +77,15 @@
         
         .nav-item:hover {
             background: rgba(255, 255, 255, 0.1);
-            border-left-color: #4CAF50;
-            color: #4CAF50;
+            border-left-color: #ff7e5f;
+            color: #ff7e5f;
             transform: translateX(5px);
         }
         
         .nav-item.active {
             background: rgba(255, 255, 255, 0.15);
-            border-left-color: #4CAF50;
-            color: #4CAF50;
+            border-left-color: #ff7e5f;
+            color: #ff7e5f;
             font-weight: 600;
         }
         
@@ -88,7 +100,7 @@
             top: 1rem;
             left: 1rem;
             z-index: 1000;
-            background: #4CAF50;
+            background: #ff7e5f;
             border: none;
             padding: 0.75rem;
             border-radius: 10px;
@@ -100,7 +112,7 @@
         }
         
         .menu-toggle:hover {
-            background: #45a049;
+            background: #ff6b4a;
             transform: scale(1.05);
         }
         
@@ -120,6 +132,8 @@
             flex: 1;
             padding: 2rem;
             overflow-x: hidden;
+            margin-left: 260px;
+            width: calc(100% - 260px);
         }
         
         .container {
@@ -191,15 +205,15 @@
             background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
             padding: 1.5rem;
             border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(76, 175, 80, 0.1);
-            border: 1px solid rgba(76, 175, 80, 0.1);
+            box-shadow: 0 10px 30px rgba(255, 126, 95, 0.1);
+            border: 1px solid rgba(255, 126, 95, 0.1);
             text-align: center;
             transition: transform 0.3s;
         }
         
         .stat-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 15px 35px rgba(76, 175, 80, 0.2);
+            box-shadow: 0 15px 35px rgba(255, 126, 95, 0.2);
         }
         
         .stat-icon {
@@ -211,7 +225,7 @@
         .stat-value {
             font-size: 1.8rem;
             font-weight: bold;
-            color: #4CAF50;
+            color: #ff7e5f;
             margin-bottom: 0.5rem;
         }
         
@@ -226,8 +240,8 @@
             background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
             padding: 2rem;
             border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(76, 175, 80, 0.1);
-            border: 1px solid rgba(76, 175, 80, 0.1);
+            box-shadow: 0 10px 30px rgba(255, 126, 95, 0.1);
+            border: 1px solid rgba(255, 126, 95, 0.1);
             margin-bottom: 2rem;
         }
         
@@ -271,14 +285,14 @@
         }
         
         .btn-primary {
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             color: white;
-            box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
+            box-shadow: 0 10px 20px rgba(255, 126, 95, 0.3);
         }
         
         .btn-primary:hover {
             transform: translateY(-3px);
-            box-shadow: 0 15px 25px rgba(76, 175, 80, 0.4);
+            box-shadow: 0 15px 25px rgba(255, 126, 95, 0.4);
         }
         
         .btn-warning {
@@ -357,7 +371,7 @@
             top: 50%;
             transform: translateY(-50%);
             font-size: 1.2rem;
-            color: #4CAF50;
+            color: #ff7e5f;
         }
         
         .filter-select {
@@ -384,8 +398,8 @@
             background: white;
             border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 10px 30px rgba(76, 175, 80, 0.1);
-            border: 1px solid rgba(76, 175, 80, 0.1);
+            box-shadow: 0 10px 30px rgba(255, 126, 95, 0.1);
+            border: 1px solid rgba(255, 126, 95, 0.1);
             margin-bottom: 2rem;
             overflow-x: auto;
         }
@@ -393,7 +407,7 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 1000px;
+            min-width: 100%;
         }
         
         thead {
@@ -409,16 +423,21 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
+
+        thead th:first-child,
+        tbody td:first-child {
+            padding-left: 2rem;
+        }
         
         tbody tr {
-            border-bottom: 1px solid rgba(76, 175, 80, 0.1);
+            border-bottom: 1px solid rgba(255, 126, 95, 0.1);
             transition: all 0.2s;
         }
         
         tbody tr:hover {
             background: #f8f9ff;
             transform: translateY(-1px);
-            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.1);
+            box-shadow: 0 5px 15px rgba(255, 126, 95, 0.1);
         }
         
         tbody td {
@@ -465,6 +484,43 @@
         .type-recoger {
             background: linear-gradient(135deg, rgba(72, 187, 120, 0.1) 0%, rgba(56, 161, 105, 0.1) 100%);
             color: #48bb78;
+        }
+
+        /* Payment method badges */
+        .payment-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            border: 1px solid transparent;
+            text-transform: capitalize;
+        }
+
+        .payment-efectivo {
+            background: rgba(72, 187, 120, 0.12);
+            color: #2f855a;
+            border-color: rgba(72, 187, 120, 0.25);
+        }
+
+        .payment-tarjeta {
+            background: rgba(66, 153, 225, 0.12);
+            color: #2b6cb0;
+            border-color: rgba(66, 153, 225, 0.25);
+        }
+
+        .payment-transferencia {
+            background: rgba(237, 137, 54, 0.12);
+            color: #c05621;
+            border-color: rgba(237, 137, 54, 0.25);
+        }
+
+        .payment-otro {
+            background: rgba(113, 128, 150, 0.15);
+            color: #4a5568;
+            border-color: rgba(113, 128, 150, 0.28);
         }
         
         /* Customer info */
@@ -561,15 +617,15 @@
         
         .page-btn:hover {
             background: #f8f9ff;
-            border-color: #4CAF50;
-            color: #4CAF50;
+            border-color: #ff7e5f;
+            color: #ff7e5f;
             text-decoration: none;
         }
         
         .page-btn.active {
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             color: white;
-            border-color: #4CAF50;
+            border-color: #ff7e5f;
         }
         
         .page-info {
@@ -609,6 +665,8 @@
             
             .main-content {
                 padding: 5rem 1rem 1rem;
+                margin-left: 0;
+                width: 100%;
             }
             
             .content {
@@ -859,12 +917,8 @@
         <div class="main-content">
             <div class="container">
                 <div class="header">
-                    <h1><i class="fas fa-clipboard-list"></i> Historial de Pedidos Pagados</h1>
-                    <p>Consulta todos los pedidos que ya han sido pagados y facturados</p>
-                    <div style="margin-top: 1rem; background: rgba(255, 255, 255, 0.2); padding: 0.5rem 1rem; border-radius: 10px; font-size: 0.9rem;">
-                        <strong><i class="fas fa-lightbulb"></i> Nota:</strong> Estos pedidos ya no aparecen en la gestión activa. 
-                        <a href="{% url 'gestiondepedidos' %}" style="color: white; text-decoration: underline;">Volver a gestión activa</a>
-                    </div>
+                    <h1><i class="fas fa-file-invoice"></i> Historial de Facturas Emitidas</h1>
+                    <p>Consulta todas las facturas emitidas en BD con paginación de 20 registros por página</p>
                 </div>
                 
                 <div class="content">
@@ -873,7 +927,7 @@
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
                             <div class="stat-value">{{ estadisticas.total_pedidos }}</div>
-                            <div class="stat-label">Total Pagados</div>
+                            <div class="stat-label">Total Facturas</div>
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-chart-line"></i></span>
@@ -890,7 +944,7 @@
                     <!-- Controls Section -->
                     <div class="controls-section">
                         <div class="controls-header">
-                            <h3>Buscar en el Historial</h3>
+                            <h3>Buscar Facturas Emitidas</h3>
                             <div style="display: flex; gap: 1rem;">
                                 <button class="btn btn-warning btn-sm" 
                                         type="button"
@@ -908,12 +962,12 @@
                         
                         <form method="get" id="filterForm">
                             <div class="form-group">
-                                <label for="searchInput"><i class="fas fa-search"></i> Buscar Pedido</label>
+                                <label for="searchInput"><i class="fas fa-search"></i> Buscar Factura</label>
                                 <div class="search-box">
                                     <span class="search-icon"><i class="fas fa-search"></i></span>
                                     <input type="text" id="searchInput" name="search" 
                                            value="{{ filtros.search }}"
-                                           placeholder="Buscar por cliente, número de pedido, factura...">
+                                           placeholder="Buscar por cliente, número de pedido o factura...">
                                 </div>
                             </div>
                             
@@ -1026,9 +1080,34 @@
                                             </span>
                                         </td>
                                         <td>
-                                            <div style="font-weight: 600; color: #4a5568;">
-                                                {{ pedido.metodo_pago|default:"No especificado" }}
-                                            </div>
+                                            {% with metodo=pedido.metodo_pago|default:''|lower %}
+                                                {% if metodo == 'efectivo' %}
+                                                    <span class="payment-badge payment-efectivo">
+                                                        <i class="fas fa-money-bill-wave"></i>
+                                                        Efectivo
+                                                    </span>
+                                                {% elif metodo == 'tarjeta' %}
+                                                    <span class="payment-badge payment-tarjeta">
+                                                        <i class="fas fa-credit-card"></i>
+                                                        Tarjeta
+                                                    </span>
+                                                {% elif metodo == 'transferencia' %}
+                                                    <span class="payment-badge payment-transferencia">
+                                                        <i class="fas fa-building-columns"></i>
+                                                        Transferencia
+                                                    </span>
+                                                {% elif metodo %}
+                                                    <span class="payment-badge payment-otro">
+                                                        <i class="fas fa-wallet"></i>
+                                                        {{ pedido.metodo_pago }}
+                                                    </span>
+                                                {% else %}
+                                                    <span class="payment-badge payment-otro">
+                                                        <i class="fas fa-circle-question"></i>
+                                                        No especificado
+                                                    </span>
+                                                {% endif %}
+                                            {% endwith %}
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -1038,8 +1117,8 @@
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                                             </svg>
-                                            <h3>No se encontraron pedidos pagados</h3>
-                                            <p>No hay pedidos pagados con los filtros aplicados</p>
+                                            <h3>No se encontraron facturas emitidas</h3>
+                                            <p>No hay facturas para los filtros aplicados</p>
                                             <div style="margin-top: 1rem;">
                                                 <a href="{% url 'gestiondepedidos' %}" class="btn btn-primary" style="text-decoration: none;">
                                                     <span>↩️</span>
@@ -1062,7 +1141,7 @@
                         {% endif %}
                         
                         <span class="page-info" id="pageInfo">
-                            Página {{ paginator.number }} de {{ paginator.num_pages }}
+                            Página {{ paginator.number }} de {{ paginator.num_pages }} · 20 facturas por página
                         </span>
                         
                         {% if paginator.has_next %}
@@ -1082,6 +1161,12 @@
     <script>
         // Formatear moneda al cargar la página
         document.addEventListener('DOMContentLoaded', function() {
+            // Asegura que la tabla inicie desde el extremo izquierdo.
+            const tableContainer = document.querySelector('.table-container');
+            if (tableContainer) {
+                tableContainer.scrollLeft = 0;
+            }
+
             // Formatear ingresos totales
             const ingresosTotalesElement = document.getElementById('ingresosTotalesValor');
             if (ingresosTotalesElement) {
