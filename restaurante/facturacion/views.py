@@ -2697,9 +2697,9 @@ def crear_factura(request):
 
             # Crear la factura con estado PAGADA
             # Obtener hora actual en zona horaria de República Dominicana
-            import pytz
+            from zoneinfo import ZoneInfo
             from django.utils import timezone
-            tz_rd = pytz.timezone('America/Santo_Domingo')
+            tz_rd = ZoneInfo('America/Santo_Domingo')
             now_rd = timezone.now().astimezone(tz_rd)
 
             factura = Factura(
