@@ -1044,6 +1044,16 @@
         return cookieValue;
     }
 
+    function syncCsrfTokens() {
+        const cookieToken = getCSRFToken();
+        if (!cookieToken) return;
+
+        const tokenInputs = document.querySelectorAll('input[name="csrfmiddlewaretoken"]');
+        tokenInputs.forEach((input) => {
+            input.value = cookieToken;
+        });
+    }
+
     // Función para evaluar la fortaleza de la contraseña
     function checkPasswordStrength(password) {
         const bar = document.getElementById('passwordStrengthBar');
@@ -1127,6 +1137,9 @@
     
     // Inicializar eventos cuando se carga la página
     document.addEventListener('DOMContentLoaded', function() {
+        // Evita CSRF 403 por token oculto desactualizado (back/login en otra pestaña).
+        syncCsrfTokens();
+
         // Inicializar la validación de contraseña
         const passwordInput = document.getElementById('password');
         const confirmPasswordInput = document.getElementById('confirmPassword');
@@ -1145,6 +1158,8 @@
         const userForm = document.getElementById('userForm');
         if (userForm) {
             userForm.addEventListener('submit', function(e) {
+                syncCsrfTokens();
+
                 // Validar coincidencia de contraseñas
                 if (!validatePasswordMatch()) {
                     e.preventDefault();
@@ -1166,6 +1181,8 @@
         const editUserForm = document.getElementById('editUserForm');
         if (editUserForm) {
             editUserForm.addEventListener('submit', function(e) {
+                syncCsrfTokens();
+
                 // Validar que se seleccionó un rol
                 const editRole = document.getElementById('editRole').value;
                 if (!editRole) {

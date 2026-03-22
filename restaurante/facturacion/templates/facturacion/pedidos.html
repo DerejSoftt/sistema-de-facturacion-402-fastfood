@@ -2938,6 +2938,26 @@ body {
             return defaultValue || [];
         }
     }
+
+    function getCSRFToken() {
+        const name = 'csrftoken=';
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.startsWith(name)) {
+                return decodeURIComponent(cookie.substring(name.length));
+            }
+        }
+        return '';
+    }
+
+    function syncCsrfTokens() {
+        const cookieToken = getCSRFToken();
+        if (!cookieToken) return;
+        document.querySelectorAll('input[name="csrfmiddlewaretoken"]').forEach((input) => {
+            input.value = cookieToken;
+        });
+    }
     
     /**
      * Formatear moneda con comas para miles
@@ -3036,6 +3056,7 @@ body {
      */
     document.addEventListener('DOMContentLoaded', function() {
         console.log("=== INICIALIZANDO APLICACIÓN ===");
+        syncCsrfTokens();
         
         // Obtener datos de Django
         try {
@@ -3181,6 +3202,7 @@ body {
         if (pedidoForm) {
             pedidoForm.addEventListener('submit', function(e) {
                 e.preventDefault();
+                syncCsrfTokens();
                 
                 if (!validateForm()) {
                     showNotification('<i class="fas fa-times-circle"></i> Por favor completa todos los campos requeridos', 'error');
@@ -3206,7 +3228,7 @@ body {
                     method: 'POST',
                     body: formData,
                     headers: {
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'X-CSRFToken': getCSRFToken() || document.querySelector('[name=csrfmiddlewaretoken]').value,
                         'X-Requested-With': 'XMLHttpRequest',
                     },
                 })

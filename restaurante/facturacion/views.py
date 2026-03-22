@@ -51,7 +51,8 @@ from django.utils import timezone
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.models import User, Group, Permission
 from django.db import transaction, IntegrityError
-from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
+from django.views.decorators.cache import never_cache
 from django.template.loader import render_to_string
 from django.utils.timezone import now
 from django.http import HttpResponse
@@ -3353,6 +3354,9 @@ def get_unidad_medida(categoria):
 
 @login_required
 @permission_required('auth.change_user', raise_exception=True)
+@never_cache
+@ensure_csrf_cookie
+@csrf_protect
 def roles(request):
     """
     Vista de gestión de roles y permisos

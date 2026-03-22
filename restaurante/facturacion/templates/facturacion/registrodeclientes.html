@@ -812,9 +812,30 @@
     </div>
 
     <script>
+        function getCSRFToken() {
+            const name = 'csrftoken=';
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.startsWith(name)) {
+                    return decodeURIComponent(cookie.substring(name.length));
+                }
+            }
+            return '';
+        }
+
+        function syncCsrfTokens() {
+            const cookieToken = getCSRFToken();
+            if (!cookieToken) return;
+            document.querySelectorAll('input[name="csrfmiddlewaretoken"]').forEach((input) => {
+                input.value = cookieToken;
+            });
+        }
+
         // Inicializar la aplicación
         document.addEventListener('DOMContentLoaded', function () {
             console.log('=== INICIANDO REGISTRO DE CLIENTES ===');
+            syncCsrfTokens();
 
             setupEventListeners();
             setupFormValidation();
@@ -1175,6 +1196,7 @@
         // Manejar envío del formulario
         function handleFormSubmit(e) {
             e.preventDefault();
+            syncCsrfTokens();
 
             // Validar todos los campos requeridos
             const cedula = document.getElementById('cedula').value.trim();
@@ -1386,7 +1408,7 @@
                 body: formData,
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    'X-CSRFToken': getCSRFToken() || document.querySelector('[name=csrfmiddlewaretoken]').value
                 }
             })
                 .then(response => response.json())

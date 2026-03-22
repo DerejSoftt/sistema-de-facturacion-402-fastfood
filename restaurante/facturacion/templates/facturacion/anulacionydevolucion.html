@@ -1754,8 +1754,37 @@
     console.log('ℹ️  No hay factura cargada');
     {% endif %}
 
+    function getCSRFToken() {
+        const name = 'csrftoken=';
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.startsWith(name)) {
+                return decodeURIComponent(cookie.substring(name.length));
+            }
+        }
+        return '';
+    }
+
+    function syncCsrfTokens() {
+        const cookieToken = getCSRFToken();
+        if (!cookieToken) return;
+        document.querySelectorAll('input[name="csrfmiddlewaretoken"]').forEach((input) => {
+            input.value = cookieToken;
+        });
+    }
+
     // Inicializar la aplicación
     document.addEventListener('DOMContentLoaded', function() {
+        syncCsrfTokens();
+
+        document.querySelectorAll('form').forEach((form) => {
+            const method = (form.getAttribute('method') || '').toLowerCase();
+            if (method === 'post') {
+                form.addEventListener('submit', syncCsrfTokens);
+            }
+        });
+
         const navEntry = performance.getEntriesByType('navigation')[0];
         const isReload = (navEntry && navEntry.type === 'reload') ||
             (performance.navigation && performance.navigation.type === 1);
