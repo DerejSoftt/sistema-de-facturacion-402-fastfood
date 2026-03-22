@@ -261,10 +261,10 @@
             align-items: center;
             gap: 10px;
         }
-        
-        .controls-header h3::before {
-            content: "🔍";
-            font-size: 1.2rem;
+
+        .controls-title-icon {
+            color: inherit;
+            font-size: 1.1rem;
         }
         
         /* Botones */
@@ -323,6 +323,84 @@
             padding: 0.5rem 1rem;
             font-size: 0.875rem;
         }
+
+        /* Estado de pedidos: fondito + color de texto */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.4rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            font-size: 0.82rem;
+            font-weight: 700;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .status-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+        }
+
+        .status-pendiente {
+            background: #fff7db;
+            border-color: #f0dc95;
+            color: #b8860b;
+        }
+
+        .status-preparacion {
+            background: #fff1db;
+            border-color: #f6c98f;
+            color: #c56a10;
+        }
+
+        .status-listo,
+        .status-entregado {
+            background: #e8f9ef;
+            border-color: #a8e6bf;
+            color: #1b8f4b;
+        }
+
+        .status-cancelado {
+            background: #ffe8e8;
+            border-color: #f3b0b0;
+            color: #c0392b;
+        }
+
+        /* Tipo de pedido: misma tematica de fondo + texto */
+        .order-type-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.4rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            font-size: 0.82rem;
+            font-weight: 700;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .type-restaurante {
+            background: #e8f4ff;
+            border-color: #b8d7f5;
+            color: #1f5f97;
+        }
+
+        .type-domicilio {
+            background: #fff3e6;
+            border-color: #f3d0a8;
+            color: #b35a00;
+        }
+
+        .type-recoger {
+            background: #f0ebff;
+            border-color: #cbc0f7;
+            color: #5a3ea6;
+        }
         
         /* Form inputs */
         .form-group {
@@ -377,7 +455,7 @@
             top: 50%;
             transform: translateY(-50%);
             font-size: 1.2rem;
-            color: #ff7e5f;
+            color: #2c3e50;
         }
         
         .filter-select {
@@ -403,6 +481,24 @@
             gap: 1rem;
             align-items: flex-end;
             flex-wrap: wrap;
+        }
+
+        .filter-row .form-group {
+            margin-bottom: 0;
+        }
+
+        .filter-row .filter-select {
+            height: 56px;
+            padding: 0 1rem;
+        }
+
+        .filter-submit-btn {
+            height: 56px;
+            margin-top: 0;
+            align-self: flex-end;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         
         /* Platos Table */
@@ -509,20 +605,49 @@
             background: linear-gradient(135deg, #f8f9ff 0%, #e9ecff 100%);
             color: #667eea;
         }
+
+        .btn-view {
+            background: #e8f9ef;
+            color: #1b8f4b;
+            border: 1px solid #a8e6bf;
+        }
+
+        .btn-edit {
+            background: #fff7db;
+            color: #b8860b;
+            border: 1px solid #f0dc95;
+        }
+
+        .btn-danger.btn-icon {
+            background: #ffe8e8;
+            color: #c0392b;
+            border: 1px solid #f3b0b0;
+            box-shadow: none;
+            padding: 0.5rem;
+            font-size: 1rem;
+        }
         
         .btn-icon:hover {
             transform: scale(1.1);
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
         }
-        
-        .btn-edit:hover {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+
+        .btn-view:hover {
+            background: #d9f4e5;
+            color: #14733b;
+            box-shadow: 0 5px 15px rgba(27, 143, 75, 0.2);
         }
         
-        .btn-delete:hover {
-            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
-            color: white;
+        .btn-edit:hover {
+            background: #ffefbe;
+            color: #8a6509;
+            box-shadow: 0 5px 15px rgba(184, 134, 11, 0.2);
+        }
+        
+        .btn-danger.btn-icon:hover {
+            background: #ffd9d9;
+            color: #a92e22;
+            box-shadow: 0 5px 15px rgba(192, 57, 43, 0.22);
         }
         
         /* Pagination */
@@ -1024,27 +1149,37 @@
             font-size: 1.1rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border: 1px solid transparent;
         }
         
         .edit-modal .status-badge.pendiente {
-            background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);
-            color: white;
+            background: #fff7db;
+            border-color: #f0dc95;
+            color: #b8860b;
         }
         
         .edit-modal .status-badge.preparando {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #fff1db;
+            border-color: #f6c98f;
+            color: #c56a10;
+        }
+
+        .edit-modal .status-badge.preparacion {
+            background: #fff1db;
+            border-color: #f6c98f;
+            color: #c56a10;
         }
         
         .edit-modal .status-badge.listo {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-            color: white;
+            background: #e8f9ef;
+            border-color: #a8e6bf;
+            color: #1b8f4b;
         }
         
         .edit-modal .status-badge.completado {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            color: white;
+            background: #e8f9ef;
+            border-color: #a8e6bf;
+            color: #1b8f4b;
         }
         
         .edit-modal .status-badge.cancelado {
@@ -1247,10 +1382,6 @@
                 <div class="header">
                     <h1><i class="fas fa-clipboard-list"></i> Gestión de Pedidos Activos</h1>
                     <p>Administra y controla todos los pedidos del restaurante que aún no están pagados</p>
-                    <div style="margin-top: 1rem; background: rgba(255, 255, 255, 0.2); padding: 0.5rem 1rem; border-radius: 10px; font-size: 0.9rem;">
-                        <strong><i class="fas fa-lightbulb"></i> Nota:</strong> Solo se muestran pedidos que no tienen facturas pagadas. 
-                        Los pedidos pagados están en el <a href="{% url 'historial_pedidos' %}" style="color: white; text-decoration: underline;">historial</a>.
-                    </div>
                 </div>
                 
                 <div class="content">
@@ -1281,7 +1412,7 @@
                     <!-- Controls Section -->
                     <div class="controls-section">
                         <div class="controls-header">
-                            <h3>Buscar y Filtrar Pedidos Activos</h3>
+                            <h3><i class="fas fa-magnifying-glass controls-title-icon"></i> Buscar y Filtrar Pedidos Activos</h3>
                             <div style="display: flex; gap: 1rem;">
                                 <button class="btn btn-success btn-sm" 
                                         type="button"
@@ -1355,7 +1486,7 @@
                                     </select>
                                 </div>
                                 
-                                <button type="submit" class="btn btn-primary" style="height: fit-content; margin-top: 1.5rem;">
+                                <button type="submit" class="btn btn-primary filter-submit-btn">
                                     <span><i class="fas fa-filter"></i></span>
                                     <span>Filtrar</span>
                                 </button>

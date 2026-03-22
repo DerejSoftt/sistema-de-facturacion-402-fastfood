@@ -1363,7 +1363,7 @@ def gestiondepedidos(request):
         pedidos = pedidos.filter(tipo_pedido=tipo_pedido)
 
     if fecha:
-        today = datetime.now().date()
+        today = timezone.localdate()
         if fecha == 'hoy':
             pedidos = pedidos.filter(fecha_pedido__date=today)
         elif fecha == 'ayer':
@@ -1413,7 +1413,9 @@ def gestiondepedidos(request):
     pedidos_procesados = procesar_pedidos_para_template(page_obj)
 
     # Calcular estadísticas SOLO de pedidos NO pagados
-    today = datetime.now().date()
+    ahora_local = timezone.localtime()
+    inicio_dia = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    fin_dia = inicio_dia + timedelta(days=1)
 
     # Total de pedidos activos (sin factura pagada)
     total_pedidos_activos = Pedido.objects.annotate(
@@ -1434,7 +1436,8 @@ def gestiondepedidos(request):
 
     # Ingresos hoy (solo de pedidos con facturas pagadas - para mostrar diferencia)
     facturas_hoy_pagadas = Factura.objects.filter(
-        fecha_factura__date=today,
+        fecha_factura__gte=inicio_dia,
+        fecha_factura__lt=fin_dia,
         estado='pagada'
     )
     ingresos_hoy = facturas_hoy_pagadas.aggregate(total=Sum('total'))[
@@ -1640,6 +1643,9 @@ def actualizar_inventario_bebidas(items, operacion='restar'):
 @csrf_exempt
 def procesar_pedidos_para_template(pedidos_queryset):
     """Procesa los pedidos para ser usados en el template - Incluye info de pago"""
+    from zoneinfo import ZoneInfo
+
+    tz_rd = ZoneInfo('America/Santo_Domingo')
     pedidos_procesados = []
 
     for pedido in pedidos_queryset:
@@ -1678,6 +1684,8 @@ def procesar_pedidos_para_template(pedidos_queryset):
         # Calcular cantidad total de items
         cantidad_items = sum(item.get('quantity', 0) for item in items)
 
+        fecha_local = timezone.localtime(pedido.fecha_pedido, tz_rd)
+
         pedido_procesado = {
             'id': pedido.id,
             'codigo_pedido': pedido.codigo_pedido,
@@ -1699,7 +1707,7 @@ def procesar_pedidos_para_template(pedidos_queryset):
             'codigo_delivery': pedido.codigo_delivery or '',
             'notas': pedido.notas or '',
             'cantidad_items': cantidad_items,
-            'fecha_formateada': pedido.fecha_pedido.strftime('%d/%m/%Y %H:%M'),
+            'fecha_formateada': fecha_local.strftime('%d/%m/%Y %I:%M'),
             'tiene_factura_pagada': tiene_factura_pagada,
         }
 
@@ -1711,6 +1719,9 @@ def procesar_pedidos_para_template(pedidos_queryset):
 @csrf_exempt
 def historial_pedidos_pagados(request):
     """Vista para ver el historial de pedidos ya pagados"""
+    from zoneinfo import ZoneInfo
+
+    tz_rd = ZoneInfo('America/Santo_Domingo')
     # Obtener parámetros de filtrado
     search = request.GET.get('search', '')
     tipo_pedido = request.GET.get('tipo', '')
@@ -1767,6 +1778,8 @@ def historial_pedidos_pagados(request):
         factura = Factura.objects.filter(
             pedido=pedido, estado='pagada').first()
 
+        fecha_local = timezone.localtime(pedido.fecha_pedido, tz_rd)
+
         pedido_procesado = {
             'id': pedido.id,
             'codigo_pedido': pedido.codigo_pedido,
@@ -1775,7 +1788,7 @@ def historial_pedidos_pagados(request):
             'estado': 'pagado',
             'estado_display': 'Pagado',
             'total': float(pedido.total),
-            'fecha_formateada': pedido.fecha_pedido.strftime('%d/%m/%Y %H:%M'),
+            'fecha_formateada': fecha_local.strftime('%d/%m/%Y %I:%M'),
             'mesa_numero': pedido.mesa.numero_display if pedido.mesa else '',
             'factura_numero': factura.numero_factura if factura else '',
             'factura_fecha': factura.fecha_factura if factura else pedido.fecha_pedido,
