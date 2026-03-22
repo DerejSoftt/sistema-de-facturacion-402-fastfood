@@ -219,12 +219,19 @@
             padding: 1.2rem;
             border: 3px solid #e0e6ff;
             border-radius: 15px;
-            font-size: 1.2rem;
-            font-weight: 600;
-            text-align: center;
+            font-size: 1rem;
+            font-weight: 500;
+            text-align: left;
+            color: #4a5568;
             transition: all 0.3s;
             background: white;
             box-shadow: 0 5px 15px rgba(50, 50, 93, 0.1);
+        }
+
+        .invoice-input::placeholder {
+            color: #98a2b3;
+            font-weight: 500;
+            opacity: 0.9;
         }
         
         .invoice-input:focus {
@@ -1122,28 +1129,175 @@
                 <i class="fas fa-utensils"></i> 402 FASTFOOD
             </div>
             <nav class="sidebar-nav">
-                <a href="{% url 'pedidos' %}" class="nav-item">
+                <!-- Verificar grupos sin template tag -->
+                {% with user_groups=user.groups.all|join:"," %}
+
+                <!-- Menú para Usuario Normal (excluye superusuarios) -->
+                {% if "Usuario Normal" in user_groups and not user.is_superuser %}
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                     <span>Pedidos</span>
                 </a>
-                <a href="{% url 'facturacion' %}" class="nav-item">
-                    <span class="nav-icon"><i class="fas fa-file-invoice"></i></span>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                     <span>Facturación</span>
                 </a>
-                <a href="{% url 'anulacionydevolucion' %}" class="nav-item active">
-                    <span class="nav-icon"><i class="fas fa-undo"></i></span>
-                    <span>Devoluciones</span>
+                <a href="{% url 'salida' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
+                    <span>Salida de Productos</span>
                 </a>
-                <a href="" class="nav-item">
+                {% endif %}
+
+                <!-- Menú para Administrador -->
+                {% if "Administrador" in user_groups and not user.is_superuser %}
+                <a href="{% url 'entradadeproductos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
-                    <span>Reportes</span>
+                    <span>Gestión de Platos</span>
                 </a>
-                <div style="margin-top: auto; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
-                    <a href="{% url 'logout' %}" class="nav-item">
-                        <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
-                        <span>Cerrar Sesión</span>
-                    </a>
-                </div>
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'roles' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Gestión de Usuarios</span>
+                </a>
+                {% endif %}
+
+                <!-- Menú para otros grupos... -->
+                {% if "Gerente" in user_groups and not user.is_superuser %}
+                <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
+                {% endif %}
+
+                {% if "Cajero" in user_groups and not user.is_superuser %}
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                    <span>Facturación</span>
+                </a>
+                {% endif %}
+
+                <!-- Menú EXCLUSIVO para superusuarios -->
+                {% if user.is_superuser %}
+                <a href="{% url 'entradadeproductos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-box"></i></span>
+                    <span>Entrada de Productos</span>
+                </a>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'entradadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Entrada de Platos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'salida' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'roles' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Gestión de Usuarios</span>
+                </a>
+
+                 <a href="{% url 'anulacionydevolucion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'anulacionydevolucion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-undo"></i></span>
+                    <span>Devolución</span>
+                </a>
+
+
+                <!-- Dashboard solo para superusuario -->
+                <a href="{% url 'dashbort' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
+                {% endif %}
+
+                <!-- Cerrar sesión para todos -->
+                <a href="{% url 'logout' %}" class="nav-item">
+                    <span class="nav-icon"><i class="fas fa-door-open"></i></span>
+                    <span>Cerrar Sesión</span>
+                </a>
+
+                {% endwith %}
             </nav>
         </div>
         
@@ -1232,34 +1386,6 @@
                                     <div><strong>{% if factura.tipo_pedido == 'Mesa' %}Mesa:{% else %}Referencia:{% endif %}</strong> {{ factura.numero_mesa_codigo|default:"N/A" }}</div>
                                     <div class="invoice-status status-{{ factura.estado }}">
                                         {{ factura.get_estado_display }}
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Información sobre reposición de stock -->
-                            <div class="stock-info">
-                                <h4><i class="fas fa-info-circle"></i> Información sobre reposición de stock:</h4>
-                                <ul style="color: #2e7d32; margin-left: 1.5rem;">
-                                    <li>Solo los productos con categoría <strong>"bebida"</strong> reponen stock</li>
-                                    <li>Los productos de otras categorías no afectan el inventario</li>
-                                    <li>El sistema buscará automáticamente los productos por código o nombre</li>
-                                </ul>
-                            </div>
-                            
-                            <div class="invoice-customer">
-                                <h4><i class="fas fa-user"></i> Información del Cliente</h4>
-                                <div class="customer-info">
-                                    <div>
-                                        <strong>Nombre:</strong> {{ factura.nombre_cliente|default:"No especificado" }}
-                                    </div>
-                                    <div>
-                                        <strong>Teléfono:</strong> {{ factura.telefono_cliente|default:"No especificado" }}
-                                    </div>
-                                    <div>
-                                        <strong>Dirección:</strong> {{ factura.direccion_entrega|default:"No especificada" }}
-                                    </div>
-                                    <div>
-                                        <strong>Método de Pago:</strong> {{ factura.get_metodo_pago_display }}
                                     </div>
                                 </div>
                             </div>
@@ -1422,28 +1548,13 @@
                                     <span>Devolver Items</span>
                                 </button>
                                 
-                                <button type="button" class="btn-return exchange" onclick="mostrarMensajeCambio()">
-                                    <i class="fas fa-exchange-alt"></i>
-                                    <span>Cambiar Producto</span>
-                                </button>
-                            </div>
-                            <p style="color: #718096; margin-top: 1rem; font-size: 0.9rem;">
-                                <i class="fas fa-info-circle"></i> Los productos de categoría "bebida" se reponen automáticamente en el inventario.
-                            </p>
-                        </div>
-                        
-                        <!-- Sección de Anulación -->
-                        <div class="return-actions">
-                            <h3><i class="fas fa-ban"></i> Acciones de Anulación</h3>
-                            <div class="action-buttons">
-                                <button type="button" class="btn-return full" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);" 
-                                        onclick="abrirModalAnulacion()">
+                                <button type="button" class="btn-return exchange" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);" onclick="abrirModalAnulacion()">
                                     <i class="fas fa-ban"></i>
                                     <span>Anular Factura</span>
                                 </button>
                             </div>
                             <p style="color: #718096; margin-top: 1rem; font-size: 0.9rem;">
-                                <i class="fas fa-info-circle"></i> La anulación cambiará el estado de la factura y disminuirá el stock de bebidas.
+                                <i class="fas fa-info-circle"></i> Los productos de categoría "bebida" se reponen automáticamente en el inventario.
                             </p>
                         </div>
                         
@@ -1645,12 +1756,26 @@
 
     // Inicializar la aplicación
     document.addEventListener('DOMContentLoaded', function() {
+        const navEntry = performance.getEntriesByType('navigation')[0];
+        const isReload = (navEntry && navEntry.type === 'reload') ||
+            (performance.navigation && performance.navigation.type === 1);
+
+        // Si el usuario recarga, limpiar todo quitando parámetros de búsqueda.
+        if (isReload && window.location.search) {
+            window.location.replace(window.location.pathname);
+            return;
+        }
+
         console.log('🚀 DOM cargado completamente');
         setupEventListeners();
         
         // Permitir búsqueda con Enter
         const invoiceInput = document.getElementById('invoiceNumber');
         if (invoiceInput) {
+            if (!invoiceInput.value.trim() && facturaActual && facturaActual.numero) {
+                invoiceInput.value = facturaActual.numero;
+            }
+
             invoiceInput.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     this.form.submit();
@@ -2354,3 +2479,4 @@ function ocultarLoading() {
     </script>
 </body>
 </html>
+
