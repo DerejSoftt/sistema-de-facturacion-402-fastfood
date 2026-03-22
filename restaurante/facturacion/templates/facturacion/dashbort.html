@@ -612,6 +612,28 @@
             position: relative;
         }
 
+        .chart-empty-state {
+            display: none;
+            position: absolute;
+            inset: 0;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 1rem;
+            color: #6b7280;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 14px;
+        }
+
+        .chart-empty-state.show {
+            display: flex;
+        }
+
+        .chart-container.has-empty-state canvas {
+            opacity: 0.22;
+        }
+
         /* Recent Activity */
         .activity-section {
             background: white;
@@ -1508,24 +1530,22 @@
                         <div class="stat-card venta-dia">
                             <div class="stat-header">
                                 <div class="stat-icon"><i class="fas fa-dollar-sign"></i></div>
-                                <div
-                                    class="stat-trend {% if venta_dia > 0 %}trend-up{% else %}trend-neutral{% endif %}">
-                                    <span>{% if venta_dia > 0 %}<i class="fas fa-arrow-up"></i>{% else %}<i
-                                            class="fas fa-chart-line"></i>{% endif %}</span>
+                                <div class="stat-trend {{ trend_venta_dia_class }}">
                                     <span>
-                                        {% if venta_dia > 0 %}12%
-                                        {% else %}0%
-                                        {% endif %}
+                                        {% if trend_venta_dia_icon == 'up' %}<i class="fas fa-arrow-up"></i>
+                                        {% elif trend_venta_dia_icon == 'down' %}<i class="fas fa-arrow-down"></i>
+                                        {% else %}<i class="fas fa-chart-line"></i>{% endif %}
                                     </span>
+                                    <span>{{ trend_venta_dia|floatformat:1 }}%</span>
                                 </div>
                             </div>
                             <div class="stat-value" id="ventaDia">${{ venta_dia|floatformat:2|intcomma }}</div>
                             <div class="stat-label">Venta del Día</div>
                             <div class="stat-detail">
                                 {% if venta_dia > 0 %}
-                                {{ total_facturas_hoy }} factura(s) hoy
+                                {{ total_facturas_hoy }} factura(s) hoy • Tendencia vs ayer
                                 {% else %}
-                                No hay ventas registradas hoy
+                                No hay ventas registradas hoy • Tendencia vs ayer
                                 {% endif %}
                             </div>
                             <!-- Botones para generar PDF -->
@@ -1546,118 +1566,88 @@
                         <div class="stat-card venta-mes">
                             <div class="stat-header">
                                 <div class="stat-icon"><i class="fas fa-calendar-alt"></i></div>
-                                <div
-                                    class="stat-trend {% if venta_mes > 0 %}trend-up{% else %}trend-neutral{% endif %}">
-                                    <span>{% if venta_mes > 0 %}
-                                        <i class="fas fa-arrow-up"></i>
-                                        {% else %}<i class="fas fa-chart-line"></i>
-                                        {% endif %}
-                                    </span>
+                                <div class="stat-trend {{ trend_venta_mes_class }}">
                                     <span>
-                                        {% if venta_mes > 0 %}18%{% else %}0%
-                                        {% endif %}
+                                        {% if trend_venta_mes_icon == 'up' %}<i class="fas fa-arrow-up"></i>
+                                        {% elif trend_venta_mes_icon == 'down' %}<i class="fas fa-arrow-down"></i>
+                                        {% else %}<i class="fas fa-chart-line"></i>{% endif %}
                                     </span>
+                                    <span>{{ trend_venta_mes|floatformat:1 }}%</span>
                                 </div>
                             </div>
                             <div class="stat-value" id="ventaMes">${{ venta_mes|floatformat:2|intcomma }}</div>
                             <div class="stat-label">Venta del Mes</div>
-                            <div class="stat-detail">{{ total_facturas_mes }} factura(s) este mes</div>
+                            <div class="stat-detail">{{ total_facturas_mes }} factura(s) este mes • Tendencia vs mes anterior</div>
                         </div>
 
                         <div class="stat-card gastos">
                             <div class="stat-header">
                                 <div class="stat-icon"><i class="fas fa-arrow-down"></i></div>
-                                <div
-                                    class="stat-trend {% if gastos_totales > venta_mes|divisibleby:2 %}trend-down{% else %}trend-up{% endif %}">
-                                    <span>{% if gastos_totales > venta_mes|divisibleby:2 %}<i
-                                            class="fas fa-arrow-down"></i>
-                                        {% else %}
-                                        <i class="fas fa-arrow-up"></i>
-                                        {%endif %}
-                                    </span>
+                                <div class="stat-trend {{ trend_gastos_class }}">
                                     <span>
-                                        {% if gastos_totales > venta_mes|divisibleby:2 %}+
-                                        {% else %}-
-                                        {% endif %}
-                                        5%
+                                        {% if trend_gastos_icon == 'up' %}<i class="fas fa-arrow-up"></i>
+                                        {% elif trend_gastos_icon == 'down' %}<i class="fas fa-arrow-down"></i>
+                                        {% else %}<i class="fas fa-chart-line"></i>{% endif %}
                                     </span>
+                                    <span>{{ trend_gastos|floatformat:1 }}%</span>
                                 </div>
                             </div>
                             <div class="stat-value" id="gastosTotales">${{ gastos_totales|floatformat:2|intcomma }}
                             </div>
                             <div class="stat-label">Gastos Totales</div>
-                            <div class="stat-detail">Costo estimado de productos</div>
+                            <div class="stat-detail">Costo real de insumos vendidos • Tendencia vs mes anterior</div>
                         </div>
 
                         <div class="stat-card ganancias">
                             <div class="stat-header">
                                 <div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div>
-                                <div
-                                    class="stat-trend {% if ganancias_netas > 0 %}trend-up{% else %}trend-down{% endif %}">
+                                <div class="stat-trend {{ trend_ganancias_class }}">
                                     <span>
-                                        {% if ganancias_netas > 0 %}
-                                        <i class="fas fa-arrow-up"></i>
-                                        {% else %}
-                                        <i class="fas fa-arrow-down"></i>
-                                        {% endif %}
+                                        {% if trend_ganancias_icon == 'up' %}<i class="fas fa-arrow-up"></i>
+                                        {% elif trend_ganancias_icon == 'down' %}<i class="fas fa-arrow-down"></i>
+                                        {% else %}<i class="fas fa-chart-line"></i>{% endif %}
                                     </span>
-                                    <span>
-                                        {% if ganancias_netas > 0 %}
-                                        25%
-                                        {% elif ganancias_netas < 0 %} 15% {% else %} 0% {% endif %} </span>
+                                    <span>{{ trend_ganancias|floatformat:1 }}%</span>
                                 </div>
                             </div>
                             <div class="stat-value" id="gananciasNetas">${{ ganancias_netas|floatformat:2|intcomma }}
                             </div>
                             <div class="stat-label">Ganancias Netas</div>
-                            <div class="stat-detail">Después de gastos</div>
+                            <div class="stat-detail">Después de gastos • Tendencia vs mes anterior</div>
                         </div>
 
                         <div class="stat-card pedidos">
                             <div class="stat-header">
                                 <div class="stat-icon"><i class="fas fa-shopping-cart"></i></div>
-                                <div
-                                    class="stat-trend {% if total_pedidos > 0 %}trend-up{% else %}trend-neutral{% endif %}">
+                                <div class="stat-trend {{ trend_pedidos_class }}">
                                     <span>
-                                        {% if total_pedidos > 0 %}
-                                        <i class="fas fa-arrow-up"></i>
-                                        {% else %}
-                                        <i class="fas fa-chart-line"></i>
-                                        {% endif %}
+                                        {% if trend_pedidos_icon == 'up' %}<i class="fas fa-arrow-up"></i>
+                                        {% elif trend_pedidos_icon == 'down' %}<i class="fas fa-arrow-down"></i>
+                                        {% else %}<i class="fas fa-chart-line"></i>{% endif %}
                                     </span>
-
-                                    <span>
-                                        {% if total_pedidos > 10 %}
-                                        15%
-                                        {% elif total_pedidos > 0 %}
-                                        5%
-                                        {% else %}
-                                        0%
-                                        {% endif %}
-                                    </span>
+                                    <span>{{ trend_pedidos|floatformat:1 }}%</span>
                                 </div>
                             </div>
                             <div class="stat-value" id="totalPedidos">{{ total_pedidos }}</div>
                             <div class="stat-label">Pedidos Hoy</div>
-                            <div class="stat-detail">Total de pedidos recibidos</div>
+                            <div class="stat-detail">Total de pedidos recibidos • Tendencia vs ayer</div>
                         </div>
 
                         <div class="stat-card clientes">
                             <div class="stat-header">
                                 <div class="stat-icon"><i class="fas fa-users"></i></div>
-                                <div
-                                    class="stat-trend {% if nuevos_clientes > 0 %}trend-up{% else %}trend-neutral{% endif %}">
-                                    <span>{% if nuevos_clientes > 0 %}<i class="fas fa-arrow-up"></i>{% else %}<i
-                                            class="fas fa-chart-line"></i>{% endif %}</span>
+                                <div class="stat-trend {{ trend_clientes_class }}">
                                     <span>
-                                        {% if nuevos_clientes > 0 %}+{% endif %}
-                                        {{ nuevos_clientes|add:"0" }}
+                                        {% if trend_clientes_icon == 'up' %}<i class="fas fa-arrow-up"></i>
+                                        {% elif trend_clientes_icon == 'down' %}<i class="fas fa-arrow-down"></i>
+                                        {% else %}<i class="fas fa-chart-line"></i>{% endif %}
                                     </span>
+                                    <span>{{ trend_clientes|floatformat:1 }}%</span>
                                 </div>
                             </div>
                             <div class="stat-value" id="nuevosClientes">{{ nuevos_clientes }}</div>
                             <div class="stat-label">Nuevos Clientes</div>
-                            <div class="stat-detail">Clientes únicos este mes</div>
+                            <div class="stat-detail">Clientes únicos este mes • Tendencia vs mes anterior</div>
                         </div>
                     </div>
 
@@ -1690,8 +1680,9 @@
                                     <button class="chart-btn" onclick="setCategoryChart('method')">Método</button>
                                 </div>
                             </div>
-                            <div class="chart-container">
+                            <div class="chart-container" id="categoryChartContainer">
                                 <canvas id="categoryChart"></canvas>
+                                <div class="chart-empty-state" id="categoryChartEmptyState">Sin datos reales disponibles</div>
                             </div>
                         </div>
                     </div>
@@ -1795,13 +1786,12 @@
                                                 {% if productos_top.0.cantidad > 0 %}
                                                 {% with max_cantidad=productos_top.0.cantidad %}
                                                 {% widthratio producto.cantidad max_cantidad 100 as porcentaje %}
-                                                <div class="sales-bar" style="--progreso: {{ porcentaje }}%;">
-                                                    <div class="sales-fill 
-                                                        {% if porcentaje|add:'0' > 70 %}high
-                                                        {% elif porcentaje|add:'0' > 40 %}medium
-                                                        {% else %}low
-                                                        {% endif %}">
-                                                    </div>
+                                                <div class="sales-fill 
+                                                    {% if porcentaje|add:'0' > 70 %}high
+                                                    {% elif porcentaje|add:'0' > 40 %}medium
+                                                    {% else %}low
+                                                    {% endif %}"
+                                                    style="width: {{ porcentaje }}%;">
                                                 </div>
                                                 {% endwith %}
                                                 {% endif %}
@@ -1809,13 +1799,17 @@
                                             <span style="font-weight: 600;">{{ producto.cantidad|floatformat:0 }}</span>
                                         </div>
                                     </td>
-                                    <td style="font-weight: 700; color: #4CAF50;">${{
-                                        producto.ingresos|floatformat:2|intcomma }}</td>
+                                    <td style="font-weight: 700; color: #4CAF50;">${{ producto.ingresos|default:0|floatformat:2|intcomma }}</td>
                                     <td>
                                         <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                            <span><i class="fas fa-arrow-up"></i></span>
-                                            <span style="font-weight: 600; color: #4CAF50;">
-                                                +{{ producto.cantidad|divisibleby:5|add:"10" }}%
+                                            <span>
+                                                {% if producto.trend_icon == 'up' %}<i class="fas fa-arrow-up"></i>
+                                                {% elif producto.trend_icon == 'down' %}<i class="fas fa-arrow-down"></i>
+                                                {% else %}<i class="fas fa-minus"></i>{% endif %}
+                                            </span>
+                                            <span style="font-weight: 600;"
+                                                class="{{ producto.trend_class }}">
+                                                {{ producto.trend_pct|floatformat:1 }}%
                                             </span>
                                         </div>
                                     </td>
@@ -1858,6 +1852,11 @@
         let anioLabels = null;
         let categoriasData = null;
         let ventasCategoriasData = null;
+        let horariosData = null;
+        let ventasHorariosData = null;
+        let metodosPagoData = null;
+        let ventasMetodosPagoData = null;
+        let chartDataLoadError = false;
 
         // Inicializar la aplicación
         document.addEventListener('DOMContentLoaded', function () {
@@ -1896,11 +1895,18 @@
                 anioData = JSON.parse('{{ proyeccion_anual_json|escapejs }}');
                 categoriasData = JSON.parse('{{ categorias_grafico|escapejs }}');
                 ventasCategoriasData = JSON.parse('{{ ventas_categorias_grafico|escapejs }}');
+                horariosData = JSON.parse('{{ horarios_grafico|escapejs }}');
+                ventasHorariosData = JSON.parse('{{ ventas_horarios_grafico|escapejs }}');
+                metodosPagoData = JSON.parse('{{ metodos_pago_grafico|escapejs }}');
+                ventasMetodosPagoData = JSON.parse('{{ ventas_metodos_pago_grafico|escapejs }}');
+                chartDataLoadError = false;
 
                 console.log('Datos de semana cargados:', semanaLabels, semanaData);
                 console.log('Datos mensuales cargados:', mesLabels, mesData);
                 console.log('Datos anuales cargados:', anioLabels, anioData);
                 console.log('Datos categorías cargados:', categoriasData, ventasCategoriasData);
+                console.log('Datos horarios cargados:', horariosData, ventasHorariosData);
+                console.log('Datos método pago cargados:', metodosPagoData, ventasMetodosPagoData);
 
                 // Verificar que los datos no estén vacíos
                 if (semanaData.every(val => val === 0)) {
@@ -1911,15 +1917,21 @@
 
             } catch (e) {
                 console.error('Error cargando datos procesados:', e);
-                // En caso de error, usar datos vacíos
-                semanaLabels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-                semanaData = [0, 0, 0, 0, 0, 0, 0];
-                mesLabels = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
-                mesData = [0, 0, 0, 0];
-                anioLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-                anioData = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-                categoriasData = ['Entradas', 'Platos Fuertes', 'Postres', 'Bebidas', 'Otros'];
-                ventasCategoriasData = [0, 0, 0, 0, 0];
+                chartDataLoadError = true;
+                // Mantener datasets vacíos para no simular datos de negocio.
+                semanaLabels = [];
+                semanaData = [];
+                mesLabels = [];
+                mesData = [];
+                anioLabels = [];
+                anioData = [];
+                categoriasData = [];
+                ventasCategoriasData = [];
+                horariosData = [];
+                ventasHorariosData = [];
+                metodosPagoData = [];
+                ventasMetodosPagoData = [];
+                showNotification('Error al cargar datos reales del dashboard. Intenta recargar la página.', 'error');
             }
         }
 
@@ -1993,6 +2005,11 @@
         // Función para diagnóstico de datos
         function diagnosticarDatosGraficos() {
             console.log('=== DIAGNÓSTICO DE DATOS DE GRÁFICOS ===');
+
+            if (chartDataLoadError) {
+                console.warn('⚠️ Error de carga: los gráficos están en estado sin datos');
+                return;
+            }
 
             // Verificar datos de semana
             console.log('Datos de semana:', semanaData);
@@ -2140,6 +2157,31 @@
             };
 
             categoryChartInstance = new Chart(ctx, config);
+            const sinDatos = !hasRealChartData(categoriasData, ventasCategoriasData);
+            setCategoryChartEmptyState(sinDatos, chartDataLoadError);
+        }
+
+        function hasRealChartData(labels, data) {
+            if (!Array.isArray(labels) || !Array.isArray(data)) return false;
+            if (labels.length === 0 || data.length === 0) return false;
+            return data.some(value => Number(value) > 0);
+        }
+
+        function setCategoryChartEmptyState(show, isError = false) {
+            const container = document.getElementById('categoryChartContainer');
+            const emptyState = document.getElementById('categoryChartEmptyState');
+            if (!container || !emptyState) return;
+
+            if (show) {
+                emptyState.textContent = isError
+                    ? 'Sin datos reales disponibles (error de carga)'
+                    : 'Sin datos reales disponibles';
+                emptyState.classList.add('show');
+                container.classList.add('has-empty-state');
+            } else {
+                emptyState.classList.remove('show');
+                container.classList.remove('has-empty-state');
+            }
         }
 
         // Actualizar gráfico de ventas según período
@@ -2198,8 +2240,8 @@
                     break;
 
                 case 'time':
-                    labels = ['Mañana', 'Mediodía', 'Tarde', 'Noche'];
-                    data = [20, 45, 25, 10];
+                    labels = horariosData;
+                    data = ventasHorariosData;
                     backgroundColor = [
                         'rgba(255, 126, 95, 0.8)',
                         'rgba(76, 175, 80, 0.8)',
@@ -2215,8 +2257,8 @@
                     break;
 
                 case 'method':
-                    labels = ['Efectivo', 'Tarjeta', 'Transferencia'];
-                    data = [35, 50, 15];
+                    labels = metodosPagoData;
+                    data = ventasMetodosPagoData;
                     backgroundColor = [
                         'rgba(76, 175, 80, 0.8)',
                         'rgba(33, 150, 243, 0.8)',
@@ -2235,6 +2277,9 @@
             categoryChartInstance.data.datasets[0].backgroundColor = backgroundColor;
             categoryChartInstance.data.datasets[0].borderColor = borderColor;
             categoryChartInstance.update();
+
+            const sinDatos = !hasRealChartData(labels, data);
+            setCategoryChartEmptyState(sinDatos, chartDataLoadError);
         }
 
         // Configurar período del gráfico
