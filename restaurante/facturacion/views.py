@@ -3581,9 +3581,14 @@ def acceso_modulo_requerido(modulo):
     return decorator
 
 
-def calcular_costo_real_facturas(facturas_queryset):
+def calcular_costo_real_facturas(facturas_queryset, include_stats=False):
     """Calcula costo real (cantidad vendida x precio de compra) usando los items facturados."""
     costo_total = Decimal('0.00')
+    stats = {
+        'items_validos': 0,
+        'items_mapeados': 0,
+        'items_no_mapeados': 0,
+    }
 
     productos = Producto.objects.only('id', 'codigo', 'nombre', 'precio_compra')
     productos_por_id = {producto.id: producto for producto in productos}
@@ -3617,6 +3622,8 @@ def calcular_costo_real_facturas(facturas_queryset):
             if cantidad <= 0:
                 continue
 
+            stats['items_validos'] += 1
+
             producto_db = None
 
             producto_id = item.get('producto_id') or item.get('product_id') or item.get('id')
@@ -3637,7 +3644,13 @@ def calcular_costo_real_facturas(facturas_queryset):
                     producto_db = productos_por_nombre.get(nombre)
 
             if producto_db and producto_db.precio_compra is not None:
+                stats['items_mapeados'] += 1
                 costo_total += producto_db.precio_compra * cantidad
+            else:
+                stats['items_no_mapeados'] += 1
+
+    if include_stats:
+        return costo_total, stats
 
     return costo_total
 
@@ -3775,7 +3788,10 @@ def dashbort(request):
     ).count()
 
     # 4. GASTOS TOTALES - Costos reales según items facturados
-    gastos_totales = calcular_costo_real_facturas(facturas_mes)
+    gastos_totales, costo_mes_stats = calcular_costo_real_facturas(
+        facturas_mes,
+        include_stats=True
+    )
     facturas_mes_pasado_qs = Factura.objects.filter(
         fecha_factura__gte=inicio_mes_pasado_time,
         fecha_factura__lte=fin_mes_pasado_time,
@@ -3969,37 +3985,27 @@ def dashbort(request):
         ventas_categorias_data = []
 
     # 11. DATOS PARA GRÁFICOS DE MES Y AÑO (DATOS REALES)
-    # Etiquetas para gráfico mensual (últimas 4 semanas)
+    # Mensual: ventas por día del mes calendario actual (alineado con tarjeta de venta mensual)
     labels_mensuales = []
     proyeccion_mensual = []
-    
-    # Calcular ventas de las últimas 4 semanas
-    for semana in range(4):
-        fecha_inicio_semana = hoy_local - timedelta(weeks=semana, days=hoy_local.weekday())
-        fecha_fin_semana = fecha_inicio_semana + timedelta(days=6)
-        
-        # Ajustar horas para el período
-        inicio_semana = timezone.make_aware(
-            datetime.combine(fecha_inicio_semana, datetime(2000, 1, 1, 6, 0, 0).time())
+
+    for dia in range(1, hoy_local.day + 1):
+        fecha_dia = hoy_local.replace(day=dia)
+        inicio_dia_cal = timezone.make_aware(
+            datetime.combine(fecha_dia, datetime.min.time())
         )
-        fin_semana = timezone.make_aware(
-            datetime.combine(fecha_fin_semana + timedelta(days=1),
-                             datetime(2000, 1, 1, 5, 59, 59).time())
+        fin_dia_cal = timezone.make_aware(
+            datetime.combine(fecha_dia, datetime.max.time())
         )
-        
-        # Obtener ventas de esta semana
-        venta_semana = Factura.objects.filter(
-            fecha_factura__gte=inicio_semana,
-            fecha_factura__lte=fin_semana,
+
+        venta_dia_mes = Factura.objects.filter(
+            fecha_factura__gte=inicio_dia_cal,
+            fecha_factura__lte=fin_dia_cal,
             estado='pagada'
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-        
-        labels_mensuales.append(f"Sem {semana+1}")
-        proyeccion_mensual.append(float(venta_semana))
-    
-    # Invertir para que la última semana sea la primera
-    labels_mensuales = labels_mensuales[::-1]
-    proyeccion_mensual = proyeccion_mensual[::-1]
+
+        labels_mensuales.append(fecha_dia.strftime('%d %b'))
+        proyeccion_mensual.append(float(venta_dia_mes))
     
     # Etiquetas para gráfico anual (últimos 12 meses)
     labels_anuales = []
@@ -4040,10 +4046,6 @@ def dashbort(request):
         labels_anuales.append(meses_esp[fecha_mes.month - 1])
         proyeccion_anual.append(float(venta_mes_grafico))
     
-    # Invertir para que enero sea primero
-    labels_anuales = labels_anuales[::-1]
-    proyeccion_anual = proyeccion_anual[::-1]
-
     # 12. DATOS REALES PARA GRÁFICO DE HORARIO Y MÉTODO DE PAGO
     # Se usa el mes actual para tener una muestra más estable.
     horario_labels = ['Mañana', 'Mediodía', 'Tarde', 'Noche']
@@ -4185,6 +4187,10 @@ def dashbort(request):
         'trend_clientes': round(abs(trend_clientes), 1),
         'trend_clientes_icon': 'up' if trend_clientes > 0 else 'down' if trend_clientes < 0 else 'neutral',
         'trend_clientes_class': 'trend-up' if trend_clientes > 0 else 'trend-down' if trend_clientes < 0 else 'trend-neutral',
+        'costos_items_validos': costo_mes_stats['items_validos'],
+        'costos_items_mapeados': costo_mes_stats['items_mapeados'],
+        'costos_items_no_mapeados': costo_mes_stats['items_no_mapeados'],
+        'dashboard_debug': settings.DEBUG,
     }
 
     return render(request, 'facturacion/dashbort.html', context)
@@ -4194,6 +4200,31 @@ def dashbort(request):
 def dashboard_stats(request):
     """Vista API para obtener estadísticas en formato JSON"""
     try:
+        def calcular_cambio_porcentual(actual, anterior):
+            actual_val = float(actual or 0)
+            anterior_val = float(anterior or 0)
+            if anterior_val > 0:
+                return ((actual_val - anterior_val) / anterior_val) * 100
+            if actual_val > 0:
+                return 100.0
+            return 0.0
+
+        def obtener_cantidad_precio_item(item):
+            cantidad_raw = item.get('quantity', item.get('cantidad', 0))
+            precio_raw = item.get('price', item.get('precio', 0))
+
+            try:
+                cantidad = float(cantidad_raw or 0)
+            except (TypeError, ValueError):
+                cantidad = 0.0
+
+            try:
+                precio = float(precio_raw or 0)
+            except (TypeError, ValueError):
+                precio = 0.0
+
+            return cantidad, precio
+
         # Obtener hora local actual
         ahora_local = timezone.localtime()
         hoy_local = ahora_local.date()
@@ -4251,17 +4282,56 @@ def dashboard_stats(request):
         venta_mes = facturas_mes.aggregate(total_mes=Sum('total'))[
             'total_mes'] or Decimal('0.00')
 
+        # Ventas del día anterior
+        inicio_dia_anterior = inicio_dia - timedelta(days=1)
+        fin_dia_anterior = fin_dia - timedelta(days=1)
+        venta_dia_anterior = Factura.objects.filter(
+            fecha_factura__gte=inicio_dia_anterior,
+            fecha_factura__lte=fin_dia_anterior,
+            estado='pagada'
+        ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+        # Ventas del mes anterior
+        mes_pasado = hoy_local.replace(day=1) - timedelta(days=1)
+        inicio_mes_pasado = mes_pasado.replace(day=1)
+        fin_mes_pasado = mes_pasado
+
+        inicio_mes_pasado_time = timezone.make_aware(
+            datetime.combine(inicio_mes_pasado, datetime.min.time())
+        )
+        fin_mes_pasado_time = timezone.make_aware(
+            datetime.combine(fin_mes_pasado, datetime.max.time())
+        )
+
+        facturas_mes_pasado_qs = Factura.objects.filter(
+            fecha_factura__gte=inicio_mes_pasado_time,
+            fecha_factura__lte=fin_mes_pasado_time,
+            estado='pagada'
+        )
+
+        venta_mes_pasado = facturas_mes_pasado_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
         # 3. PEDIDOS HOY
         total_pedidos = Pedido.objects.filter(
             fecha_pedido__gte=inicio_dia,
             fecha_pedido__lte=fin_dia
         ).count()
 
+        total_pedidos_ayer = Pedido.objects.filter(
+            fecha_pedido__gte=inicio_dia_anterior,
+            fecha_pedido__lte=fin_dia_anterior
+        ).count()
+
         # 4. GASTOS TOTALES (costos reales)
-        gastos_totales = calcular_costo_real_facturas(facturas_mes)
+        gastos_totales, costo_mes_stats = calcular_costo_real_facturas(
+            facturas_mes,
+            include_stats=True
+        )
+        gastos_totales_mes_pasado = calcular_costo_real_facturas(facturas_mes_pasado_qs)
 
         # 5. GANANCIAS NETAS
         ganancias_netas = venta_mes - gastos_totales
+        ganancias_netas_mes_pasado = venta_mes_pasado - gastos_totales_mes_pasado
 
         # 6. NUEVOS CLIENTES (MES ACTUAL)
         nuevos_clientes = Factura.objects.filter(
@@ -4269,6 +4339,248 @@ def dashboard_stats(request):
             fecha_factura__lte=fin_mes,
             estado='pagada'
         ).exclude(nombre_cliente='').values('nombre_cliente').distinct().count()
+
+        nuevos_clientes_mes_pasado = Factura.objects.filter(
+            fecha_factura__gte=inicio_mes_pasado_time,
+            fecha_factura__lte=fin_mes_pasado_time,
+            estado='pagada'
+        ).exclude(nombre_cliente='').values('nombre_cliente').distinct().count()
+
+        # 7. PRODUCTOS TOP + TENDENCIA
+        productos_vendidos = {}
+        for factura in facturas_hoy:
+            try:
+                items = factura.get_items_detalle()
+                if items and isinstance(items, list):
+                    for item in items:
+                        nombre = item.get('name', '').strip() or item.get('nombre', '').strip()
+                        if not nombre:
+                            continue
+
+                        cantidad, precio = obtener_cantidad_precio_item(item)
+                        if cantidad <= 0:
+                            continue
+
+                        if nombre in productos_vendidos:
+                            productos_vendidos[nombre]['cantidad'] += cantidad
+                            productos_vendidos[nombre]['ingresos'] += Decimal(str(cantidad * precio))
+                        else:
+                            productos_vendidos[nombre] = {
+                                'nombre': nombre,
+                                'cantidad': cantidad,
+                                'ingresos': Decimal(str(cantidad * precio))
+                            }
+            except Exception:
+                continue
+
+        productos_top = sorted(
+            productos_vendidos.values(),
+            key=lambda x: x['cantidad'],
+            reverse=True
+        )[:5]
+
+        productos_ayer = {}
+        facturas_ayer = Factura.objects.filter(
+            fecha_factura__gte=inicio_dia_anterior,
+            fecha_factura__lte=fin_dia_anterior,
+            estado='pagada'
+        )
+
+        for factura in facturas_ayer:
+            try:
+                items = factura.get_items_detalle()
+                if items and isinstance(items, list):
+                    for item in items:
+                        nombre = item.get('name', '').strip() or item.get('nombre', '').strip()
+                        if not nombre:
+                            continue
+
+                        cantidad, _ = obtener_cantidad_precio_item(item)
+                        if cantidad <= 0:
+                            continue
+
+                        productos_ayer[nombre] = productos_ayer.get(nombre, 0) + cantidad
+            except Exception:
+                continue
+
+        productos_top_json = []
+        for producto in productos_top:
+            anterior = float(productos_ayer.get(producto['nombre'], 0))
+            actual = float(producto['cantidad'])
+            cambio = calcular_cambio_porcentual(actual, anterior)
+
+            trend_icon = 'up' if cambio > 0 else 'down' if cambio < 0 else 'neutral'
+            trend_class = 'trend-up' if cambio > 0 else 'trend-down' if cambio < 0 else 'trend-neutral'
+
+            productos_top_json.append({
+                'nombre': producto['nombre'],
+                'cantidad': float(producto['cantidad']),
+                'ingresos': float(producto['ingresos']),
+                'trend_pct': round(abs(cambio), 1),
+                'trend_icon': trend_icon,
+                'trend_class': trend_class,
+            })
+
+        # 8. GRAFICO VENTAS SEMANA
+        ultimos_7_dias = []
+        ventas_7_dias = []
+
+        for i in range(6, -1, -1):
+            dia_referencia = hoy_local - timedelta(days=i)
+
+            if i == 0:
+                dia_inicio = inicio_dia
+                dia_fin = fin_dia
+                dia_str = 'Hoy'
+            else:
+                dia_inicio = timezone.make_aware(
+                    datetime.combine(dia_referencia, datetime(2000, 1, 1, 6, 0, 0).time())
+                )
+                dia_fin = timezone.make_aware(
+                    datetime.combine(dia_referencia + timedelta(days=1), datetime(2000, 1, 1, 5, 59, 59).time())
+                )
+                dia_str = dia_referencia.strftime('%a')
+
+            venta_dia_grafico = Factura.objects.filter(
+                fecha_factura__gte=dia_inicio,
+                fecha_factura__lte=dia_fin,
+                estado='pagada'
+            ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+            ultimos_7_dias.append(dia_str)
+            ventas_7_dias.append(float(venta_dia_grafico))
+
+        # 9. GRAFICO CATEGORIAS
+        categorias_dict = {}
+        for factura in facturas_hoy:
+            items = factura.get_items_detalle()
+            if items and isinstance(items, list):
+                for item in items:
+                    categoria = item.get('categoria', item.get('category', 'otro')).lower()
+                    cantidad, precio = obtener_cantidad_precio_item(item)
+                    categorias_dict[categoria] = categorias_dict.get(categoria, 0) + (cantidad * precio)
+
+        if not categorias_dict:
+            for factura in facturas_mes:
+                items = factura.get_items_detalle()
+                if items and isinstance(items, list):
+                    for item in items:
+                        categoria = item.get('categoria', item.get('category', 'otro')).lower()
+                        cantidad, precio = obtener_cantidad_precio_item(item)
+                        categorias_dict[categoria] = categorias_dict.get(categoria, 0) + (cantidad * precio)
+
+        categorias_data = list(categorias_dict.keys()) if categorias_dict else []
+        ventas_categorias_data = list(categorias_dict.values()) if categorias_dict else []
+
+        # 10. GRAFICOS MES Y ANIO
+        # Mensual: ventas por día del mes calendario actual (alineado con tarjeta de venta mensual)
+        labels_mensuales = []
+        proyeccion_mensual = []
+        for dia in range(1, hoy_local.day + 1):
+            fecha_dia = hoy_local.replace(day=dia)
+            inicio_dia_cal = timezone.make_aware(
+                datetime.combine(fecha_dia, datetime.min.time())
+            )
+            fin_dia_cal = timezone.make_aware(
+                datetime.combine(fecha_dia, datetime.max.time())
+            )
+
+            venta_dia_mes = Factura.objects.filter(
+                fecha_factura__gte=inicio_dia_cal,
+                fecha_factura__lte=fin_dia_cal,
+                estado='pagada'
+            ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+            labels_mensuales.append(fecha_dia.strftime('%d %b'))
+            proyeccion_mensual.append(float(venta_dia_mes))
+
+        labels_anuales = []
+        proyeccion_anual = []
+        meses_esp = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+
+        for i in range(11, -1, -1):
+            fecha_mes = hoy_local.replace(day=1)
+            for _ in range(i):
+                fecha_mes = (fecha_mes.replace(day=1) - timedelta(days=1)).replace(day=1)
+
+            if fecha_mes.month == 12:
+                ultimo_dia = fecha_mes.replace(day=31)
+            else:
+                ultimo_dia = fecha_mes.replace(month=fecha_mes.month + 1, day=1) - timedelta(days=1)
+
+            inicio_mes_grafico = timezone.make_aware(datetime.combine(fecha_mes, datetime.min.time()))
+            fin_mes_grafico = timezone.make_aware(datetime.combine(ultimo_dia, datetime.max.time()))
+
+            venta_mes_grafico = Factura.objects.filter(
+                fecha_factura__gte=inicio_mes_grafico,
+                fecha_factura__lte=fin_mes_grafico,
+                estado='pagada'
+            ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+            labels_anuales.append(meses_esp[fecha_mes.month - 1])
+            proyeccion_anual.append(float(venta_mes_grafico))
+
+        # 12. ACTIVIDAD RECIENTE SERIALIZADA PARA REFRESCO AJAX
+        actividades_recientes = Factura.objects.filter(
+            estado='pagada'
+        ).order_by('-fecha_factura')[:5]
+        actividades_json = [
+            {
+                'numero_factura': factura.numero_factura,
+                'fecha': timezone.localtime(factura.fecha_factura).strftime('%d/%m/%Y %H:%M'),
+                'cliente': factura.nombre_cliente or 'No especificado',
+                'estado': factura.estado,
+                'total': float(factura.total or 0),
+            }
+            for factura in actividades_recientes
+        ]
+
+        # 11. GRAFICO HORARIO Y METODO
+        horario_labels = ['Mañana', 'Mediodía', 'Tarde', 'Noche']
+        horario_totales = {
+            'Mañana': Decimal('0.00'),
+            'Mediodía': Decimal('0.00'),
+            'Tarde': Decimal('0.00'),
+            'Noche': Decimal('0.00'),
+        }
+
+        metodo_labels = ['Efectivo', 'Tarjeta', 'Transferencia']
+        metodo_totales = {
+            'efectivo': Decimal('0.00'),
+            'tarjeta': Decimal('0.00'),
+            'transferencia': Decimal('0.00'),
+        }
+
+        for factura in facturas_mes:
+            fecha_local_factura = timezone.localtime(factura.fecha_factura)
+            hora = fecha_local_factura.hour
+
+            if 6 <= hora <= 11:
+                horario_totales['Mañana'] += factura.total
+            elif 12 <= hora <= 16:
+                horario_totales['Mediodía'] += factura.total
+            elif 17 <= hora <= 20:
+                horario_totales['Tarde'] += factura.total
+            else:
+                horario_totales['Noche'] += factura.total
+
+            metodo = (factura.metodo_pago or '').lower().strip()
+            if metodo in metodo_totales:
+                metodo_totales[metodo] += factura.total
+
+        ventas_horarios_data = [float(horario_totales[label]) for label in horario_labels]
+        ventas_metodos_data = [
+            float(metodo_totales['efectivo']),
+            float(metodo_totales['tarjeta']),
+            float(metodo_totales['transferencia'])
+        ]
+
+        trend_venta_dia = calcular_cambio_porcentual(venta_dia, venta_dia_anterior)
+        trend_venta_mes = calcular_cambio_porcentual(venta_mes, venta_mes_pasado)
+        trend_gastos = calcular_cambio_porcentual(gastos_totales, gastos_totales_mes_pasado)
+        trend_ganancias = calcular_cambio_porcentual(ganancias_netas, ganancias_netas_mes_pasado)
+        trend_pedidos = calcular_cambio_porcentual(total_pedidos, total_pedidos_ayer)
+        trend_clientes = calcular_cambio_porcentual(nuevos_clientes, nuevos_clientes_mes_pasado)
 
         # Retornar datos como JSON
         return JsonResponse({
@@ -4278,10 +4590,45 @@ def dashboard_stats(request):
             'gastos_totales': float(gastos_totales),
             'ganancias_netas': float(ganancias_netas),
             'nuevos_clientes': nuevos_clientes,
+            'trend_venta_dia': round(abs(trend_venta_dia), 1),
+            'trend_venta_dia_icon': 'up' if trend_venta_dia > 0 else 'down' if trend_venta_dia < 0 else 'neutral',
+            'trend_venta_dia_class': 'trend-up' if trend_venta_dia > 0 else 'trend-down' if trend_venta_dia < 0 else 'trend-neutral',
+            'trend_venta_mes': round(abs(trend_venta_mes), 1),
+            'trend_venta_mes_icon': 'up' if trend_venta_mes > 0 else 'down' if trend_venta_mes < 0 else 'neutral',
+            'trend_venta_mes_class': 'trend-up' if trend_venta_mes > 0 else 'trend-down' if trend_venta_mes < 0 else 'trend-neutral',
+            'trend_gastos': round(abs(trend_gastos), 1),
+            'trend_gastos_icon': 'up' if trend_gastos > 0 else 'down' if trend_gastos < 0 else 'neutral',
+            'trend_gastos_class': 'trend-down' if trend_gastos > 0 else 'trend-up' if trend_gastos < 0 else 'trend-neutral',
+            'trend_ganancias': round(abs(trend_ganancias), 1),
+            'trend_ganancias_icon': 'up' if trend_ganancias > 0 else 'down' if trend_ganancias < 0 else 'neutral',
+            'trend_ganancias_class': 'trend-up' if trend_ganancias > 0 else 'trend-down' if trend_ganancias < 0 else 'trend-neutral',
+            'trend_pedidos': round(abs(trend_pedidos), 1),
+            'trend_pedidos_icon': 'up' if trend_pedidos > 0 else 'down' if trend_pedidos < 0 else 'neutral',
+            'trend_pedidos_class': 'trend-up' if trend_pedidos > 0 else 'trend-down' if trend_pedidos < 0 else 'trend-neutral',
+            'trend_clientes': round(abs(trend_clientes), 1),
+            'trend_clientes_icon': 'up' if trend_clientes > 0 else 'down' if trend_clientes < 0 else 'neutral',
+            'trend_clientes_class': 'trend-up' if trend_clientes > 0 else 'trend-down' if trend_clientes < 0 else 'trend-neutral',
+            'productos_top': productos_top_json,
+            'dias_grafico': ultimos_7_dias,
+            'ventas_grafico': ventas_7_dias,
+            'labels_mensuales': labels_mensuales,
+            'proyeccion_mensual': proyeccion_mensual,
+            'labels_anuales': labels_anuales,
+            'proyeccion_anual': proyeccion_anual,
+            'categorias_grafico': categorias_data,
+            'ventas_categorias_grafico': ventas_categorias_data,
+            'horarios_grafico': horario_labels,
+            'ventas_horarios_grafico': ventas_horarios_data,
+            'metodos_pago_grafico': metodo_labels,
+            'ventas_metodos_pago_grafico': ventas_metodos_data,
             'fecha_actual': ahora_local.strftime('%A, %d de %B de %Y'),
             'hora_actual': ahora_local.strftime('%H:%M:%S'),
             'total_facturas_hoy': facturas_hoy.count(),
             'total_facturas_mes': facturas_mes.count(),
+            'costos_items_validos': costo_mes_stats['items_validos'],
+            'costos_items_mapeados': costo_mes_stats['items_mapeados'],
+            'costos_items_no_mapeados': costo_mes_stats['items_no_mapeados'],
+            'actividades': actividades_json,
             'status': 'success'
         })
 
@@ -6081,9 +6428,13 @@ def procesar_devolucion_parcial(request):
                 )
                 return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
 
-            productos_devueltos = json.loads(productos_json)
+            try:
+                productos_devueltos = json.loads(productos_json)
+            except json.JSONDecodeError:
+                messages.error(request, 'Formato inválido de productos devueltos')
+                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
 
-            if not productos_devueltos:
+            if not isinstance(productos_devueltos, list) or not productos_devueltos:
                 messages.error(request, 'Debes seleccionar productos')
                 return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
 

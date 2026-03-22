@@ -1302,6 +1302,7 @@
                         </div>
                     </div>
 
+                    {% if dashboard_debug %}
                     <!-- Debug Section -->
                     <div class="debug-section">
                         <div class="debug-header">
@@ -1524,19 +1525,20 @@
                             </div>
                         </div>
                     </div>
+                    {% endif %}
 
                     <!-- Stats Cards -->
                     <div class="stats-container">
                         <div class="stat-card venta-dia">
                             <div class="stat-header">
                                 <div class="stat-icon"><i class="fas fa-dollar-sign"></i></div>
-                                <div class="stat-trend {{ trend_venta_dia_class }}">
-                                    <span>
+                                <div class="stat-trend {{ trend_venta_dia_class }}" id="trendVentaDia">
+                                    <span id="trendVentaDiaIcon">
                                         {% if trend_venta_dia_icon == 'up' %}<i class="fas fa-arrow-up"></i>
                                         {% elif trend_venta_dia_icon == 'down' %}<i class="fas fa-arrow-down"></i>
                                         {% else %}<i class="fas fa-chart-line"></i>{% endif %}
                                     </span>
-                                    <span>{{ trend_venta_dia|floatformat:1 }}%</span>
+                                    <span id="trendVentaDiaValue">{{ trend_venta_dia|floatformat:1 }}%</span>
                                 </div>
                             </div>
                             <div class="stat-value" id="ventaDia">${{ venta_dia|floatformat:2|intcomma }}</div>
@@ -1566,13 +1568,13 @@
                         <div class="stat-card venta-mes">
                             <div class="stat-header">
                                 <div class="stat-icon"><i class="fas fa-calendar-alt"></i></div>
-                                <div class="stat-trend {{ trend_venta_mes_class }}">
-                                    <span>
+                                <div class="stat-trend {{ trend_venta_mes_class }}" id="trendVentaMes">
+                                    <span id="trendVentaMesIcon">
                                         {% if trend_venta_mes_icon == 'up' %}<i class="fas fa-arrow-up"></i>
                                         {% elif trend_venta_mes_icon == 'down' %}<i class="fas fa-arrow-down"></i>
                                         {% else %}<i class="fas fa-chart-line"></i>{% endif %}
                                     </span>
-                                    <span>{{ trend_venta_mes|floatformat:1 }}%</span>
+                                    <span id="trendVentaMesValue">{{ trend_venta_mes|floatformat:1 }}%</span>
                                 </div>
                             </div>
                             <div class="stat-value" id="ventaMes">${{ venta_mes|floatformat:2|intcomma }}</div>
@@ -1583,31 +1585,31 @@
                         <div class="stat-card gastos">
                             <div class="stat-header">
                                 <div class="stat-icon"><i class="fas fa-arrow-down"></i></div>
-                                <div class="stat-trend {{ trend_gastos_class }}">
-                                    <span>
+                                <div class="stat-trend {{ trend_gastos_class }}" id="trendGastos">
+                                    <span id="trendGastosIcon">
                                         {% if trend_gastos_icon == 'up' %}<i class="fas fa-arrow-up"></i>
                                         {% elif trend_gastos_icon == 'down' %}<i class="fas fa-arrow-down"></i>
                                         {% else %}<i class="fas fa-chart-line"></i>{% endif %}
                                     </span>
-                                    <span>{{ trend_gastos|floatformat:1 }}%</span>
+                                    <span id="trendGastosValue">{{ trend_gastos|floatformat:1 }}%</span>
                                 </div>
                             </div>
                             <div class="stat-value" id="gastosTotales">${{ gastos_totales|floatformat:2|intcomma }}
                             </div>
                             <div class="stat-label">Gastos Totales</div>
-                            <div class="stat-detail">Costo real de insumos vendidos • Tendencia vs mes anterior</div>
+                            <div class="stat-detail">Costo real de insumos vendidos • Tendencia vs mes anterior • No mapeados: <span id="costosItemsNoMapeados">{{ costos_items_no_mapeados }}</span></div>
                         </div>
 
                         <div class="stat-card ganancias">
                             <div class="stat-header">
                                 <div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div>
-                                <div class="stat-trend {{ trend_ganancias_class }}">
-                                    <span>
+                                <div class="stat-trend {{ trend_ganancias_class }}" id="trendGanancias">
+                                    <span id="trendGananciasIcon">
                                         {% if trend_ganancias_icon == 'up' %}<i class="fas fa-arrow-up"></i>
                                         {% elif trend_ganancias_icon == 'down' %}<i class="fas fa-arrow-down"></i>
                                         {% else %}<i class="fas fa-chart-line"></i>{% endif %}
                                     </span>
-                                    <span>{{ trend_ganancias|floatformat:1 }}%</span>
+                                    <span id="trendGananciasValue">{{ trend_ganancias|floatformat:1 }}%</span>
                                 </div>
                             </div>
                             <div class="stat-value" id="gananciasNetas">${{ ganancias_netas|floatformat:2|intcomma }}
@@ -1619,13 +1621,13 @@
                         <div class="stat-card pedidos">
                             <div class="stat-header">
                                 <div class="stat-icon"><i class="fas fa-shopping-cart"></i></div>
-                                <div class="stat-trend {{ trend_pedidos_class }}">
-                                    <span>
+                                <div class="stat-trend {{ trend_pedidos_class }}" id="trendPedidos">
+                                    <span id="trendPedidosIcon">
                                         {% if trend_pedidos_icon == 'up' %}<i class="fas fa-arrow-up"></i>
                                         {% elif trend_pedidos_icon == 'down' %}<i class="fas fa-arrow-down"></i>
                                         {% else %}<i class="fas fa-chart-line"></i>{% endif %}
                                     </span>
-                                    <span>{{ trend_pedidos|floatformat:1 }}%</span>
+                                    <span id="trendPedidosValue">{{ trend_pedidos|floatformat:1 }}%</span>
                                 </div>
                             </div>
                             <div class="stat-value" id="totalPedidos">{{ total_pedidos }}</div>
@@ -1636,13 +1638,13 @@
                         <div class="stat-card clientes">
                             <div class="stat-header">
                                 <div class="stat-icon"><i class="fas fa-users"></i></div>
-                                <div class="stat-trend {{ trend_clientes_class }}">
-                                    <span>
+                                <div class="stat-trend {{ trend_clientes_class }}" id="trendClientes">
+                                    <span id="trendClientesIcon">
                                         {% if trend_clientes_icon == 'up' %}<i class="fas fa-arrow-up"></i>
                                         {% elif trend_clientes_icon == 'down' %}<i class="fas fa-arrow-down"></i>
                                         {% else %}<i class="fas fa-chart-line"></i>{% endif %}
                                     </span>
-                                    <span>{{ trend_clientes|floatformat:1 }}%</span>
+                                    <span id="trendClientesValue">{{ trend_clientes|floatformat:1 }}%</span>
                                 </div>
                             </div>
                             <div class="stat-value" id="nuevosClientes">{{ nuevos_clientes }}</div>
@@ -1660,14 +1662,16 @@
                                     <button class="chart-btn active" onclick="setChartPeriod('week')">Semana</button>
                                     <button class="chart-btn" onclick="setChartPeriod('month')">Mes</button>
                                     <button class="chart-btn" onclick="setChartPeriod('year')">Año</button>
-                                    <button class="chart-btn" onclick="diagnosticarDatosGraficos()"
-                                        title="Diagnosticar datos">
+                                    {% if dashboard_debug %}
+                                    <button class="chart-btn" onclick="diagnosticarDatosGraficos()" title="Diagnosticar datos">
                                         <i class="fas fa-stethoscope"></i>
                                     </button>
+                                    {% endif %}
                                 </div>
                             </div>
-                            <div class="chart-container">
+                            <div class="chart-container" id="salesChartContainer">
                                 <canvas id="salesChart"></canvas>
+                                <div class="chart-empty-state" id="salesChartEmptyState">Sin datos reales disponibles</div>
                             </div>
                         </div>
 
@@ -1857,11 +1861,18 @@
         let metodosPagoData = null;
         let ventasMetodosPagoData = null;
         let chartDataLoadError = false;
+        const DASHBOARD_DEBUG = {{ dashboard_debug|yesno:"true,false" }};
+
+        function debugLog(...args) {
+            if (DASHBOARD_DEBUG) console.log(...args);
+        }
+
+        function debugWarn(...args) {
+            if (DASHBOARD_DEBUG) console.warn(...args);
+        }
 
         // Inicializar la aplicación
         document.addEventListener('DOMContentLoaded', function () {
-            updateDateTime();
-
             // Cargar datos procesados desde Django
             cargarDatosProcesados();
 
@@ -1869,23 +1880,24 @@
             initSalesChart();
             initCategoryChart();
 
-            // Actualizar fecha y hora cada segundo
-            setInterval(updateDateTime, 1000);
-
-            // Verificar consistencia de datos
-            checkDataConsistency();
+            // Verificar consistencia de datos (solo debug)
+            if (DASHBOARD_DEBUG) {
+                checkDataConsistency();
+            }
 
             // Actualizar estadísticas cada 30 segundos
             setInterval(updateStats, 30000);
 
-            // Ejecutar diagnóstico después de 2 segundos
-            setTimeout(diagnosticarDatosGraficos, 2000);
+            // Ejecutar diagnóstico automático solo en debug
+            if (DASHBOARD_DEBUG) {
+                setTimeout(diagnosticarDatosGraficos, 2000);
+            }
         });
 
         // Función para cargar datos procesados desde Django
         function cargarDatosProcesados() {
             try {
-                console.log('Cargando datos del gráfico...');
+                debugLog('Cargando datos del gráfico...');
 
                 semanaLabels = JSON.parse('{{ dias_grafico|escapejs }}');
                 semanaData = JSON.parse('{{ ventas_grafico|escapejs }}');
@@ -1901,18 +1913,20 @@
                 ventasMetodosPagoData = JSON.parse('{{ ventas_metodos_pago_grafico|escapejs }}');
                 chartDataLoadError = false;
 
-                console.log('Datos de semana cargados:', semanaLabels, semanaData);
-                console.log('Datos mensuales cargados:', mesLabels, mesData);
-                console.log('Datos anuales cargados:', anioLabels, anioData);
-                console.log('Datos categorías cargados:', categoriasData, ventasCategoriasData);
-                console.log('Datos horarios cargados:', horariosData, ventasHorariosData);
-                console.log('Datos método pago cargados:', metodosPagoData, ventasMetodosPagoData);
+                debugLog('Datos de semana cargados:', semanaLabels, semanaData);
+                debugLog('Datos mensuales cargados:', mesLabels, mesData);
+                debugLog('Datos anuales cargados:', anioLabels, anioData);
+                debugLog('Datos categorías cargados:', categoriasData, ventasCategoriasData);
+                debugLog('Datos horarios cargados:', horariosData, ventasHorariosData);
+                debugLog('Datos método pago cargados:', metodosPagoData, ventasMetodosPagoData);
 
                 // Verificar que los datos no estén vacíos
                 if (semanaData.every(val => val === 0)) {
-                    console.warn('Los datos de ventas de la semana están vacíos o son cero');
+                    debugWarn('Los datos de ventas de la semana están vacíos o son cero');
                     // Mostrar mensaje al usuario
-                    showNotification('No hay datos de ventas para mostrar en el gráfico. Verifica que tengas facturas pagadas en el sistema.', 'info');
+                    if (DASHBOARD_DEBUG) {
+                        showNotification('No hay datos de ventas para mostrar en el gráfico. Verifica que tengas facturas pagadas en el sistema.', 'info');
+                    }
                 }
 
             } catch (e) {
@@ -1959,12 +1973,39 @@
                         document.getElementById('gananciasNetas').textContent = '$' + formatNumberWithCommas(data.ganancias_netas.toFixed(2));
                         document.getElementById('totalPedidos').textContent = data.total_pedidos;
                         document.getElementById('nuevosClientes').textContent = data.nuevos_clientes;
+                        document.getElementById('costosItemsNoMapeados').textContent = data.costos_items_no_mapeados || 0;
+
+                        updateTrendBadge('trendVentaDia', 'trendVentaDiaIcon', 'trendVentaDiaValue', data.trend_venta_dia_class, data.trend_venta_dia_icon, data.trend_venta_dia);
+                        updateTrendBadge('trendVentaMes', 'trendVentaMesIcon', 'trendVentaMesValue', data.trend_venta_mes_class, data.trend_venta_mes_icon, data.trend_venta_mes);
+                        updateTrendBadge('trendGastos', 'trendGastosIcon', 'trendGastosValue', data.trend_gastos_class, data.trend_gastos_icon, data.trend_gastos);
+                        updateTrendBadge('trendGanancias', 'trendGananciasIcon', 'trendGananciasValue', data.trend_ganancias_class, data.trend_ganancias_icon, data.trend_ganancias);
+                        updateTrendBadge('trendPedidos', 'trendPedidosIcon', 'trendPedidosValue', data.trend_pedidos_class, data.trend_pedidos_icon, data.trend_pedidos);
+                        updateTrendBadge('trendClientes', 'trendClientesIcon', 'trendClientesValue', data.trend_clientes_class, data.trend_clientes_icon, data.trend_clientes);
+
+                        semanaLabels = data.dias_grafico || [];
+                        semanaData = data.ventas_grafico || [];
+                        mesLabels = data.labels_mensuales || [];
+                        mesData = data.proyeccion_mensual || [];
+                        anioLabels = data.labels_anuales || [];
+                        anioData = data.proyeccion_anual || [];
+                        categoriasData = data.categorias_grafico || [];
+                        ventasCategoriasData = data.ventas_categorias_grafico || [];
+                        horariosData = data.horarios_grafico || [];
+                        ventasHorariosData = data.ventas_horarios_grafico || [];
+                        metodosPagoData = data.metodos_pago_grafico || [];
+                        ventasMetodosPagoData = data.ventas_metodos_pago_grafico || [];
+                        chartDataLoadError = false;
+
+                        updateSalesChart(currentChartPeriod);
+                        updateCategoryChart(currentCategoryChart);
+                        renderTopProducts(data.productos_top || []);
+                        renderRecentActivities(data.actividades || []);
 
                         // Actualizar fecha y hora
                         document.getElementById('currentDate').textContent = data.fecha_actual;
                         document.getElementById('currentTime').textContent = data.hora_actual;
 
-                        console.log('Estadísticas actualizadas:', data);
+                        debugLog('Estadísticas actualizadas:', data);
                     } else {
                         console.error('Error en la respuesta del servidor:', data.message);
                     }
@@ -1973,6 +2014,127 @@
                     console.error('Error al actualizar estadísticas:', error);
                     // No mostrar error al usuario para no interrumpir la experiencia
                 });
+        }
+
+        function renderRecentActivities(actividades) {
+            const container = document.getElementById('activityList');
+            if (!container) return;
+
+            if (!Array.isArray(actividades) || actividades.length === 0) {
+                container.innerHTML = `
+                    <div class="activity-item">
+                        <div class="activity-icon factura">
+                            <i class="fas fa-clipboard-list"></i>
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-title">No hay actividades recientes</div>
+                            <div class="activity-time">Comienza a generar facturas para ver actividades</div>
+                        </div>
+                        <div class="activity-amount">$0.00</div>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = actividades.map(item => `
+                <div class="activity-item">
+                    <div class="activity-icon factura">
+                        <i class="fas fa-receipt"></i>
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">Factura ${item.numero_factura}</div>
+                        <div class="activity-time">${item.fecha} • Cliente: ${item.cliente} • Estado: ${item.estado}</div>
+                    </div>
+                    <div class="activity-amount positive">+$${formatNumberWithCommas(Number(item.total || 0).toFixed(2))}</div>
+                </div>`).join('');
+        }
+
+        function updateTrendBadge(wrapperId, iconId, valueId, trendClass, trendIcon, trendValue) {
+            const wrapper = document.getElementById(wrapperId);
+            const icon = document.getElementById(iconId);
+            const value = document.getElementById(valueId);
+            if (!wrapper || !icon || !value) return;
+
+            wrapper.classList.remove('trend-up', 'trend-down', 'trend-neutral');
+            wrapper.classList.add(trendClass || 'trend-neutral');
+
+            if (trendIcon === 'up') icon.innerHTML = '<i class="fas fa-arrow-up"></i>';
+            else if (trendIcon === 'down') icon.innerHTML = '<i class="fas fa-arrow-down"></i>';
+            else icon.innerHTML = '<i class="fas fa-chart-line"></i>';
+
+            value.textContent = `${Number(trendValue || 0).toFixed(1)}%`;
+        }
+
+        function iconoProducto(nombre) {
+            const n = (nombre || '').toLowerCase();
+            if (n.includes('pizza')) return 'fa-pizza-slice';
+            if (n.includes('hamburguesa')) return 'fa-hamburger';
+            if (n.includes('ensalada')) return 'fa-leaf';
+            if (n.includes('pasta')) return 'fa-bowl-food';
+            if (n.includes('sushi')) return 'fa-fish';
+            if (n.includes('bebida') || n.includes('jugo') || n.includes('gaseosa')) return 'fa-glass-whiskey';
+            if (n.includes('postre') || n.includes('helado') || n.includes('torta')) return 'fa-birthday-cake';
+            return 'fa-utensils';
+        }
+
+        function renderTopProducts(productos) {
+            const tbody = document.getElementById('topProducts');
+            if (!tbody) return;
+
+            if (!Array.isArray(productos) || productos.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 2rem; color: #718096;">
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+                                <div style="font-size: 3rem;"><i class="fas fa-chart-bar"></i></div>
+                                <div>No hay datos de productos vendidos</div>
+                                <div style="font-size: 0.9rem;">Genera facturas para ver estadísticas</div>
+                            </div>
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            const maxCantidad = Math.max(...productos.map(p => Number(p.cantidad || 0)), 0);
+            tbody.innerHTML = productos.map(producto => {
+                const cantidad = Number(producto.cantidad || 0);
+                const ingresos = Number(producto.ingresos || 0);
+                const trend = Number(producto.trend_pct || 0).toFixed(1);
+                const trendIcon = producto.trend_icon === 'up'
+                    ? '<i class="fas fa-arrow-up"></i>'
+                    : producto.trend_icon === 'down'
+                        ? '<i class="fas fa-arrow-down"></i>'
+                        : '<i class="fas fa-minus"></i>';
+                const trendClass = producto.trend_class || 'trend-neutral';
+                const porcentaje = maxCantidad > 0 ? Math.round((cantidad / maxCantidad) * 100) : 0;
+                const fillClass = porcentaje > 70 ? 'high' : porcentaje > 40 ? 'medium' : 'low';
+                const iconClass = iconoProducto(producto.nombre);
+
+                return `
+                    <tr>
+                        <td>
+                            <div class="product-info">
+                                <div class="product-icon"><i class="fas ${iconClass}"></i></div>
+                                <div>
+                                    <div style="font-weight: 600;">${String(producto.nombre || 'Producto').slice(0, 30)}</div>
+                                    <div style="font-size: 0.85rem; color: #718096;">Producto vendido</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="product-sales">
+                                <div class="sales-bar"><div class="sales-fill ${fillClass}" style="width: ${porcentaje}%;"></div></div>
+                                <span style="font-weight: 600;">${Math.round(cantidad)}</span>
+                            </div>
+                        </td>
+                        <td style="font-weight: 700; color: #4CAF50;">$${formatNumberWithCommas(ingresos.toFixed(2))}</td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span>${trendIcon}</span>
+                                <span style="font-weight: 600;" class="${trendClass}">${trend}%</span>
+                            </div>
+                        </td>
+                    </tr>`;
+            }).join('');
         }
 
         // Función para verificar consistencia de datos
@@ -1996,14 +2158,18 @@
                 });
 
                 if (ventaCalculada > 0 && ventaDiaValue === 0) {
-                    console.warn('Discrepancia encontrada: Hay actividades de hoy pero venta del día es $0');
-                    showNotification('Hay actividades de hoy pero venta del día es $0. Revisa la sección de depuración.', 'info');
+                    debugWarn('Discrepancia encontrada: Hay actividades de hoy pero venta del día es $0');
+                    if (DASHBOARD_DEBUG) {
+                        showNotification('Hay actividades de hoy pero venta del día es $0. Revisa la sección de depuración.', 'info');
+                    }
                 }
             }
         }
 
         // Función para diagnóstico de datos
         function diagnosticarDatosGraficos() {
+            if (!DASHBOARD_DEBUG) return;
+
             console.log('=== DIAGNÓSTICO DE DATOS DE GRÁFICOS ===');
 
             if (chartDataLoadError) {
@@ -2097,6 +2263,8 @@
             };
 
             salesChartInstance = new Chart(ctx, config);
+            const sinDatos = !hasRealChartData(semanaLabels, semanaData);
+            setSalesChartEmptyState(sinDatos, chartDataLoadError);
         }
 
         // Inicializar gráfico de categorías
@@ -2167,6 +2335,23 @@
             return data.some(value => Number(value) > 0);
         }
 
+        function setSalesChartEmptyState(show, isError = false) {
+            const container = document.getElementById('salesChartContainer');
+            const emptyState = document.getElementById('salesChartEmptyState');
+            if (!container || !emptyState) return;
+
+            if (show) {
+                emptyState.textContent = isError
+                    ? 'Sin datos reales disponibles (error de carga)'
+                    : 'Sin datos reales disponibles';
+                emptyState.classList.add('show');
+                container.classList.add('has-empty-state');
+            } else {
+                emptyState.classList.remove('show');
+                container.classList.remove('has-empty-state');
+            }
+        }
+
         function setCategoryChartEmptyState(show, isError = false) {
             const container = document.getElementById('categoryChartContainer');
             const emptyState = document.getElementById('categoryChartEmptyState');
@@ -2211,6 +2396,9 @@
             salesChartInstance.data.labels = labels;
             salesChartInstance.data.datasets[0].data = data;
             salesChartInstance.update();
+
+            const sinDatos = !hasRealChartData(labels, data);
+            setSalesChartEmptyState(sinDatos, chartDataLoadError);
         }
 
         // Actualizar gráfico de categorías
@@ -2317,32 +2505,12 @@
             showNotification(`Mostrando distribución por ${getCategoryLabel(type)}`, 'success');
         }
 
-        // Actualizar fecha y hora en tiempo real
-        function updateDateTime() {
-            const now = new Date();
-            const dateOptions = {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            };
-            const timeOptions = {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: false
-            };
+        // Fecha y hora se sincronizan desde el servidor en cada actualización.
 
-            document.getElementById('currentDate').textContent =
-                now.toLocaleDateString('es-ES', dateOptions);
-            document.getElementById('currentTime').textContent =
-                now.toLocaleTimeString('es-ES', timeOptions);
-        }
-
-        // Refrescar actividades (recarga la página)
+        // Refrescar actividades por AJAX
         function refreshActivities() {
-            location.reload();
-            showNotification('Actualizando actividades...', 'success');
+            updateStats();
+            showNotification('Actividad reciente actualizada', 'success');
         }
 
         // Mostrar/ocultar información de depuración
@@ -2393,7 +2561,7 @@
 
         // Ver todos los productos
         function viewAllProducts() {
-            showNotification('Redirigiendo a gestión de productos...', 'info');
+            window.location.href = "{% url 'listadeplatillos' %}";
         }
 
         // Helper functions
