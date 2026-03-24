@@ -2511,16 +2511,11 @@ def facturacion(request):
     from datetime import datetime
 
     try:
-        print("=== DEBUG FACTURACIÓN ===")
-
         # Obtener IDs de pedidos que ya tienen factura PAGADA
-        pedidos_con_factura_pagada_ids = list(
+        pedidos_con_factura_pagada_ids = set(
             Factura.objects.filter(estado='pagada').values_list(
                 'pedido_id', flat=True)
         )
-
-        print(
-            f"Pedidos con factura pagada (IDs): {pedidos_con_factura_pagada_ids}")
 
         # 🔥 Obtener pedidos que están ocupando mesa y NO tienen factura PAGADA
         pedidos_pendientes = Pedido.objects.filter(
@@ -2530,14 +2525,9 @@ def facturacion(request):
             id__in=pedidos_con_factura_pagada_ids  # EXCLUIR pedidos con facturas PAGADAS
         ).select_related('mesa').order_by('-fecha_pedido')
 
-        print(
-            f"Pedidos disponibles para facturar (sin factura pagada): {pedidos_pendientes.count()}")
-
         # Obtener facturas PENDIENTES (las pagadas NO se muestran)
         facturas_pendientes = Factura.objects.filter(
             estado='pendiente').select_related('pedido').all().order_by('-fecha_factura')
-
-        print(f"Facturas pendientes: {facturas_pendientes.count()}")
 
         # Preparar datos para JavaScript
         pedidos_json = []
@@ -2603,49 +2593,14 @@ def facturacion(request):
 
             pedidos_json.append(pedido_dict)
 
-        # Añadir facturas pendientes como registros separados
-        for factura in facturas_pendientes:
-            try:
-                items_data = factura.get_items_detalle()
-
-                factura_dict = {
-                    'id': f"factura_{factura.id}",
-                    'codigo_pedido': factura.pedido.codigo_pedido if factura.pedido else 'N/A',
-                    'tipo_pedido': factura.tipo_pedido,
-                    'estado_factura': factura.estado,
-                    'estado': 'facturado',
-                    'total': float(factura.total),
-                    'mesa': {
-                        'numero_display': factura.numero_mesa_codigo or '',
-                    } if factura.tipo_pedido == 'mesa' else None,
-                    'codigo_delivery': factura.numero_mesa_codigo if factura.tipo_pedido in ['delivery', 'llevar'] else '',
-                    'nombre_cliente': factura.nombre_cliente or '',
-                    'telefono_cliente': factura.telefono_cliente or '',
-                    'direccion_entrega': factura.direccion_entrega or '',
-                    'items': items_data,
-                    'subtotal': float(factura.subtotal),
-                    'envio': float(factura.envio),
-                    'fecha_pedido': factura.fecha_factura.isoformat() if factura.fecha_factura else None,
-                    'es_factura': True,
-                    'factura_id': factura.id,
-                    'numero_factura': factura.numero_factura,
-                    'metodo_pago': factura.metodo_pago,
-                }
-                pedidos_json.append(factura_dict)
-            except Exception as e:
-                print(f"Error procesando factura {factura.id}: {e}")
-
-        print(f"Total registros para mostrar: {len(pedidos_json)}")
-
         # Preparar facturas para estadísticas (todas, incluyendo pagadas)
         facturas_json = []
-        todas_facturas = Factura.objects.all().order_by('-fecha_factura')
+        todas_facturas = Factura.objects.select_related('pedido').all().order_by('-fecha_factura')
         for factura in todas_facturas:
             try:
-                items_data = factura.get_items_detalle()
-
                 factura_dict = {
                     'id': factura.id,
+                    'pedido_id': factura.pedido_id,
                     'invoiceNumber': factura.numero_factura,
                     'codigoPedido': factura.pedido.codigo_pedido if factura.pedido else 'N/A',
                     'tipoPedido': factura.tipo_pedido,
@@ -2660,7 +2615,6 @@ def facturacion(request):
                     # 'iva': float(factura.iva),
                     'envio': float(factura.envio),
                     'total': float(factura.total),
-                    'items': items_data,
                     'notes': factura.notas or '',
                 }
                 facturas_json.append(factura_dict)
@@ -2695,9 +2649,6 @@ def facturacion(request):
                 'promedio_factura': round(promedio_factura, 2),
             }
         }
-
-        print("=== CONTEXTO PREPARADO ===")
-        print(f"Total registros para mostrar: {len(pedidos_json)}")
 
         return render(request, 'facturacion/facturacion.html', context)
 

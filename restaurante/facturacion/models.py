@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.conf import settings
 import random
 import string
 from decimal import Decimal
@@ -792,52 +793,64 @@ class Factura(models.Model):
 
         super().save(*args, **kwargs)
     
-    def get_items_detalle(self):
-        """Obtener los items de la factura como lista normalizada"""
+    def get_items_detalle(self, enrich_from_db=True, debug=False):
+        """Obtener los items de la factura como lista normalizada."""
         try:
+            debug_enabled = bool(debug and settings.DEBUG)
+
             # Obtener items como JSON
             items_raw = self.items
             
-            print(f"\n🔍 GET_ITEMS_DETALLE - Factura: {self.numero_factura}")
-            print(f"   Tipo de items_raw: {type(items_raw)}")
+            if debug_enabled:
+                print(f"\n🔍 GET_ITEMS_DETALLE - Factura: {self.numero_factura}")
+                print(f"   Tipo de items_raw: {type(items_raw)}")
             
             # Si items_raw es None o vacío
             if not items_raw:
-                print(f"   ❌ Campo 'items' está vacío o es None")
+                if debug_enabled:
+                    print("   ❌ Campo 'items' está vacío o es None")
                 return []
             
             # Si es una cadena, intentar convertir a JSON
             if isinstance(items_raw, str):
-                print(f"   📝 Es una cadena, intentando parsear JSON...")
-                print(f"   📝 Longitud: {len(items_raw)}")
+                if debug_enabled:
+                    print("   📝 Es una cadena, intentando parsear JSON...")
+                    print(f"   📝 Longitud: {len(items_raw)}")
                 
                 items_raw = items_raw.strip()
                 
                 if not items_raw:
-                    print(f"   ❌ Cadena vacía después de strip()")
+                    if debug_enabled:
+                        print("   ❌ Cadena vacía después de strip()")
                     return []
                 
                 try:
                     items = json.loads(items_raw)
-                    print(f"   ✅ JSON parseado exitosamente")
+                    if debug_enabled:
+                        print("   ✅ JSON parseado exitosamente")
                 except json.JSONDecodeError as e:
-                    print(f"   ❌ Error de decodificación JSON: {e}")
+                    if debug_enabled:
+                        print(f"   ❌ Error de decodificación JSON: {e}")
                     try:
                         if items_raw.startswith("'") and items_raw.endswith("'"):
                             items_raw = items_raw[1:-1].replace("'", '"')
                         items_raw = items_raw.replace("'", '"')
                         items = json.loads(items_raw)
-                        print(f"   ✅ JSON reparado y parseado")
+                        if debug_enabled:
+                            print("   ✅ JSON reparado y parseado")
                     except Exception as e2:
-                        print(f"   ❌ No se pudo reparar el JSON: {e2}")
+                        if debug_enabled:
+                            print(f"   ❌ No se pudo reparar el JSON: {e2}")
                         return []
             else:
                 items = items_raw
-                print(f"   ✅ Ya es de tipo: {type(items)}")
+                if debug_enabled:
+                    print(f"   ✅ Ya es de tipo: {type(items)}")
             
             # Si items es un diccionario, convertirlo a lista
             if isinstance(items, dict):
-                print(f"   🔄 Convirtiendo diccionario a lista...")
+                if debug_enabled:
+                    print("   🔄 Convirtiendo diccionario a lista...")
                 if 'items' in items:
                     items = items['items']
                 elif 'productos' in items:
@@ -847,20 +860,24 @@ class Factura(models.Model):
             
             # Asegurarse de que items es una lista
             if not isinstance(items, list):
-                print(f"   ⚠️  Items no es una lista, es: {type(items)}. Convirtiendo...")
+                if debug_enabled:
+                    print(f"   ⚠️  Items no es una lista, es: {type(items)}. Convirtiendo...")
                 items = [items] if items else []
             
-            print(f"   📋 Total de items encontrados: {len(items)}")
+            if debug_enabled:
+                print(f"   📋 Total de items encontrados: {len(items)}")
             
             if not items:
-                print(f"   ⚠️  Lista de items vacía")
+                if debug_enabled:
+                    print("   ⚠️  Lista de items vacía")
                 return []
             
             # Normalizar estructura
             items_normalizados = []
             
             for i, item in enumerate(items):
-                print(f"\n   🔍 Procesando item {i+1}:")
+                if debug_enabled:
+                    print(f"\n   🔍 Procesando item {i+1}:")
                 
                 nombre = (
                     item.get('nombre') or 
@@ -870,7 +887,8 @@ class Factura(models.Model):
                     f'Producto {i+1}'
                 )
                 
-                print(f"      Nombre: {nombre}")
+                if debug_enabled:
+                    print(f"      Nombre: {nombre}")
                 
                 # Asegurar que cantidad sea numérico
                 cantidad_str = str(item.get('cantidad') or item.get('quantity') or item.get('qty') or '1')
@@ -878,9 +896,11 @@ class Factura(models.Model):
                     cantidad = float(cantidad_str)
                 except (ValueError, TypeError):
                     cantidad = 1.0
-                    print(f"      ⚠️  Cantidad inválida '{cantidad_str}', usando 1.0")
+                    if debug_enabled:
+                        print(f"      ⚠️  Cantidad inválida '{cantidad_str}', usando 1.0")
                 
-                print(f"      Cantidad: {cantidad}")
+                if debug_enabled:
+                    print(f"      Cantidad: {cantidad}")
                 
                 # Asegurar que precio sea numérico
                 precio_str = str(item.get('precio') or item.get('price') or item.get('unit_price') or '0')
@@ -888,9 +908,11 @@ class Factura(models.Model):
                     precio = float(precio_str)
                 except (ValueError, TypeError):
                     precio = 0.0
-                    print(f"      ⚠️  Precio inválido '{precio_str}', usando 0.0")
+                    if debug_enabled:
+                        print(f"      ⚠️  Precio inválido '{precio_str}', usando 0.0")
                 
-                print(f"      Precio: {precio}")
+                if debug_enabled:
+                    print(f"      Precio: {precio}")
                 
                 # Calcular subtotal
                 subtotal = cantidad * precio
@@ -903,7 +925,8 @@ class Factura(models.Model):
                     'otro'
                 ).lower()
                 
-                print(f"      Categoría: {categoria}")
+                if debug_enabled:
+                    print(f"      Categoría: {categoria}")
                 
                 # Obtener IDs
                 producto_id = item.get('producto_id') or item.get('product_id') or item.get('id')
@@ -912,7 +935,7 @@ class Factura(models.Model):
                 codigo = item.get('codigo') or item.get('code') or ''
                 
                 # Buscar producto en la base de datos para completar información faltante
-                if not codigo or categoria == 'otro':
+                if enrich_from_db and (not codigo or categoria == 'otro'):
                     from .models import Producto  # Import local para evitar circular
                     producto_db = None
                     
@@ -920,10 +943,11 @@ class Factura(models.Model):
                     if producto_id:
                         try:
                             producto_db = Producto.objects.filter(id=producto_id).first()
-                            if producto_db:
+                            if producto_db and debug_enabled:
                                 print(f"      ✅ Producto encontrado por ID: {producto_db.nombre}")
                         except Exception as e:
-                            print(f"      ❌ Error al buscar producto por ID: {e}")
+                            if debug_enabled:
+                                print(f"      ❌ Error al buscar producto por ID: {e}")
                     
                     # Si no se encontró por ID, buscar por nombre
                     if not producto_db and nombre:
@@ -931,19 +955,22 @@ class Factura(models.Model):
                             producto_db = Producto.objects.filter(
                                 nombre__iexact=nombre.strip()
                             ).first()
-                            if producto_db:
+                            if producto_db and debug_enabled:
                                 print(f"      ✅ Producto encontrado por nombre: {producto_db.nombre}")
                         except Exception as e:
-                            print(f"      ❌ Error al buscar producto por nombre: {e}")
+                            if debug_enabled:
+                                print(f"      ❌ Error al buscar producto por nombre: {e}")
                     
                     # Completar información con datos de la base de datos
                     if producto_db:
                         if not codigo:
                             codigo = producto_db.codigo
-                            print(f"      ✅ Código actualizado: {codigo}")
+                            if debug_enabled:
+                                print(f"      ✅ Código actualizado: {codigo}")
                         if categoria == 'otro':
                             categoria = producto_db.categoria.lower()
-                            print(f"      ✅ Categoría actualizada: {categoria}")
+                            if debug_enabled:
+                                print(f"      ✅ Categoría actualizada: {categoria}")
                 
                 items_normalizados.append({
                     'producto_id': producto_id,
@@ -955,13 +982,15 @@ class Factura(models.Model):
                     'categoria': categoria
                 })
             
-            print(f"\n   ✅ Items normalizados: {len(items_normalizados)}")
+            if debug_enabled:
+                print(f"\n   ✅ Items normalizados: {len(items_normalizados)}")
             return items_normalizados
             
         except Exception as e:
-            print(f"\n❌ ERROR en get_items_detalle para factura {self.numero_factura}: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            if debug_enabled:
+                print(f"\n❌ ERROR en get_items_detalle para factura {self.numero_factura}: {str(e)}")
+                import traceback
+                traceback.print_exc()
             return []
     
     def get_cantidad_ya_devuelta(self, producto_nombre):
