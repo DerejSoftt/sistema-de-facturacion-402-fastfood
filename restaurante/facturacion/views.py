@@ -57,6 +57,7 @@ from django.template.loader import render_to_string
 from django.utils.timezone import now
 from django.http import HttpResponse
 from django.db.models import F
+import pytz
 
 
 @csrf_exempt
@@ -1720,17 +1721,20 @@ def procesar_pedidos_para_template(pedidos_queryset):
 @csrf_exempt
 def historial_pedidos_pagados(request):
     """Vista para ver el historial de facturas emitidas con paginación."""
-    from zoneinfo import ZoneInfo
-
-    tz_rd = ZoneInfo('America/Santo_Domingo')
+    # Zona horaria República Dominicana + formato de fecha local.
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    ahora_local = timezone.now().astimezone(tz_rd)
+    fecha_reporte = ahora_local.strftime('%d/%m/%Y %I:%M %p')
     # Obtener parámetros de filtrado
     search = request.GET.get('search', '')
     tipo_pedido = request.GET.get('tipo_pedido', request.GET.get('tipo', ''))
     fecha = request.GET.get('fecha', '')
     page = request.GET.get('page', 1)
 
-    # Consulta base: TODAS las facturas (sin filtro de estado), ordenadas por número de factura (menor a mayor)
-    facturas = Factura.objects.all().select_related('pedido').order_by('numero_factura')
+    # Consulta base: TODAS las facturas (sin filtro de estado)
+    facturas_base = Factura.objects.all().select_related('pedido')
+    # Consulta para listado (sí aplica filtros)
+    facturas = facturas_base.order_by('numero_factura')
 
     # Aplicar filtros
     if search:
@@ -1746,18 +1750,21 @@ def historial_pedidos_pagados(request):
         facturas = facturas.filter(tipo_pedido=tipo_pedido)
 
     if fecha:
-        today = datetime.now().date()
+        # Filtro por rangos de fecha-hora en zona RD para evitar desfases por timezone.
+        inicio_hoy = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        fin_hoy = inicio_hoy + timedelta(days=1)
+
         if fecha == 'hoy':
-            facturas = facturas.filter(fecha_factura__date=today)
+            facturas = facturas.filter(fecha_factura__gte=inicio_hoy, fecha_factura__lt=fin_hoy)
         elif fecha == 'ayer':
-            yesterday = today - timedelta(days=1)
-            facturas = facturas.filter(fecha_factura__date=yesterday)
+            inicio_ayer = inicio_hoy - timedelta(days=1)
+            facturas = facturas.filter(fecha_factura__gte=inicio_ayer, fecha_factura__lt=inicio_hoy)
         elif fecha == 'semana':
-            week_ago = today - timedelta(days=7)
-            facturas = facturas.filter(fecha_factura__date__gte=week_ago)
+            inicio_semana = (inicio_hoy - timedelta(days=ahora_local.weekday()))
+            facturas = facturas.filter(fecha_factura__gte=inicio_semana, fecha_factura__lt=fin_hoy)
         elif fecha == 'mes':
-            month_ago = today - timedelta(days=30)
-            facturas = facturas.filter(fecha_factura__date__gte=month_ago)
+            inicio_mes_actual = inicio_hoy.replace(day=1)
+            facturas = facturas.filter(fecha_factura__gte=inicio_mes_actual, fecha_factura__lt=fin_hoy)
 
     # Paginación de 50 facturas por página
     paginator = Paginator(facturas, 50)
@@ -1792,7 +1799,7 @@ def historial_pedidos_pagados(request):
             'estado': factura.estado,
             'estado_display': factura.get_estado_display(),
             'total': float(factura.total or 0),
-            'fecha_formateada': fecha_local.strftime('%d/%m/%Y %I:%M'),
+            'fecha_formateada': fecha_local.strftime('%d/%m/%Y %I:%M %p'),
             'mesa_numero': factura.numero_mesa_codigo or '',
             'factura_numero': factura.numero_factura,
             'factura_fecha': factura.fecha_factura,
@@ -1803,10 +1810,14 @@ def historial_pedidos_pagados(request):
     # Estadísticas
     total_facturas_emitidas = facturas.count()
     ingresos_totales = facturas.aggregate(total=Sum('total'))['total'] or 0
-    hoy = datetime.now().date()
-    inicio_mes = hoy.replace(day=1)
-    ingresos_mes_actual = facturas.filter(
-        fecha_factura__date__gte=inicio_mes
+
+    # Ingresos del mes actual en zona horaria RD (independiente de filtros de tabla)
+    inicio_mes_rd = ahora_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    inicio_hoy_rd = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    fin_hoy_rd = inicio_hoy_rd + timedelta(days=1)
+    ingresos_mes_actual = facturas_base.filter(
+        fecha_factura__gte=inicio_mes_rd,
+        fecha_factura__lt=fin_hoy_rd
     ).aggregate(total=Sum('total'))['total'] or 0
 
     context = {
@@ -1825,6 +1836,7 @@ def historial_pedidos_pagados(request):
         },
         'paginator': paginator,
         'page_obj': page_obj,
+        'fecha_reporte': fecha_reporte,
     }
     return render(request, 'facturacion/historial_pedidos.html', context)
 
