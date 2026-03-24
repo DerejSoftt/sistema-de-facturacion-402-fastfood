@@ -1723,37 +1723,36 @@
 
    <script>
     // Datos de la factura actual (si existe)
-    {% if factura %}
-    const facturaActual = {
-        numero: "{{ factura.numero_factura }}",
-        estado: "{{ factura.estado }}",
-        items: {{ items_json|safe }},
-        productosDisponibles: {{ productos_disponibles_json|safe }},
-        productosDevueltos: {{ productos_devueltos_json|safe }}
-    };
-    
-    console.log('✅ Factura actual cargada:', facturaActual.numero);
-    console.log('📦 Items en factura:', facturaActual.items.length);
-    console.log('✅ Productos disponibles para devolver:', facturaActual.productosDisponibles.length);
-    console.log('🔄 Productos ya devueltos:', facturaActual.productosDevueltos.length);
-    
-    if (facturaActual.items && facturaActual.items.length > 0) {
-        console.log('📋 Detalle de productos:');
-        facturaActual.items.forEach((item, index) => {
-            console.log(`  ${index + 1}. ${item.nombre || 'Sin nombre'}`);
-            console.log(`     Código: "${item.codigo || 'No disponible'}"`);
-            console.log(`     Categoría: "${item.categoria || 'No disponible'}"`);
-            console.log(`     Cantidad: ${item.cantidad || 0}`);
-            console.log(`     Precio: RD$${item.precio || 0}`);
-        });
+    const facturaCargada = '{{ factura|yesno:"true,false" }}' === 'true';
+    const facturaActual = facturaCargada ? {
+        numero: '{{ factura.numero_factura|default_if_none:""|escapejs }}',
+        estado: '{{ factura.estado|default_if_none:""|escapejs }}',
+        items: JSON.parse('{{ items_json|default:"[]"|escapejs }}'),
+        productosDisponibles: JSON.parse('{{ productos_disponibles_json|default:"[]"|escapejs }}'),
+        productosDevueltos: JSON.parse('{{ productos_devueltos_json|default:"[]"|escapejs }}')
+    } : null;
+
+    if (facturaActual) {
+        console.log('✅ Factura actual cargada:', facturaActual.numero);
+        console.log('📦 Items en factura:', facturaActual.items.length);
+        console.log('✅ Productos disponibles para devolver:', facturaActual.productosDisponibles.length);
+        console.log('🔄 Productos ya devueltos:', facturaActual.productosDevueltos.length);
+
+        if (facturaActual.items && facturaActual.items.length > 0) {
+            console.log('📋 Detalle de productos:');
+            facturaActual.items.forEach((item, index) => {
+                console.log(`  ${index + 1}. ${item.nombre || 'Sin nombre'}`);
+                console.log(`     Código: "${item.codigo || 'No disponible'}"`);
+                console.log(`     Categoría: "${item.categoria || 'No disponible'}"`);
+                console.log(`     Cantidad: ${item.cantidad || 0}`);
+                console.log(`     Precio: RD$${item.precio || 0}`);
+            });
+        } else {
+            console.warn('⚠️  No hay items en la factura');
+        }
     } else {
-        console.warn('⚠️  No hay items en la factura');
+        console.log('ℹ️  No hay factura cargada');
     }
-    
-    {% else %}
-    const facturaActual = null;
-    console.log('ℹ️  No hay factura cargada');
-    {% endif %}
 
     function getCSRFToken() {
         const name = 'csrftoken=';

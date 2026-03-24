@@ -1215,10 +1215,10 @@
                                     </td>
                                     <td>
                                         <div class="action-buttons">
-                                            <button class="btn-icon btn-edit" onclick="editarPlato({{ plato.id }})" title="Editar plato">
+                                            <button class="btn-icon btn-edit" data-plato-id="{{ plato.id }}" onclick="editarPlatoDesdeBoton(this)" title="Editar plato">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <button class="btn-icon btn-delete" onclick="eliminarPlato({{ plato.id }})" title="Eliminar plato">
+                                            <button class="btn-icon btn-delete" data-plato-id="{{ plato.id }}" onclick="eliminarPlatoDesdeBoton(this)" title="Eliminar plato">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
@@ -1471,11 +1471,26 @@
         // Reordenar las filas en el DOM
         filasDatos.forEach(row => tbody.appendChild(row));
     }
+
+    function editarPlatoDesdeBoton(button) {
+        const platoId = parseInt(button.dataset.platoId || '0', 10);
+        if (platoId > 0) editarPlato(platoId);
+    }
+
+    function eliminarPlatoDesdeBoton(button) {
+        const platoId = parseInt(button.dataset.platoId || '0', 10);
+        if (platoId > 0) eliminarPlato(platoId);
+    }
     
     // Editar plato usando modal
     function editarPlato(platoId) {
         // Obtener datos de la fila directamente del DOM
-        const row = document.querySelector(`button[onclick="editarPlato(${platoId})"]`).closest('tr');
+        const button = document.querySelector(`button.btn-edit[data-plato-id="${platoId}"]`);
+        if (!button) {
+            showNotification('No se encontro el plato seleccionado', 'error');
+            return;
+        }
+        const row = button.closest('tr');
         
         const codigo = row.cells[0].textContent;
         const nombreActual = row.cells[1].textContent;
@@ -1610,7 +1625,12 @@
     
     // Eliminar plato
     function eliminarPlato(platoId) {
-        const row = document.querySelector(`button[onclick="eliminarPlato(${platoId})"]`).closest('tr');
+        const button = document.querySelector(`button.btn-delete[data-plato-id="${platoId}"]`);
+        if (!button) {
+            showNotification('No se encontro el plato seleccionado', 'error');
+            return;
+        }
+        const row = button.closest('tr');
         const nombrePlato = row.cells[1].textContent;
         
         if (confirm(`¿Estás seguro de eliminar "${nombrePlato}" del menú?`)) {

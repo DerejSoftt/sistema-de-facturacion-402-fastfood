@@ -213,8 +213,8 @@
             <tr>
                 <td class="item-name">{{ item.name|truncatechars:20 }}</td>
                 <td class="item-qty">{{ item.quantity }}</td>
-                <td class="item-price">RD${{ item.price|floatformat:2 }}</td>
-                <td class="item-total">RD${{ item.total|floatformat:2 }}</td>
+                <td class="item-price">{{ item.price|floatformat:2 }}</td>
+                <td class="item-total">{{ item.total|floatformat:2 }}</td>
             </tr>
             {% endfor %}
         </tbody>

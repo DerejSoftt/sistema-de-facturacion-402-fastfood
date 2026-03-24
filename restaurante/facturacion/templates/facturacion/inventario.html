@@ -1203,12 +1203,18 @@
                                         <td>
                                             <div class="action-buttons">
                                                 <button class="btn-icon btn-edit" 
-                                                        onclick="editarProducto({{ producto.id }}, '{{ producto.nombre|escapejs }}', {{ producto.cantidad }}, {{ producto.precio }})" 
+                                                        data-producto-id="{{ producto.id }}"
+                                                        data-producto-nombre="{{ producto.nombre|escapejs }}"
+                                                        data-producto-cantidad="{{ producto.cantidad }}"
+                                                        data-producto-precio="{{ producto.precio }}"
+                                                        onclick="editarProductoDesdeBoton(this)" 
                                                         title="Editar producto">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
                                                 <button class="btn-icon btn-delete" 
-                                                        onclick="eliminarProducto({{ producto.id }}, '{{ producto.nombre|escapejs }}')" 
+                                                        data-producto-id="{{ producto.id }}"
+                                                        data-producto-nombre="{{ producto.nombre|escapejs }}"
+                                                        onclick="eliminarProductoDesdeBoton(this)" 
                                                         title="Eliminar producto">
                                                     <i class="fas fa-trash-alt"></i>
                                                 </button>
@@ -1235,7 +1241,7 @@
                     {% if page_obj.paginator.num_pages > 1 %}
                     <div class="pagination" id="pagination">
                         {% if page_obj.has_previous %}
-                            <button class="page-btn" onclick="cambiarPagina({{ page_obj.previous_page_number }})">← Anterior</button>
+                            <button class="page-btn" data-page="{{ page_obj.previous_page_number }}" onclick="cambiarPaginaDesdeBoton(this)">← Anterior</button>
                         {% else %}
                             <button class="page-btn" disabled style="opacity: 0.5; cursor: not-allowed;">← Anterior</button>
                         {% endif %}
@@ -1245,7 +1251,7 @@
                         </span>
                         
                         {% if page_obj.has_next %}
-                            <button class="page-btn" onclick="cambiarPagina({{ page_obj.next_page_number }})">Siguiente →</button>
+                            <button class="page-btn" data-page="{{ page_obj.next_page_number }}" onclick="cambiarPaginaDesdeBoton(this)">Siguiente →</button>
                         {% else %}
                             <button class="page-btn" disabled style="opacity: 0.5; cursor: not-allowed;">Siguiente →</button>
                         {% endif %}
@@ -1401,6 +1407,26 @@
             const url = new URL(window.location.href);
             url.searchParams.set('page', nuevaPagina);
             window.location.href = url.toString();
+        }
+
+        function cambiarPaginaDesdeBoton(button) {
+            const nuevaPagina = parseInt(button.dataset.page || '1', 10);
+            cambiarPagina(Number.isFinite(nuevaPagina) && nuevaPagina > 0 ? nuevaPagina : 1);
+        }
+
+        // Wrappers para evitar expresiones Django complejas dentro de onclick.
+        function editarProductoDesdeBoton(button) {
+            const productoId = button.dataset.productoId;
+            const productoNombre = button.dataset.productoNombre || '';
+            const cantidadActual = parsearNumero(button.dataset.productoCantidad);
+            const precioCompra = parsearNumero(button.dataset.productoPrecio);
+            editarProducto(productoId, productoNombre, cantidadActual, precioCompra);
+        }
+
+        function eliminarProductoDesdeBoton(button) {
+            const productoId = button.dataset.productoId;
+            const productoNombre = button.dataset.productoNombre || '';
+            eliminarProducto(productoId, productoNombre);
         }
         
         // Editar producto usando modal
