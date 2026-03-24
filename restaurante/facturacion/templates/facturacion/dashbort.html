@@ -1791,12 +1791,7 @@
                                                 {% if productos_top.0.cantidad > 0 %}
                                                 {% with max_cantidad=productos_top.0.cantidad %}
                                                 {% widthratio producto.cantidad max_cantidad 100 as porcentaje %}
-                                                <div class="sales-fill 
-                                                    {% if porcentaje|add:'0' > 70 %}high
-                                                    {% elif porcentaje|add:'0' > 40 %}medium
-                                                    {% else %}low
-                                                    {% endif %}"
-                                                    style="width: {{ porcentaje }}%;">
+                                                <div class="sales-fill js-sales-fill {% if porcentaje|add:'0' > 70 %}high{% elif porcentaje|add:'0' > 40 %}medium{% else %}low{% endif %}" data-width="{{ porcentaje }}">
                                                 </div>
                                                 {% endwith %}
                                                 {% endif %}
@@ -1864,7 +1859,16 @@
         let tiposPedidoData = null;
         let ventasTiposPedidoData = null;
         let chartDataLoadError = false;
-        const DASHBOARD_DEBUG = {{ dashboard_debug|yesno:"true,false" }};
+        const DASHBOARD_DEBUG = '{{ dashboard_debug|yesno:"true,false" }}' === 'true';
+
+        function applyServerProductBarWidths() {
+            const bars = document.querySelectorAll('.js-sales-fill[data-width]');
+            bars.forEach((bar) => {
+                const parsed = Number(bar.dataset.width || 0);
+                const safeWidth = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : 0;
+                bar.style.width = `${safeWidth}%`;
+            });
+        }
 
         function debugLog(...args) {
             if (DASHBOARD_DEBUG) console.log(...args);
@@ -1876,6 +1880,8 @@
 
         // Inicializar la aplicación
         document.addEventListener('DOMContentLoaded', function () {
+            applyServerProductBarWidths();
+
             // Cargar datos procesados desde Django
             cargarDatosProcesados();
 
