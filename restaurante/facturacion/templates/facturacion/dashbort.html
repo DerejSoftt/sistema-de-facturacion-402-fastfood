@@ -1885,8 +1885,11 @@
                 checkDataConsistency();
             }
 
-            // Actualizar estadísticas cada 30 segundos
-            setInterval(updateStats, 30000);
+            // Refresco ligero cada 30s (tarjetas, tendencias, hora y actividad reciente)
+            setInterval(updateStatsSummary, 30000);
+
+            // Refresco completo cada 5 min (incluye gráficos y top productos)
+            setInterval(updateStatsFull, 300000);
 
             // Ejecutar diagnóstico automático solo en debug
             if (DASHBOARD_DEBUG) {
@@ -1955,9 +1958,53 @@
             return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         }
 
-        // Función para actualizar estadísticas vía AJAX
-        function updateStats() {
-            fetch('/dashboard/stats/')
+        function applySummaryData(data) {
+            const formattedVentaDia = '$' + formatNumberWithCommas(data.venta_dia.toFixed(2));
+            document.getElementById('ventaDia').textContent = formattedVentaDia;
+            document.getElementById('ventaMes').textContent = '$' + formatNumberWithCommas(data.venta_mes.toFixed(2));
+            document.getElementById('gastosTotales').textContent = '$' + formatNumberWithCommas(data.gastos_totales.toFixed(2));
+            document.getElementById('gananciasNetas').textContent = '$' + formatNumberWithCommas(data.ganancias_netas.toFixed(2));
+            document.getElementById('totalPedidos').textContent = data.total_pedidos;
+            document.getElementById('nuevosClientes').textContent = data.nuevos_clientes;
+            document.getElementById('costosItemsNoMapeados').textContent = data.costos_items_no_mapeados || 0;
+
+            updateTrendBadge('trendVentaDia', 'trendVentaDiaIcon', 'trendVentaDiaValue', data.trend_venta_dia_class, data.trend_venta_dia_icon, data.trend_venta_dia);
+            updateTrendBadge('trendVentaMes', 'trendVentaMesIcon', 'trendVentaMesValue', data.trend_venta_mes_class, data.trend_venta_mes_icon, data.trend_venta_mes);
+            updateTrendBadge('trendGastos', 'trendGastosIcon', 'trendGastosValue', data.trend_gastos_class, data.trend_gastos_icon, data.trend_gastos);
+            updateTrendBadge('trendGanancias', 'trendGananciasIcon', 'trendGananciasValue', data.trend_ganancias_class, data.trend_ganancias_icon, data.trend_ganancias);
+            updateTrendBadge('trendPedidos', 'trendPedidosIcon', 'trendPedidosValue', data.trend_pedidos_class, data.trend_pedidos_icon, data.trend_pedidos);
+            updateTrendBadge('trendClientes', 'trendClientesIcon', 'trendClientesValue', data.trend_clientes_class, data.trend_clientes_icon, data.trend_clientes);
+
+            // Actualizar fecha y hora
+            document.getElementById('currentDate').textContent = data.fecha_actual;
+            document.getElementById('currentTime').textContent = data.hora_actual;
+
+            // Actividad reciente
+            renderRecentActivities(data.actividades || []);
+        }
+
+        function applyFullData(data) {
+            semanaLabels = data.dias_grafico || [];
+            semanaData = data.ventas_grafico || [];
+            mesLabels = data.labels_mensuales || [];
+            mesData = data.proyeccion_mensual || [];
+            anioLabels = data.labels_anuales || [];
+            anioData = data.proyeccion_anual || [];
+            categoriasData = data.categorias_grafico || [];
+            ventasCategoriasData = data.ventas_categorias_grafico || [];
+            horariosData = data.horarios_grafico || [];
+            ventasHorariosData = data.ventas_horarios_grafico || [];
+            metodosPagoData = data.metodos_pago_grafico || [];
+            ventasMetodosPagoData = data.ventas_metodos_pago_grafico || [];
+            chartDataLoadError = false;
+
+            updateSalesChart(currentChartPeriod);
+            updateCategoryChart(currentCategoryChart);
+            renderTopProducts(data.productos_top || []);
+        }
+
+        function fetchDashboardStats(scope) {
+            fetch(`/dashboard/stats/?scope=${scope}`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Network response was not ok');
@@ -1966,46 +2013,12 @@
                 })
                 .then(data => {
                     if (data.status === 'success') {
-                        const formattedVentaDia = '$' + formatNumberWithCommas(data.venta_dia.toFixed(2));
-                        document.getElementById('ventaDia').textContent = formattedVentaDia;
-                        document.getElementById('ventaMes').textContent = '$' + formatNumberWithCommas(data.venta_mes.toFixed(2));
-                        document.getElementById('gastosTotales').textContent = '$' + formatNumberWithCommas(data.gastos_totales.toFixed(2));
-                        document.getElementById('gananciasNetas').textContent = '$' + formatNumberWithCommas(data.ganancias_netas.toFixed(2));
-                        document.getElementById('totalPedidos').textContent = data.total_pedidos;
-                        document.getElementById('nuevosClientes').textContent = data.nuevos_clientes;
-                        document.getElementById('costosItemsNoMapeados').textContent = data.costos_items_no_mapeados || 0;
+                        applySummaryData(data);
+                        if (scope === 'full') {
+                            applyFullData(data);
+                        }
 
-                        updateTrendBadge('trendVentaDia', 'trendVentaDiaIcon', 'trendVentaDiaValue', data.trend_venta_dia_class, data.trend_venta_dia_icon, data.trend_venta_dia);
-                        updateTrendBadge('trendVentaMes', 'trendVentaMesIcon', 'trendVentaMesValue', data.trend_venta_mes_class, data.trend_venta_mes_icon, data.trend_venta_mes);
-                        updateTrendBadge('trendGastos', 'trendGastosIcon', 'trendGastosValue', data.trend_gastos_class, data.trend_gastos_icon, data.trend_gastos);
-                        updateTrendBadge('trendGanancias', 'trendGananciasIcon', 'trendGananciasValue', data.trend_ganancias_class, data.trend_ganancias_icon, data.trend_ganancias);
-                        updateTrendBadge('trendPedidos', 'trendPedidosIcon', 'trendPedidosValue', data.trend_pedidos_class, data.trend_pedidos_icon, data.trend_pedidos);
-                        updateTrendBadge('trendClientes', 'trendClientesIcon', 'trendClientesValue', data.trend_clientes_class, data.trend_clientes_icon, data.trend_clientes);
-
-                        semanaLabels = data.dias_grafico || [];
-                        semanaData = data.ventas_grafico || [];
-                        mesLabels = data.labels_mensuales || [];
-                        mesData = data.proyeccion_mensual || [];
-                        anioLabels = data.labels_anuales || [];
-                        anioData = data.proyeccion_anual || [];
-                        categoriasData = data.categorias_grafico || [];
-                        ventasCategoriasData = data.ventas_categorias_grafico || [];
-                        horariosData = data.horarios_grafico || [];
-                        ventasHorariosData = data.ventas_horarios_grafico || [];
-                        metodosPagoData = data.metodos_pago_grafico || [];
-                        ventasMetodosPagoData = data.ventas_metodos_pago_grafico || [];
-                        chartDataLoadError = false;
-
-                        updateSalesChart(currentChartPeriod);
-                        updateCategoryChart(currentCategoryChart);
-                        renderTopProducts(data.productos_top || []);
-                        renderRecentActivities(data.actividades || []);
-
-                        // Actualizar fecha y hora
-                        document.getElementById('currentDate').textContent = data.fecha_actual;
-                        document.getElementById('currentTime').textContent = data.hora_actual;
-
-                        debugLog('Estadísticas actualizadas:', data);
+                        debugLog(`Estadísticas actualizadas (${scope}):`, data);
                     } else {
                         console.error('Error en la respuesta del servidor:', data.message);
                     }
@@ -2014,6 +2027,21 @@
                     console.error('Error al actualizar estadísticas:', error);
                     // No mostrar error al usuario para no interrumpir la experiencia
                 });
+        }
+
+        // Refresco ligero (cada 30s)
+        function updateStatsSummary() {
+            fetchDashboardStats('summary');
+        }
+
+        // Refresco completo (manual + cada 5 min)
+        function updateStatsFull() {
+            fetchDashboardStats('full');
+        }
+
+        // Compatibilidad con llamadas existentes
+        function updateStats() {
+            updateStatsFull();
         }
 
         function renderRecentActivities(actividades) {
@@ -2509,7 +2537,7 @@
 
         // Refrescar actividades por AJAX
         function refreshActivities() {
-            updateStats();
+            updateStatsSummary();
             showNotification('Actividad reciente actualizada', 'success');
         }
 
