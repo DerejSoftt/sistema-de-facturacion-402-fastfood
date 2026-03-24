@@ -57,6 +57,7 @@ from django.template.loader import render_to_string
 from django.utils.timezone import now
 from django.http import HttpResponse
 from django.db.models import F
+from django.core.cache import cache
 import pytz
 
 
@@ -3677,6 +3678,16 @@ def dashbort(request):
     ahora_local = timezone.localtime()
     hoy_local = ahora_local.date()
     hora_actual = ahora_local.time()
+    dashboard_debug = bool(settings.DEBUG and request.GET.get('debug') == '1')
+
+    # Cache del render inicial del dashboard para evitar recalculo pesado en cada carga.
+    if not dashboard_debug:
+        minute_bucket = (ahora_local.minute // 5) * 5
+        cache_bucket = f"{ahora_local.strftime('%Y%m%d%H')}{minute_bucket:02d}"
+        cache_key = f"dashbort:context:v2:user:{request.user.id}:{cache_bucket}"
+        cached_context = cache.get(cache_key)
+        if cached_context is not None:
+            return render(request, 'facturacion/dashbort.html', cached_context)
 
     # DEFINICIÓN DEL "DÍA": De 6:00 AM a 5:59 AM del día siguiente
     if ahora_local.hour >= 6:
@@ -3937,6 +3948,9 @@ def dashbort(request):
             'principal': 'Plato Principal',
             'postre': 'Postre',
             'bebida': 'Bebida',
+            'carne': 'Carne',
+            'verdura': 'Verdura',
+            'lacteo': 'Lacteo',
             'rapida': 'Comida Rapida',
             'especial': 'Especial',
             'otro': 'Otro',
@@ -3945,6 +3959,7 @@ def dashbort(request):
         categoria_aliases = {
             'plato principal': 'principal',
             'comida rapida': 'rapida',
+            'lácteo': 'lacteo',
         }
 
         categorias_validas = set(categoria_labels.keys())
@@ -3954,10 +3969,28 @@ def dashbort(request):
             for nombre, categoria in Producto.objects.values_list('nombre', 'categoria')
             if nombre
         }
+        producto_categoria_por_id = {
+            int(pid): (categoria or '').strip().lower()
+            for pid, categoria in Producto.objects.values_list('id', 'categoria')
+        }
+        producto_categoria_por_codigo = {
+            (codigo or '').strip().lower(): (categoria or '').strip().lower()
+            for codigo, categoria in Producto.objects.values_list('codigo', 'categoria')
+            if codigo
+        }
         plato_categoria_por_nombre = {
             (nombre or '').strip().lower(): (categoria or '').strip().lower()
             for nombre, categoria in Plato.objects.values_list('nombre', 'categoria')
             if nombre
+        }
+        plato_categoria_por_id = {
+            int(pid): (categoria or '').strip().lower()
+            for pid, categoria in Plato.objects.values_list('id', 'categoria')
+        }
+        plato_categoria_por_codigo = {
+            (codigo or '').strip().lower(): (categoria or '').strip().lower()
+            for codigo, categoria in Plato.objects.values_list('codigo', 'categoria')
+            if codigo
         }
 
         def normalizar_categoria(valor):
@@ -3971,6 +4004,48 @@ def dashbort(request):
             categoria_directa = normalizar_categoria(item.get('categoria') or item.get('category'))
             if categoria_directa:
                 return categoria_directa
+
+            def extraer_id_numerico(valor_id):
+                if valor_id is None:
+                    return None
+                if isinstance(valor_id, (int, float)):
+                    return int(valor_id)
+
+                valor_str = str(valor_id).strip().lower()
+                if not valor_str:
+                    return None
+
+                if valor_str.startswith('plato_'):
+                    valor_str = valor_str.replace('plato_', '', 1)
+                elif valor_str.startswith('bebida_'):
+                    valor_str = valor_str.replace('bebida_', '', 1)
+
+                try:
+                    return int(valor_str)
+                except (TypeError, ValueError):
+                    digitos = re.findall(r'\d+', valor_str)
+                    return int(digitos[0]) if digitos else None
+
+            producto_id = item.get('producto_id') or item.get('product_id') or item.get('id')
+            pid = extraer_id_numerico(producto_id)
+            if pid is not None:
+                categoria_por_id = normalizar_categoria(producto_categoria_por_id.get(pid))
+                if categoria_por_id:
+                    return categoria_por_id
+
+                categoria_plato_id = normalizar_categoria(plato_categoria_por_id.get(pid))
+                if categoria_plato_id:
+                    return categoria_plato_id
+
+            codigo_item = (item.get('codigo') or item.get('code') or '').strip().lower()
+            if codigo_item:
+                categoria_por_codigo = normalizar_categoria(producto_categoria_por_codigo.get(codigo_item))
+                if categoria_por_codigo:
+                    return categoria_por_codigo
+
+                categoria_plato_codigo = normalizar_categoria(plato_categoria_por_codigo.get(codigo_item))
+                if categoria_plato_codigo:
+                    return categoria_plato_codigo
 
             tipo_item = (item.get('tipo_item') or item.get('tipo') or '').strip().lower()
             if tipo_item == 'bebida' or bool(item.get('es_bebida')):
@@ -3988,34 +4063,36 @@ def dashbort(request):
 
             return 'otro'
 
-        # Primero intentar obtener categorías de productos vendidos hoy
-        categorias_dict = {}
-        
-        for factura in facturas_hoy:
-            items = factura.get_items_detalle(enrich_from_db=True)
-            if items and isinstance(items, list):
+        def acumular_categorias(facturas_iterable, enrich_items):
+            acumulado = {}
+            for factura in facturas_iterable:
+                items = factura.get_items_detalle(enrich_from_db=enrich_items)
+                if not (items and isinstance(items, list)):
+                    continue
+
                 for item in items:
                     categoria = resolver_categoria_item(item)
                     cantidad, precio = obtener_cantidad_precio_item(item)
-                    
-                    if categoria in categorias_dict:
-                        categorias_dict[categoria] += cantidad * precio
-                    else:
-                        categorias_dict[categoria] = cantidad * precio
-        
+                    acumulado[categoria] = acumulado.get(categoria, 0) + (cantidad * precio)
+            return acumulado
+
+        # Pase rapido por defecto
+        categorias_dict = acumular_categorias(facturas_hoy, enrich_items=False)
+
         # Si no hay categorías hoy, intentar del mes
         if not categorias_dict:
-            for factura in facturas_mes:
-                items = factura.get_items_detalle(enrich_from_db=True)
-                if items and isinstance(items, list):
-                    for item in items:
-                        categoria = resolver_categoria_item(item)
-                        cantidad, precio = obtener_cantidad_precio_item(item)
-                        
-                        if categoria in categorias_dict:
-                            categorias_dict[categoria] += cantidad * precio
-                        else:
-                            categorias_dict[categoria] = cantidad * precio
+            categorias_dict = acumular_categorias(facturas_mes, enrich_items=False)
+
+        # Fallback: si todo colapsa en "otro", reintentar enriqueciendo desde BD
+        if categorias_dict and set(categorias_dict.keys()) == {'otro'}:
+            categorias_dict_rapido = categorias_dict.copy()
+            categorias_dict = acumular_categorias(facturas_hoy, enrich_items=True)
+            if not categorias_dict:
+                categorias_dict = acumular_categorias(facturas_mes, enrich_items=True)
+
+            # Si aun viene solo "otro", conservar al menos el pase rapido
+            if not categorias_dict:
+                categorias_dict = categorias_dict_rapido
         
         # Si aún no hay datos, mantener listas vacías (sin datos reales)
         if categorias_dict:
@@ -4148,7 +4225,7 @@ def dashbort(request):
     ]
 
     # Datos de depuración: solo cuando DEBUG está activo
-    if settings.DEBUG:
+    if dashboard_debug:
         facturas_hoy_todas = Factura.objects.filter(
             fecha_factura__gte=inicio_dia,
             fecha_factura__lte=fin_dia
@@ -4170,8 +4247,8 @@ def dashbort(request):
             estado='pagada'
         ).count()
     else:
-        facturas_hoy_todas = []
-        todas_facturas = []
+        facturas_hoy_todas = Factura.objects.none()
+        todas_facturas = Factura.objects.none()
         total_facturas_db = 0
         total_facturas_pagadas_db = 0
         primera_factura = None
@@ -4257,8 +4334,11 @@ def dashbort(request):
         'costos_items_validos': costo_mes_stats['items_validos'],
         'costos_items_mapeados': costo_mes_stats['items_mapeados'],
         'costos_items_no_mapeados': costo_mes_stats['items_no_mapeados'],
-        'dashboard_debug': settings.DEBUG,
+        'dashboard_debug': dashboard_debug,
     }
+
+    if not dashboard_debug:
+        cache.set(cache_key, context, 300)
 
     return render(request, 'facturacion/dashbort.html', context)
 
@@ -4271,6 +4351,22 @@ def dashboard_stats(request):
         if scope not in ('summary', 'full'):
             scope = 'full'
         full_refresh = scope == 'full'
+
+        # Cache por ventanas alineadas con el frontend.
+        # Summary: ventana corta para mantener frescura.
+        # Full: ventana de 5 minutos para evitar recalculo pesado continuo.
+        now_local = timezone.localtime()
+        if full_refresh:
+            minute_bucket = (now_local.minute // 5) * 5
+            cache_bucket = f"{now_local.strftime('%Y%m%d%H')}{minute_bucket:02d}"
+        else:
+            second_bucket = (now_local.second // 15) * 15
+            cache_bucket = f"{now_local.strftime('%Y%m%d%H%M')}{second_bucket:02d}"
+
+        cache_key = f"dashboard_stats:{scope}:{cache_bucket}"
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return JsonResponse(cached_payload)
 
         def calcular_cambio_porcentual(actual, anterior):
             actual_val = float(actual or 0)
@@ -4541,6 +4637,9 @@ def dashboard_stats(request):
                 'principal': 'Plato Principal',
                 'postre': 'Postre',
                 'bebida': 'Bebida',
+                'carne': 'Carne',
+                'verdura': 'Verdura',
+                'lacteo': 'Lacteo',
                 'rapida': 'Comida Rapida',
                 'especial': 'Especial',
                 'otro': 'Otro',
@@ -4549,6 +4648,7 @@ def dashboard_stats(request):
             categoria_aliases = {
                 'plato principal': 'principal',
                 'comida rapida': 'rapida',
+                'lácteo': 'lacteo',
             }
 
             categorias_validas = set(categoria_labels.keys())
@@ -4558,10 +4658,28 @@ def dashboard_stats(request):
                 for nombre, categoria in Producto.objects.values_list('nombre', 'categoria')
                 if nombre
             }
+            producto_categoria_por_id = {
+                int(pid): (categoria or '').strip().lower()
+                for pid, categoria in Producto.objects.values_list('id', 'categoria')
+            }
+            producto_categoria_por_codigo = {
+                (codigo or '').strip().lower(): (categoria or '').strip().lower()
+                for codigo, categoria in Producto.objects.values_list('codigo', 'categoria')
+                if codigo
+            }
             plato_categoria_por_nombre = {
                 (nombre or '').strip().lower(): (categoria or '').strip().lower()
                 for nombre, categoria in Plato.objects.values_list('nombre', 'categoria')
                 if nombre
+            }
+            plato_categoria_por_id = {
+                int(pid): (categoria or '').strip().lower()
+                for pid, categoria in Plato.objects.values_list('id', 'categoria')
+            }
+            plato_categoria_por_codigo = {
+                (codigo or '').strip().lower(): (categoria or '').strip().lower()
+                for codigo, categoria in Plato.objects.values_list('codigo', 'categoria')
+                if codigo
             }
 
             def normalizar_categoria(valor):
@@ -4575,6 +4693,48 @@ def dashboard_stats(request):
                 categoria_directa = normalizar_categoria(item.get('categoria') or item.get('category'))
                 if categoria_directa:
                     return categoria_directa
+
+                def extraer_id_numerico(valor_id):
+                    if valor_id is None:
+                        return None
+                    if isinstance(valor_id, (int, float)):
+                        return int(valor_id)
+
+                    valor_str = str(valor_id).strip().lower()
+                    if not valor_str:
+                        return None
+
+                    if valor_str.startswith('plato_'):
+                        valor_str = valor_str.replace('plato_', '', 1)
+                    elif valor_str.startswith('bebida_'):
+                        valor_str = valor_str.replace('bebida_', '', 1)
+
+                    try:
+                        return int(valor_str)
+                    except (TypeError, ValueError):
+                        digitos = re.findall(r'\d+', valor_str)
+                        return int(digitos[0]) if digitos else None
+
+                producto_id = item.get('producto_id') or item.get('product_id') or item.get('id')
+                pid = extraer_id_numerico(producto_id)
+                if pid is not None:
+                    categoria_por_id = normalizar_categoria(producto_categoria_por_id.get(pid))
+                    if categoria_por_id:
+                        return categoria_por_id
+
+                    categoria_plato_id = normalizar_categoria(plato_categoria_por_id.get(pid))
+                    if categoria_plato_id:
+                        return categoria_plato_id
+
+                codigo_item = (item.get('codigo') or item.get('code') or '').strip().lower()
+                if codigo_item:
+                    categoria_por_codigo = normalizar_categoria(producto_categoria_por_codigo.get(codigo_item))
+                    if categoria_por_codigo:
+                        return categoria_por_codigo
+
+                    categoria_plato_codigo = normalizar_categoria(plato_categoria_por_codigo.get(codigo_item))
+                    if categoria_plato_codigo:
+                        return categoria_plato_codigo
 
                 tipo_item = (item.get('tipo_item') or item.get('tipo') or '').strip().lower()
                 if tipo_item == 'bebida' or bool(item.get('es_bebida')):
@@ -4592,23 +4752,32 @@ def dashboard_stats(request):
 
                 return 'otro'
 
-            categorias_dict = {}
-            for factura in facturas_hoy:
-                items = factura.get_items_detalle(enrich_from_db=True)
-                if items and isinstance(items, list):
+            def acumular_categorias(facturas_iterable, enrich_items):
+                acumulado = {}
+                for factura in facturas_iterable:
+                    items = factura.get_items_detalle(enrich_from_db=enrich_items)
+                    if not (items and isinstance(items, list)):
+                        continue
+
                     for item in items:
                         categoria = resolver_categoria_item(item)
                         cantidad, precio = obtener_cantidad_precio_item(item)
-                        categorias_dict[categoria] = categorias_dict.get(categoria, 0) + (cantidad * precio)
+                        acumulado[categoria] = acumulado.get(categoria, 0) + (cantidad * precio)
+                return acumulado
+
+            categorias_dict = acumular_categorias(facturas_hoy, enrich_items=False)
 
             if not categorias_dict:
-                for factura in facturas_mes:
-                    items = factura.get_items_detalle(enrich_from_db=True)
-                    if items and isinstance(items, list):
-                        for item in items:
-                            categoria = resolver_categoria_item(item)
-                            cantidad, precio = obtener_cantidad_precio_item(item)
-                            categorias_dict[categoria] = categorias_dict.get(categoria, 0) + (cantidad * precio)
+                categorias_dict = acumular_categorias(facturas_mes, enrich_items=False)
+
+            if categorias_dict and set(categorias_dict.keys()) == {'otro'}:
+                categorias_dict_rapido = categorias_dict.copy()
+                categorias_dict = acumular_categorias(facturas_hoy, enrich_items=True)
+                if not categorias_dict:
+                    categorias_dict = acumular_categorias(facturas_mes, enrich_items=True)
+
+                if not categorias_dict:
+                    categorias_dict = categorias_dict_rapido
 
             categorias_data = [categoria_labels.get(categoria, categoria.title()) for categoria in categorias_dict.keys()] if categorias_dict else []
             ventas_categorias_data = list(categorias_dict.values()) if categorias_dict else []
@@ -4733,7 +4902,7 @@ def dashboard_stats(request):
         trend_clientes = calcular_cambio_porcentual(nuevos_clientes, nuevos_clientes_mes_pasado)
 
         # Retornar datos como JSON
-        return JsonResponse({
+        payload = {
             'venta_dia': float(venta_dia),
             'venta_mes': float(venta_mes),
             'total_pedidos': total_pedidos,
@@ -4782,7 +4951,11 @@ def dashboard_stats(request):
             'costos_items_no_mapeados': costo_mes_stats['items_no_mapeados'],
             'actividades': actividades_json,
             'status': 'success'
-        })
+        }
+
+        cache_timeout = 300 if full_refresh else 20
+        cache.set(cache_key, payload, cache_timeout)
+        return JsonResponse(payload)
 
     except Exception as e:
         return JsonResponse({
