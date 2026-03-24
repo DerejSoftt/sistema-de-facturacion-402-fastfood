@@ -758,7 +758,7 @@
                                             <i class="fas fa-dollar-sign"></i> Límite de Crédito
                                         </label>
                                         <div class="credito-container">
-                                            <span class="credito-symbol">$</span>
+                                            <span class="credito-symbol">RD$</span>
                                             <input type="number" id="limite_credito" name="limite_credito"
                                                 class="credito-input" placeholder="0.00" step="0.01" min="0"
                                                 max="1000000" value="0.00" required>
@@ -976,7 +976,7 @@
                     if (valor < 0) {
                         mostrarError(limiteCreditoInput, creditoHelp, 'El límite de crédito no puede ser negativo');
                     } else if (valor > 1000000) {
-                        mostrarError(limiteCreditoInput, creditoHelp, 'El límite de crédito máximo es $1,000,000');
+                        mostrarError(limiteCreditoInput, creditoHelp, 'El límite de crédito máximo es RD$1,000,000');
                     } else {
                         mostrarExito(limiteCreditoInput, creditoHelp, 'Límite de crédito válido');
                     }
@@ -1078,7 +1078,7 @@
             if (valorNumerico === 0) {
                 creditoHelp.innerHTML = `<i class="fas fa-info-circle"></i> Sin crédito - solo ventas al contado`;
             } else if (valorNumerico > 0) {
-                creditoHelp.innerHTML = `<i class="fas fa-check-circle"></i> Límite establecido: $${valorFormateado}`;
+                creditoHelp.innerHTML = `<i class="fas fa-check-circle"></i> Límite establecido: RD$${valorFormateado}`;
                 creditoHelp.className = 'form-help success';
             }
         }
@@ -1304,7 +1304,7 @@
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                     <strong>Límite Crédito:</strong>
                     <span style="color: ${datos.limiteCredito > 0 ? '#38a169' : '#718096'}; font-weight: bold;">
-                        $${limiteFormateado}
+                        RD$${limiteFormateado}
                     </span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
@@ -1552,4 +1552,7 @@
 </body>
 
 </html>
+
+
+
 

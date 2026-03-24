@@ -1117,7 +1117,7 @@
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
-                            <div class="stat-value" id="precioPromedio">$0</div>
+                            <div class="stat-value" id="precioPromedio">RD$0</div>
                             <div class="stat-label">Precio Promedio</div>
                         </div>
                         <div class="stat-card">
@@ -1204,7 +1204,7 @@
                                             {{ plato.get_categoria_display }}
                                         </span>
                                     </td>
-                                    <td style="font-weight: 700; color: #ff7e5f;" data-precio="{{ plato.precio }}">${{ plato.precio }}</td>
+                                    <td style="font-weight: 700; color: #ff7e5f;" data-precio="{{ plato.precio }}">RD${{ plato.precio }}</td>
                                     <td>{{ plato.fecha_creacion|date:"d/m/Y" }}</td>
                                     <td>
                                         {% if plato.activo %}
@@ -1293,7 +1293,7 @@
                     
                     <div class="modal-form-group">
                         <label for="editPrecio">
-                            <i class="fas fa-dollar-sign"></i> Precio ($)
+                            <i class="fas fa-dollar-sign"></i> Precio (RD$)
                         </label>
                         <input type="text" id="editPrecio" required placeholder="0.00">
                     </div>
@@ -1311,12 +1311,16 @@
     </div>
 
    <script>
-    // Función para formatear moneda con comas para miles
+    // Funciones de moneda para mostrar y parsear valores en RD$
     function formatearMoneda(numero) {
         return parseFloat(numero).toLocaleString('en-US', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });
+    }
+
+    function parsearMoneda(valor) {
+        return parseFloat(String(valor || '').replace(/[^\d.-]/g, ''));
     }
     
     // Inicializar la aplicación
@@ -1325,7 +1329,7 @@
         document.querySelectorAll('td[data-precio]').forEach(cell => {
             const precio = cell.getAttribute('data-precio');
             if (precio) {
-                cell.textContent = '$' + formatearMoneda(precio);
+                cell.textContent = 'RD$' + formatearMoneda(precio);
             }
         });
         
@@ -1362,7 +1366,7 @@
                     // Precio - usar data-precio para cálculos
                     const precioCell = row.cells[3];
                     const precioData = precioCell.getAttribute('data-precio');
-                    const precio = parseFloat(precioData || precioCell.textContent.replace('$', '').replace(/,/g, ''));
+                    const precio = parsearMoneda(precioData || precioCell.textContent);
                     if (!isNaN(precio)) {
                         totalPrecio += precio;
                     }
@@ -1382,7 +1386,7 @@
             const precioPromedio = totalPlatos > 0 ? totalPrecio / totalPlatos : 0;
             
             document.getElementById('totalPlatos').textContent = totalPlatos;
-            document.getElementById('precioPromedio').textContent = '$' + formatearMoneda(precioPromedio);
+            document.getElementById('precioPromedio').textContent = 'RD$' + formatearMoneda(precioPromedio);
             document.getElementById('totalCategorias').textContent = categorias.size;
             document.getElementById('platosHoy').textContent = platosHoy;
         }
@@ -1452,12 +1456,12 @@
                 case 'nombre_desc':
                     return b.cells[1].textContent.localeCompare(a.cells[1].textContent);
                 case 'precio_asc':
-                    const precioA = parseFloat(a.cells[3].textContent.replace('$', ''));
-                    const precioB = parseFloat(b.cells[3].textContent.replace('$', ''));
+                    const precioA = parsearMoneda(a.cells[3].textContent);
+                    const precioB = parsearMoneda(b.cells[3].textContent);
                     return precioA - precioB;
                 case 'precio_desc':
-                    const precioA2 = parseFloat(a.cells[3].textContent.replace('$', ''));
-                    const precioB2 = parseFloat(b.cells[3].textContent.replace('$', ''));
+                    const precioA2 = parsearMoneda(a.cells[3].textContent);
+                    const precioB2 = parsearMoneda(b.cells[3].textContent);
                     return precioB2 - precioA2;
                 default:
                     return 0;
@@ -1486,7 +1490,7 @@
         else if (badgeElement.className.includes('especial')) categoriaActual = 'especial';
         
         const precioCell = row.cells[3];
-        const precioActual = precioCell.getAttribute('data-precio') || precioCell.textContent.replace('$', '').replace(/,/g, '');
+        const precioActual = precioCell.getAttribute('data-precio') || parsearMoneda(precioCell.textContent);
         
         // Llenar el modal con los datos actuales
         document.getElementById('editPlatoId').value = platoId;
@@ -1707,4 +1711,5 @@
 </script>
 </body>
 </html>
+
 

@@ -1312,7 +1312,7 @@
                         <div class="debug-content" id="debugContent">
                             <p><strong>Fecha local del servidor:</strong> {{ fecha_actual }} {{ hora_actual }}</p>
                             <p><strong>Fecha de hoy para filtros:</strong> {{ hoy|date:"d-m-Y" }}</p>
-                            <p><strong>Venta del día calculada (facturas pagadas):</strong> ${{
+                            <p><strong>Venta del día calculada (facturas pagadas):</strong> RD${{
                                 venta_dia|floatformat:2|intcomma }}</p>
                             <p><strong>Total facturas hoy en base de datos:</strong> {{ total_facturas_hoy }}</p>
                             <p><strong>Total facturas del mes:</strong> {{ total_facturas_mes }}</p>
@@ -1374,7 +1374,7 @@
                                     </tr>
                                     <tr>
                                         <td>Venta Mes Pasado</td>
-                                        <td>${{ venta_mes_pasado|floatformat:2|intcomma }}</td>
+                                        <td>RD${{ venta_mes_pasado|floatformat:2|intcomma }}</td>
                                         <td>-</td>
                                     </tr>
                                 </tbody>
@@ -1459,7 +1459,7 @@
                                         <td>{{ factura.numero_factura }}</td>
                                         <td>{{ factura.fecha_factura|date:"d-m-Y h:i:s" }}</td>
                                         <td>{{ factura.nombre_cliente|default:"-" }}</td>
-                                        <td>${{ factura.total|floatformat:2|intcomma }}</td>
+                                        <td>RD${{ factura.total|floatformat:2|intcomma }}</td>
                                         <td>
                                             {% if factura.estado == 'pagada' %}
                                             <span style="color: #4CAF50; font-weight: bold;">{{ factura.estado }}</span>
@@ -1477,7 +1477,7 @@
                                 <tfoot>
                                     <tr style="background-color: #e9ecef; font-weight: bold;">
                                         <td colspan="3" style="text-align: right;">Suma total facturas pagadas hoy:</td>
-                                        <td>${{ venta_dia|floatformat:2|intcomma }}</td>
+                                        <td>RD${{ venta_dia|floatformat:2|intcomma }}</td>
                                         <td>
                                             {% if venta_dia > 0 %}
                                             <span style="color: #4CAF50;">✓ Contabilizado</span>
@@ -1506,7 +1506,7 @@
                                         <td>{{ factura.numero_factura }}</td>
                                         <td>{{ factura.fecha_factura|date:"d-m-Y h:i:s" }}</td>
                                         <td>{{ factura.nombre_cliente|default:"-" }}</td>
-                                        <td>${{ factura.total|floatformat:2|intcomma }}</td>
+                                        <td>RD${{ factura.total|floatformat:2|intcomma }}</td>
                                         <td>{{ factura.estado }}</td>
                                     </tr>
                                     {% empty %}
@@ -1541,7 +1541,7 @@
                                     <span id="trendVentaDiaValue">{{ trend_venta_dia|floatformat:1 }}%</span>
                                 </div>
                             </div>
-                            <div class="stat-value" id="ventaDia">${{ venta_dia|floatformat:2|intcomma }}</div>
+                            <div class="stat-value" id="ventaDia">RD${{ venta_dia|floatformat:2|intcomma }}</div>
                             <div class="stat-label">Venta del Día</div>
                             <div class="stat-detail">
                                 {% if venta_dia > 0 %}
@@ -1577,7 +1577,7 @@
                                     <span id="trendVentaMesValue">{{ trend_venta_mes|floatformat:1 }}%</span>
                                 </div>
                             </div>
-                            <div class="stat-value" id="ventaMes">${{ venta_mes|floatformat:2|intcomma }}</div>
+                            <div class="stat-value" id="ventaMes">RD${{ venta_mes|floatformat:2|intcomma }}</div>
                             <div class="stat-label">Venta del Mes</div>
                             <div class="stat-detail">{{ total_facturas_mes }} factura(s) este mes • Tendencia vs mes anterior</div>
                         </div>
@@ -1594,7 +1594,7 @@
                                     <span id="trendGastosValue">{{ trend_gastos|floatformat:1 }}%</span>
                                 </div>
                             </div>
-                            <div class="stat-value" id="gastosTotales">${{ gastos_totales|floatformat:2|intcomma }}
+                            <div class="stat-value" id="gastosTotales">RD${{ gastos_totales|floatformat:2|intcomma }}
                             </div>
                             <div class="stat-label">Gastos Totales</div>
                             <div class="stat-detail">Costo real de insumos vendidos • Tendencia vs mes anterior • No mapeados: <span id="costosItemsNoMapeados">{{ costos_items_no_mapeados }}</span></div>
@@ -1612,7 +1612,7 @@
                                     <span id="trendGananciasValue">{{ trend_ganancias|floatformat:1 }}%</span>
                                 </div>
                             </div>
-                            <div class="stat-value" id="gananciasNetas">${{ ganancias_netas|floatformat:2|intcomma }}
+                            <div class="stat-value" id="gananciasNetas">RD${{ ganancias_netas|floatformat:2|intcomma }}
                             </div>
                             <div class="stat-label">Ganancias Netas</div>
                             <div class="stat-detail">Después de gastos • Tendencia vs mes anterior</div>
@@ -1718,7 +1718,7 @@
                                         • Estado: {{ factura.estado }}
                                     </div>
                                 </div>
-                                <div class="activity-amount positive">+${{ factura.total|floatformat:2|intcomma }}</div>
+                                <div class="activity-amount positive">+RD${{ factura.total|floatformat:2|intcomma }}</div>
                             </div>
                             {% empty %}
                             <div class="activity-item">
@@ -1729,7 +1729,7 @@
                                     <div class="activity-title">No hay actividades recientes</div>
                                     <div class="activity-time">Comienza a generar facturas para ver actividades</div>
                                 </div>
-                                <div class="activity-amount">$0.00</div>
+                                <div class="activity-amount">RD$0.00</div>
                             </div>
                             {% endfor %}
                         </div>
@@ -1803,7 +1803,7 @@
                                             <span style="font-weight: 600;">{{ producto.cantidad|floatformat:0 }}</span>
                                         </div>
                                     </td>
-                                    <td style="font-weight: 700; color: #4CAF50;">${{ producto.ingresos|default:0|floatformat:2|intcomma }}</td>
+                                    <td style="font-weight: 700; color: #4CAF50;">RD${{ producto.ingresos|default:0|floatformat:2|intcomma }}</td>
                                     <td>
                                         <div style="display: flex; align-items: center; gap: 0.5rem;">
                                             <span>
@@ -1959,11 +1959,11 @@
         }
 
         function applySummaryData(data) {
-            const formattedVentaDia = '$' + formatNumberWithCommas(data.venta_dia.toFixed(2));
+            const formattedVentaDia = 'RD$' + formatNumberWithCommas(data.venta_dia.toFixed(2));
             document.getElementById('ventaDia').textContent = formattedVentaDia;
-            document.getElementById('ventaMes').textContent = '$' + formatNumberWithCommas(data.venta_mes.toFixed(2));
-            document.getElementById('gastosTotales').textContent = '$' + formatNumberWithCommas(data.gastos_totales.toFixed(2));
-            document.getElementById('gananciasNetas').textContent = '$' + formatNumberWithCommas(data.ganancias_netas.toFixed(2));
+            document.getElementById('ventaMes').textContent = 'RD$' + formatNumberWithCommas(data.venta_mes.toFixed(2));
+            document.getElementById('gastosTotales').textContent = 'RD$' + formatNumberWithCommas(data.gastos_totales.toFixed(2));
+            document.getElementById('gananciasNetas').textContent = 'RD$' + formatNumberWithCommas(data.ganancias_netas.toFixed(2));
             document.getElementById('totalPedidos').textContent = data.total_pedidos;
             document.getElementById('nuevosClientes').textContent = data.nuevos_clientes;
             document.getElementById('costosItemsNoMapeados').textContent = data.costos_items_no_mapeados || 0;
@@ -2058,7 +2058,7 @@
                             <div class="activity-title">No hay actividades recientes</div>
                             <div class="activity-time">Comienza a generar facturas para ver actividades</div>
                         </div>
-                        <div class="activity-amount">$0.00</div>
+                        <div class="activity-amount">RD$0.00</div>
                     </div>`;
                 return;
             }
@@ -2072,7 +2072,7 @@
                         <div class="activity-title">Factura ${item.numero_factura}</div>
                         <div class="activity-time">${item.fecha} • Cliente: ${item.cliente} • Estado: ${item.estado}</div>
                     </div>
-                    <div class="activity-amount positive">+$${formatNumberWithCommas(Number(item.total || 0).toFixed(2))}</div>
+                    <div class="activity-amount positive">+RD$${formatNumberWithCommas(Number(item.total || 0).toFixed(2))}</div>
                 </div>`).join('');
         }
 
@@ -2154,7 +2154,7 @@
                                 <span style="font-weight: 600;">${Math.round(cantidad)}</span>
                             </div>
                         </td>
-                        <td style="font-weight: 700; color: #4CAF50;">$${formatNumberWithCommas(ingresos.toFixed(2))}</td>
+                        <td style="font-weight: 700; color: #4CAF50;">RD$${formatNumberWithCommas(ingresos.toFixed(2))}</td>
                         <td>
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
                                 <span>${trendIcon}</span>
@@ -2186,9 +2186,9 @@
                 });
 
                 if (ventaCalculada > 0 && ventaDiaValue === 0) {
-                    debugWarn('Discrepancia encontrada: Hay actividades de hoy pero venta del día es $0');
+                    debugWarn('Discrepancia encontrada: Hay actividades de hoy pero venta del día es RD$0');
                     if (DASHBOARD_DEBUG) {
-                        showNotification('Hay actividades de hoy pero venta del día es $0. Revisa la sección de depuración.', 'info');
+                        showNotification('Hay actividades de hoy pero venta del día es RD$0. Revisa la sección de depuración.', 'info');
                     }
                 }
             }
@@ -2249,7 +2249,7 @@
                 data: {
                     labels: semanaLabels,
                     datasets: [{
-                        label: 'Ventas ($)',
+                        label: 'Ventas (RD$)',
                         data: semanaData,
                         borderColor: '#ff7e5f',
                         backgroundColor: 'rgba(255, 126, 95, 0.1)',
@@ -2268,7 +2268,7 @@
                             intersect: false,
                             callbacks: {
                                 label: function (context) {
-                                    return `Ventas: $${formatNumberWithCommas(context.parsed.y.toFixed(2))}`;
+                                    return `Ventas: RD$${formatNumberWithCommas(context.parsed.y.toFixed(2))}`;
                                 }
                             }
                         }
@@ -2279,7 +2279,7 @@
                             grid: { color: 'rgba(0, 0, 0, 0.05)' },
                             ticks: {
                                 callback: function (value) {
-                                    return '$' + formatNumberWithCommas(value);
+                                    return 'RD$' + formatNumberWithCommas(value);
                                 }
                             }
                         },
@@ -2343,7 +2343,7 @@
                                     const value = context.parsed || 0;
                                     const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                     const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-                                    return `${label}: ${percentage}% ($${formatNumberWithCommas(value.toFixed(2))})`;
+                                    return `${label}: ${percentage}% (RD$${formatNumberWithCommas(value.toFixed(2))})`;
                                 }
                             }
                         }
@@ -2708,4 +2708,7 @@
 </body>
 
 </html>
+
+
+
 

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 {% load static %}
+{% load humanize %}
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -1423,8 +1424,8 @@
                                             {% endif %}
                                         </td>
                                         <td>{{ item.cantidad }}</td>
-                                        <td>${{ item.precio|floatformat:2 }}</td>
-                                        <td>${{ item.subtotal|floatformat:2 }}</td>
+                                        <td>RD${{ item.precio|floatformat:2|intcomma }}</td>
+                                        <td>RD${{ item.subtotal|floatformat:2|intcomma }}</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -1465,7 +1466,7 @@
                                             <td>{{ item.nombre }}</td>
                                             <td>{{ item.codigo|default:"No disponible" }}</td>
                                             <td>{{ item.cantidad }}</td>
-                                            <td>${{ item.precio|floatformat:2 }}</td>
+                                            <td>RD${{ item.precio|floatformat:2|intcomma }}</td>
                                             <td>{{ item.categoria }}</td>
                                         </tr>
                                         {% empty %}
@@ -1504,27 +1505,27 @@
                             <div class="invoice-summary">
                                 <div class="summary-row">
                                     <span>Subtotal:</span>
-                                    <span>${{ factura.subtotal|floatformat:2 }}</span>
+                                    <span>RD${{ factura.subtotal|floatformat:2|intcomma }}</span>
                                 </div>
                                 <div class="summary-row">
                                     <span>IVA (12%):</span>
-                                    <span>${{ factura.iva|floatformat:2 }}</span>
+                                    <span>RD${{ factura.iva|floatformat:2|intcomma }}</span>
                                 </div>
                                 {% if factura.envio and factura.envio > 0 %}
                                 <div class="summary-row">
                                     <span>Envío:</span>
-                                    <span>${{ factura.envio|floatformat:2 }}</span>
+                                    <span>RD${{ factura.envio|floatformat:2|intcomma }}</span>
                                 </div>
                                 {% endif %}
                                 {% if factura.descuento and factura.descuento > 0 %}
                                 <div class="summary-row">
                                     <span>Descuento:</span>
-                                    <span>-${{ factura.descuento|floatformat:2 }}</span>
+                                    <span>-RD${{ factura.descuento|floatformat:2|intcomma }}</span>
                                 </div>
                                 {% endif %}
                                 <div class="summary-row summary-total">
                                     <span>Total:</span>
-                                    <span class="total-amount">${{ factura.total|floatformat:2 }}</span>
+                                    <span class="total-amount">RD${{ factura.total|floatformat:2|intcomma }}</span>
                                 </div>
                             </div>
                         </div>
@@ -1647,7 +1648,7 @@
                         </div>
                         <div class="modal-total-section">
                             <span class="modal-total-label">Total a Devolver:</span>
-                            <span class="modal-total-amount" id="partialReturnTotal">$0.00</span>
+                            <span class="modal-total-amount" id="partialReturnTotal">RD$0.00</span>
                         </div>
                         <input type="hidden" name="numero_factura" id="modalFacturaNumero" value="{{ factura.numero_factura|default:'' }}">
                         <input type="hidden" name="productos_devueltos" id="productosDevueltosInput" value="[]">
@@ -1683,7 +1684,7 @@
                             </h4>
                             <div><strong>Número:</strong> {{ factura.numero_factura }}</div>
                             <div><strong>Cliente:</strong> {{ factura.nombre_cliente|default:"No especificado" }}</div>
-                            <div><strong>Total:</strong> ${{ factura.total|floatformat:2 }}</div>
+                            <div><strong>Total:</strong> RD${{ factura.total|floatformat:2|intcomma }}</div>
                         </div>
                         
                         <div style="margin-bottom: 1.5rem;">
@@ -1743,7 +1744,7 @@
             console.log(`     Código: "${item.codigo || 'No disponible'}"`);
             console.log(`     Categoría: "${item.categoria || 'No disponible'}"`);
             console.log(`     Cantidad: ${item.cantidad || 0}`);
-            console.log(`     Precio: $${item.precio || 0}`);
+            console.log(`     Precio: RD$${item.precio || 0}`);
         });
     } else {
         console.warn('⚠️  No hay items en la factura');
@@ -1772,6 +1773,14 @@
         document.querySelectorAll('input[name="csrfmiddlewaretoken"]').forEach((input) => {
             input.value = cookieToken;
         });
+    }
+
+    function formatCurrency(value) {
+        const amount = Number(value) || 0;
+        return `RD$${amount.toLocaleString('es-DO', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        })}`;
     }
 
     // Inicializar la aplicación
@@ -1901,8 +1910,9 @@
             mensaje += 'No hay productos bebida para reponer stock.\n';
         }
         
-        mensaje += `\nMonto total a devolver: $${facturaActual.items.reduce((sum, item) => 
-            sum + (item.cantidad * item.precio), 0).toFixed(2)}`;
+        const totalDevolucion = facturaActual.items.reduce((sum, item) =>
+            sum + (item.cantidad * item.precio), 0);
+        mensaje += `\nMonto total a devolver: ${formatCurrency(totalDevolucion)}`;
         
         return confirm(mensaje);
     }
@@ -1942,7 +1952,7 @@
                         <div>
                             <strong style="color: #2c3e50;">Total Devuelto:</strong>
                             <div style="font-size: 1.8rem; font-weight: bold; color: #4CAF50;">
-                                $${montoTotal.toFixed(2)}
+                                ${formatCurrency(montoTotal)}
                             </div>
                         </div>
                         <div style="color: #718096; font-size: 0.9rem; text-align: right;">
@@ -1968,7 +1978,7 @@
                             </div>
                         </div>
                         <div style="font-weight: 700; color: #4CAF50;">
-                            $${parseFloat(producto.subtotal || 0).toFixed(2)}
+                            ${formatCurrency(parseFloat(producto.subtotal || 0))}
                         </div>
                     </div>
                 `;
@@ -2010,7 +2020,7 @@
                     p.categoria && p.categoria.toLowerCase() === 'bebida'
                 );
                 
-                let mensaje = `¿Estás seguro de procesar la devolución de ${productosSeleccionados.length} producto(s) por un total de $${total.toFixed(2)}?\n\n`;
+                let mensaje = `¿Estás seguro de procesar la devolución de ${productosSeleccionados.length} producto(s) por un total de ${formatCurrency(total)}?\n\n`;
                 
                 if (bebidas.length > 0) {
                     mensaje += `Se repondrá el stock de ${bebidas.length} producto(s) bebida:\n`;
@@ -2209,7 +2219,7 @@
                     <div class="product-info">
                         <div class="product-name">${productoNombre}</div>
                         <div class="product-details">
-                            <div>Precio unitario: $${(item.precio || 0).toFixed(2)}</div>
+                            <div>Precio unitario: ${formatCurrency(item.precio || 0)}</div>
                             <div>Disponible para devolver: ${cantidadDisponible} de ${cantidadOriginal}</div>
                             ${codigoProducto ? `<div>Código: <strong>${codigoProducto}</strong></div>` : '<div>Código: <em>No disponible</em></div>'}
                             ${cantidadYaDevuelta > 0 ? `<div style="color: #667eea;">Ya devuelto: ${cantidadYaDevuelta}</div>` : ''}
@@ -2230,7 +2240,7 @@
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
-                    <div class="product-total-price" id="price-${index}">$${(item.precio || 0).toFixed(2)}</div>
+                    <div class="product-total-price" id="price-${index}">${formatCurrency(item.precio || 0)}</div>
                 </div>
             `;
             productList.appendChild(productItem);
@@ -2347,7 +2357,7 @@
             // Actualizar precio mostrado
             const priceElement = document.getElementById(`price-${index}`);
             if (priceElement) {
-                priceElement.textContent = `$${subtotal.toFixed(2)}`;
+                priceElement.textContent = formatCurrency(subtotal);
             }
             
             productosSeleccionados.push({
@@ -2363,7 +2373,7 @@
         // Actualizar total
         const totalElement = document.getElementById('partialReturnTotal');
         if (totalElement) {
-            totalElement.textContent = `$${total.toFixed(2)}`;
+            totalElement.textContent = formatCurrency(total);
         }
         
         // Actualizar input hidden con productos seleccionados
@@ -2432,13 +2442,13 @@
             const checkbox = document.querySelector(`.product-checkbox[data-index="${index}"]`);
             if (checkbox) {
                 const precio = parseFloat(checkbox.dataset.price) || 0;
-                priceEl.textContent = `$${precio.toFixed(2)}`;
+                priceEl.textContent = formatCurrency(precio);
             }
         });
         
         const totalElement = document.getElementById('partialReturnTotal');
         if (totalElement) {
-            totalElement.textContent = '$0.00';
+            totalElement.textContent = formatCurrency(0);
         }
         
         const confirmBtn = document.getElementById('confirmarDevolucionBtn');
@@ -2508,4 +2518,5 @@ function ocultarLoading() {
     </script>
 </body>
 </html>
+
 

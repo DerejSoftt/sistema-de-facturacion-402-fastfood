@@ -1076,7 +1076,7 @@
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
-                            <div class="stat-value" id="totalValue" data-value="{{ total_valor }}">${{ total_valor|floatformat:2 }}</div>
+                            <div class="stat-value" id="totalValue" data-value="{{ total_valor }}">RD${{ total_valor|floatformat:2 }}</div>
                             <div class="stat-label">Valor Total</div>
                         </div>
                         <div class="stat-card">
@@ -1181,10 +1181,10 @@
                                             {{ producto.cantidad|floatformat:2 }}
                                         </td>
                                         <td>
-                                            ${{ producto.precio|floatformat:2 }}
+                                            RD${{ producto.precio|floatformat:2 }}
                                         </td>
                                         <td style="font-weight: 700; color: #ff7e5f; font-size: 1.1rem;">
-                                            ${{ producto.subtotal|floatformat:2 }}
+                                            RD${{ producto.subtotal|floatformat:2 }}
                                         </td>
                                         <td>
                                             <span class="stock-indicator stock-{{ producto.stock_status }}">
@@ -1303,9 +1303,30 @@
     </div>
 
     <script>
+        // Parsea texto numerico/monetario (incluyendo RD$, comas y espacios) a numero.
+        function parsearNumero(valor) {
+            if (typeof valor === 'number') return valor;
+            const limpio = String(valor || '').trim();
+            if (!limpio) return 0;
+
+            // Eliminar todo excepto digitos, signos y separadores decimales/comas.
+            let normalizado = limpio.replace(/[^\d.,-]/g, '');
+
+            // Si hay comas y puntos, asumimos comas como separador de miles.
+            if (normalizado.includes(',') && normalizado.includes('.')) {
+                normalizado = normalizado.replace(/,/g, '');
+            } else if (normalizado.includes(',') && !normalizado.includes('.')) {
+                // Si solo hay comas, tratarlas como separador decimal.
+                normalizado = normalizado.replace(',', '.');
+            }
+
+            const numero = parseFloat(normalizado);
+            return Number.isNaN(numero) ? 0 : numero;
+        }
+
         // Función para formatear moneda en formato RD
         function formatearMoneda(valor) {
-            return parseFloat(valor).toLocaleString('es-DO', {
+            return parsearNumero(valor).toLocaleString('es-DO', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             });
@@ -1318,17 +1339,17 @@
             // Formatear valores monetarios
             const totalValueElement = document.getElementById('totalValue');
             if (totalValueElement) {
-                const value = totalValueElement.textContent.replace('$', '').replace(/,/g, '');
-                totalValueElement.textContent = '$' + formatearMoneda(value);
+                const value = totalValueElement.getAttribute('data-value') || totalValueElement.textContent;
+                totalValueElement.textContent = 'RD$' + formatearMoneda(value);
             }
             
             // Formatear precios y subtotales en la tabla
             document.querySelectorAll('td').forEach(cell => {
                 const text = cell.textContent.trim();
-                if (text.startsWith('$')) {
-                    const value = text.replace('$', '').replace(/,/g, '');
-                    if (!isNaN(value) && value !== '') {
-                        cell.textContent = '$' + formatearMoneda(value);
+                if (text.startsWith('RD$') || text.startsWith('$')) {
+                    const value = parsearNumero(text);
+                    if (value !== 0 || /\d/.test(text)) {
+                        cell.textContent = 'RD$' + formatearMoneda(value);
                     }
                 }
             });
@@ -1397,7 +1418,7 @@
             console.log('Valores procesados:', {cantidadValida, precioValido});
             
             // Formatear y asignar valores
-            const cantidadFormateada = formatearMoneda(cantidadValida).replace('$', '');
+            const cantidadFormateada = formatearMoneda(cantidadValida);
             const precioFormateado = formatearMoneda(precioValido);
             
             console.log('Valores formateados:', {cantidadFormateada, precioFormateado});
@@ -1577,8 +1598,8 @@
                         const nombre = cells[0].querySelector('div:first-child')?.textContent || '';
                         const categoria = cells[1].textContent.trim();
                         const cantidad = cells[2].textContent.trim();
-                        const precio = cells[3].textContent.trim().replace('$', '');
-                        const subtotal = cells[4].textContent.trim().replace('$', '');
+                        const precio = parsearNumero(cells[3].textContent.trim());
+                        const subtotal = parsearNumero(cells[4].textContent.trim());
                         const estado = cells[5].textContent.trim();
                         const fecha = cells[0].querySelector('div:last-child')?.textContent.replace(/📅\s*/, '') || '';
                         
@@ -1679,4 +1700,7 @@
     </script>
 </body>
 </html>
+
+
+
 

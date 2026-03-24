@@ -1396,7 +1396,7 @@
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
-                            <div class="stat-value" id="ingresosHoy">$<span id="ingresosHoyValor">{{ estadisticas.ingresos_hoy }}</span></div>
+                            <div class="stat-value" id="ingresosHoy">RD$<span id="ingresosHoyValor">{{ estadisticas.ingresos_hoy }}</span></div>
                             <div class="stat-label">Ingresos Hoy</div>
                         </div>
                         <div class="stat-card">
@@ -1541,10 +1541,10 @@
                                                             <div class="item-name">{{ item.name }}</div>
                                                             <div class="item-details">
                                                                 <span>{{ item.quantity }}x</span>
-                                                                <span>${{ item.price|floatformat:2|intcomma }} c/u</span>
+                                                                <span>RD${{ item.price|floatformat:2|intcomma }} c/u</span>
                                                             </div>
                                                         </div>
-                                                        <div class="item-total">${{ item.total|floatformat:2|intcomma }}</div>
+                                                        <div class="item-total">RD${{ item.total|floatformat:2|intcomma }}</div>
                                                     </div>
                                                 {% endfor %}
                                                 {% if pedido.cantidad_items > 2 %}
@@ -1573,7 +1573,7 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            <div class="order-total">${{ pedido.total|floatformat:2|intcomma }}</div>
+                                            <div class="order-total">RD${{ pedido.total|floatformat:2|intcomma }}</div>
                                         </td>
                                         <td>
                                             {% if pedido.estado == 'pendiente' or pedido.estado == 'confirmado' %}
@@ -1850,8 +1850,8 @@ function cargarDetallesPedido(pedido) {
             <tr>
                 <td>${item.name || item.nombre}</td>
                 <td>${item.quantity || item.cantidad}</td>
-                <td>$${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                <td>$${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td>RD$${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td>RD$${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
             </tr>
         `).join('');
     }
@@ -1906,15 +1906,15 @@ function cargarDetallesPedido(pedido) {
                     <div style="background: #f8f9ff; padding: 1rem; border-radius: 10px;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                             <span>Subtotal:</span>
-                            <span>$${pedido.subtotal.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                            <span>RD$${pedido.subtotal.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                             <span>Envío:</span>
-                            <span>$${pedido.envio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                            <span>RD$${pedido.envio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; color: #ff7e5f; padding-top: 0.5rem; border-top: 1px solid #e0e6ff;">
                             <span>Total:</span>
-                            <span>$${pedido.total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                            <span>RD$${pedido.total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                         </div>
                     </div>
                 </div>
@@ -2011,7 +2011,7 @@ function cargarDatosEdicion(pedido) {
                     <div style="flex: 2;">
                         <strong>${item.name || item.nombre}</strong>
                         <div style="font-size: 0.9rem; color: #718096;">
-                            Precio: $${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            Precio: RD$${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                         </div>
                     </div>
                     <div class="cantidad-controls">
@@ -2025,7 +2025,7 @@ function cargarDatosEdicion(pedido) {
                         <button type="button" class="cantidad-btn" onclick="cambiarCantidad(${index}, 1)">+</button>
                     </div>
                     <div style="font-weight: bold; color: #ff7e5f; min-width: 80px; text-align: right;" id="total-item-${index}">
-                        $${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                        RD$${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </div>
                     <button type="button" class="btn-icon btn-danger" onclick="eliminarItem(${index})" title="Eliminar item">
                         <i class="fas fa-trash"></i>
@@ -2114,7 +2114,7 @@ function cargarDatosEdicion(pedido) {
         
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e0e6ff;">
             <div>
-                <strong style="font-size: 1.2rem;">Total: $</strong>
+                <strong style="font-size: 1.2rem;">Total: RD$</strong>
                 <span id="totalPedidoEdit" style="font-size: 1.5rem; font-weight: bold; color: #ff7e5f;">
                     ${pedido.total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                 </span>
@@ -2190,7 +2190,7 @@ function buscarProductosDisponibles() {
                             <div style="flex: 1;">
                                 <strong>${producto.nombre}</strong>
                                 <div style="font-size: 0.85rem; color: #718096;">
-                                    ${producto.categoria || producto.tipo} - $${producto.precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                    ${producto.categoria || producto.tipo} - RD$${producto.precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                                 </div>
                                 ${producto.cantidad_disponible !== null && producto.cantidad_disponible !== undefined ? `
                                     <div class="stock-indicator" style="margin-top: 0.25rem; padding: 0.25rem 0.5rem; border-radius: 4px; background: ${producto.cantidad_disponible <= 0 ? '#fed7d7' : producto.cantidad_disponible < 5 ? '#feebc8' : '#c6f6d5'};">
@@ -2301,7 +2301,7 @@ async function agregarProductoAPedido(producto) {
             <div style="flex: 2;">
                 <strong>${producto.nombre}</strong>
                 <div style="font-size: 0.9rem; color: #718096;">
-                    Precio: $${precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    Precio: RD$${precio.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     ${producto.cantidad_disponible !== null ? ` | Stock disponible: ${producto.cantidad_disponible}` : ''}
                 </div>
             </div>
@@ -2317,7 +2317,7 @@ async function agregarProductoAPedido(producto) {
                 <button type="button" class="cantidad-btn" onclick="cambiarCantidadEdit('${itemUniqueId}', 1)">+</button>
             </div>
             <div style="font-weight: bold; color: #ff7e5f; min-width: 80px; text-align: right;" id="total-item-${itemUniqueId}">
-                $${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                RD$${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
             </div>
             <button type="button" class="btn-icon btn-danger" onclick="eliminarItemEdit('${itemUniqueId}')" title="Eliminar item" style="margin-left: 1rem;">
                 <i class="fas fa-trash"></i>
@@ -2393,7 +2393,7 @@ async function actualizarTotalItemEdit(itemUniqueId, cantidad) {
     
     const totalElement = document.getElementById(`total-item-${itemUniqueId}`);
     if (totalElement) {
-        totalElement.textContent = `$${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        totalElement.textContent = `RD$${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
     }
     
     calcularTotalPedidoEdit();
@@ -2420,7 +2420,7 @@ function calcularTotalPedidoEdit() {
     
     document.querySelectorAll('.order-item-edit').forEach(item => {
         const totalText = item.querySelector('div[style*="color: #ff7e5f"]').textContent;
-        const itemTotal = parseFloat(totalText.replace('$', '')) || 0;
+        const itemTotal = parseFloat(totalText.replace(/[^\d.-]/g, '')) || 0;
         total += itemTotal;
     });
     
@@ -2454,7 +2454,7 @@ function actualizarTotalItem(index, cantidad) {
     
     const totalElement = document.getElementById(`total-item-${index}`);
     if (totalElement) {
-        totalElement.textContent = `$${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        totalElement.textContent = `RD$${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
     }
     
     calcularTotalPedidoEdit();
@@ -3156,4 +3156,7 @@ console.log('✅ JavaScript de gestión de pedidos cargado correctamente');
 </script>
 </body>
 </html>
+
+
+
 

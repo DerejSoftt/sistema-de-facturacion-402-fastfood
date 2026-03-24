@@ -1205,7 +1205,7 @@
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-money-bill"></i></span>
-                            <div class="stat-value" id="ingresosMes">$0</div>
+                            <div class="stat-value" id="ingresosMes">RD$0</div>
                             <div class="stat-label">Ingresos del Mes</div>
                         </div>
                         <div class="stat-card">
@@ -1215,7 +1215,7 @@
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-chart-bar"></i></span>
-                            <div class="stat-value" id="promedioFactura">$0</div>
+                            <div class="stat-value" id="promedioFactura">RD$0</div>
                             <div class="stat-label">Promedio por Factura</div>
                         </div>
                     </div>
@@ -1672,7 +1672,7 @@
                         </div>
                     </td>
                     <td>
-                        <div class="invoice-total">$${formatearMoneda(order.total || 0)}</div>
+                        <div class="invoice-total">RD$${formatearMoneda(order.total || 0)}</div>
                     </td>
                     <td>
                         <span class="status-badge ${estadoClass}">
@@ -1715,7 +1715,7 @@
                 })
                 .reduce((sum, invoice) => sum + (invoice.total || 0), 0);
                 
-            ingresosMesElement.textContent = `$${ingresosMes.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            ingresosMesElement.textContent = `RD$${ingresosMes.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         }
         
         // Facturas pendientes (pedidos sin factura)
@@ -1736,7 +1736,7 @@
         if (promedioFacturaElement) {
             const promedioFactura = invoices.length > 0 ? 
                 invoices.reduce((sum, invoice) => sum + (invoice.total || 0), 0) / invoices.length : 0;
-            promedioFacturaElement.textContent = `$${promedioFactura.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            promedioFacturaElement.textContent = `RD$${promedioFactura.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         }
     }
     
@@ -1778,8 +1778,8 @@
                 <tr>
                     <td>${item.name || item.nombre || 'Producto'}</td>
                     <td>${item.quantity || item.cantidad || 1}</td>
-                    <td>$${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                    <td>$${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td>RD$${(item.price || item.precio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td>RD$${(item.total || item.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                 </tr>
             `).join('');
         } else {
@@ -1827,13 +1827,13 @@
                 <div class="invoice-client">
                     <h4>DETALLES FINANCIEROS</h4>
                     <div style="margin-bottom: 0.5rem;">
-                        <strong>Subtotal:</strong> $${(order.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                        <strong>Subtotal:</strong> RD$${(order.subtotal || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </div>
                     <div style="margin-bottom: 0.5rem;">
-                        <strong>Envío:</strong> $${(order.envio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                        <strong>Envío:</strong> RD$${(order.envio || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </div>
                     <div style="margin-bottom: 0.5rem;">
-                        <strong>Total:</strong> $${(order.total || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                        <strong>Total:</strong> RD$${(order.total || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </div>
                 </div>
             </div>
@@ -1877,7 +1877,7 @@
         
         currentOrder = order;
         document.getElementById('pedidoId').value = pedidoId;
-        document.getElementById('totalAmount').value = `$${(order.total || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        document.getElementById('totalAmount').value = `RD$${(order.total || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         
         // Mostrar modal
         document.getElementById('createInvoiceModal').classList.add('active');
@@ -1972,7 +1972,7 @@
         btn.disabled = true;
         btn.innerHTML = '<span>⏳</span><span>Procesando...</span>';
         
-        showNotification(`<i class="fas fa-credit-card"></i> Procesando pago de $${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}...`, 'info');
+        showNotification(`<i class="fas fa-credit-card"></i> Procesando pago de RD$${total.toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}...`, 'info');
         
         // Cerrar modal
         closeCreateInvoiceModal();
@@ -2100,4 +2100,7 @@
 </script>
 </body>
 </html>
+
+
+
 
