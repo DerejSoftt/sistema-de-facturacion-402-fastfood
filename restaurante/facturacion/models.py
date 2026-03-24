@@ -600,11 +600,22 @@ class HistorialEstadoPedido(models.Model):
 
 
 from django.db import models
+from django.db import transaction
 from django.contrib.auth.models import User
 from django.utils import timezone
 from decimal import Decimal
 import json
 from django.core.serializers.json import DjangoJSONEncoder
+
+
+# Contador atómico por mes para generación segura de `numero_factura`
+class FacturaSequence(models.Model):
+    month = models.CharField(max_length=6, unique=True)  # YYYYMM
+    last_number = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "Secuencia de Factura"
+        verbose_name_plural = "Secuencias de Factura"
 
 
 class Factura(models.Model):
@@ -767,25 +778,18 @@ class Factura(models.Model):
         return f"Factura {self.numero_factura} - Pedido: {self.pedido.codigo_pedido}"
     
     def save(self, *args, **kwargs):
-        # Generar número de factura automático si no existe
+        # Generar número de factura automático si no existe, usando
+        # una secuencia atómica por mes para evitar race conditions.
         if not self.numero_factura:
             from datetime import datetime
             timestamp = datetime.now().strftime('%Y%m')
-            last_factura = Factura.objects.filter(
-                numero_factura__startswith=f'FAC-{timestamp}'
-            ).order_by('-numero_factura').first()
-            
-            if last_factura:
-                try:
-                    last_num = int(last_factura.numero_factura.split('-')[-1])
-                    new_num = last_num + 1
-                except:
-                    new_num = 1
-            else:
-                new_num = 1
-            
-            self.numero_factura = f'FAC-{timestamp}-{new_num:06d}'
-        
+            with transaction.atomic():
+                seq, created = FacturaSequence.objects.select_for_update().get_or_create(month=timestamp)
+                seq.last_number = seq.last_number + 1
+                next_num = seq.last_number
+                seq.save()
+                self.numero_factura = f'FAC-{timestamp}-{next_num:06d}'
+
         super().save(*args, **kwargs)
     
     def get_items_detalle(self):

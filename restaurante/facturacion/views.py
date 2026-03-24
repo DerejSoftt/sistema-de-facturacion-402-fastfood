@@ -1729,10 +1729,8 @@ def historial_pedidos_pagados(request):
     fecha = request.GET.get('fecha', '')
     page = request.GET.get('page', 1)
 
-    # Consulta base: solo facturas pagadas
-    facturas = Factura.objects.filter(
-        estado='pagada'
-    ).select_related('pedido').order_by('-fecha_factura')
+    # Consulta base: TODAS las facturas (sin filtro de estado), ordenadas por número de factura (menor a mayor)
+    facturas = Factura.objects.all().select_related('pedido').order_by('numero_factura')
 
     # Aplicar filtros
     if search:
@@ -1761,9 +1759,10 @@ def historial_pedidos_pagados(request):
             month_ago = today - timedelta(days=30)
             facturas = facturas.filter(fecha_factura__date__gte=month_ago)
 
-    # Paginación de 20 facturas por página
-    paginator = Paginator(facturas, 20)
-    page_obj = paginator.get_page(page)
+    # Paginación de 50 facturas por página
+    paginator = Paginator(facturas, 50)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
 
     # Procesar facturas para template (reutiliza estructura de la tabla actual)
     pedidos_procesados = []
@@ -1803,18 +1802,16 @@ def historial_pedidos_pagados(request):
 
     # Estadísticas
     total_facturas_emitidas = facturas.count()
-    ingresos_totales = Factura.objects.filter(
-        estado='pagada').aggregate(total=Sum('total'))['total'] or 0
+    ingresos_totales = facturas.aggregate(total=Sum('total'))['total'] or 0
     hoy = datetime.now().date()
     inicio_mes = hoy.replace(day=1)
-    ingresos_mes_actual = Factura.objects.filter(
-        estado='pagada',
+    ingresos_mes_actual = facturas.filter(
         fecha_factura__date__gte=inicio_mes
     ).aggregate(total=Sum('total'))['total'] or 0
 
     context = {
         'user': request.user,
-        'page_title': 'Historial de Facturas Emitidas',
+        'page_title': 'Historial de Todas las Facturas',
         'pedidos': pedidos_procesados,
         'estadisticas': {
             'total_pedidos': total_facturas_emitidas,
@@ -1826,8 +1823,8 @@ def historial_pedidos_pagados(request):
             'tipo_pedido': tipo_pedido,
             'fecha': fecha,
         },
-        'paginator': page_obj,
-        'mostrando_pagados': True,
+        'paginator': paginator,
+        'page_obj': page_obj,
     }
     return render(request, 'facturacion/historial_pedidos.html', context)
 
