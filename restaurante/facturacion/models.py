@@ -934,12 +934,13 @@ class Factura(models.Model):
                 # Obtener código
                 codigo = item.get('codigo') or item.get('code') or ''
                 
-                # Buscar producto en la base de datos para completar información faltante
+                # Buscar item en base de datos para completar información faltante
                 if enrich_from_db and (not codigo or categoria == 'otro'):
-                    from .models import Producto  # Import local para evitar circular
+                    from .models import Producto, Plato  # Import local para evitar circular
                     producto_db = None
+                    plato_db = None
                     
-                    # Buscar por ID primero
+                    # Buscar en Producto por ID primero
                     if producto_id:
                         try:
                             producto_db = Producto.objects.filter(id=producto_id).first()
@@ -949,7 +950,7 @@ class Factura(models.Model):
                             if debug_enabled:
                                 print(f"      ❌ Error al buscar producto por ID: {e}")
                     
-                    # Si no se encontró por ID, buscar por nombre
+                    # Si no se encontró por ID, buscar en Producto por nombre
                     if not producto_db and nombre:
                         try:
                             producto_db = Producto.objects.filter(
@@ -960,6 +961,48 @@ class Factura(models.Model):
                         except Exception as e:
                             if debug_enabled:
                                 print(f"      ❌ Error al buscar producto por nombre: {e}")
+
+                    if not producto_db and nombre:
+                        try:
+                            producto_db = Producto.objects.filter(
+                                nombre__icontains=nombre.strip()
+                            ).first()
+                            if producto_db and debug_enabled:
+                                print(f"      ✅ Producto encontrado por coincidencia parcial: {producto_db.nombre}")
+                        except Exception as e:
+                            if debug_enabled:
+                                print(f"      ❌ Error al buscar producto por coincidencia parcial: {e}")
+
+                    # Si no se encontró en Producto, buscar en Plato
+                    if not producto_db:
+                        if producto_id:
+                            try:
+                                plato_db = Plato.objects.filter(id=producto_id).first()
+                                if plato_db and debug_enabled:
+                                    print(f"      ✅ Plato encontrado por ID: {plato_db.nombre}")
+                            except Exception as e:
+                                if debug_enabled:
+                                    print(f"      ❌ Error al buscar plato por ID: {e}")
+
+                        if not plato_db and nombre:
+                            try:
+                                plato_db = Plato.objects.filter(nombre__iexact=nombre.strip()).first()
+                                if plato_db and debug_enabled:
+                                    print(f"      ✅ Plato encontrado por nombre: {plato_db.nombre}")
+                            except Exception as e:
+                                if debug_enabled:
+                                    print(f"      ❌ Error al buscar plato por nombre: {e}")
+
+                        if not plato_db and nombre:
+                            try:
+                                plato_db = Plato.objects.filter(
+                                    nombre__icontains=nombre.strip()
+                                ).first()
+                                if plato_db and debug_enabled:
+                                    print(f"      ✅ Plato encontrado por coincidencia parcial: {plato_db.nombre}")
+                            except Exception as e:
+                                if debug_enabled:
+                                    print(f"      ❌ Error al buscar plato por coincidencia parcial: {e}")
                     
                     # Completar información con datos de la base de datos
                     if producto_db:
@@ -971,6 +1014,15 @@ class Factura(models.Model):
                             categoria = producto_db.categoria.lower()
                             if debug_enabled:
                                 print(f"      ✅ Categoría actualizada: {categoria}")
+                    elif plato_db:
+                        if not codigo:
+                            codigo = plato_db.codigo
+                            if debug_enabled:
+                                print(f"      ✅ Código actualizado (plato): {codigo}")
+                        if categoria == 'otro':
+                            categoria = plato_db.categoria.lower()
+                            if debug_enabled:
+                                print(f"      ✅ Categoría actualizada (plato): {categoria}")
                 
                 items_normalizados.append({
                     'producto_id': producto_id,
