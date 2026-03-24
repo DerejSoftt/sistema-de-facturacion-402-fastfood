@@ -601,7 +601,7 @@ class HistorialEstadoPedido(models.Model):
 
 
 from django.db import models
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.contrib.auth.models import User
 from django.utils import timezone
 from decimal import Decimal
@@ -782,14 +782,42 @@ class Factura(models.Model):
         # Generar número de factura automático si no existe, usando
         # una secuencia atómica por mes para evitar race conditions.
         if not self.numero_factura:
-            from datetime import datetime
-            timestamp = datetime.now().strftime('%Y%m')
-            with transaction.atomic():
-                seq, created = FacturaSequence.objects.select_for_update().get_or_create(month=timestamp)
-                seq.last_number = seq.last_number + 1
-                next_num = seq.last_number
-                seq.save()
-                self.numero_factura = f'FAC-{timestamp}-{next_num:06d}'
+            timestamp = timezone.now().strftime('%Y%m')
+
+            # Reintenta si existe una colision residual por desalineacion historica
+            # entre FacturaSequence y facturas ya persistidas.
+            for _ in range(5):
+                with transaction.atomic():
+                    seq, _ = FacturaSequence.objects.select_for_update().get_or_create(month=timestamp)
+
+                    existentes_mes = Factura.objects.filter(
+                        numero_factura__startswith=f'FAC-{timestamp}-'
+                    ).values_list('numero_factura', flat=True)
+
+                    max_existente = 0
+                    for numero in existentes_mes:
+                        try:
+                            correlativo = int(str(numero).rsplit('-', 1)[-1])
+                            if correlativo > max_existente:
+                                max_existente = correlativo
+                        except (ValueError, TypeError):
+                            continue
+
+                    if seq.last_number < max_existente:
+                        seq.last_number = max_existente
+
+                    seq.last_number += 1
+                    next_num = seq.last_number
+                    seq.save(update_fields=['last_number'])
+                    self.numero_factura = f'FAC-{timestamp}-{next_num:06d}'
+
+                try:
+                    return super().save(*args, **kwargs)
+                except IntegrityError:
+                    # Fuerza regeneracion en el siguiente intento.
+                    self.numero_factura = ''
+
+            raise IntegrityError('No se pudo generar un numero_factura unico tras varios intentos')
 
         super().save(*args, **kwargs)
     

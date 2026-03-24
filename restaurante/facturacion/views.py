@@ -2768,10 +2768,19 @@ def crear_factura(request):
 
             return redirect('facturacion')
 
+        except IntegrityError as e:
+            print(f"Error de integridad al crear factura: {str(e)}")
+            messages.error(
+                request,
+                'No se pudo procesar el pago por un conflicto de numeracion de factura. Intenta nuevamente.'
+            )
+            return redirect('facturacion')
+
         except Exception as e:
             print(f"Error al crear factura: {str(e)}")
             import traceback
             traceback.print_exc()
+            messages.error(request, f'No se pudo procesar el pago: {str(e)}')
             return redirect('facturacion')
 
     return redirect('facturacion')
