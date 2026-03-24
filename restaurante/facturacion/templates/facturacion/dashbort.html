@@ -1680,6 +1680,7 @@
                                 <h3><i class="fas fa-utensils"></i> Distribución de Ventas por Categoría</h3>
                                 <div class="chart-actions">
                                     <button class="chart-btn active" onclick="setCategoryChart('type')">Tipo</button>
+                                    <button class="chart-btn" onclick="setCategoryChart('orderType')">Pedido</button>
                                     <button class="chart-btn" onclick="setCategoryChart('time')">Horario</button>
                                     <button class="chart-btn" onclick="setCategoryChart('method')">Método</button>
                                 </div>
@@ -1860,6 +1861,8 @@
         let ventasHorariosData = null;
         let metodosPagoData = null;
         let ventasMetodosPagoData = null;
+        let tiposPedidoData = null;
+        let ventasTiposPedidoData = null;
         let chartDataLoadError = false;
         const DASHBOARD_DEBUG = {{ dashboard_debug|yesno:"true,false" }};
 
@@ -1914,6 +1917,8 @@
                 ventasHorariosData = JSON.parse('{{ ventas_horarios_grafico|escapejs }}');
                 metodosPagoData = JSON.parse('{{ metodos_pago_grafico|escapejs }}');
                 ventasMetodosPagoData = JSON.parse('{{ ventas_metodos_pago_grafico|escapejs }}');
+                tiposPedidoData = JSON.parse('{{ tipos_pedido_grafico|escapejs }}');
+                ventasTiposPedidoData = JSON.parse('{{ ventas_tipos_pedido_grafico|escapejs }}');
                 chartDataLoadError = false;
 
                 debugLog('Datos de semana cargados:', semanaLabels, semanaData);
@@ -1922,6 +1927,7 @@
                 debugLog('Datos categorías cargados:', categoriasData, ventasCategoriasData);
                 debugLog('Datos horarios cargados:', horariosData, ventasHorariosData);
                 debugLog('Datos método pago cargados:', metodosPagoData, ventasMetodosPagoData);
+                debugLog('Datos tipo pedido cargados:', tiposPedidoData, ventasTiposPedidoData);
 
                 // Verificar que los datos no estén vacíos
                 if (semanaData.every(val => val === 0)) {
@@ -1948,6 +1954,8 @@
                 ventasHorariosData = [];
                 metodosPagoData = [];
                 ventasMetodosPagoData = [];
+                tiposPedidoData = [];
+                ventasTiposPedidoData = [];
                 showNotification('Error al cargar datos reales del dashboard. Intenta recargar la página.', 'error');
             }
         }
@@ -1996,6 +2004,8 @@
             ventasHorariosData = data.ventas_horarios_grafico || [];
             metodosPagoData = data.metodos_pago_grafico || [];
             ventasMetodosPagoData = data.ventas_metodos_pago_grafico || [];
+            tiposPedidoData = data.tipos_pedido_grafico || [];
+            ventasTiposPedidoData = data.ventas_tipos_pedido_grafico || [];
             chartDataLoadError = false;
 
             updateSalesChart(currentChartPeriod);
@@ -2472,6 +2482,21 @@
                     ];
                     break;
 
+                case 'orderType':
+                    labels = tiposPedidoData;
+                    data = ventasTiposPedidoData;
+                    backgroundColor = [
+                        'rgba(255, 126, 95, 0.8)',
+                        'rgba(76, 175, 80, 0.8)',
+                        'rgba(33, 150, 243, 0.8)'
+                    ];
+                    borderColor = [
+                        'rgba(255, 126, 95, 1)',
+                        'rgba(76, 175, 80, 1)',
+                        'rgba(33, 150, 243, 1)'
+                    ];
+                    break;
+
                 case 'method':
                     labels = metodosPagoData;
                     data = ventasMetodosPagoData;
@@ -2605,6 +2630,7 @@
         function getCategoryLabel(type) {
             const labels = {
                 'type': 'tipo de producto',
+                'orderType': 'tipo de pedido',
                 'time': 'horario',
                 'method': 'método de pago'
             };

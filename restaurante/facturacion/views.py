@@ -3932,14 +3932,70 @@ def dashbort(request):
     ventas_categorias_data = []
 
     try:
+        categoria_labels = {
+            'entrada': 'Entrada',
+            'principal': 'Plato Principal',
+            'postre': 'Postre',
+            'bebida': 'Bebida',
+            'rapida': 'Comida Rapida',
+            'especial': 'Especial',
+            'otro': 'Otro',
+        }
+
+        categoria_aliases = {
+            'plato principal': 'principal',
+            'comida rapida': 'rapida',
+        }
+
+        categorias_validas = set(categoria_labels.keys())
+
+        producto_categoria_por_nombre = {
+            (nombre or '').strip().lower(): (categoria or '').strip().lower()
+            for nombre, categoria in Producto.objects.values_list('nombre', 'categoria')
+            if nombre
+        }
+        plato_categoria_por_nombre = {
+            (nombre or '').strip().lower(): (categoria or '').strip().lower()
+            for nombre, categoria in Plato.objects.values_list('nombre', 'categoria')
+            if nombre
+        }
+
+        def normalizar_categoria(valor):
+            categoria = (valor or '').strip().lower()
+            if not categoria:
+                return ''
+            categoria = categoria_aliases.get(categoria, categoria)
+            return categoria if categoria in categorias_validas else ''
+
+        def resolver_categoria_item(item):
+            categoria_directa = normalizar_categoria(item.get('categoria') or item.get('category'))
+            if categoria_directa:
+                return categoria_directa
+
+            tipo_item = (item.get('tipo_item') or item.get('tipo') or '').strip().lower()
+            if tipo_item == 'bebida' or bool(item.get('es_bebida')):
+                return 'bebida'
+
+            nombre_item = (item.get('name') or item.get('nombre') or '').strip().lower()
+            if nombre_item:
+                categoria_producto = normalizar_categoria(producto_categoria_por_nombre.get(nombre_item))
+                if categoria_producto:
+                    return categoria_producto
+
+                categoria_plato = normalizar_categoria(plato_categoria_por_nombre.get(nombre_item))
+                if categoria_plato:
+                    return categoria_plato
+
+            return 'otro'
+
         # Primero intentar obtener categorías de productos vendidos hoy
         categorias_dict = {}
         
         for factura in facturas_hoy:
-            items = factura.get_items_detalle(enrich_from_db=False)
+            items = factura.get_items_detalle(enrich_from_db=True)
             if items and isinstance(items, list):
                 for item in items:
-                    categoria = item.get('categoria', item.get('category', 'otro')).lower()
+                    categoria = resolver_categoria_item(item)
                     cantidad, precio = obtener_cantidad_precio_item(item)
                     
                     if categoria in categorias_dict:
@@ -3950,10 +4006,10 @@ def dashbort(request):
         # Si no hay categorías hoy, intentar del mes
         if not categorias_dict:
             for factura in facturas_mes:
-                items = factura.get_items_detalle(enrich_from_db=False)
+                items = factura.get_items_detalle(enrich_from_db=True)
                 if items and isinstance(items, list):
                     for item in items:
-                        categoria = item.get('categoria', item.get('category', 'otro')).lower()
+                        categoria = resolver_categoria_item(item)
                         cantidad, precio = obtener_cantidad_precio_item(item)
                         
                         if categoria in categorias_dict:
@@ -3963,7 +4019,7 @@ def dashbort(request):
         
         # Si aún no hay datos, mantener listas vacías (sin datos reales)
         if categorias_dict:
-            categorias_data = list(categorias_dict.keys())
+            categorias_data = [categoria_labels.get(categoria, categoria.title()) for categoria in categorias_dict.keys()]
             ventas_categorias_data = list(categorias_dict.values())
         else:
             categorias_data = []
@@ -4051,6 +4107,12 @@ def dashbort(request):
         'tarjeta': Decimal('0.00'),
         'transferencia': Decimal('0.00'),
     }
+    tipos_pedido_labels = ['Mesa', 'Delivery', 'Llevar']
+    tipos_pedido_totales = {
+        'mesa': Decimal('0.00'),
+        'delivery': Decimal('0.00'),
+        'llevar': Decimal('0.00'),
+    }
 
     for factura in facturas_mes:
         fecha_local_factura = timezone.localtime(factura.fecha_factura)
@@ -4069,11 +4131,20 @@ def dashbort(request):
         if metodo in metodo_totales:
             metodo_totales[metodo] += factura.total
 
+        tipo_pedido = (factura.tipo_pedido or '').lower().strip()
+        if tipo_pedido in tipos_pedido_totales:
+            tipos_pedido_totales[tipo_pedido] += factura.total
+
     ventas_horarios_data = [float(horario_totales[label]) for label in horario_labels]
     ventas_metodos_data = [
         float(metodo_totales['efectivo']),
         float(metodo_totales['tarjeta']),
         float(metodo_totales['transferencia'])
+    ]
+    ventas_tipos_pedido_data = [
+        float(tipos_pedido_totales['mesa']),
+        float(tipos_pedido_totales['delivery']),
+        float(tipos_pedido_totales['llevar'])
     ]
 
     # Datos de depuración: solo cuando DEBUG está activo
@@ -4135,6 +4206,8 @@ def dashbort(request):
         'ventas_horarios_grafico': json.dumps(ventas_horarios_data),
         'metodos_pago_grafico': json.dumps(metodo_labels),
         'ventas_metodos_pago_grafico': json.dumps(ventas_metodos_data),
+        'tipos_pedido_grafico': json.dumps(tipos_pedido_labels),
+        'ventas_tipos_pedido_grafico': json.dumps(ventas_tipos_pedido_data),
         'fecha_actual': ahora_local.strftime('%A, %d de %B de %Y'),
         'hora_actual': ahora_local.strftime('%I:%M:%S'),
         'hoy': hoy_local,
@@ -4358,6 +4431,8 @@ def dashboard_stats(request):
         ventas_horarios_data = [0, 0, 0, 0]
         metodo_labels = ['Efectivo', 'Tarjeta', 'Transferencia']
         ventas_metodos_data = [0, 0, 0]
+        tipos_pedido_labels = ['Mesa', 'Delivery', 'Llevar']
+        ventas_tipos_pedido_data = [0, 0, 0]
 
         if full_refresh:
             # 7. PRODUCTOS TOP + TENDENCIA
@@ -4461,25 +4536,81 @@ def dashboard_stats(request):
                 ventas_7_dias.append(float(venta_dia_grafico))
 
             # 9. GRAFICO CATEGORIAS
+            categoria_labels = {
+                'entrada': 'Entrada',
+                'principal': 'Plato Principal',
+                'postre': 'Postre',
+                'bebida': 'Bebida',
+                'rapida': 'Comida Rapida',
+                'especial': 'Especial',
+                'otro': 'Otro',
+            }
+
+            categoria_aliases = {
+                'plato principal': 'principal',
+                'comida rapida': 'rapida',
+            }
+
+            categorias_validas = set(categoria_labels.keys())
+
+            producto_categoria_por_nombre = {
+                (nombre or '').strip().lower(): (categoria or '').strip().lower()
+                for nombre, categoria in Producto.objects.values_list('nombre', 'categoria')
+                if nombre
+            }
+            plato_categoria_por_nombre = {
+                (nombre or '').strip().lower(): (categoria or '').strip().lower()
+                for nombre, categoria in Plato.objects.values_list('nombre', 'categoria')
+                if nombre
+            }
+
+            def normalizar_categoria(valor):
+                categoria = (valor or '').strip().lower()
+                if not categoria:
+                    return ''
+                categoria = categoria_aliases.get(categoria, categoria)
+                return categoria if categoria in categorias_validas else ''
+
+            def resolver_categoria_item(item):
+                categoria_directa = normalizar_categoria(item.get('categoria') or item.get('category'))
+                if categoria_directa:
+                    return categoria_directa
+
+                tipo_item = (item.get('tipo_item') or item.get('tipo') or '').strip().lower()
+                if tipo_item == 'bebida' or bool(item.get('es_bebida')):
+                    return 'bebida'
+
+                nombre_item = (item.get('name') or item.get('nombre') or '').strip().lower()
+                if nombre_item:
+                    categoria_producto = normalizar_categoria(producto_categoria_por_nombre.get(nombre_item))
+                    if categoria_producto:
+                        return categoria_producto
+
+                    categoria_plato = normalizar_categoria(plato_categoria_por_nombre.get(nombre_item))
+                    if categoria_plato:
+                        return categoria_plato
+
+                return 'otro'
+
             categorias_dict = {}
             for factura in facturas_hoy:
-                items = factura.get_items_detalle(enrich_from_db=False)
+                items = factura.get_items_detalle(enrich_from_db=True)
                 if items and isinstance(items, list):
                     for item in items:
-                        categoria = item.get('categoria', item.get('category', 'otro')).lower()
+                        categoria = resolver_categoria_item(item)
                         cantidad, precio = obtener_cantidad_precio_item(item)
                         categorias_dict[categoria] = categorias_dict.get(categoria, 0) + (cantidad * precio)
 
             if not categorias_dict:
                 for factura in facturas_mes:
-                    items = factura.get_items_detalle(enrich_from_db=False)
+                    items = factura.get_items_detalle(enrich_from_db=True)
                     if items and isinstance(items, list):
                         for item in items:
-                            categoria = item.get('categoria', item.get('category', 'otro')).lower()
+                            categoria = resolver_categoria_item(item)
                             cantidad, precio = obtener_cantidad_precio_item(item)
                             categorias_dict[categoria] = categorias_dict.get(categoria, 0) + (cantidad * precio)
 
-            categorias_data = list(categorias_dict.keys()) if categorias_dict else []
+            categorias_data = [categoria_labels.get(categoria, categoria.title()) for categoria in categorias_dict.keys()] if categorias_dict else []
             ventas_categorias_data = list(categorias_dict.values()) if categorias_dict else []
 
             # 10. GRAFICOS MES Y ANIO
@@ -4555,6 +4686,12 @@ def dashboard_stats(request):
                 'transferencia': Decimal('0.00'),
             }
 
+            tipos_pedido_totales = {
+                'mesa': Decimal('0.00'),
+                'delivery': Decimal('0.00'),
+                'llevar': Decimal('0.00'),
+            }
+
             for factura in facturas_mes:
                 fecha_local_factura = timezone.localtime(factura.fecha_factura)
                 hora = fecha_local_factura.hour
@@ -4572,11 +4709,20 @@ def dashboard_stats(request):
                 if metodo in metodo_totales:
                     metodo_totales[metodo] += factura.total
 
+                tipo_pedido = (factura.tipo_pedido or '').lower().strip()
+                if tipo_pedido in tipos_pedido_totales:
+                    tipos_pedido_totales[tipo_pedido] += factura.total
+
             ventas_horarios_data = [float(horario_totales[label]) for label in horario_labels]
             ventas_metodos_data = [
                 float(metodo_totales['efectivo']),
                 float(metodo_totales['tarjeta']),
                 float(metodo_totales['transferencia'])
+            ]
+            ventas_tipos_pedido_data = [
+                float(tipos_pedido_totales['mesa']),
+                float(tipos_pedido_totales['delivery']),
+                float(tipos_pedido_totales['llevar'])
             ]
 
         trend_venta_dia = calcular_cambio_porcentual(venta_dia, venta_dia_anterior)
@@ -4625,6 +4771,8 @@ def dashboard_stats(request):
             'ventas_horarios_grafico': ventas_horarios_data,
             'metodos_pago_grafico': metodo_labels,
             'ventas_metodos_pago_grafico': ventas_metodos_data,
+            'tipos_pedido_grafico': tipos_pedido_labels,
+            'ventas_tipos_pedido_grafico': ventas_tipos_pedido_data,
             'fecha_actual': ahora_local.strftime('%A, %d de %B de %Y'),
             'hora_actual': ahora_local.strftime('%H:%M:%S'),
             'total_facturas_hoy': facturas_hoy.count(),
