@@ -980,13 +980,16 @@
                                 </div>
                                 
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="dateFilter"><i class="fas fa-calendar-alt"></i> Fecha</label>
+                                    <label for="dateFilter"><i class="fas fa-calendar-alt"></i> Periodo</label>
                                     <select class="filter-select" id="dateFilter" name="fecha">
-                                        <option value="">Todas las fechas</option>
+                                        <option value="">Todos los periodos</option>
                                         <option value="hoy" {% if filtros.fecha == 'hoy' %}selected{% endif %}>Hoy</option>
                                         <option value="ayer" {% if filtros.fecha == 'ayer' %}selected{% endif %}>Ayer</option>
-                                        <option value="semana" {% if filtros.fecha == 'semana' %}selected{% endif %}>Esta Semana</option>
-                                        <option value="mes" {% if filtros.fecha == 'mes' %}selected{% endif %}>Este Mes</option>
+                                        <option value="ultimos_7_dias" {% if filtros.fecha == 'ultimos_7_dias' %}selected{% endif %}>Ultimos 7 dias</option>
+                                        <option value="ultimos_30_dias" {% if filtros.fecha == 'ultimos_30_dias' %}selected{% endif %}>Ultimos 30 dias</option>
+                                        <option value="este_mes" {% if filtros.fecha == 'este_mes' %}selected{% endif %}>Este mes</option>
+                                        <option value="mes_pasado" {% if filtros.fecha == 'mes_pasado' %}selected{% endif %}>Mes pasado</option>
+                                        <option value="este_anio" {% if filtros.fecha == 'este_anio' %}selected{% endif %}>Este ano</option>
                                     </select>
                                 </div>
                                 

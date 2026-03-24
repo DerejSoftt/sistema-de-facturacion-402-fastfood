@@ -1753,18 +1753,32 @@ def historial_pedidos_pagados(request):
         # Filtro por rangos de fecha-hora en zona RD para evitar desfases por timezone.
         inicio_hoy = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
         fin_hoy = inicio_hoy + timedelta(days=1)
+        inicio_mes_actual = inicio_hoy.replace(day=1)
 
         if fecha == 'hoy':
             facturas = facturas.filter(fecha_factura__gte=inicio_hoy, fecha_factura__lt=fin_hoy)
         elif fecha == 'ayer':
             inicio_ayer = inicio_hoy - timedelta(days=1)
             facturas = facturas.filter(fecha_factura__gte=inicio_ayer, fecha_factura__lt=inicio_hoy)
-        elif fecha == 'semana':
+        elif fecha in ['ultimos_7_dias', 'semana']:
+            inicio_7_dias = inicio_hoy - timedelta(days=6)
+            facturas = facturas.filter(fecha_factura__gte=inicio_7_dias, fecha_factura__lt=fin_hoy)
+        elif fecha == 'ultimos_30_dias':
+            inicio_30_dias = inicio_hoy - timedelta(days=29)
+            facturas = facturas.filter(fecha_factura__gte=inicio_30_dias, fecha_factura__lt=fin_hoy)
+        elif fecha in ['este_mes', 'mes']:
+            facturas = facturas.filter(fecha_factura__gte=inicio_mes_actual, fecha_factura__lt=fin_hoy)
+        elif fecha == 'mes_pasado':
+            fin_mes_pasado = inicio_mes_actual
+            ultimo_dia_mes_pasado = inicio_mes_actual - timedelta(days=1)
+            inicio_mes_pasado = ultimo_dia_mes_pasado.replace(day=1)
+            facturas = facturas.filter(fecha_factura__gte=inicio_mes_pasado, fecha_factura__lt=fin_mes_pasado)
+        elif fecha == 'este_anio':
+            inicio_anio = inicio_hoy.replace(month=1, day=1)
+            facturas = facturas.filter(fecha_factura__gte=inicio_anio, fecha_factura__lt=fin_hoy)
+        elif fecha == 'semana_actual':
             inicio_semana = (inicio_hoy - timedelta(days=ahora_local.weekday()))
             facturas = facturas.filter(fecha_factura__gte=inicio_semana, fecha_factura__lt=fin_hoy)
-        elif fecha == 'mes':
-            inicio_mes_actual = inicio_hoy.replace(day=1)
-            facturas = facturas.filter(fecha_factura__gte=inicio_mes_actual, fecha_factura__lt=fin_hoy)
 
     # Paginación de 50 facturas por página
     paginator = Paginator(facturas, 50)
