@@ -7717,6 +7717,13 @@ def cuentaporcobrar_registrar_pago(request):
         if not facturas_cliente:
             return JsonResponse({'success': False, 'error': 'No se encontraron facturas pendientes para ese cliente.'}, status=404)
 
+        saldo_total_cliente = sum((_saldo_factura_pendiente(factura) for factura in facturas_cliente), Decimal('0.00'))
+        if monto > saldo_total_cliente:
+            return JsonResponse({
+                'success': False,
+                'error': f'El monto excede el saldo pendiente total del cliente (RD$ {saldo_total_cliente}).'
+            }, status=400)
+
         restante = monto
         aplicado_total = Decimal('0.00')
 

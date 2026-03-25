@@ -564,26 +564,98 @@
 
         .pago-form {
             background: #f8f9ff;
-            padding: 1.5rem;
+            padding: 1.25rem;
             border-radius: 15px;
-            margin-top: 1.5rem;
+            margin-top: 1rem;
             border: 2px solid #e0e6ff;
+        }
+
+        .pago-resumen {
+            background: #f8f9ff;
+            border: 2px solid #e0e6ff;
+            border-radius: 15px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .pago-resumen-cliente {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .pago-resumen-titulo {
+            font-size: 1.15rem;
+            color: #2c3e50;
+            font-weight: 700;
+        }
+
+        .pago-resumen-subtitulo {
+            color: #718096;
+            font-size: 0.95rem;
+        }
+
+        .pago-resumen-monto {
+            text-align: right;
+        }
+
+        .pago-resumen-etiqueta {
+            color: #718096;
+            font-size: 0.95rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .pago-resumen-valor {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #ff7e5f;
+            line-height: 1;
+        }
+
+        .pago-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .pago-form-grid .form-group {
+            margin-bottom: 0;
+        }
+
+        .form-span-2 {
+            grid-column: 1 / -1;
         }
 
         .metodo-pago {
             display: flex;
             gap: 1rem;
-            margin-top: 1rem;
+            margin-top: 0.5rem;
         }
 
         .metodo-pago-option {
             flex: 1;
-            padding: 1rem;
+            padding: 0.75rem;
             border: 2px solid #e0e6ff;
             border-radius: 12px;
             cursor: pointer;
             transition: all 0.3s;
             text-align: center;
+        }
+
+        .metodo-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .pago-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 1rem;
         }
 
         .metodo-pago-option:hover {
@@ -1055,6 +1127,19 @@
 
             .metodo-pago {
                 flex-direction: column;
+            }
+
+            .pago-resumen {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .pago-resumen-monto {
+                text-align: left;
+            }
+
+            .pago-form-grid {
+                grid-template-columns: 1fr;
             }
         }
 
@@ -2006,92 +2091,90 @@
             modalBody.innerHTML = `
                 <input type="hidden" id="pagoClienteId" value="${clienteId}">
                 
-                <div style="background: #f8f9ff; padding: 1.5rem; border-radius: 15px; margin-bottom: 1.5rem;">
-                    <div style="text-align: center; margin-bottom: 1rem;">
-                        <div style="font-size: 1.2rem; color: #2c3e50; margin-bottom: 0.5rem;">
-                            <strong>${cliente.nombre_completo}</strong>
-                        </div>
-                        <div style="color: #718096;">Cédula: ${cliente.cedula}</div>
+                <div class="pago-resumen">
+                    <div class="pago-resumen-cliente">
+                        <div class="pago-resumen-titulo">${cliente.nombre_completo}</div>
+                        <div class="pago-resumen-subtitulo">Cédula: ${cliente.cedula}</div>
                     </div>
-                    
-                    <div style="text-align: center;">
-                        <div style="color: #718096; margin-bottom: 0.5rem;">Saldo Pendiente Total</div>
-                        <div style="font-size: 2rem; font-weight: 700; color: #ff7e5f;">
-                            $${formatCurrency(totalPendiente)}
-                        </div>
+
+                    <div class="pago-resumen-monto">
+                        <div class="pago-resumen-etiqueta">Saldo Pendiente Total</div>
+                        <div class="pago-resumen-valor">RD$${formatCurrency(totalPendiente)}</div>
                     </div>
                 </div>
                 
                 <div class="pago-form">
                     <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-money-bill-wave"></i> Registrar Pago</h4>
-                    
-                    <div class="form-group">
-                        <label for="montoPago"><i class="fas fa-dollar-sign"></i> Monto a Pagar *</label>
-                        <input type="number" id="montoPago" 
-                               min="0.01" 
-                               max="${totalPendiente}"
-                               step="0.01"
-                               value="${totalPendiente}"
-                               placeholder="0.00"
-                               oninput="actualizarSaldoRestante()">
-                        <div style="font-size: 0.85rem; color: #718096; margin-top: 0.25rem;">
-                            Máximo: $${formatCurrency(totalPendiente)}
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="fechaPago"><i class="fas fa-calendar"></i> Fecha de Pago *</label>
-                        <input type="date" id="fechaPago" value="${new Date().toISOString().split('T')[0]}">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label><i class="fas fa-credit-card"></i> Método de Pago *</label>
-                        <div class="metodo-pago">
-                            <div class="metodo-pago-option" onclick="seleccionarMetodoPago('efectivo')">
-                                <div style="font-size: 2rem; margin-bottom: 0.5rem;">
-                                    <i class="fas fa-money-bill-wave"></i>
-                                </div>
-                                <div>Efectivo</div>
-                            </div>
-                            <div class="metodo-pago-option" onclick="seleccionarMetodoPago('tarjeta')">
-                                <div style="font-size: 2rem; margin-bottom: 0.5rem;">
-                                    <i class="fas fa-credit-card"></i>
-                                </div>
-                                <div>Tarjeta</div>
-                            </div>
-                            <div class="metodo-pago-option" onclick="seleccionarMetodoPago('transferencia')">
-                                <div style="font-size: 2rem; margin-bottom: 0.5rem;">
-                                    <i class="fas fa-university"></i>
-                                </div>
-                                <div>Transferencia</div>
+
+                    <div class="pago-form-grid">
+                        <div class="form-group">
+                            <label for="montoPago"><i class="fas fa-dollar-sign"></i> Monto a Pagar *</label>
+                            <input type="text" id="montoPago" 
+                                inputmode="decimal"
+                                value="${formatCurrency(totalPendiente)}"
+                                   placeholder="0.00"
+                                onfocus="prepararEdicionMoneda(this)"
+                                onblur="normalizarInputMoneda(this)"
+                                oninput="formatearMontoEnVivo(this, actualizarSaldoRestante)">
+                            <div style="font-size: 0.85rem; color: #718096; margin-top: 0.25rem;">
+                                Máximo: RD$${formatCurrency(totalPendiente)}
                             </div>
                         </div>
-                        <input type="hidden" id="metodoPago" value="efectivo">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="referenciaPago"><i class="fas fa-receipt"></i> Referencia/Comprobante</label>
-                        <input type="text" id="referenciaPago" placeholder="Número de referencia, comprobante, etc.">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="notasPago"><i class="fas fa-sticky-note"></i> Notas Adicionales</label>
-                        <textarea id="notasPago" rows="2" placeholder="Observaciones sobre el pago..."></textarea>
-                    </div>
-                    
-                    <div id="saldoRestanteContainer" style="background: #e6fffa; padding: 1rem; border-radius: 10px; margin-top: 1rem; display: none;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <strong>Saldo Restante:</strong>
-                                <div style="color: #718096; font-size: 0.9rem;">Después de este pago</div>
+
+                        <div class="form-group">
+                            <label for="fechaPago"><i class="fas fa-calendar"></i> Fecha de Pago *</label>
+                            <input type="date" id="fechaPago" value="${new Date().toISOString().split('T')[0]}">
+                        </div>
+
+                        <div class="form-group form-span-2">
+                            <label><i class="fas fa-credit-card"></i> Método de Pago *</label>
+                            <div class="metodo-pago">
+                                <div class="metodo-pago-option" onclick="seleccionarMetodoPago('efectivo')">
+                                    <div class="metodo-icon">
+                                        <i class="fas fa-money-bill-wave"></i>
+                                    </div>
+                                    <div>Efectivo</div>
+                                </div>
+                                <div class="metodo-pago-option" onclick="seleccionarMetodoPago('tarjeta')">
+                                    <div class="metodo-icon">
+                                        <i class="fas fa-credit-card"></i>
+                                    </div>
+                                    <div>Tarjeta</div>
+                                </div>
+                                <div class="metodo-pago-option" onclick="seleccionarMetodoPago('transferencia')">
+                                    <div class="metodo-icon">
+                                        <i class="fas fa-university"></i>
+                                    </div>
+                                    <div>Transferencia</div>
+                                </div>
                             </div>
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #38a169;" id="saldoRestante">
-                                $0.00
+                            <input type="hidden" id="metodoPago" value="efectivo">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="referenciaPago"><i class="fas fa-receipt"></i> Referencia/Comprobante</label>
+                            <input type="text" id="referenciaPago" placeholder="Número de referencia, comprobante, etc.">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="notasPago"><i class="fas fa-sticky-note"></i> Notas Adicionales</label>
+                            <textarea id="notasPago" rows="2" placeholder="Observaciones sobre el pago..."></textarea>
+                        </div>
+
+                        <div id="saldoRestanteContainer" class="form-span-2" style="background: #e6fffa; padding: 1rem; border-radius: 10px; margin-top: 0.25rem; display: none;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong>Saldo Restante:</strong>
+                                    <div style="color: #718096; font-size: 0.9rem;">Después de este pago</div>
+                                </div>
+                                <div style="font-size: 1.35rem; font-weight: 700; color: #38a169;" id="saldoRestante">
+                                    RD$0.00
+                                </div>
                             </div>
                         </div>
                     </div>
-                    
-                    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+
+                    <div class="pago-actions">
                         <button class="btn btn-warning" onclick="closePagoModal()">Cancelar</button>
                         <button class="btn btn-primary" onclick="procesarPago()">
                             <span><i class="fas fa-check-circle"></i></span>
@@ -2124,92 +2207,90 @@
                 <input type="hidden" id="pagoFacturaId" value="${facturaId}">
                 <input type="hidden" id="pagoClienteId" value="${cliente.id}">
                 
-                <div style="background: #f8f9ff; padding: 1.5rem; border-radius: 15px; margin-bottom: 1.5rem;">
-                    <div style="text-align: center; margin-bottom: 1rem;">
-                        <div style="font-size: 1.2rem; color: #2c3e50; margin-bottom: 0.5rem;">
-                            <strong>Factura #${factura.numero}</strong>
-                        </div>
-                        <div style="color: #718096;">${cliente.nombre_completo}</div>
+                <div class="pago-resumen">
+                    <div class="pago-resumen-cliente">
+                        <div class="pago-resumen-titulo">Factura #${factura.numero}</div>
+                        <div class="pago-resumen-subtitulo">${cliente.nombre_completo}</div>
                     </div>
-                    
-                    <div style="text-align: center;">
-                        <div style="color: #718096; margin-bottom: 0.5rem;">Saldo Pendiente de esta Factura</div>
-                        <div style="font-size: 2rem; font-weight: 700; color: #ff7e5f;">
-                            $${formatCurrency(factura.saldo_pendiente)}
-                        </div>
+
+                    <div class="pago-resumen-monto">
+                        <div class="pago-resumen-etiqueta">Saldo Pendiente de esta Factura</div>
+                        <div class="pago-resumen-valor">RD$${formatCurrency(factura.saldo_pendiente)}</div>
                     </div>
                 </div>
                 
                 <div class="pago-form">
                     <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-money-bill-wave"></i> Registrar Pago</h4>
-                    
-                    <div class="form-group">
-                        <label for="montoPago"><i class="fas fa-dollar-sign"></i> Monto a Pagar *</label>
-                        <input type="number" id="montoPago" 
-                               min="0.01" 
-                               max="${factura.saldo_pendiente}"
-                               step="0.01"
-                               value="${factura.saldo_pendiente}"
-                               placeholder="0.00"
-                               oninput="actualizarSaldoRestanteFactura()">
-                        <div style="font-size: 0.85rem; color: #718096; margin-top: 0.25rem;">
-                            Máximo: $${formatCurrency(factura.saldo_pendiente)}
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="fechaPago"><i class="fas fa-calendar"></i> Fecha de Pago *</label>
-                        <input type="date" id="fechaPago" value="${new Date().toISOString().split('T')[0]}">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label><i class="fas fa-credit-card"></i> Método de Pago *</label>
-                        <div class="metodo-pago">
-                            <div class="metodo-pago-option" onclick="seleccionarMetodoPago('efectivo')">
-                                <div style="font-size: 2rem; margin-bottom: 0.5rem;">
-                                    <i class="fas fa-money-bill-wave"></i>
-                                </div>
-                                <div>Efectivo</div>
-                            </div>
-                            <div class="metodo-pago-option" onclick="seleccionarMetodoPago('tarjeta')">
-                                <div style="font-size: 2rem; margin-bottom: 0.5rem;">
-                                    <i class="fas fa-credit-card"></i>
-                                </div>
-                                <div>Tarjeta</div>
-                            </div>
-                            <div class="metodo-pago-option" onclick="seleccionarMetodoPago('transferencia')">
-                                <div style="font-size: 2rem; margin-bottom: 0.5rem;">
-                                    <i class="fas fa-university"></i>
-                                </div>
-                                <div>Transferencia</div>
+
+                    <div class="pago-form-grid">
+                        <div class="form-group">
+                            <label for="montoPago"><i class="fas fa-dollar-sign"></i> Monto a Pagar *</label>
+                            <input type="text" id="montoPago" 
+                                inputmode="decimal"
+                                value="${formatCurrency(factura.saldo_pendiente)}"
+                                   placeholder="0.00"
+                                onfocus="prepararEdicionMoneda(this)"
+                                onblur="normalizarInputMoneda(this)"
+                                oninput="formatearMontoEnVivo(this, actualizarSaldoRestanteFactura)">
+                            <div style="font-size: 0.85rem; color: #718096; margin-top: 0.25rem;">
+                                Máximo: RD$${formatCurrency(factura.saldo_pendiente)}
                             </div>
                         </div>
-                        <input type="hidden" id="metodoPago" value="efectivo">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="referenciaPago"><i class="fas fa-receipt"></i> Referencia/Comprobante</label>
-                        <input type="text" id="referenciaPago" placeholder="Número de referencia, comprobante, etc.">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="notasPago"><i class="fas fa-sticky-note"></i> Notas Adicionales</label>
-                        <textarea id="notasPago" rows="2" placeholder="Observaciones sobre el pago..."></textarea>
-                    </div>
-                    
-                    <div id="saldoRestanteContainer" style="background: #e6fffa; padding: 1rem; border-radius: 10px; margin-top: 1rem;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <strong>Saldo Restante de la Factura:</strong>
-                                <div style="color: #718096; font-size: 0.9rem;">Después de este pago</div>
+
+                        <div class="form-group">
+                            <label for="fechaPago"><i class="fas fa-calendar"></i> Fecha de Pago *</label>
+                            <input type="date" id="fechaPago" value="${new Date().toISOString().split('T')[0]}">
+                        </div>
+
+                        <div class="form-group form-span-2">
+                            <label><i class="fas fa-credit-card"></i> Método de Pago *</label>
+                            <div class="metodo-pago">
+                                <div class="metodo-pago-option" onclick="seleccionarMetodoPago('efectivo')">
+                                    <div class="metodo-icon">
+                                        <i class="fas fa-money-bill-wave"></i>
+                                    </div>
+                                    <div>Efectivo</div>
+                                </div>
+                                <div class="metodo-pago-option" onclick="seleccionarMetodoPago('tarjeta')">
+                                    <div class="metodo-icon">
+                                        <i class="fas fa-credit-card"></i>
+                                    </div>
+                                    <div>Tarjeta</div>
+                                </div>
+                                <div class="metodo-pago-option" onclick="seleccionarMetodoPago('transferencia')">
+                                    <div class="metodo-icon">
+                                        <i class="fas fa-university"></i>
+                                    </div>
+                                    <div>Transferencia</div>
+                                </div>
                             </div>
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #38a169;" id="saldoRestanteFactura">
-                                $0.00
+                            <input type="hidden" id="metodoPago" value="efectivo">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="referenciaPago"><i class="fas fa-receipt"></i> Referencia/Comprobante</label>
+                            <input type="text" id="referenciaPago" placeholder="Número de referencia, comprobante, etc.">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="notasPago"><i class="fas fa-sticky-note"></i> Notas Adicionales</label>
+                            <textarea id="notasPago" rows="2" placeholder="Observaciones sobre el pago..."></textarea>
+                        </div>
+
+                        <div id="saldoRestanteContainer" class="form-span-2" style="background: #e6fffa; padding: 1rem; border-radius: 10px; margin-top: 0.25rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong>Saldo Restante de la Factura:</strong>
+                                    <div style="color: #718096; font-size: 0.9rem;">Después de este pago</div>
+                                </div>
+                                <div style="font-size: 1.35rem; font-weight: 700; color: #38a169;" id="saldoRestanteFactura">
+                                    RD$0.00
+                                </div>
                             </div>
                         </div>
                     </div>
-                    
-                    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+
+                    <div class="pago-actions">
                         <button class="btn btn-warning" onclick="closePagoModal()">Cancelar</button>
                         <button class="btn btn-primary" onclick="procesarPagoFactura()">
                             <span><i class="fas fa-check-circle"></i></span>
@@ -2242,7 +2323,8 @@
         }
 
         function actualizarSaldoRestante() {
-            const montoPago = parseFloat(document.getElementById('montoPago').value) || 0;
+            const montoInput = document.getElementById('montoPago');
+            const montoPago = parseCurrencyInput(montoInput.value);
             const clienteId = document.getElementById('pagoClienteId').value;
             const cliente = clientesData.find(c => c.id === parseInt(clienteId));
 
@@ -2252,9 +2334,22 @@
             const saldoRestante = totalPendiente - montoPago;
             const saldoElement = document.getElementById('saldoRestante');
             const container = document.getElementById('saldoRestanteContainer');
+            const excede = validarExcesoMontoInput(
+                montoInput,
+                totalPendiente,
+                `Te estas excediendo del monto pendiente del cliente (RD$ ${formatCurrency(totalPendiente)}).`
+            );
 
             if (saldoElement) {
-                saldoElement.textContent = `$${formatCurrency(saldoRestante)}`;
+                if (excede) {
+                    const excedente = montoPago - totalPendiente;
+                    saldoElement.textContent = `Exceso: RD$${formatCurrency(excedente)}`;
+                    saldoElement.style.color = '#e53e3e';
+                    container.style.display = 'block';
+                    return;
+                }
+
+                saldoElement.textContent = `RD$${formatCurrency(saldoRestante)}`;
                 saldoElement.style.color = saldoRestante > 0 ? '#ff7e5f' : '#38a169';
 
                 if (saldoRestante > 0) {
@@ -2266,7 +2361,8 @@
         }
 
         function actualizarSaldoRestanteFactura() {
-            const montoPago = parseFloat(document.getElementById('montoPago').value) || 0;
+            const montoInput = document.getElementById('montoPago');
+            const montoPago = parseCurrencyInput(montoInput.value);
             const facturaId = document.getElementById('pagoFacturaId').value;
 
             // Encontrar la factura
@@ -2281,16 +2377,28 @@
 
             const saldoRestante = saldoFactura - montoPago;
             const saldoElement = document.getElementById('saldoRestanteFactura');
+            const excede = validarExcesoMontoInput(
+                montoInput,
+                saldoFactura,
+                `Te estas excediendo del monto pendiente de la factura (RD$ ${formatCurrency(saldoFactura)}).`
+            );
 
             if (saldoElement) {
-                saldoElement.textContent = `$${formatCurrency(saldoRestante)}`;
+                if (excede) {
+                    const excedente = montoPago - saldoFactura;
+                    saldoElement.textContent = `Exceso: RD$${formatCurrency(excedente)}`;
+                    saldoElement.style.color = '#e53e3e';
+                    return;
+                }
+
+                saldoElement.textContent = `RD$${formatCurrency(saldoRestante)}`;
                 saldoElement.style.color = saldoRestante > 0 ? '#ff7e5f' : '#38a169';
             }
         }
 
         async function procesarPago() {
             const clienteId = parseInt(document.getElementById('pagoClienteId').value);
-            const monto = parseFloat(document.getElementById('montoPago').value) || 0;
+            const monto = parseCurrencyInput(document.getElementById('montoPago').value);
             const fecha = document.getElementById('fechaPago').value;
             const metodo = document.getElementById('metodoPago').value;
             const referencia = document.getElementById('referenciaPago').value;
@@ -2310,6 +2418,12 @@
 
             if (!cliente) {
                 showNotification('No se encontró el cliente para registrar el pago', 'error');
+                return;
+            }
+
+            const maximoPermitido = parseFloat(cliente.total_adeudado || 0);
+            if (monto > maximoPermitido) {
+                showNotification(`El monto no puede ser mayor al saldo pendiente (RD$ ${formatCurrency(maximoPermitido)}).`, 'error');
                 return;
             }
 
@@ -2346,11 +2460,14 @@
 
         async function procesarPagoFactura() {
             const facturaId = parseInt(document.getElementById('pagoFacturaId').value);
-            const monto = parseFloat(document.getElementById('montoPago').value) || 0;
+            const monto = parseCurrencyInput(document.getElementById('montoPago').value);
             const fecha = document.getElementById('fechaPago').value;
             const metodo = document.getElementById('metodoPago').value;
             const referencia = document.getElementById('referenciaPago').value;
             const notas = document.getElementById('notasPago').value;
+
+            const cliente = clientesData.find(c => c.facturas.some(f => f.id === facturaId));
+            const factura = cliente ? cliente.facturas.find(f => f.id === facturaId) : null;
 
             // Validaciones
             if (!monto || monto <= 0) {
@@ -2360,6 +2477,17 @@
 
             if (!fecha) {
                 showNotification('La fecha de pago es requerida', 'error');
+                return;
+            }
+
+            if (!factura) {
+                showNotification('No se encontró la factura para registrar el pago', 'error');
+                return;
+            }
+
+            const maximoPermitido = parseFloat(factura.saldo_pendiente || 0);
+            if (monto > maximoPermitido) {
+                showNotification(`El monto no puede ser mayor al saldo de la factura (RD$ ${formatCurrency(maximoPermitido)}).`, 'error');
                 return;
             }
 
@@ -2437,6 +2565,93 @@
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             });
+        }
+
+        function parseCurrencyInput(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return 0;
+
+            let cleaned = raw.replace(/[^0-9.,-]/g, '');
+            if (!cleaned) return 0;
+
+            // El formato UI usa miles con coma y decimales con punto.
+            // Quitar comas de miles evita que 3,360 se interprete como 3.36.
+            cleaned = cleaned.replace(/,/g, '');
+
+            const parsed = parseFloat(cleaned);
+            return Number.isFinite(parsed) ? parsed : 0;
+        }
+
+        function formatearMontoEnVivo(input, callbackFn) {
+            const raw = String(input.value || '');
+            const tieneValor = raw.trim() !== '';
+
+            if (!tieneValor) {
+                if (typeof callbackFn === 'function') callbackFn();
+                return;
+            }
+
+            const formatted = formatMontoInputParcial(raw);
+            input.value = formatted;
+            input.setSelectionRange(input.value.length, input.value.length);
+
+            if (typeof callbackFn === 'function') callbackFn();
+        }
+
+        function validarExcesoMontoInput(input, maximo, mensaje) {
+            const monto = parseCurrencyInput(input.value);
+            const excede = monto > parseFloat(maximo || 0);
+
+            if (excede) {
+                input.style.borderColor = '#e53e3e';
+                input.style.boxShadow = '0 0 0 3px rgba(229, 62, 62, 0.2)';
+                if (input.dataset.excesoAvisado !== '1') {
+                    showNotification(mensaje, 'warning');
+                    input.dataset.excesoAvisado = '1';
+                }
+                return true;
+            }
+
+            input.style.borderColor = '#e0e6ff';
+            input.style.boxShadow = '0 4px 6px rgba(50, 50, 93, 0.05)';
+            input.dataset.excesoAvisado = '0';
+            return false;
+        }
+
+        function prepararEdicionMoneda(input) {
+            const monto = parseCurrencyInput(input.value);
+            input.value = Number.isFinite(monto) ? String(monto) : '';
+        }
+
+        function formatMontoInputParcial(rawValue) {
+            let value = String(rawValue || '').replace(/[^0-9.]/g, '');
+            if (!value) return '';
+
+            const sepIndex = value.lastIndexOf('.');
+
+            let intPart = value;
+            let decPart = '';
+
+            if (sepIndex !== -1) {
+                intPart = value.slice(0, sepIndex);
+                decPart = value.slice(sepIndex + 1).replace(/[^0-9]/g, '').slice(0, 2);
+            }
+
+            intPart = intPart.replace(/[^0-9]/g, '');
+            if (!intPart) intPart = '0';
+
+            const intFormatted = Number.parseInt(intPart, 10).toLocaleString('en-US');
+            return decPart !== '' ? `${intFormatted}.${decPart}` : intFormatted;
+        }
+
+        function normalizarInputMoneda(input) {
+            const raw = String(input.value || '').trim();
+            if (!raw) {
+                return;
+            }
+
+            const monto = parseCurrencyInput(input.value);
+            input.value = formatCurrency(Math.max(0, monto));
         }
 
         function formatDate(dateString) {
