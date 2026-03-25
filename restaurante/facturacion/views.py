@@ -6960,8 +6960,272 @@ def procesar_anulacion_factura(request):
 
 
 def gestiondeclientes(request):
-    """Vista para gestión/listado de clientes."""
-    return render(request, 'facturacion/gestiondeclientes.html')
+    """Vista para gestión/listado de clientes con filtros y paginación."""
+    search = (request.GET.get('search') or '').strip()
+    estado = (request.GET.get('estado') or '').strip()
+    credito = (request.GET.get('credito') or '').strip()
+    fecha = (request.GET.get('fecha') or '').strip()
+    sort_by = (request.GET.get('sort') or 'nombre').strip()
+    page = request.GET.get('page', 1)
+
+    clientes_qs = Cliente.objects.all()
+
+    if search:
+        clientes_qs = clientes_qs.filter(
+            Q(cedula__icontains=search)
+            | Q(nombre_completo__icontains=search)
+            | Q(telefono_principal__icontains=search)
+            | Q(telefono_alternativo__icontains=search)
+        )
+
+    if estado == 'activo':
+        clientes_qs = clientes_qs.filter(activo=True)
+    elif estado == 'inactivo':
+        clientes_qs = clientes_qs.filter(activo=False)
+
+    if fecha:
+        hoy = timezone.localdate()
+        if fecha == 'hoy':
+            clientes_qs = clientes_qs.filter(fecha_registro__date=hoy)
+        elif fecha == 'ayer':
+            clientes_qs = clientes_qs.filter(fecha_registro__date=hoy - timedelta(days=1))
+        elif fecha == 'semana':
+            inicio_semana = hoy - timedelta(days=hoy.weekday())
+            clientes_qs = clientes_qs.filter(fecha_registro__date__gte=inicio_semana)
+        elif fecha == 'mes':
+            clientes_qs = clientes_qs.filter(fecha_registro__year=hoy.year, fecha_registro__month=hoy.month)
+
+    sort_map = {
+        'nombre': 'nombre_completo',
+        'nombre_desc': '-nombre_completo',
+        'cedula': 'cedula',
+        'fecha_desc': '-fecha_registro',
+        'fecha_asc': 'fecha_registro',
+        'credito_desc': '-limite_credito',
+        'credito_asc': 'limite_credito',
+    }
+    clientes_qs = clientes_qs.order_by(sort_map.get(sort_by, 'nombre_completo'))
+
+    # Filtros que dependen de propiedades calculadas del modelo.
+    if credito in ('agotado', 'excedido'):
+        clientes_filtrados = []
+        for cliente in clientes_qs:
+            limite = cliente.limite_credito or Decimal('0.00')
+            saldo_actual = getattr(cliente, 'saldo_actual', Decimal('0.00')) or Decimal('0.00')
+            saldo_disponible = getattr(cliente, 'saldo_disponible', None)
+            if saldo_disponible is None:
+                saldo_disponible = limite - saldo_actual
+            if credito == 'agotado' and saldo_disponible == 0:
+                clientes_filtrados.append(cliente)
+            elif credito == 'excedido' and saldo_disponible < 0:
+                clientes_filtrados.append(cliente)
+        clientes_qs = clientes_filtrados
+    elif credito == 'con_credito':
+        clientes_qs = clientes_qs.filter(limite_credito__gt=0)
+    elif credito == 'sin_credito':
+        clientes_qs = clientes_qs.filter(limite_credito__lte=0)
+
+    paginator = Paginator(clientes_qs, 12)
+    page_obj = paginator.get_page(page)
+
+    hoy = timezone.localdate()
+    estadisticas = {
+        'total_clientes': Cliente.objects.count(),
+        'clientes_activos': Cliente.objects.filter(activo=True).count(),
+        'credito_total': Cliente.objects.aggregate(total=Sum('limite_credito')).get('total') or Decimal('0.00'),
+        'clientes_hoy': Cliente.objects.filter(fecha_registro__date=hoy).count(),
+    }
+
+    context = {
+        'clientes': page_obj,
+        'paginator': page_obj,
+        'estadisticas': estadisticas,
+        'filtros': {
+            'search': search,
+            'estado': estado,
+            'credito': credito,
+            'fecha': fecha,
+            'sort': sort_by,
+        },
+    }
+    return render(request, 'facturacion/gestiondeclientes.html', context)
+
+
+def _estadisticas_clientes():
+    hoy = timezone.localdate()
+    return {
+        'total_clientes': Cliente.objects.count(),
+        'clientes_activos': Cliente.objects.filter(activo=True).count(),
+        'credito_total': float(Cliente.objects.aggregate(total=Sum('limite_credito')).get('total') or Decimal('0.00')),
+        'clientes_hoy': Cliente.objects.filter(fecha_registro__date=hoy).count(),
+    }
+
+
+def _cliente_json(cliente):
+    limite_credito = cliente.limite_credito or Decimal('0.00')
+    saldo_actual = getattr(cliente, 'saldo_actual', Decimal('0.00'))
+    if saldo_actual is None:
+        saldo_actual = Decimal('0.00')
+    saldo_disponible = getattr(cliente, 'saldo_disponible', None)
+    if saldo_disponible is None:
+        # Si no hay lógica contable implementada aún, asumimos que no ha consumido crédito.
+        saldo_disponible = limite_credito - saldo_actual
+
+    return {
+        'id': cliente.id,
+        'cedula': cliente.cedula,
+        'nombre_completo': cliente.nombre_completo,
+        'direccion': cliente.direccion,
+        'telefono_principal': cliente.telefono_principal,
+        'telefono_alternativo': cliente.telefono_alternativo or '',
+        'limite_credito': float(limite_credito),
+        'dias_credito': cliente.dias_credito,
+        'notas_credito': cliente.notas_credito or '',
+        'notas_generales': '',
+        'correo_electronico': '',
+        'activo': cliente.activo,
+        'saldo_actual': float(saldo_actual),
+        'saldo_disponible': float(saldo_disponible),
+        'fecha_registro': cliente.fecha_registro.isoformat() if cliente.fecha_registro else None,
+        'fecha_actualizacion': cliente.fecha_actualizacion.isoformat() if cliente.fecha_actualizacion else None,
+        'usuario_registro': (cliente.registrado_por.username if getattr(cliente, 'registrado_por', None) else 'Sistema'),
+    }
+
+
+@csrf_exempt
+def detalle_cliente(request, cliente_id):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    cliente = get_object_or_404(Cliente, pk=cliente_id)
+    return JsonResponse(_cliente_json(cliente))
+
+
+@csrf_exempt
+def editar_cliente(request, cliente_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    cliente = get_object_or_404(Cliente, pk=cliente_id)
+
+    try:
+        cedula = (request.POST.get('cedula') or '').strip()
+        nombre_completo = (request.POST.get('nombre_completo') or '').strip()
+        direccion = (request.POST.get('direccion') or '').strip()
+        telefono_principal = (request.POST.get('telefono_principal') or '').strip()
+        telefono_alternativo = (request.POST.get('telefono_alternativo') or '').strip()
+        limite_credito_str = (request.POST.get('limite_credito') or '0').strip()
+        dias_credito_str = (request.POST.get('dias_credito') or '30').strip()
+        notas_credito = (request.POST.get('notas_credito') or '').strip()
+        activo_str = (request.POST.get('activo') or 'true').strip().lower()
+
+        cedula_limpia = ''.join(filter(str.isdigit, cedula))
+        tel_principal_limpio = ''.join(filter(str.isdigit, telefono_principal))
+        tel_alt_limpio = ''.join(filter(str.isdigit, telefono_alternativo)) if telefono_alternativo else ''
+
+        if len(cedula_limpia) != 11:
+            return JsonResponse({'success': False, 'error': 'La cédula debe tener exactamente 11 dígitos'})
+        if len(tel_principal_limpio) != 10:
+            return JsonResponse({'success': False, 'error': 'El teléfono principal debe tener 10 dígitos'})
+        if tel_alt_limpio and len(tel_alt_limpio) != 10:
+            return JsonResponse({'success': False, 'error': 'El teléfono alternativo debe tener 10 dígitos'})
+        if len(nombre_completo) < 5:
+            return JsonResponse({'success': False, 'error': 'El nombre debe tener al menos 5 caracteres'})
+        if len(direccion) < 10:
+            return JsonResponse({'success': False, 'error': 'La dirección debe tener al menos 10 caracteres'})
+
+        try:
+            limite_credito = Decimal(limite_credito_str)
+        except Exception:
+            limite_credito = Decimal('0.00')
+
+        try:
+            dias_credito = int(dias_credito_str)
+        except Exception:
+            dias_credito = 30
+
+        if limite_credito < 0:
+            return JsonResponse({'success': False, 'error': 'El límite de crédito no puede ser negativo'})
+        if limite_credito > 1000000:
+            return JsonResponse({'success': False, 'error': 'El límite de crédito máximo es $1,000,000'})
+        if dias_credito < 0 or dias_credito > 365:
+            return JsonResponse({'success': False, 'error': 'Los días de crédito deben estar entre 0 y 365'})
+
+        if Cliente.objects.exclude(pk=cliente.id).filter(cedula=cedula_limpia).exists():
+            return JsonResponse({'success': False, 'error': 'Ya existe otro cliente con esa cédula'})
+
+        cliente.cedula = cedula_limpia
+        cliente.nombre_completo = nombre_completo
+        cliente.direccion = direccion
+        cliente.telefono_principal = tel_principal_limpio
+        cliente.telefono_alternativo = tel_alt_limpio or None
+        cliente.limite_credito = limite_credito
+        cliente.dias_credito = dias_credito
+        cliente.notas_credito = notas_credito or None
+        cliente.activo = activo_str in ('true', '1', 'yes', 'si', 'on')
+        cliente.save()
+
+        return JsonResponse({
+            'success': True,
+            'mensaje': 'Cliente actualizado correctamente',
+            'cliente': _cliente_json(cliente),
+            'estadisticas': _estadisticas_clientes(),
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Error al actualizar cliente: {str(e)}'})
+
+
+@csrf_exempt
+def eliminar_cliente(request, cliente_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    cliente = get_object_or_404(Cliente, pk=cliente_id)
+    nombre = cliente.nombre_completo
+    cliente.delete()
+
+    return JsonResponse({
+        'success': True,
+        'mensaje': f'Cliente "{nombre}" eliminado correctamente',
+        'estadisticas': _estadisticas_clientes(),
+    })
+
+
+@csrf_exempt
+def historial_cliente(request, cliente_id):
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    cliente = get_object_or_404(Cliente, pk=cliente_id)
+
+    filtros = Q(nombre_cliente__iexact=cliente.nombre_completo) | Q(telefono_cliente=cliente.telefono_principal)
+    if cliente.telefono_alternativo:
+        filtros |= Q(telefono_cliente=cliente.telefono_alternativo)
+
+    facturas = Factura.objects.filter(filtros).order_by('-fecha_factura')[:30]
+
+    historial = [
+        {
+            'numero_factura': f.numero_factura,
+            'fecha_factura': f.fecha_factura.isoformat() if f.fecha_factura else None,
+            'estado': f.estado,
+            'metodo_pago': f.metodo_pago,
+            'tipo_pedido': f.tipo_pedido,
+            'total': float(f.total or 0),
+        }
+        for f in facturas
+    ]
+
+    return JsonResponse({
+        'success': True,
+        'cliente': {
+            'id': cliente.id,
+            'nombre_completo': cliente.nombre_completo,
+            'cedula': cliente.cedula,
+            'telefono_principal': cliente.telefono_principal,
+        },
+        'historial': historial,
+    })
 
 
 def registrodeclientes(request):
@@ -7087,7 +7351,8 @@ def registrodeclientes(request):
                 telefono_alternativo=telefono_alternativo,
                 limite_credito=limite_credito_decimal,
                 dias_credito=dias_credito_int,
-                notas_credito=notas_credito if notas_credito else None
+                notas_credito=notas_credito if notas_credito else None,
+                registrado_por=request.user if request.user.is_authenticated else None
             )
             
             # Respuesta exitosa

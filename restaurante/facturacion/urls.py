@@ -66,5 +66,9 @@ path('gestiondepedidos/verificar-stock-multiples/', views.verificar_stock_multip
 
     
     path('gestiondeclientes/', views.gestiondeclientes, name='gestiondeclientes'),
+  path('gestiondeclientes/detalle/<int:cliente_id>/', views.detalle_cliente, name='detalle_cliente'),
+    path('gestiondeclientes/historial/<int:cliente_id>/', views.historial_cliente, name='historial_cliente'),
+  path('gestiondeclientes/editar/<int:cliente_id>/', views.editar_cliente, name='editar_cliente'),
+  path('gestiondeclientes/eliminar/<int:cliente_id>/', views.eliminar_cliente, name='eliminar_cliente'),
     path('registrodeclientes/', views.registrodeclientes, name='registrodeclientes'),  # URL para registro de clientes
 ]

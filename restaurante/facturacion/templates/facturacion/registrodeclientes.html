@@ -1501,7 +1501,10 @@
                 .then(data => {
                     if (data.success) {
                         mostrarNotificacion(data.mensaje, 'success');
-                        limpiarFormulario();
+                        // Llevar al usuario a la vista de gestión para ver el cliente recién creado.
+                        setTimeout(() => {
+                            window.location.href = "{% url 'gestiondeclientes' %}";
+                        }, 700);
                     } else {
                         mostrarNotificacion(data.error || 'Error al registrar cliente', 'error');
                     }

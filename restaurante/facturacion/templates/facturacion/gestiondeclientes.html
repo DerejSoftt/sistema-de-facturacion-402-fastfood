@@ -1419,18 +1419,6 @@
                                         {% else %}
                                         <span class="status-badge status-inactive">Inactivo</span>
                                         {% endif %}
-                                        <br>
-                                        {% if cliente.limite_credito > 0 %}
-                                        {% if cliente.saldo_disponible > 0 %}
-                                        <span class="credito-badge credito-activo">Crédito Disponible</span>
-                                        {% elif cliente.saldo_disponible == 0 %}
-                                        <span class="credito-badge credito-agotado">Crédito Agotado</span>
-                                        {% else %}
-                                        <span class="credito-badge credito-excedido">Crédito Excedido</span>
-                                        {% endif %}
-                                        {% else %}
-                                        <span class="credito-badge credito-sin">Sin Crédito</span>
-                                        {% endif %}
                                     </td>
                                     <td>
                                         <div class="date-badge">
@@ -2317,26 +2305,6 @@
             const fila = document.querySelector(`tr[data-cliente-id="${clienteId}"]`);
             if (!fila) return;
 
-            // Determinar estado de crédito
-            let creditoBadge = '';
-            let creditoTexto = '';
-
-            if (cliente.limite_credito > 0) {
-                if (cliente.saldo_disponible > 0) {
-                    creditoBadge = 'credito-activo';
-                    creditoTexto = 'Crédito Disponible';
-                } else if (cliente.saldo_disponible === 0) {
-                    creditoBadge = 'credito-agotado';
-                    creditoTexto = 'Crédito Agotado';
-                } else {
-                    creditoBadge = 'credito-excedido';
-                    creditoTexto = 'Crédito Excedido';
-                }
-            } else {
-                creditoBadge = 'credito-sin';
-                creditoTexto = 'Sin Crédito';
-            }
-
             // Actualizar celdas
             fila.cells[0].textContent = cliente.cedula;
             fila.cells[1].textContent = cliente.nombre_completo;
@@ -2373,8 +2341,6 @@
         ${cliente.activo ?
                     '<span class="status-badge status-active">Activo</span>' :
                     '<span class="status-badge status-inactive">Inactivo</span>'}
-        <br>
-        <span class="credito-badge ${creditoBadge}">${creditoTexto}</span>
     `;
 
             // Actualizar fecha de actualización
@@ -2415,9 +2381,78 @@
 
         // Función para ver historial del cliente
         function verHistorial(clienteId) {
-            mostrarNotificacion(`Redirigiendo al historial del cliente #${clienteId}`, 'info');
-            // Aquí puedes redirigir a una página de historial específica
-            // window.location.href = `/gestiondeclientes/historial/${clienteId}/`;
+            fetch(`/gestiondeclientes/historial/${clienteId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        throw new Error(data.error || 'No se pudo cargar el historial');
+                    }
+
+                    const modalBody = document.getElementById('viewClienteBody');
+                    const cliente = data.cliente || {};
+                    const historial = data.historial || [];
+
+                    let contenidoHistorial = '';
+                    if (historial.length === 0) {
+                        contenidoHistorial = `
+                            <div style="padding: 1rem; border-radius: 10px; background: #f8f9ff; color: #4a5568;">
+                                Este cliente no tiene facturas asociadas todavía.
+                            </div>
+                        `;
+                    } else {
+                        const filas = historial.map(item => {
+                            const fecha = item.fecha_factura ? new Date(item.fecha_factura).toLocaleDateString('es-DO') : '-';
+                            const total = Number(item.total || 0).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            return `
+                                <tr>
+                                    <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7;">${item.numero_factura || '-'}</td>
+                                    <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7;">${fecha}</td>
+                                    <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7; text-transform: capitalize;">${item.estado || '-'}</td>
+                                    <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7; text-transform: capitalize;">${item.tipo_pedido || '-'}</td>
+                                    <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7; text-transform: capitalize;">${item.metodo_pago || '-'}</td>
+                                    <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7; font-weight: 700; color: #2b6cb0;">RD$ ${total}</td>
+                                </tr>
+                            `;
+                        }).join('');
+
+                        contenidoHistorial = `
+                            <div style="overflow-x: auto; border: 1px solid #edf2f7; border-radius: 10px;">
+                                <table style="width: 100%; border-collapse: collapse; min-width: 700px;">
+                                    <thead style="background: #2c3e50; color: white;">
+                                        <tr>
+                                            <th style="padding: 0.75rem; text-align: left;">Factura</th>
+                                            <th style="padding: 0.75rem; text-align: left;">Fecha</th>
+                                            <th style="padding: 0.75rem; text-align: left;">Estado</th>
+                                            <th style="padding: 0.75rem; text-align: left;">Tipo</th>
+                                            <th style="padding: 0.75rem; text-align: left;">Pago</th>
+                                            <th style="padding: 0.75rem; text-align: left;">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${filas}</tbody>
+                                </table>
+                            </div>
+                        `;
+                    }
+
+                    modalBody.innerHTML = `
+                        <div style="padding: 1rem;">
+                            <h3 style="margin-bottom: 0.75rem; color: #2c3e50;">Historial de Cliente</h3>
+                            <p style="margin-bottom: 1rem; color: #4a5568;">
+                                <strong>${cliente.nombre_completo || '-'}</strong> | Cédula: ${cliente.cedula || '-'} | Tel: ${cliente.telefono_principal || '-'}
+                            </p>
+                            ${contenidoHistorial}
+                            <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
+                                <button class="btn btn-warning" onclick="cerrarViewModal()">Cerrar</button>
+                            </div>
+                        </div>
+                    `;
+
+                    document.getElementById('viewClienteModal').classList.add('active');
+                })
+                .catch(error => {
+                    console.error('Error al cargar historial:', error);
+                    mostrarNotificacion('Error al cargar historial del cliente', 'error');
+                });
         }
 
         // Función para eliminar cliente
