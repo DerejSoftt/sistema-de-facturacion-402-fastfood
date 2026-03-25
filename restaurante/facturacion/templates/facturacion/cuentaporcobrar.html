@@ -514,7 +514,29 @@
             border-radius: 12px;
             font-size: 0.8rem;
             font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            width: fit-content;
             animation: pulse 2s infinite;
+        }
+
+        .facturas-count {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.35rem;
+        }
+
+        .facturas-badge {
+            background: #667eea;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            width: fit-content;
+            line-height: 1.1;
         }
 
         @keyframes pulse {
@@ -899,14 +921,28 @@
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
         }
 
+        .btn-view {
+            background: #eaf2ff;
+            color: #2b6cb0;
+            border: 1px solid #90cdf4;
+        }
+
         .btn-view:hover {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #2b6cb0;
             color: white;
+            border-color: #2b6cb0;
+        }
+
+        .btn-edit {
+            background: #e7f8ea;
+            color: #2f855a;
+            border: 1px solid #9ae6b4;
         }
 
         .btn-edit:hover {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            background: #2f855a;
             color: white;
+            border-color: #2f855a;
         }
 
         .btn-danger:hover {
@@ -1649,13 +1685,13 @@
                         </td>
                         <td>
                             <div class="facturas-count">
-                                <span class="badge" style="background: #667eea; color: white; padding: 0.5rem 1rem; border-radius: 12px; font-weight: 600;">
+                                <span class="facturas-badge">
                                     ${cliente.cantidad_facturas} factura(s)
                                 </span>
                                 ${cliente.facturas_vencidas > 0 ?
-                        `<div class="vencido-badge" style="margin-top: 0.25rem;">
+                        `<span class="vencido-badge">
                                         ${cliente.facturas_vencidas} vencida(s)
-                                    </div>` : ''}
+                                    </span>` : ''}
                             </div>
                         </td>
                         <td>
@@ -1689,9 +1725,6 @@
                                 </button>
                                 <button class="btn-icon btn-edit" onclick="registrarPago(${cliente.id})" title="Registrar pago">
                                     <i class="fas fa-money-bill-wave"></i>
-                                </button>
-                                <button class="btn-icon btn-warning" onclick="contactarCliente('${cliente.telefono}')" title="Contactar cliente">
-                                    <i class="fas fa-phone"></i>
                                 </button>
                             </div>
                         </td>
