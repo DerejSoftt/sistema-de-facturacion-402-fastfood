@@ -7579,6 +7579,7 @@ def _armar_clientes_cuentas_por_cobrar():
                 'monto': float(pago.monto),
                 'metodo': metodo_label,
                 'referencia': pago.referencia or '',
+                'numero_comprobante': pago.numero_comprobante or '',
             })
 
     clientes_payload = []
@@ -7625,6 +7626,95 @@ def cuentaporcobrar_datos(request):
     """Retorna datos reales para la tabla de cuentas por cobrar."""
     clientes = _armar_clientes_cuentas_por_cobrar()
     return JsonResponse({'success': True, 'clientes': clientes})
+
+
+@login_required
+def cuentaporcobrar_comprobante_pdf(request):
+    """Genera un comprobante PDF en formato termico 80mm para pagos de CxC."""
+    pagos_param = (request.GET.get('pagos') or '').strip()
+    if not pagos_param:
+        return HttpResponse('Debe indicar pagos para generar el comprobante.', status=400)
+
+    try:
+        pago_ids = [int(pid.strip()) for pid in pagos_param.split(',') if pid.strip()]
+    except ValueError:
+        return HttpResponse('Formato de pagos invalido.', status=400)
+
+    pagos = list(PagoCuentaCobrar.objects.filter(id__in=pago_ids).select_related('factura').order_by('fecha_pago', 'id'))
+    if not pagos:
+        return HttpResponse('No se encontraron pagos para el comprobante.', status=404)
+
+    ancho_ticket = 80 * mm
+    alto_base = 80 * mm
+    alto_linea = 6 * mm
+    alto_ticket = alto_base + (len(pagos) * alto_linea)
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="comprobante_cxc_{timezone.localtime().strftime("%Y%m%d_%H%M%S")}.pdf"'
+
+    c = canvas.Canvas(response, pagesize=(ancho_ticket, alto_ticket))
+    y = alto_ticket - 8 * mm
+
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    ahora_local = timezone.now().astimezone(tz_rd)
+    factura_ref = pagos[0].factura
+    cliente_nombre = factura_ref.nombre_cliente or 'Cliente'
+
+    total_pagado = sum((p.monto for p in pagos), Decimal('0.00'))
+    comprobantes = [p.numero_comprobante or f'PAGO-{p.id}' for p in pagos]
+    comprobante_principal = comprobantes[0]
+
+    c.setFont('Helvetica-Bold', 10)
+    c.drawCentredString(ancho_ticket / 2, y, 'COMPROBANTE DE PAGO')
+    y -= 5 * mm
+
+    c.setFont('Helvetica', 8)
+    c.drawString(5 * mm, y, f'Fecha: {ahora_local.strftime("%d/%m/%Y %I:%M %p")}')
+    y -= 4 * mm
+    c.drawString(5 * mm, y, f'Comprobante: {comprobante_principal[:28]}')
+    y -= 4 * mm
+    c.drawString(5 * mm, y, f'Cliente: {cliente_nombre[:34]}')
+    y -= 4 * mm
+    c.drawString(5 * mm, y, f'Pagos aplicados: {len(pagos)}')
+    y -= 4 * mm
+
+    c.line(5 * mm, y, ancho_ticket - 5 * mm, y)
+    y -= 4 * mm
+
+    c.setFont('Helvetica-Bold', 8)
+    c.drawString(5 * mm, y, 'Factura')
+    c.drawRightString(ancho_ticket - 5 * mm, y, 'Monto')
+    y -= 4 * mm
+
+    c.setFont('Helvetica', 8)
+    for pago in pagos:
+        numero = str(pago.factura.numero_factura or f'FACT-{pago.factura_id}')
+        numero_comprobante = (pago.numero_comprobante or f'PAGO-{pago.id}')[:16]
+        c.drawString(5 * mm, y, f'{numero[:12]} {numero_comprobante}')
+        c.drawRightString(ancho_ticket - 5 * mm, y, f'RD$ {pago.monto:.2f}')
+        y -= alto_linea
+
+    c.line(5 * mm, y + 2 * mm, ancho_ticket - 5 * mm, y + 2 * mm)
+    c.setFont('Helvetica-Bold', 9)
+    c.drawString(5 * mm, y - 2 * mm, 'TOTAL PAGADO:')
+    c.drawRightString(ancho_ticket - 5 * mm, y - 2 * mm, f'RD$ {total_pagado:.2f}')
+    y -= 8 * mm
+
+    metodo = pagos[-1].get_metodo_pago_display() if hasattr(pagos[-1], 'get_metodo_pago_display') else pagos[-1].metodo_pago
+    referencia = pagos[-1].referencia or 'N/A'
+
+    c.setFont('Helvetica', 8)
+    c.drawString(5 * mm, y, f'Metodo: {metodo}')
+    y -= 4 * mm
+    c.drawString(5 * mm, y, f'Referencia: {referencia[:30]}')
+    y -= 6 * mm
+
+    c.setFont('Helvetica-Oblique', 7)
+    c.drawCentredString(ancho_ticket / 2, y, 'Gracias por su pago')
+
+    c.showPage()
+    c.save()
+    return response
 
 
 @login_required
@@ -7676,7 +7766,7 @@ def cuentaporcobrar_registrar_pago(request):
             if monto > saldo_actual:
                 return JsonResponse({'success': False, 'error': f'El monto excede el saldo pendiente (RD$ {saldo_actual}).'}, status=400)
 
-            PagoCuentaCobrar.objects.create(
+            pago_registrado = PagoCuentaCobrar.objects.create(
                 cuenta_por_cobrar=cuenta,
                 factura=factura,
                 monto=monto,
@@ -7687,13 +7777,22 @@ def cuentaporcobrar_registrar_pago(request):
                 registrado_por=request.user if request.user.is_authenticated else None,
             )
 
+            comprobante_url = ''
+            if pago_registrado:
+                comprobante_url = f"{reverse('cuentaporcobrar_comprobante_pdf')}?pagos={pago_registrado.id}"
+
             _sincronizar_cuenta_por_cobrar(factura)
             if _saldo_factura_pendiente(factura) <= 0:
                 factura.estado = 'pagada'
                 factura.metodo_pago = metodo_pago
                 factura.save(update_fields=['estado', 'metodo_pago'])
 
-            return JsonResponse({'success': True, 'mensaje': 'Pago registrado correctamente.'})
+            return JsonResponse({
+                'success': True,
+                'mensaje': 'Pago registrado correctamente.',
+                'comprobante_url': comprobante_url,
+                'numero_comprobante': pago_registrado.numero_comprobante,
+            })
 
         if not cliente_nombre and not cliente_telefono:
             return JsonResponse({'success': False, 'error': 'Debe indicar cliente para aplicar el pago.'}, status=400)
@@ -7726,6 +7825,8 @@ def cuentaporcobrar_registrar_pago(request):
 
         restante = monto
         aplicado_total = Decimal('0.00')
+        pagos_creados_ids = []
+        pagos_creados = []
 
         for factura in facturas_cliente:
             if restante <= 0:
@@ -7737,7 +7838,7 @@ def cuentaporcobrar_registrar_pago(request):
                 continue
 
             monto_aplicar = saldo_actual if saldo_actual <= restante else restante
-            PagoCuentaCobrar.objects.create(
+            pago_obj = PagoCuentaCobrar.objects.create(
                 cuenta_por_cobrar=cuenta,
                 factura=factura,
                 monto=monto_aplicar,
@@ -7747,6 +7848,9 @@ def cuentaporcobrar_registrar_pago(request):
                 notas=notas,
                 registrado_por=request.user if request.user.is_authenticated else None,
             )
+            if pago_obj:
+                pagos_creados_ids.append(str(pago_obj.id))
+                pagos_creados.append(pago_obj)
 
             restante -= monto_aplicar
             aplicado_total += monto_aplicar
@@ -7764,4 +7868,6 @@ def cuentaporcobrar_registrar_pago(request):
             'success': True,
             'mensaje': f'Pago aplicado correctamente. Monto aplicado: RD$ {aplicado_total}',
             'restante_no_aplicado': float(restante),
+            'comprobante_url': f"{reverse('cuentaporcobrar_comprobante_pdf')}?pagos={','.join(pagos_creados_ids)}" if pagos_creados_ids else '',
+            'numeros_comprobante': [pago.numero_comprobante for pago in pagos_creados if pago.numero_comprobante],
         })

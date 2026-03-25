@@ -2483,7 +2483,11 @@
                     throw new Error(data.error || 'No se pudo registrar el pago');
                 }
 
-                showNotification(data.mensaje || `Pago de RD$ ${formatCurrency(monto)} registrado exitosamente`, 'success');
+                const msgComprobante = data.numero_comprobante ? ` Comprobante: ${data.numero_comprobante}.` : '';
+                showNotification((data.mensaje || `Pago de RD$ ${formatCurrency(monto)} registrado exitosamente`) + msgComprobante, 'success');
+                if (data.comprobante_url) {
+                    abrirComprobanteParaImprimir(data.comprobante_url);
+                }
                 closePagoModal();
                 await cargarDatosReales();
             } catch (error) {
@@ -2546,7 +2550,14 @@
                     throw new Error(data.error || 'No se pudo registrar el pago de la factura');
                 }
 
-                showNotification(data.mensaje || `Pago de RD$ ${formatCurrency(monto)} registrado para la factura`, 'success');
+                const msgComprobante = data.numero_comprobante ? ` Comprobante: ${data.numero_comprobante}.` : '';
+                const msgComprobantes = (data.numeros_comprobante && data.numeros_comprobante.length)
+                    ? ` Comprobantes: ${data.numeros_comprobante.join(', ')}.`
+                    : '';
+                showNotification((data.mensaje || `Pago de RD$ ${formatCurrency(monto)} registrado para la factura`) + msgComprobante + msgComprobantes, 'success');
+                if (data.comprobante_url) {
+                    abrirComprobanteParaImprimir(data.comprobante_url);
+                }
                 closePagoModal();
                 await cargarDatosReales();
             } catch (error) {
@@ -2590,6 +2601,26 @@
             document.getElementById('pagoModal').classList.remove('active');
             currentClienteId = null;
             currentFacturaId = null;
+        }
+
+        function abrirComprobanteParaImprimir(comprobanteUrl) {
+            if (!comprobanteUrl) return;
+
+            const nuevaVentana = window.open(comprobanteUrl, '_blank');
+            if (!nuevaVentana) {
+                showNotification('No se pudo abrir el comprobante. Verifica el bloqueador de ventanas emergentes.', 'error');
+                return;
+            }
+
+            // Intenta abrir el dialogo de impresion una vez cargado el visor PDF.
+            setTimeout(() => {
+                try {
+                    nuevaVentana.focus();
+                    nuevaVentana.print();
+                } catch (e) {
+                    console.warn('No fue posible lanzar impresion automatica del comprobante:', e);
+                }
+            }, 900);
         }
 
         // ===== FUNCIONES DE FORMATO =====

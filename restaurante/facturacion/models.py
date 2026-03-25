@@ -1392,6 +1392,13 @@ class PagoCuentaCobrar(models.Model):
         blank=True,
         verbose_name='Referencia'
     )
+    numero_comprobante = models.CharField(
+        max_length=40,
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name='Numero de comprobante'
+    )
     notas = models.TextField(
         blank=True,
         verbose_name='Notas'
@@ -1412,8 +1419,25 @@ class PagoCuentaCobrar(models.Model):
         ordering = ['-fecha_pago', '-id']
         db_table = 'pagocuentacobrar'
 
+    def _generar_numero_comprobante(self):
+        fecha_ref = self.fecha_pago or timezone.localdate()
+        return f"CXC-{fecha_ref.strftime('%Y%m')}-{self.pk:06d}"
+
+    def save(self, *args, **kwargs):
+        if self.pk is None and not self.numero_comprobante:
+            super().save(*args, **kwargs)
+            self.numero_comprobante = self._generar_numero_comprobante()
+            type(self).objects.filter(pk=self.pk).update(numero_comprobante=self.numero_comprobante)
+            return
+
+        if not self.numero_comprobante and self.pk is not None:
+            self.numero_comprobante = self._generar_numero_comprobante()
+
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"Pago {self.id} - {self.factura.numero_factura} - {self.monto}"
+        comprobante = self.numero_comprobante or f"PAGO-{self.id}"
+        return f"{comprobante} - {self.factura.numero_factura} - {self.monto}"
 
 
 class Cliente(models.Model):

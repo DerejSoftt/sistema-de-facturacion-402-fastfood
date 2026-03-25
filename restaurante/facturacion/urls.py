@@ -38,6 +38,7 @@ path('gestiondepedidos/verificar-stock-multiples/', views.verificar_stock_multip
     path('cuentaporcobrar/', views.cuentaporcobrar, name='cuentaporcobrar'),
     path('cuentaporcobrar/datos/', views.cuentaporcobrar_datos, name='cuentaporcobrar_datos'),
     path('cuentaporcobrar/registrar-pago/', views.cuentaporcobrar_registrar_pago, name='cuentaporcobrar_registrar_pago'),
+    path('cuentaporcobrar/comprobante-pdf/', views.cuentaporcobrar_comprobante_pdf, name='cuentaporcobrar_comprobante_pdf'),
     path('crear/', views.crear_factura, name='crear_factura'),
     path('marcar-pagada/<int:factura_id>/', views.marcar_factura_pagada, name='marcar_factura_pagada'),
     path('eliminar/<int:factura_id>/', views.eliminar_factura, name='eliminar_factura'),
