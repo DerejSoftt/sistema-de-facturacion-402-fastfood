@@ -24,6 +24,7 @@ from reportlab.lib.pagesizes import letter, A4
 import os
 import textwrap
 import io
+import re
 from django.shortcuts import render
 from django.db.models import Sum
 from django.contrib.auth.models import User
@@ -35,7 +36,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 import json
-from .models import Producto, Plato, Pedido, Mesa, DeliveryConfig, HistorialEstadoPedido, DetalleItemPedido, Factura, Devolucion, Cliente 
+from .models import Producto, Plato, Pedido, Mesa, DeliveryConfig, HistorialEstadoPedido, DetalleItemPedido, Factura, Devolucion, Cliente, PagoCuentaCobrar, CuentaPorCobrar
 from django.core.paginator import Paginator
 from django.db.models import Sum, Count, Q, Exists, OuterRef
 from django.db.models.functions import Coalesce
@@ -7392,3 +7393,356 @@ def registrodeclientes(request):
     
     # Si es GET, mostrar el formulario
     return render(request, 'facturacion/registrodeclientes.html')
+
+
+@login_required
+def cuentaporcobrar(request):
+    """Vista base del módulo de cuentas por cobrar."""
+    return render(request, 'facturacion/cuentaporcobrar.html')
+
+
+def _telefono_solo_digitos(valor):
+    return ''.join(ch for ch in str(valor or '') if ch.isdigit())
+
+
+def _saldo_factura_pendiente(factura):
+    total_pagado = sum((pago.monto for pago in factura.pagos_cxc.all()), Decimal('0.00'))
+    saldo = (factura.total or Decimal('0.00')) - total_pagado
+    return saldo if saldo > 0 else Decimal('0.00')
+
+
+def _calcular_fechas_cxc(factura, cliente_match=None):
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    fecha_base = factura.fecha_factura or timezone.now()
+    fecha_emision = timezone.localtime(fecha_base, tz_rd).date() if timezone.is_aware(fecha_base) else fecha_base.date()
+
+    dias_credito = 30
+    if cliente_match and cliente_match.dias_credito is not None:
+        dias_credito = max(0, int(cliente_match.dias_credito))
+
+    fecha_vencimiento = fecha_emision + timedelta(days=dias_credito)
+    return fecha_emision, fecha_vencimiento
+
+
+def _sincronizar_cuenta_por_cobrar(factura, cliente_match=None):
+    fecha_emision, fecha_vencimiento = _calcular_fechas_cxc(factura, cliente_match)
+
+    defaults = {
+        'cliente': cliente_match,
+        'fecha_emision': fecha_emision,
+        'fecha_vencimiento': fecha_vencimiento,
+        'monto_original': factura.total or Decimal('0.00'),
+        'saldo_pendiente': factura.total or Decimal('0.00'),
+        'estado': 'pendiente',
+        'notas': factura.notas or '',
+    }
+    cuenta, created = CuentaPorCobrar.objects.get_or_create(factura=factura, defaults=defaults)
+
+    total_pagado = sum((pago.monto for pago in factura.pagos_cxc.all()), Decimal('0.00'))
+    saldo = (factura.total or Decimal('0.00')) - total_pagado
+    saldo = saldo if saldo > 0 else Decimal('0.00')
+
+    hoy = timezone.localdate()
+    if saldo <= 0:
+        estado = 'pagada'
+    elif saldo < (factura.total or Decimal('0.00')):
+        estado = 'vencida' if cuenta.fecha_vencimiento < hoy else 'parcial'
+    else:
+        estado = 'vencida' if cuenta.fecha_vencimiento < hoy else 'pendiente'
+
+    cambios = []
+    if cuenta.cliente_id != (cliente_match.id if cliente_match else None):
+        cuenta.cliente = cliente_match
+        cambios.append('cliente')
+    if cuenta.fecha_emision != fecha_emision:
+        cuenta.fecha_emision = fecha_emision
+        cambios.append('fecha_emision')
+    if cuenta.fecha_vencimiento != fecha_vencimiento:
+        cuenta.fecha_vencimiento = fecha_vencimiento
+        cambios.append('fecha_vencimiento')
+    if cuenta.monto_original != (factura.total or Decimal('0.00')):
+        cuenta.monto_original = factura.total or Decimal('0.00')
+        cambios.append('monto_original')
+    if cuenta.saldo_pendiente != saldo:
+        cuenta.saldo_pendiente = saldo
+        cambios.append('saldo_pendiente')
+    if cuenta.estado != estado:
+        cuenta.estado = estado
+        cambios.append('estado')
+    if cuenta.notas != (factura.notas or ''):
+        cuenta.notas = factura.notas or ''
+        cambios.append('notas')
+
+    if cambios:
+        cuenta.save(update_fields=sorted(set(cambios + ['fecha_actualizacion'])))
+    elif created:
+        cuenta.save()
+
+    return cuenta
+
+
+def _armar_clientes_cuentas_por_cobrar():
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    hoy_local = timezone.now().astimezone(tz_rd).date()
+
+    clientes = Cliente.objects.all()
+    cliente_por_telefono = {}
+    cliente_por_nombre = {}
+
+    for cliente in clientes:
+        tel_principal = _telefono_solo_digitos(cliente.telefono_principal)
+        tel_alt = _telefono_solo_digitos(cliente.telefono_alternativo)
+        if tel_principal:
+            cliente_por_telefono[tel_principal] = cliente
+        if tel_alt:
+            cliente_por_telefono[tel_alt] = cliente
+
+        nombre_key = (cliente.nombre_completo or '').strip().lower()
+        if nombre_key and nombre_key not in cliente_por_nombre:
+            cliente_por_nombre[nombre_key] = cliente
+
+    facturas_pendientes = Factura.objects.filter(estado='pendiente').prefetch_related('pagos_cxc').order_by('fecha_factura')
+
+    agrupados = {}
+    for factura in facturas_pendientes:
+        saldo = _saldo_factura_pendiente(factura)
+        if saldo <= 0:
+            continue
+
+        nombre_factura = (factura.nombre_cliente or '').strip()
+        telefono_factura = _telefono_solo_digitos(factura.telefono_cliente)
+
+        cliente_match = None
+        if telefono_factura and telefono_factura in cliente_por_telefono:
+            cliente_match = cliente_por_telefono[telefono_factura]
+        elif nombre_factura and nombre_factura.lower() in cliente_por_nombre:
+            cliente_match = cliente_por_nombre[nombre_factura.lower()]
+
+        if telefono_factura:
+            group_key = f"tel:{telefono_factura}"
+        elif nombre_factura:
+            group_key = f"nom:{nombre_factura.lower()}"
+        else:
+            group_key = f"fac:{factura.id}"
+
+        if group_key not in agrupados:
+            nombre_ui = (cliente_match.nombre_completo if cliente_match else nombre_factura) or 'Cliente no identificado'
+            telefono_ui = (cliente_match.telefono_principal if cliente_match else factura.telefono_cliente) or ''
+            agrupados[group_key] = {
+                'group_key': group_key,
+                'cedula': cliente_match.cedula if cliente_match else 'N/A',
+                'nombre_completo': nombre_ui,
+                'telefono': telefono_ui,
+                'email': '',
+                'direccion': cliente_match.direccion if cliente_match else '',
+                'tipo_cliente': 'Con credito' if (cliente_match and (cliente_match.limite_credito or Decimal('0.00')) > 0) else 'Regular',
+                'notas': cliente_match.notas_credito if cliente_match else '',
+                'facturas': [],
+                'historial_pagos': [],
+            }
+
+        cuenta = _sincronizar_cuenta_por_cobrar(factura, cliente_match)
+        fecha_emision = cuenta.fecha_emision
+        fecha_vencimiento = cuenta.fecha_vencimiento
+        dias_vencimiento = (fecha_vencimiento - hoy_local).days
+
+        agrupados[group_key]['facturas'].append({
+            'id': factura.id,
+            'numero': factura.numero_factura,
+            'fecha_emision': fecha_emision.isoformat(),
+            'fecha_vencimiento': fecha_vencimiento.isoformat(),
+            'dias_vencimiento': dias_vencimiento,
+            'vencida': dias_vencimiento < 0,
+            'monto_total': float(factura.total or Decimal('0.00')),
+            'saldo_pendiente': float(cuenta.saldo_pendiente),
+            'concepto': factura.notas or f"Factura {factura.numero_factura}",
+            'descripcion': factura.notas or '',
+            'notas': factura.notas or '',
+        })
+
+        for pago in factura.pagos_cxc.all():
+            metodo_label = dict(PagoCuentaCobrar.METODO_PAGO_CHOICES).get(pago.metodo_pago, pago.metodo_pago)
+            agrupados[group_key]['historial_pagos'].append({
+                'fecha': pago.fecha_pago.isoformat(),
+                'monto': float(pago.monto),
+                'metodo': metodo_label,
+                'referencia': pago.referencia or '',
+            })
+
+    clientes_payload = []
+    for idx, data in enumerate(agrupados.values(), start=1):
+        data['facturas'].sort(key=lambda x: x['fecha_emision'])
+        data['historial_pagos'].sort(key=lambda x: x['fecha'], reverse=True)
+
+        total_adeudado = sum(item['saldo_pendiente'] for item in data['facturas'])
+        facturas_vencidas = sum(1 for item in data['facturas'] if item['vencida'])
+        deuda_vencida = sum(item['saldo_pendiente'] for item in data['facturas'] if item['vencida'])
+
+        if total_adeudado >= 20000:
+            nivel_deuda = 'alta'
+        elif total_adeudado >= 7000:
+            nivel_deuda = 'media'
+        else:
+            nivel_deuda = 'baja'
+
+        clientes_payload.append({
+            'id': idx,
+            'group_key': data['group_key'],
+            'cedula': data['cedula'],
+            'nombre_completo': data['nombre_completo'],
+            'telefono': data['telefono'],
+            'email': data['email'],
+            'direccion': data['direccion'],
+            'tipo_cliente': data['tipo_cliente'],
+            'notas': data['notas'],
+            'cantidad_facturas': len(data['facturas']),
+            'facturas_vencidas': facturas_vencidas,
+            'total_adeudado': float(total_adeudado),
+            'deuda_vencida': float(deuda_vencida),
+            'nivel_deuda': nivel_deuda,
+            'facturas': data['facturas'],
+            'historial_pagos': data['historial_pagos'],
+        })
+
+    clientes_payload.sort(key=lambda x: x['total_adeudado'], reverse=True)
+    return clientes_payload
+
+
+@login_required
+def cuentaporcobrar_datos(request):
+    """Retorna datos reales para la tabla de cuentas por cobrar."""
+    clientes = _armar_clientes_cuentas_por_cobrar()
+    return JsonResponse({'success': True, 'clientes': clientes})
+
+
+@login_required
+@require_POST
+def cuentaporcobrar_registrar_pago(request):
+    """Registra pago por factura puntual o por cliente (distribuido)."""
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        payload = request.POST
+
+    try:
+        monto = Decimal(str(payload.get('monto') or '0'))
+    except Exception:
+        monto = Decimal('0.00')
+
+    if monto <= 0:
+        return JsonResponse({'success': False, 'error': 'El monto debe ser mayor que 0.'}, status=400)
+
+    fecha_pago_raw = str(payload.get('fecha_pago') or '').strip()
+    if fecha_pago_raw:
+        try:
+            fecha_pago = datetime.strptime(fecha_pago_raw, '%Y-%m-%d').date()
+        except Exception:
+            return JsonResponse({'success': False, 'error': 'Fecha de pago inválida.'}, status=400)
+    else:
+        fecha_pago = timezone.localdate()
+
+    metodo_pago = (payload.get('metodo_pago') or 'efectivo').strip()
+    metodos_validos = {item[0] for item in PagoCuentaCobrar.METODO_PAGO_CHOICES}
+    if metodo_pago not in metodos_validos:
+        metodo_pago = 'efectivo'
+
+    referencia = (payload.get('referencia') or '').strip()
+    notas = (payload.get('notas') or '').strip()
+
+    factura_id = payload.get('factura_id')
+    cliente_nombre = (payload.get('cliente_nombre') or '').strip()
+    cliente_telefono = _telefono_solo_digitos(payload.get('cliente_telefono'))
+
+    with transaction.atomic():
+        if factura_id:
+            factura = get_object_or_404(Factura.objects.filter(estado='pendiente').prefetch_related('pagos_cxc'), id=factura_id)
+            cuenta = _sincronizar_cuenta_por_cobrar(factura)
+            saldo_actual = _saldo_factura_pendiente(factura)
+
+            if saldo_actual <= 0:
+                return JsonResponse({'success': False, 'error': 'La factura no tiene saldo pendiente.'}, status=400)
+            if monto > saldo_actual:
+                return JsonResponse({'success': False, 'error': f'El monto excede el saldo pendiente (RD$ {saldo_actual}).'}, status=400)
+
+            PagoCuentaCobrar.objects.create(
+                cuenta_por_cobrar=cuenta,
+                factura=factura,
+                monto=monto,
+                fecha_pago=fecha_pago,
+                metodo_pago=metodo_pago,
+                referencia=referencia,
+                notas=notas,
+                registrado_por=request.user if request.user.is_authenticated else None,
+            )
+
+            _sincronizar_cuenta_por_cobrar(factura)
+            if _saldo_factura_pendiente(factura) <= 0:
+                factura.estado = 'pagada'
+                factura.metodo_pago = metodo_pago
+                factura.save(update_fields=['estado', 'metodo_pago'])
+
+            return JsonResponse({'success': True, 'mensaje': 'Pago registrado correctamente.'})
+
+        if not cliente_nombre and not cliente_telefono:
+            return JsonResponse({'success': False, 'error': 'Debe indicar cliente para aplicar el pago.'}, status=400)
+
+        facturas_pendientes = Factura.objects.filter(estado='pendiente').prefetch_related('pagos_cxc').order_by('fecha_factura')
+        facturas_cliente = []
+
+        for factura in facturas_pendientes:
+            tel_factura = _telefono_solo_digitos(factura.telefono_cliente)
+            nombre_factura = (factura.nombre_cliente or '').strip().lower()
+
+            coincide = False
+            if cliente_telefono and tel_factura and cliente_telefono == tel_factura:
+                coincide = True
+            elif cliente_nombre and nombre_factura and cliente_nombre.lower() == nombre_factura:
+                coincide = True
+
+            if coincide:
+                facturas_cliente.append(factura)
+
+        if not facturas_cliente:
+            return JsonResponse({'success': False, 'error': 'No se encontraron facturas pendientes para ese cliente.'}, status=404)
+
+        restante = monto
+        aplicado_total = Decimal('0.00')
+
+        for factura in facturas_cliente:
+            if restante <= 0:
+                break
+
+            cuenta = _sincronizar_cuenta_por_cobrar(factura)
+            saldo_actual = _saldo_factura_pendiente(factura)
+            if saldo_actual <= 0:
+                continue
+
+            monto_aplicar = saldo_actual if saldo_actual <= restante else restante
+            PagoCuentaCobrar.objects.create(
+                cuenta_por_cobrar=cuenta,
+                factura=factura,
+                monto=monto_aplicar,
+                fecha_pago=fecha_pago,
+                metodo_pago=metodo_pago,
+                referencia=referencia,
+                notas=notas,
+                registrado_por=request.user if request.user.is_authenticated else None,
+            )
+
+            restante -= monto_aplicar
+            aplicado_total += monto_aplicar
+
+            _sincronizar_cuenta_por_cobrar(factura)
+            if _saldo_factura_pendiente(factura) <= 0:
+                factura.estado = 'pagada'
+                factura.metodo_pago = metodo_pago
+                factura.save(update_fields=['estado', 'metodo_pago'])
+
+        if aplicado_total <= 0:
+            return JsonResponse({'success': False, 'error': 'No fue posible aplicar el pago.'}, status=400)
+
+        return JsonResponse({
+            'success': True,
+            'mensaje': f'Pago aplicado correctamente. Monto aplicado: RD$ {aplicado_total}',
+            'restante_no_aplicado': float(restante),
+        })

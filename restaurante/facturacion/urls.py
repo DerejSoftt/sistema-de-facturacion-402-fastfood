@@ -35,6 +35,9 @@ urlpatterns = [
 path('gestiondepedidos/verificar-stock-multiples/', views.verificar_stock_multiples, name='verificar_stock_multiples_gestion'),
 
     path('facturacion/', views.facturacion, name='facturacion'),
+    path('cuentaporcobrar/', views.cuentaporcobrar, name='cuentaporcobrar'),
+    path('cuentaporcobrar/datos/', views.cuentaporcobrar_datos, name='cuentaporcobrar_datos'),
+    path('cuentaporcobrar/registrar-pago/', views.cuentaporcobrar_registrar_pago, name='cuentaporcobrar_registrar_pago'),
     path('crear/', views.crear_factura, name='crear_factura'),
     path('marcar-pagada/<int:factura_id>/', views.marcar_factura_pagada, name='marcar_factura_pagada'),
     path('eliminar/<int:factura_id>/', views.eliminar_factura, name='eliminar_factura'),

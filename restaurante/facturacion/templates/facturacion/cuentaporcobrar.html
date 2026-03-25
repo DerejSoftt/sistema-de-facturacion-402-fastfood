@@ -1436,13 +1436,47 @@
             initButtons();
             initModals();
 
-            // Cargar datos iniciales
-            loadClientes();
-            updateStats();
-
             // Establecer fechas por defecto
             setDefaultDates();
+
+            // Cargar datos reales desde backend
+            cargarDatosReales();
         });
+
+        async function cargarDatosReales() {
+            try {
+                const response = await fetch('/cuentaporcobrar/datos/');
+                if (!response.ok) {
+                    throw new Error(`Error HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'No se pudieron cargar las cuentas por cobrar');
+                }
+
+                clientesData.splice(0, clientesData.length, ...(data.clientes || []));
+                filteredClientes = [...clientesData];
+                applyFilters();
+            } catch (error) {
+                console.error('Error cargando cuentas por cobrar:', error);
+                showNotification('No se pudieron cargar los datos reales. Se muestran datos locales.', 'warning');
+                loadClientes();
+                updateStats();
+            }
+        }
+
+        function getCSRFToken() {
+            const name = 'csrftoken=';
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.startsWith(name)) {
+                    return decodeURIComponent(cookie.substring(name.length));
+                }
+            }
+            return '';
+        }
 
         // ===== FUNCIONES DEL SIDEBAR =====
         function initSidebar() {
@@ -2334,13 +2368,14 @@
             }
         }
 
-        function procesarPago() {
+        async function procesarPago() {
             const clienteId = parseInt(document.getElementById('pagoClienteId').value);
             const monto = parseFloat(document.getElementById('montoPago').value) || 0;
             const fecha = document.getElementById('fechaPago').value;
             const metodo = document.getElementById('metodoPago').value;
             const referencia = document.getElementById('referenciaPago').value;
             const notas = document.getElementById('notasPago').value;
+            const cliente = clientesData.find(c => c.id === clienteId);
 
             // Validaciones
             if (!monto || monto <= 0) {
@@ -2353,18 +2388,43 @@
                 return;
             }
 
-            // En una implementación real, aquí se enviaría al servidor
-            showNotification(`Pago de $${formatCurrency(monto)} registrado exitosamente`, 'success');
-            closePagoModal();
+            if (!cliente) {
+                showNotification('No se encontró el cliente para registrar el pago', 'error');
+                return;
+            }
 
-            // Simular actualización de datos
-            setTimeout(() => {
-                loadClientes();
-                updateStats();
-            }, 1000);
+            try {
+                const response = await fetch('/cuentaporcobrar/registrar-pago/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken(),
+                    },
+                    body: JSON.stringify({
+                        cliente_nombre: cliente.nombre_completo,
+                        cliente_telefono: cliente.telefono,
+                        monto: monto,
+                        fecha_pago: fecha,
+                        metodo_pago: metodo,
+                        referencia: referencia,
+                        notas: notas,
+                    })
+                });
+
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'No se pudo registrar el pago');
+                }
+
+                showNotification(data.mensaje || `Pago de RD$ ${formatCurrency(monto)} registrado exitosamente`, 'success');
+                closePagoModal();
+                await cargarDatosReales();
+            } catch (error) {
+                showNotification(error.message || 'Error registrando pago', 'error');
+            }
         }
 
-        function procesarPagoFactura() {
+        async function procesarPagoFactura() {
             const facturaId = parseInt(document.getElementById('pagoFacturaId').value);
             const monto = parseFloat(document.getElementById('montoPago').value) || 0;
             const fecha = document.getElementById('fechaPago').value;
@@ -2383,15 +2443,34 @@
                 return;
             }
 
-            // En una implementación real, aquí se enviaría al servidor
-            showNotification(`Pago de $${formatCurrency(monto)} registrado para la factura`, 'success');
-            closePagoModal();
+            try {
+                const response = await fetch('/cuentaporcobrar/registrar-pago/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken(),
+                    },
+                    body: JSON.stringify({
+                        factura_id: facturaId,
+                        monto: monto,
+                        fecha_pago: fecha,
+                        metodo_pago: metodo,
+                        referencia: referencia,
+                        notas: notas,
+                    })
+                });
 
-            // Simular actualización de datos
-            setTimeout(() => {
-                loadClientes();
-                updateStats();
-            }, 1000);
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'No se pudo registrar el pago de la factura');
+                }
+
+                showNotification(data.mensaje || `Pago de RD$ ${formatCurrency(monto)} registrado para la factura`, 'success');
+                closePagoModal();
+                await cargarDatosReales();
+            } catch (error) {
+                showNotification(error.message || 'Error registrando pago de factura', 'error');
+            }
         }
 
         // ===== FUNCIONES AUXILIARES =====

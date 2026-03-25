@@ -1303,12 +1303,119 @@ class Devolucion(models.Model):
         verbose_name = "Devolución"
         verbose_name_plural = "Devoluciones"
         ordering = ['-fecha_devolucion']
-        
-        
-        
-        
-        
-        
+
+
+class CuentaPorCobrar(models.Model):
+    """Cuenta por cobrar asociada a una factura de crédito."""
+
+    ESTADO_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('parcial', 'Parcialmente Pagada'),
+        ('pagada', 'Pagada'),
+        ('vencida', 'Vencida'),
+    ]
+
+    factura = models.OneToOneField(
+        Factura,
+        on_delete=models.CASCADE,
+        related_name='cuenta_por_cobrar',
+        verbose_name='Factura'
+    )
+    cliente = models.ForeignKey(
+        'Cliente',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cuentas_por_cobrar',
+        verbose_name='Cliente'
+    )
+    fecha_emision = models.DateField(verbose_name='Fecha de emision')
+    fecha_vencimiento = models.DateField(verbose_name='Fecha de vencimiento')
+    monto_original = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Monto original')
+    saldo_pendiente = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Saldo pendiente')
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente', verbose_name='Estado')
+    notas = models.TextField(blank=True, verbose_name='Notas')
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Cuenta por Cobrar'
+        verbose_name_plural = 'Cuentas por Cobrar'
+        ordering = ['-fecha_vencimiento']
+        db_table = 'cuentaporcobrar'
+
+    def __str__(self):
+        return f"CxC {self.factura.numero_factura} - Saldo {self.saldo_pendiente}"
+
+
+class PagoCuentaCobrar(models.Model):
+    """Pagos aplicados a facturas pendientes para cuentas por cobrar."""
+
+    METODO_PAGO_CHOICES = [
+        ('efectivo', 'Efectivo'),
+        ('tarjeta', 'Tarjeta de Crédito/Débito'),
+        ('transferencia', 'Transferencia Bancaria'),
+    ]
+
+    cuenta_por_cobrar = models.ForeignKey(
+        CuentaPorCobrar,
+        on_delete=models.CASCADE,
+        related_name='pagos',
+        null=True,
+        blank=True,
+        verbose_name='Cuenta por cobrar'
+    )
+    factura = models.ForeignKey(
+        Factura,
+        on_delete=models.CASCADE,
+        related_name='pagos_cxc',
+        verbose_name='Factura'
+    )
+    monto = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+        verbose_name='Monto pagado'
+    )
+    fecha_pago = models.DateField(
+        default=timezone.localdate,
+        verbose_name='Fecha de pago'
+    )
+    metodo_pago = models.CharField(
+        max_length=20,
+        choices=METODO_PAGO_CHOICES,
+        default='efectivo',
+        verbose_name='Metodo de pago'
+    )
+    referencia = models.CharField(
+        max_length=120,
+        blank=True,
+        verbose_name='Referencia'
+    )
+    notas = models.TextField(
+        blank=True,
+        verbose_name='Notas'
+    )
+    registrado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pagos_cuentas_cobrar',
+        verbose_name='Registrado por'
+    )
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Pago de Cuenta por Cobrar'
+        verbose_name_plural = 'Pagos de Cuentas por Cobrar'
+        ordering = ['-fecha_pago', '-id']
+        db_table = 'pagocuentacobrar'
+
+    def __str__(self):
+        return f"Pago {self.id} - {self.factura.numero_factura} - {self.monto}"
+
+
 class Cliente(models.Model):
     cedula = models.CharField(
         max_length=11,
