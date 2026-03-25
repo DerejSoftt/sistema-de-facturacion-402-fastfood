@@ -1350,6 +1350,14 @@ class Cliente(models.Model):
         null=True,
         verbose_name="Notas sobre Crédito"
     )
+    registrado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='clientes_registrados',
+        verbose_name='Registrado por'
+    )
     fecha_registro = models.DateTimeField(
         auto_now_add=True,
         verbose_name="Fecha de Registro"
