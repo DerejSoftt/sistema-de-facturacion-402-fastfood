@@ -485,26 +485,31 @@
             border-radius: 20px;
             font-weight: 700;
             font-size: 0.9rem;
+            border: 1px solid transparent;
         }
 
         .deuda-alta {
-            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
-            color: white;
+            background: #ffe8e8;
+            color: #c53030;
+            border-color: #feb2b2;
         }
 
         .deuda-media {
-            background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
-            color: #2c3e50;
+            background: #fff8db;
+            color: #b7791f;
+            border-color: #f6e05e;
         }
 
         .deuda-baja {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-            color: white;
+            background: #e7f8ea;
+            color: #2f855a;
+            border-color: #9ae6b4;
         }
 
         .vencido-badge {
-            background: linear-gradient(135deg, #8B0000 0%, #B22222 100%);
-            color: white;
+            background: #ffe8e8;
+            color: #c53030;
+            border: 1px solid #feb2b2;
             padding: 0.4rem 0.8rem;
             border-radius: 12px;
             font-size: 0.8rem;
@@ -603,11 +608,12 @@
         }
 
         .resumen-deuda {
-            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-            color: white;
+            background: #f8f9ff;
+            color: #2c3e50;
             padding: 1.5rem;
             border-radius: 15px;
             margin-bottom: 1.5rem;
+            border: 2px solid #e0e6ff;
         }
 
         .resumen-deuda h4 {
@@ -624,9 +630,24 @@
         .resumen-total {
             font-size: 1.3rem;
             font-weight: 700;
-            border-top: 2px solid rgba(255, 255, 255, 0.2);
+            border-top: 2px solid rgba(44, 62, 80, 0.2);
             padding-top: 0.5rem;
             margin-top: 0.5rem;
+        }
+
+        .valor-alerta {
+            color: #ff416c;
+            font-weight: 700;
+        }
+
+        .valor-ok {
+            color: #38a169;
+            font-weight: 700;
+        }
+
+        .valor-acento {
+            color: #ff7e5f;
+            font-weight: 700;
         }
 
         .dias-vencimiento {
@@ -1643,6 +1664,11 @@
             const facturasVencidas = cliente.facturas_vencidas;
             const totalDeuda = cliente.total_adeudado;
             const deudaVencida = cliente.deuda_vencida;
+            const facturasPendientes = cliente.facturas.filter(f => (parseFloat(f.saldo_pendiente || 0) > 0)).length;
+
+            const claseFacturasVencidas = facturasVencidas > 0 ? 'valor-alerta' : 'valor-ok';
+            const claseDeudaVencida = deudaVencida > 0 ? 'valor-alerta' : 'valor-ok';
+            const claseSaldoPendiente = totalDeuda > 0 ? 'valor-acento' : 'valor-ok';
 
             // Generar HTML de facturas
             const facturasHTML = cliente.facturas.map(factura => {
@@ -1706,31 +1732,35 @@
                 <div class="resumen-deuda">
                     <h4>Resumen de Deuda</h4>
                     <div class="resumen-item">
-                        <span>Total Facturas Pendientes:</span>
+                        <span>Total Facturas Registradas:</span>
                         <span>${totalFacturas}</span>
                     </div>
                     <div class="resumen-item">
+                        <span>Facturas Pendientes:</span>
+                        <span class="${facturasPendientes > 0 ? 'valor-acento' : 'valor-ok'}">${facturasPendientes}</span>
+                    </div>
+                    <div class="resumen-item">
                         <span>Facturas Vencidas:</span>
-                        <span style="color: #ff416c;">${facturasVencidas}</span>
+                        <span class="${claseFacturasVencidas}">${facturasVencidas}</span>
                     </div>
                     <div class="resumen-item">
                         <span>Deuda Total:</span>
-                        <span>$${formatCurrency(totalDeuda)}</span>
+                        <span class="valor-acento">RD$${formatCurrency(totalDeuda)}</span>
                     </div>
                     <div class="resumen-item">
                         <span>Deuda Vencida:</span>
-                        <span style="color: #ff416c;">$${formatCurrency(deudaVencida)}</span>
+                        <span class="${claseDeudaVencida}">RD$${formatCurrency(deudaVencida)}</span>
                     </div>
                     <div class="resumen-item resumen-total">
                         <span>Saldo Pendiente:</span>
-                        <span>$${formatCurrency(totalDeuda)}</span>
+                        <span class="${claseSaldoPendiente}">RD$${formatCurrency(totalDeuda)}</span>
                     </div>
                 </div>
                 
                 <!-- Tab de Facturas Pendientes -->
                 <div id="tab-facturas" class="tab-content active">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <h4 style="color: #2c3e50;">Facturas Pendientes (${totalFacturas})</h4>
+                        <h4 style="color: #2c3e50;">Facturas Pendientes (${facturasPendientes})</h4>
                         <button class="btn btn-primary btn-sm" onclick="registrarPago(${cliente.id})">
                             <span><i class="fas fa-money-bill-wave"></i></span>
                             <span>Registrar Pago</span>
@@ -1838,6 +1868,32 @@
         function verDetalleFactura(facturaId) {
             const cliente = clientesData.find(c => c.facturas.some(f => f.id === facturaId));
             const factura = cliente.facturas.find(f => f.id === facturaId);
+            const saldoPendiente = parseFloat(factura.saldo_pendiente || 0);
+            const estadoCuenta = String(factura.estado_cuenta || '').toLowerCase();
+
+            const estaPagada = saldoPendiente <= 0 || estadoCuenta === 'pagada';
+            const estaVencida = !estaPagada && (estadoCuenta === 'vencida' || factura.vencida);
+            const estaParcial = !estaPagada && estadoCuenta === 'parcial';
+
+            let estadoLabel = 'PENDIENTE';
+            let estadoBadgeHtml = '<span class="deuda-badge deuda-media"><i class="fas fa-clock"></i> PENDIENTE</span>';
+            let estadoColor = '#b7791f';
+            let colorSaldoPendiente = '#ff7e5f';
+
+            if (estaPagada) {
+                estadoLabel = 'PAGADA';
+                estadoBadgeHtml = '<span class="deuda-badge deuda-baja"><i class="fas fa-check-circle"></i> PAGADA</span>';
+                estadoColor = '#38a169';
+                colorSaldoPendiente = '#38a169';
+            } else if (estaVencida) {
+                estadoLabel = 'VENCIDA';
+                estadoBadgeHtml = '<span class="vencido-badge"><i class="fas fa-exclamation-triangle"></i> VENCIDA</span>';
+                estadoColor = '#ff416c';
+            } else if (estaParcial) {
+                estadoLabel = 'PARCIAL';
+                estadoBadgeHtml = '<span class="deuda-badge deuda-media"><i class="fas fa-hourglass-half"></i> PARCIAL</span>';
+                estadoColor = '#d69e2e';
+            }
 
             const modalBody = document.getElementById('cuentasModalBody');
 
@@ -1849,10 +1905,7 @@
                             <div style="color: #718096;">${cliente.nombre_completo}</div>
                         </div>
                         <div>
-                            ${factura.vencida ?
-                    '<span class="vencido-badge"><i class="fas fa-exclamation-triangle"></i> VENCIDA</span>' :
-                    '<span class="deuda-badge deuda-baja"><i class="fas fa-check-circle"></i> PENDIENTE</span>'
-                }
+                            ${estadoBadgeHtml}
                         </div>
                     </div>
                     
@@ -1866,8 +1919,8 @@
                                 <div style="margin-bottom: 0.5rem;">
                                     <strong>Fecha de Vencimiento:</strong> ${formatDate(factura.fecha_vencimiento)}
                                 </div>
-                                <div style="margin-bottom: 0.5rem; ${factura.vencida ? 'color: #ff416c; font-weight: 600;' : ''}">
-                                    <strong>Estado:</strong> ${factura.vencida ? 'VENCIDA' : 'PENDIENTE'}
+                                <div style="margin-bottom: 0.5rem; color: ${estadoColor}; font-weight: 600;">
+                                    <strong>Estado:</strong> ${estadoLabel}
                                 </div>
                                 ${factura.dias_vencimiento !== undefined ? `
                                     <div style="margin-bottom: 0.5rem;">
@@ -1896,9 +1949,9 @@
                                     <span>Total:</span>
                                     <span>$${formatCurrency(factura.monto_total)}</span>
                                 </div>
-                                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; color: #ff7e5f; padding-top: 0.5rem; border-top: 1px solid #e0e6ff;">
+                                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2rem; color: ${colorSaldoPendiente}; padding-top: 0.5rem; border-top: 1px solid #e0e6ff;">
                                     <span>Saldo Pendiente:</span>
-                                    <span>$${formatCurrency(factura.saldo_pendiente)}</span>
+                                    <span>RD$${formatCurrency(factura.saldo_pendiente)}</span>
                                 </div>
                             </div>
                         </div>
@@ -1928,10 +1981,15 @@
                             <span><i class="fas fa-arrow-left"></i></span>
                             <span>Volver al Cliente</span>
                         </button>
-                        <button class="btn btn-primary" onclick="registrarPagoFactura(${factura.id})">
+                        ${estaPagada ?
+                `<button class="btn btn-success" type="button" disabled style="opacity:0.9; cursor:not-allowed;">
+                            <span><i class="fas fa-check-circle"></i></span>
+                            <span>Factura Pagada</span>
+                        </button>` :
+                `<button class="btn btn-primary" onclick="registrarPagoFactura(${factura.id})">
                             <span><i class="fas fa-money-bill-wave"></i></span>
                             <span>Registrar Pago</span>
-                        </button>
+                        </button>`}
                     </div>
                 </div>
             `;
@@ -2053,6 +2111,12 @@
             currentFacturaId = facturaId;
             const cliente = clientesData.find(c => c.facturas.some(f => f.id === facturaId));
             const factura = cliente.facturas.find(f => f.id === facturaId);
+            const saldoPendiente = parseFloat(factura.saldo_pendiente || 0);
+
+            if (saldoPendiente <= 0) {
+                showNotification('Esta factura ya esta pagada y no tiene saldo pendiente.', 'info');
+                return;
+            }
 
             const modalBody = document.getElementById('pagoModalBody');
 
