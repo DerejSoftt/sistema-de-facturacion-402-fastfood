@@ -7501,13 +7501,25 @@ def _armar_clientes_cuentas_por_cobrar():
         if nombre_key and nombre_key not in cliente_por_nombre:
             cliente_por_nombre[nombre_key] = cliente
 
-    facturas_pendientes = Factura.objects.filter(estado='pendiente').prefetch_related('pagos_cxc').order_by('fecha_factura')
+    # Asegura que las facturas pendientes tengan su registro CxC sincronizado.
+    for factura in Factura.objects.filter(estado='pendiente').prefetch_related('pagos_cxc'):
+        nombre_factura = (factura.nombre_cliente or '').strip()
+        telefono_factura = _telefono_solo_digitos(factura.telefono_cliente)
+
+        cliente_match = None
+        if telefono_factura and telefono_factura in cliente_por_telefono:
+            cliente_match = cliente_por_telefono[telefono_factura]
+        elif nombre_factura and nombre_factura.lower() in cliente_por_nombre:
+            cliente_match = cliente_por_nombre[nombre_factura.lower()]
+
+        _sincronizar_cuenta_por_cobrar(factura, cliente_match)
+
+    cuentas = CuentaPorCobrar.objects.select_related('factura', 'cliente').prefetch_related('factura__pagos_cxc').order_by('fecha_emision', 'id')
 
     agrupados = {}
-    for factura in facturas_pendientes:
-        saldo = _saldo_factura_pendiente(factura)
-        if saldo <= 0:
-            continue
+    for cuenta in cuentas:
+        factura = cuenta.factura
+        saldo = cuenta.saldo_pendiente or Decimal('0.00')
 
         nombre_factura = (factura.nombre_cliente or '').strip()
         telefono_factura = _telefono_solo_digitos(factura.telefono_cliente)
@@ -7541,7 +7553,6 @@ def _armar_clientes_cuentas_por_cobrar():
                 'historial_pagos': [],
             }
 
-        cuenta = _sincronizar_cuenta_por_cobrar(factura, cliente_match)
         fecha_emision = cuenta.fecha_emision
         fecha_vencimiento = cuenta.fecha_vencimiento
         dias_vencimiento = (fecha_vencimiento - hoy_local).days
@@ -7554,7 +7565,8 @@ def _armar_clientes_cuentas_por_cobrar():
             'dias_vencimiento': dias_vencimiento,
             'vencida': dias_vencimiento < 0,
             'monto_total': float(factura.total or Decimal('0.00')),
-            'saldo_pendiente': float(cuenta.saldo_pendiente),
+            'saldo_pendiente': float(saldo),
+            'estado_cuenta': cuenta.estado,
             'concepto': factura.notas or f"Factura {factura.numero_factura}",
             'descripcion': factura.notas or '',
             'notas': factura.notas or '',
@@ -7575,8 +7587,8 @@ def _armar_clientes_cuentas_por_cobrar():
         data['historial_pagos'].sort(key=lambda x: x['fecha'], reverse=True)
 
         total_adeudado = sum(item['saldo_pendiente'] for item in data['facturas'])
-        facturas_vencidas = sum(1 for item in data['facturas'] if item['vencida'])
-        deuda_vencida = sum(item['saldo_pendiente'] for item in data['facturas'] if item['vencida'])
+        facturas_vencidas = sum(1 for item in data['facturas'] if item['vencida'] and item['saldo_pendiente'] > 0)
+        deuda_vencida = sum(item['saldo_pendiente'] for item in data['facturas'] if item['vencida'] and item['saldo_pendiente'] > 0)
 
         if total_adeudado >= 20000:
             nivel_deuda = 'alta'
