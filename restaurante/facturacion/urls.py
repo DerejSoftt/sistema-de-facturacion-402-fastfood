@@ -63,6 +63,8 @@ path('gestiondepedidos/verificar-stock-multiples/', views.verificar_stock_multip
      
     path('productos-vendidos-dia/', views.productos_vendidos_dia, name='productos_vendidos_dia'),    # URL para productos vendidos del día
     path('generar-pdf-productos-dia-a4/', views.generar_pdf_productos_dia_a4, name='generar_pdf_a4_dia'), # URL para generar PDF de productos vendidos en A4
+
+    
+    path('gestiondeclientes/', views.gestiondeclientes, name='gestiondeclientes'),
     path('registrodeclientes/', views.registrodeclientes, name='registrodeclientes'),  # URL para registro de clientes
-    path('registro-clientes/', views.registrodeclientes, name='registro_clientes'),
 ]
