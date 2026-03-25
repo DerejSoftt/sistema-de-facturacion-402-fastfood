@@ -1718,13 +1718,15 @@
             let estadoCredito = '';
             let colorCredito = '';
             let iconoCredito = '';
+            const saldoDisponible = Number(cliente.saldo_disponible || 0);
+            const saldoActual = Number(cliente.saldo_actual || 0);
 
             if (cliente.limite_credito > 0) {
-                if (cliente.saldo_disponible > 0) {
+                if (saldoDisponible > 0.009) {
                     estadoCredito = 'Crédito Disponible';
                     colorCredito = '#4299e1';
                     iconoCredito = 'fa-check-circle';
-                } else if (cliente.saldo_disponible === 0) {
+                } else if (Math.abs(saldoDisponible) <= 0.009) {
                     estadoCredito = 'Crédito Agotado';
                     colorCredito = '#ed8936';
                     iconoCredito = 'fa-exclamation-triangle';
@@ -1827,7 +1829,7 @@
                         ${cliente.saldo_actual !== undefined ? `
                             <div style="margin-bottom: 0.75rem;">
                                 <strong style="color: #4a5568;">Saldo Actual:</strong>
-                                <div style="margin-top: 0.25rem; font-size: 1.1rem; font-weight: bold; color: ${cliente.saldo_actual > 0 ? '#38a169' : '#e53e3e'};">
+                                <div style="margin-top: 0.25rem; font-size: 1.1rem; font-weight: bold; color: ${saldoActual > 0.009 ? '#e53e3e' : '#38a169'};">
                                     RD$ ${cliente.saldo_actual.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </div>
                             </div>

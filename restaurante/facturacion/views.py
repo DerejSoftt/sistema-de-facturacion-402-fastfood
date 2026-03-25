@@ -7014,15 +7014,20 @@ def gestiondeclientes(request):
     }
     clientes_qs = clientes_qs.order_by(sort_map.get(sort_by, 'nombre_completo'))
 
-    # Filtros que dependen de propiedades calculadas del modelo.
+    facturas_pendientes = list(Factura.objects.filter(estado='pendiente').prefetch_related('pagos_cxc'))
+
+    # Filtros que dependen de cálculo de saldo real.
     if credito in ('agotado', 'excedido'):
         clientes_filtrados = []
         for cliente in clientes_qs:
             limite = cliente.limite_credito or Decimal('0.00')
-            saldo_actual = getattr(cliente, 'saldo_actual', Decimal('0.00')) or Decimal('0.00')
-            saldo_disponible = getattr(cliente, 'saldo_disponible', None)
-            if saldo_disponible is None:
-                saldo_disponible = limite - saldo_actual
+            saldo_actual = _calcular_saldo_credito_cliente(cliente, facturas_pendientes)
+            saldo_disponible = limite - saldo_actual
+
+            # Reutilizable por la tabla sin recalcular durante el render de la página.
+            cliente.saldo_actual = saldo_actual
+            cliente.saldo_disponible = saldo_disponible
+
             if credito == 'agotado' and saldo_disponible == 0:
                 clientes_filtrados.append(cliente)
             elif credito == 'excedido' and saldo_disponible < 0:
@@ -7035,6 +7040,12 @@ def gestiondeclientes(request):
 
     paginator = Paginator(clientes_qs, 12)
     page_obj = paginator.get_page(page)
+
+    for cliente in page_obj.object_list:
+        limite = cliente.limite_credito or Decimal('0.00')
+        saldo_actual = _calcular_saldo_credito_cliente(cliente, facturas_pendientes)
+        cliente.saldo_actual = saldo_actual
+        cliente.saldo_disponible = limite - saldo_actual
 
     inicio_hoy = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
     fin_hoy = inicio_hoy + timedelta(days=1)
@@ -7075,13 +7086,8 @@ def _estadisticas_clientes():
 
 def _cliente_json(cliente):
     limite_credito = cliente.limite_credito or Decimal('0.00')
-    saldo_actual = getattr(cliente, 'saldo_actual', Decimal('0.00'))
-    if saldo_actual is None:
-        saldo_actual = Decimal('0.00')
-    saldo_disponible = getattr(cliente, 'saldo_disponible', None)
-    if saldo_disponible is None:
-        # Si no hay lógica contable implementada aún, asumimos que no ha consumido crédito.
-        saldo_disponible = limite_credito - saldo_actual
+    saldo_actual = _calcular_saldo_credito_cliente(cliente)
+    saldo_disponible = limite_credito - saldo_actual
 
     return {
         'id': cliente.id,
@@ -7403,6 +7409,48 @@ def cuentaporcobrar(request):
 
 def _telefono_solo_digitos(valor):
     return ''.join(ch for ch in str(valor or '') if ch.isdigit())
+
+
+def _cliente_coincide_con_factura(cliente, factura):
+    telefonos_cliente = {
+        _telefono_solo_digitos(cliente.telefono_principal),
+        _telefono_solo_digitos(cliente.telefono_alternativo),
+    }
+    telefonos_cliente.discard('')
+
+    telefono_factura = _telefono_solo_digitos(factura.telefono_cliente)
+    if telefono_factura and telefono_factura in telefonos_cliente:
+        return True
+
+    nombre_cliente = (cliente.nombre_completo or '').strip().lower()
+    nombre_factura = (factura.nombre_cliente or '').strip().lower()
+    return bool(nombre_cliente and nombre_factura and nombre_cliente == nombre_factura)
+
+
+def _calcular_saldo_credito_cliente(cliente, facturas_pendientes=None):
+    """Saldo usado por el cliente: CxC vinculadas + pendientes coincidentes no vinculadas."""
+    saldo = Decimal('0.00')
+    facturas_contabilizadas = set()
+
+    cuentas_cliente = CuentaPorCobrar.objects.filter(cliente=cliente).select_related('factura').prefetch_related('factura__pagos_cxc')
+    for cuenta in cuentas_cliente:
+        factura = cuenta.factura
+        if not factura:
+            continue
+        facturas_contabilizadas.add(factura.id)
+        saldo += _saldo_factura_pendiente(factura)
+
+    if facturas_pendientes is None:
+        facturas_pendientes = list(Factura.objects.filter(estado='pendiente').prefetch_related('pagos_cxc'))
+
+    for factura in facturas_pendientes:
+        if factura.id in facturas_contabilizadas:
+            continue
+        if _cliente_coincide_con_factura(cliente, factura):
+            saldo += _saldo_factura_pendiente(factura)
+            facturas_contabilizadas.add(factura.id)
+
+    return saldo if saldo > 0 else Decimal('0.00')
 
 
 def _saldo_factura_pendiente(factura):
@@ -7757,7 +7805,7 @@ def cuentaporcobrar_registrar_pago(request):
 
     with transaction.atomic():
         if factura_id:
-            factura = get_object_or_404(Factura.objects.filter(estado='pendiente').prefetch_related('pagos_cxc'), id=factura_id)
+            factura = get_object_or_404(Factura.objects.exclude(estado='pagada').prefetch_related('pagos_cxc'), id=factura_id)
             cuenta = _sincronizar_cuenta_por_cobrar(factura)
             saldo_actual = _saldo_factura_pendiente(factura)
 
@@ -7797,10 +7845,10 @@ def cuentaporcobrar_registrar_pago(request):
         if not cliente_nombre and not cliente_telefono:
             return JsonResponse({'success': False, 'error': 'Debe indicar cliente para aplicar el pago.'}, status=400)
 
-        facturas_pendientes = Factura.objects.filter(estado='pendiente').prefetch_related('pagos_cxc').order_by('fecha_factura')
+        facturas_no_pagadas = Factura.objects.exclude(estado='pagada').prefetch_related('pagos_cxc').order_by('fecha_factura')
         facturas_cliente = []
 
-        for factura in facturas_pendientes:
+        for factura in facturas_no_pagadas:
             tel_factura = _telefono_solo_digitos(factura.telefono_cliente)
             nombre_factura = (factura.nombre_cliente or '').strip().lower()
 
