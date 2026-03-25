@@ -162,7 +162,7 @@
 
         /* ===== HEADER ===== */
         .header {
-            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
             color: white;
             padding: 2.5rem;
             text-align: center;
@@ -1110,11 +1110,6 @@
                 <div class="header">
                     <h1><i class="fas fa-file-invoice-dollar"></i> Cuentas por Cobrar</h1>
                     <p>Gestiona las deudas pendientes de los clientes y registra los pagos recibidos</p>
-                    <div
-                        style="margin-top: 1rem; background: rgba(255, 255, 255, 0.2); padding: 0.5rem 1rem; border-radius: 10px; font-size: 0.9rem;">
-                        <strong><i class="fas fa-lightbulb"></i> Nota:</strong>
-                        Solo se muestran clientes con facturas pendientes de pago.
-                    </div>
                 </div>
 
                 <!-- Contenido -->
@@ -1123,22 +1118,22 @@
                     <div class="stats-container">
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-users"></i></span>
-                            <div class="stat-value" id="totalClientes">12</div>
+                            <div class="stat-value" id="totalClientes">0</div>
                             <div class="stat-label">Clientes con Deuda</div>
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-file-invoice"></i></span>
-                            <div class="stat-value" id="facturasPendientes">24</div>
+                            <div class="stat-value" id="facturasPendientes">0</div>
                             <div class="stat-label">Facturas Pendientes</div>
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
-                            <div class="stat-value" id="totalDeuda">$<span id="totalDeudaValor">45,820.50</span></div>
+                            <div class="stat-value" id="totalDeuda">RD$<span id="totalDeudaValor">0.00</span></div>
                             <div class="stat-label">Deuda Total</div>
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-exclamation-triangle"></i></span>
-                            <div class="stat-value" id="facturasVencidas">8</div>
+                            <div class="stat-value" id="facturasVencidas">0</div>
                             <div class="stat-label">Facturas Vencidas</div>
                         </div>
                     </div>
@@ -1273,156 +1268,15 @@
 
     <!-- JavaScript -->
     <script>
-        // ===== DATOS DE EJEMPLO =====
-        const clientesData = [
-            {
-                id: 1,
-                cedula: "001-1234567-8",
-                nombre_completo: "Juan Pérez Rodríguez",
-                telefono: "(809) 555-1234",
-                email: "juan.perez@email.com",
-                direccion: "Calle Principal #123, Santo Domingo",
-                tipo_cliente: "Frecuente",
-                notas: "Cliente puntual con pagos",
-                cantidad_facturas: 3,
-                facturas_vencidas: 1,
-                total_adeudado: 12500.75,
-                deuda_vencida: 4500.00,
-                nivel_deuda: "media",
-                facturas: [
-                    {
-                        id: 101,
-                        numero: "FAC-2023-00123",
-                        fecha_emision: "2023-10-15",
-                        fecha_vencimiento: "2023-11-15",
-                        dias_vencimiento: -15,
-                        vencida: true,
-                        monto_total: 8500.00,
-                        saldo_pendiente: 4500.00,
-                        concepto: "Cena de negocios",
-                        descripcion: "Cena para 8 personas con bebidas",
-                        notas: "Cliente solicitó factura con NCF"
-                    },
-                    {
-                        id: 102,
-                        numero: "FAC-2023-00145",
-                        fecha_emision: "2023-11-20",
-                        fecha_vencimiento: "2023-12-20",
-                        dias_vencimiento: 5,
-                        vencida: false,
-                        monto_total: 5000.00,
-                        saldo_pendiente: 5000.00,
-                        concepto: "Almuerzo ejecutivo",
-                        descripcion: "Almuerzo para 5 personas"
-                    },
-                    {
-                        id: 103,
-                        numero: "FAC-2023-00167",
-                        fecha_emision: "2023-12-05",
-                        fecha_vencimiento: "2024-01-05",
-                        dias_vencimiento: 20,
-                        vencida: false,
-                        monto_total: 3000.75,
-                        saldo_pendiente: 3000.75,
-                        concepto: "Reunión familiar"
-                    }
-                ],
-                historial_pagos: [
-                    {
-                        fecha: "2023-11-10",
-                        monto: 4000.00,
-                        metodo: "Efectivo",
-                        referencia: "REC-001"
-                    },
-                    {
-                        fecha: "2023-10-05",
-                        monto: 3000.00,
-                        metodo: "Tarjeta",
-                        referencia: "TRF-456"
-                    }
-                ]
-            },
-            {
-                id: 2,
-                cedula: "002-9876543-2",
-                nombre_completo: "María García López",
-                telefono: "(809) 555-5678",
-                email: "maria.garcia@email.com",
-                direccion: "Avenida Central #456, Santiago",
-                tipo_cliente: "Corporativo",
-                notas: "Empresa ABC Corp",
-                cantidad_facturas: 5,
-                facturas_vencidas: 3,
-                total_adeudado: 32500.50,
-                deuda_vencida: 22500.50,
-                nivel_deuda: "alta",
-                facturas: [
-                    {
-                        id: 201,
-                        numero: "FAC-2023-00234",
-                        fecha_emision: "2023-09-10",
-                        fecha_vencimiento: "2023-10-10",
-                        dias_vencimiento: -50,
-                        vencida: true,
-                        monto_total: 12000.00,
-                        saldo_pendiente: 12000.00,
-                        concepto: "Evento corporativo"
-                    },
-                    {
-                        id: 202,
-                        numero: "FAC-2023-00256",
-                        fecha_emision: "2023-10-15",
-                        fecha_vencimiento: "2023-11-15",
-                        dias_vencimiento: -15,
-                        vencida: true,
-                        monto_total: 8500.50,
-                        saldo_pendiente: 8500.50,
-                        concepto: "Capacitación"
-                    }
-                ],
-                historial_pagos: [
-                    {
-                        fecha: "2023-08-15",
-                        monto: 5000.00,
-                        metodo: "Transferencia",
-                        referencia: "TRF-789"
-                    }
-                ]
-            },
-            {
-                id: 3,
-                cedula: "003-4567890-1",
-                nombre_completo: "Carlos Rodríguez Martínez",
-                telefono: "(809) 555-9012",
-                email: "carlos.rodriguez@email.com",
-                direccion: "Calle Secundaria #789, La Vega",
-                tipo_cliente: "Regular",
-                cantidad_facturas: 1,
-                facturas_vencidas: 0,
-                total_adeudado: 3500.25,
-                deuda_vencida: 0,
-                nivel_deuda: "baja",
-                facturas: [
-                    {
-                        id: 301,
-                        numero: "FAC-2023-00345",
-                        fecha_emision: "2023-12-10",
-                        fecha_vencimiento: "2024-01-10",
-                        dias_vencimiento: 15,
-                        vencida: false,
-                        monto_total: 3500.25,
-                        saldo_pendiente: 3500.25,
-                        concepto: "Cena familiar"
-                    }
-                ],
-                historial_pagos: []
-            }
-        ];
+        // ===== DATOS =====
+        const clientesData = [];
+        const CXC_DATOS_URL = "{% url 'cuentaporcobrar_datos' %}";
+        const CXC_REGISTRAR_PAGO_URL = "{% url 'cuentaporcobrar_registrar_pago' %}";
 
         // ===== VARIABLES GLOBALES =====
         let currentPage = 1;
         const itemsPerPage = 5;
-        let filteredClientes = [...clientesData];
+        let filteredClientes = [];
         let currentClienteId = null;
         let currentFacturaId = null;
 
@@ -1445,7 +1299,7 @@
 
         async function cargarDatosReales() {
             try {
-                const response = await fetch('/cuentaporcobrar/datos/');
+                const response = await fetch(CXC_DATOS_URL);
                 if (!response.ok) {
                     throw new Error(`Error HTTP ${response.status}`);
                 }
@@ -1460,9 +1314,11 @@
                 applyFilters();
             } catch (error) {
                 console.error('Error cargando cuentas por cobrar:', error);
-                showNotification('No se pudieron cargar los datos reales. Se muestran datos locales.', 'warning');
+                clientesData.splice(0, clientesData.length);
+                filteredClientes = [];
                 loadClientes();
                 updateStats();
+                showNotification('No se pudieron cargar los datos desde el servidor.', 'error');
             }
         }
 
@@ -2394,7 +2250,7 @@
             }
 
             try {
-                const response = await fetch('/cuentaporcobrar/registrar-pago/', {
+                const response = await fetch(CXC_REGISTRAR_PAGO_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2444,7 +2300,7 @@
             }
 
             try {
-                const response = await fetch('/cuentaporcobrar/registrar-pago/', {
+                const response = await fetch(CXC_REGISTRAR_PAGO_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
