@@ -1664,6 +1664,30 @@
             mostrarNotificacion('Funcionalidad de exportación en desarrollo', 'info');
         }
 
+        // Divide textos largos en líneas de tamaño fijo para evitar desbordes en el modal.
+        function formatearTextoPorBloques(texto, maxCaracteres = 50) {
+            const valor = (texto || '').toString();
+            if (!valor) {
+                return '';
+            }
+
+            const lineasOriginales = valor.split(/\r?\n/);
+            const lineas = [];
+
+            lineasOriginales.forEach(linea => {
+                if (!linea) {
+                    lineas.push('');
+                    return;
+                }
+
+                for (let i = 0; i < linea.length; i += maxCaracteres) {
+                    lineas.push(linea.slice(i, i + maxCaracteres));
+                }
+            });
+
+            return lineas.join('<br>');
+        }
+
         // Función para ver detalles del cliente
         function verCliente(clienteId) {
             console.log('Cargando detalles del cliente:', clienteId);
@@ -1752,7 +1776,7 @@
                         </div>
                         <div>
                             <strong style="color: #4a5568;">Dirección:</strong>
-                            <div style="margin-top: 0.25rem;">${cliente.direccion}</div>
+                            <div style="margin-top: 0.25rem; line-height: 1.35; word-break: break-word;">${formatearTextoPorBloques(cliente.direccion, 50)}</div>
                         </div>
                     </div>
                 </div>
@@ -1860,8 +1884,8 @@
                     <h4 style="color: #2c3e50; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
                         <i class="fas fa-sticky-note"></i> Notas sobre Crédito
                     </h4>
-                    <div style="background: #fff7ed; padding: 1rem; border-radius: 10px; border-left: 4px solid #ed8936;">
-                        ${cliente.notas_credito}
+                    <div style="background: #fff7ed; padding: 1rem; border-radius: 10px; border-left: 4px solid #ed8936; line-height: 1.35; word-break: break-word;">
+                        ${formatearTextoPorBloques(cliente.notas_credito, 50)}
                     </div>
                 </div>
             ` : ''}
@@ -1871,8 +1895,8 @@
                     <h4 style="color: #2c3e50; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
                         <i class="fas fa-edit"></i> Notas Generales
                     </h4>
-                    <div style="background: #e6fffa; padding: 1rem; border-radius: 10px; border-left: 4px solid #38a169;">
-                        ${cliente.notas_generales}
+                    <div style="background: #e6fffa; padding: 1rem; border-radius: 10px; border-left: 4px solid #38a169; line-height: 1.35; word-break: break-word;">
+                        ${formatearTextoPorBloques(cliente.notas_generales, 50)}
                     </div>
                 </div>
             ` : ''}
