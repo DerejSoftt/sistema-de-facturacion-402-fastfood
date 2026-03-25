@@ -6961,6 +6961,8 @@ def procesar_anulacion_factura(request):
 
 def gestiondeclientes(request):
     """Vista para gestión/listado de clientes con filtros y paginación."""
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    ahora_local = timezone.now().astimezone(tz_rd)
     search = (request.GET.get('search') or '').strip()
     estado = (request.GET.get('estado') or '').strip()
     credito = (request.GET.get('credito') or '').strip()
@@ -6984,16 +6986,21 @@ def gestiondeclientes(request):
         clientes_qs = clientes_qs.filter(activo=False)
 
     if fecha:
-        hoy = timezone.localdate()
+        # Filtro por rangos de fecha-hora en zona RD para evitar desfases por timezone.
+        inicio_hoy = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        fin_hoy = inicio_hoy + timedelta(days=1)
+        inicio_mes_actual = inicio_hoy.replace(day=1)
+
         if fecha == 'hoy':
-            clientes_qs = clientes_qs.filter(fecha_registro__date=hoy)
+            clientes_qs = clientes_qs.filter(fecha_registro__gte=inicio_hoy, fecha_registro__lt=fin_hoy)
         elif fecha == 'ayer':
-            clientes_qs = clientes_qs.filter(fecha_registro__date=hoy - timedelta(days=1))
-        elif fecha == 'semana':
-            inicio_semana = hoy - timedelta(days=hoy.weekday())
-            clientes_qs = clientes_qs.filter(fecha_registro__date__gte=inicio_semana)
-        elif fecha == 'mes':
-            clientes_qs = clientes_qs.filter(fecha_registro__year=hoy.year, fecha_registro__month=hoy.month)
+            inicio_ayer = inicio_hoy - timedelta(days=1)
+            clientes_qs = clientes_qs.filter(fecha_registro__gte=inicio_ayer, fecha_registro__lt=inicio_hoy)
+        elif fecha in ['semana', 'semana_actual']:
+            inicio_semana = inicio_hoy - timedelta(days=ahora_local.weekday())
+            clientes_qs = clientes_qs.filter(fecha_registro__gte=inicio_semana, fecha_registro__lt=fin_hoy)
+        elif fecha in ['mes', 'este_mes']:
+            clientes_qs = clientes_qs.filter(fecha_registro__gte=inicio_mes_actual, fecha_registro__lt=fin_hoy)
 
     sort_map = {
         'nombre': 'nombre_completo',
@@ -7028,12 +7035,13 @@ def gestiondeclientes(request):
     paginator = Paginator(clientes_qs, 12)
     page_obj = paginator.get_page(page)
 
-    hoy = timezone.localdate()
+    inicio_hoy = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    fin_hoy = inicio_hoy + timedelta(days=1)
     estadisticas = {
         'total_clientes': Cliente.objects.count(),
         'clientes_activos': Cliente.objects.filter(activo=True).count(),
         'credito_total': Cliente.objects.aggregate(total=Sum('limite_credito')).get('total') or Decimal('0.00'),
-        'clientes_hoy': Cliente.objects.filter(fecha_registro__date=hoy).count(),
+        'clientes_hoy': Cliente.objects.filter(fecha_registro__gte=inicio_hoy, fecha_registro__lt=fin_hoy).count(),
     }
 
     context = {
@@ -7052,12 +7060,15 @@ def gestiondeclientes(request):
 
 
 def _estadisticas_clientes():
-    hoy = timezone.localdate()
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    ahora_local = timezone.now().astimezone(tz_rd)
+    inicio_hoy = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    fin_hoy = inicio_hoy + timedelta(days=1)
     return {
         'total_clientes': Cliente.objects.count(),
         'clientes_activos': Cliente.objects.filter(activo=True).count(),
         'credito_total': float(Cliente.objects.aggregate(total=Sum('limite_credito')).get('total') or Decimal('0.00')),
-        'clientes_hoy': Cliente.objects.filter(fecha_registro__date=hoy).count(),
+        'clientes_hoy': Cliente.objects.filter(fecha_registro__gte=inicio_hoy, fecha_registro__lt=fin_hoy).count(),
     }
 
 

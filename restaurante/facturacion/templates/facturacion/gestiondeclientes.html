@@ -339,9 +339,10 @@
             gap: 10px;
         }
 
-        .controls-header h3::before {
-            content: "🔍";
-            font-size: 1.2rem;
+        .controls-header h3 i,
+        .form-group label i,
+        .search-icon i {
+            color: inherit;
         }
 
         /* Form inputs */
@@ -397,7 +398,7 @@
             top: 50%;
             transform: translateY(-50%);
             font-size: 1.2rem;
-            color: #ff7e5f;
+            color: #2c3e50;
         }
 
         .filter-select {
@@ -423,6 +424,25 @@
             gap: 1rem;
             align-items: flex-end;
             flex-wrap: wrap;
+        }
+
+        .filter-action {
+            flex: 1;
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .filter-action .btn {
+            width: 100%;
+            min-height: 56px;
+        }
+
+        .filter-action-label {
+            visibility: hidden;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            line-height: 1.2;
         }
 
         /* Clientes Table */
@@ -474,13 +494,17 @@
 
         /* Badges para estado */
         .status-badge {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             padding: 0.5rem 1rem;
+            min-width: 120px;
             border-radius: 20px;
             font-size: 0.85rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            text-align: center;
         }
 
         .status-active {
@@ -909,6 +933,10 @@
                 width: 100%;
             }
 
+            .filter-action {
+                width: 100%;
+            }
+
             .action-buttons {
                 flex-direction: column;
             }
@@ -1251,7 +1279,7 @@
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-credit-card"></i></span>
-                            <div class="stat-value" id="clientesCredito">$<span id="creditoTotal">{{
+                                <div class="stat-value" id="clientesCredito">RD$ <span id="creditoTotal">{{
                                     estadisticas.credito_total|default:"0"|intcomma }}</span></div>
                             <div class="stat-label">Crédito Otorgado</div>
                         </div>
@@ -1265,13 +1293,13 @@
                     <!-- Controls Section -->
                     <div class="controls-section">
                         <div class="controls-header">
-                            <h3>Buscar y Filtrar Clientes</h3>
+                            <h3><i class="fas fa-filter"></i> Buscar y Filtrar Clientes</h3>
                             <div style="display: flex; gap: 1rem;">
-                                <button class="btn btn-success"
-                                    onclick="window.location.href='{% url 'registrodeclientes' %}'" type="button">
+                                <a class="btn btn-success" href="{% url 'registrodeclientes' %}"
+                                    style="text-decoration: none;">
                                     <span><i class="fas fa-user-plus"></i></span>
                                     <span>Nuevo Cliente</span>
-                                </button>
+                                </a>
                                 <button class="btn btn-info" onclick="exportarClientes()" type="button">
                                     <span><i class="fas fa-file-export"></i></span>
                                     <span>Exportar Clientes</span>
@@ -1337,11 +1365,13 @@
                                     </select>
                                 </div>
 
-                                <button type="submit" class="btn btn-primary"
-                                    style="height: fit-content; margin-top: 1.5rem;">
-                                    <span><i class="fas fa-filter"></i></span>
-                                    <span>Filtrar</span>
-                                </button>
+                                <div class="form-group filter-action">
+                                    <label class="filter-action-label" aria-hidden="true">Filtrar</label>
+                                    <button type="submit" class="btn btn-primary">
+                                        <span><i class="fas fa-filter"></i></span>
+                                        <span>Filtrar</span>
+                                    </button>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -1389,11 +1419,11 @@
                                     <td>
                                         {% if cliente.limite_credito > 0 %}
                                         <div style="font-weight: bold; color: #4299e1;">
-                                            ${{ cliente.limite_credito|floatformat:2|intcomma }}
+                                            RD$ {{ cliente.limite_credito|floatformat:2|intcomma }}
                                         </div>
                                         {% if cliente.saldo_actual %}
                                         <div style="font-size: 0.85rem; color: #718096;">
-                                            Saldo: ${{ cliente.saldo_actual|floatformat:2|intcomma }}
+                                            Saldo: RD$ {{ cliente.saldo_actual|floatformat:2|intcomma }}
                                         </div>
                                         {% endif %}
                                         {% else %}
@@ -1428,20 +1458,20 @@
                                     </td>
                                     <td>
                                         <div class="action-buttons">
-                                            <button class="btn-icon btn-view" onclick="verCliente({{ cliente.id }})"
-                                                title="Ver detalles">
+                                            <button class="btn-icon btn-view js-cliente-action" type="button"
+                                                data-action="ver" data-cliente-id="{{ cliente.id }}" title="Ver detalles">
                                                 <i class="fas fa-eye"></i>
                                             </button>
-                                            <button class="btn-icon btn-edit" onclick="editarCliente({{ cliente.id }})"
-                                                title="Editar cliente">
+                                            <button class="btn-icon btn-edit js-cliente-action" type="button"
+                                                data-action="editar" data-cliente-id="{{ cliente.id }}" title="Editar cliente">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <button class="btn-icon btn-history"
-                                                onclick="verHistorial({{ cliente.id }})" title="Ver historial">
+                                            <button class="btn-icon btn-history js-cliente-action" type="button"
+                                                data-action="historial" data-cliente-id="{{ cliente.id }}" title="Ver historial">
                                                 <i class="fas fa-history"></i>
                                             </button>
-                                            <button class="btn-icon btn-delete"
-                                                onclick="eliminarCliente({{ cliente.id }})" title="Eliminar cliente">
+                                            <button class="btn-icon btn-delete js-cliente-action" type="button"
+                                                data-action="eliminar" data-cliente-id="{{ cliente.id }}" title="Eliminar cliente">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
@@ -1552,19 +1582,51 @@
             const filterSelects = document.querySelectorAll('.filter-select');
             filterSelects.forEach(select => {
                 select.addEventListener('change', function () {
-                    updateURLFilters();
+                    updateURLFilters(false);
                 });
             });
+
+            const filterForm = document.getElementById('filterForm');
+            if (filterForm) {
+                filterForm.addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    updateURLFilters(false);
+                });
+            }
 
             // Buscar al presionar Enter
             const searchInput = document.getElementById('searchInput');
             if (searchInput) {
                 searchInput.addEventListener('keypress', function (e) {
                     if (e.key === 'Enter') {
-                        updateURLFilters();
+                        e.preventDefault();
+                        updateURLFilters(false);
                     }
                 });
             }
+
+            document.addEventListener('click', function (e) {
+                const actionButton = e.target.closest('.js-cliente-action');
+                if (!actionButton) {
+                    return;
+                }
+
+                const clienteId = parseInt(actionButton.dataset.clienteId || '0', 10);
+                if (!clienteId) {
+                    return;
+                }
+
+                const action = actionButton.dataset.action;
+                if (action === 'ver') {
+                    verCliente(clienteId);
+                } else if (action === 'editar') {
+                    editarCliente(clienteId);
+                } else if (action === 'historial') {
+                    verHistorial(clienteId);
+                } else if (action === 'eliminar') {
+                    eliminarCliente(clienteId);
+                }
+            });
         }
 
         // Configurar validación del formulario
@@ -1573,7 +1635,7 @@
         }
 
         // Actualizar URL con filtros
-        function updateURLFilters() {
+        function updateURLFilters(keepPage = false) {
             const form = document.getElementById('filterForm');
             const formData = new FormData(form);
             const params = new URLSearchParams();
@@ -1584,11 +1646,13 @@
                 }
             }
 
-            // Mantener el parámetro de página si existe
-            const currentParams = new URLSearchParams(window.location.search);
-            const page = currentParams.get('page');
-            if (page) {
-                params.append('page', page);
+            // Mantener página solo cuando se solicite explícitamente
+            if (keepPage) {
+                const currentParams = new URLSearchParams(window.location.search);
+                const page = currentParams.get('page');
+                if (page) {
+                    params.append('page', page);
+                }
             }
 
             // Actualizar URL y recargar
@@ -1733,14 +1797,14 @@
                         <div style="margin-bottom: 0.75rem;">
                             <strong style="color: #4a5568;">Límite de Crédito:</strong>
                             <div style="margin-top: 0.25rem; font-size: 1.2rem; font-weight: bold; color: ${cliente.limite_credito > 0 ? '#4299e1' : '#a0aec0'};">
-                                $${cliente.limite_credito.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                RD$ ${cliente.limite_credito.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                         </div>
                         ${cliente.saldo_actual !== undefined ? `
                             <div style="margin-bottom: 0.75rem;">
                                 <strong style="color: #4a5568;">Saldo Actual:</strong>
                                 <div style="margin-top: 0.25rem; font-size: 1.1rem; font-weight: bold; color: ${cliente.saldo_actual > 0 ? '#38a169' : '#e53e3e'};">
-                                    $${cliente.saldo_actual.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    RD$ ${cliente.saldo_actual.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </div>
                             </div>
                         ` : ''}
@@ -1748,7 +1812,7 @@
                             <div style="margin-bottom: 0.75rem;">
                                 <strong style="color: #4a5568;">Saldo Disponible:</strong>
                                 <div style="margin-top: 0.25rem; font-size: 1.1rem; font-weight: bold; color: ${cliente.saldo_disponible > 0 ? '#38a169' : cliente.saldo_disponible === 0 ? '#ed8936' : '#e53e3e'};">
-                                    $${cliente.saldo_disponible.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    RD$ ${cliente.saldo_disponible.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </div>
                             </div>
                         ` : ''}
@@ -2123,7 +2187,7 @@
             if (valorNumerico === 0) {
                 helpElement.innerHTML = `<i class="fas fa-info-circle"></i> Sin crédito - solo ventas al contado`;
             } else if (valorNumerico > 0) {
-                helpElement.innerHTML = `<i class="fas fa-check-circle"></i> Límite establecido: $${valorFormateado}`;
+                helpElement.innerHTML = `<i class="fas fa-check-circle"></i> Límite establecido: RD$ ${valorFormateado}`;
                 helpElement.className = 'form-help success';
             }
         }
@@ -2320,9 +2384,9 @@
 
             // Actualizar límite de crédito
             if (cliente.limite_credito > 0) {
-                let creditoHTML = `<div style="font-weight: bold; color: #4299e1;">$${cliente.limite_credito.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`;
+                let creditoHTML = `<div style="font-weight: bold; color: #4299e1;">RD$ ${cliente.limite_credito.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`;
                 if (cliente.saldo_actual !== undefined) {
-                    creditoHTML += `<div style="font-size: 0.85rem; color: #718096;">Saldo: $${cliente.saldo_actual.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`;
+                    creditoHTML += `<div style="font-size: 0.85rem; color: #718096;">Saldo: RD$ ${cliente.saldo_actual.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`;
                 }
                 fila.cells[4].innerHTML = creditoHTML;
             } else {
