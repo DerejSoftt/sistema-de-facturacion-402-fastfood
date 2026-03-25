@@ -6959,6 +6959,11 @@ def procesar_anulacion_factura(request):
 
 
 
+def gestiondeclientes(request):
+    """Vista para gestión/listado de clientes."""
+    return render(request, 'facturacion/gestiondeclientes.html')
+
+
 def registrodeclientes(request):
     """Vista para el registro de clientes"""
     

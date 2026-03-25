@@ -992,13 +992,13 @@
                     <span class="nav-icon"><i class="fas fa-box-open"></i></span>
                     <span>Salida de Productos</span>
                 </a>
-                <a href="{% url 'registro_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'registro_clientes' %}active{% endif %}">
+                <a href="{% url 'registrodeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'registrodeclientes' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
                     <span>Registro de Clientes</span>
                 </a>
-                <a href="{% url 'gestion_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestion_clientes' %}active{% endif %}">
+                <a href="{% url 'gestiondeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondeclientes' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-users-cog"></i></span>
                     <span>Gestión de Clientes</span>
                 </a>
@@ -1046,13 +1046,13 @@
                     <span class="nav-icon"><i class="fas fa-box-open"></i></span>
                     <span>Salida de Productos</span>
                 </a>
-                <a href="{% url 'registro_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'registro_clientes' %}active{% endif %}">
+                <a href="{% url 'registrodeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'registrodeclientes' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
                     <span>Registro de Clientes</span>
                 </a>
-                <a href="{% url 'gestion_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestion_clientes' %}active{% endif %}">
+                <a href="{% url 'gestiondeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondeclientes' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-users-cog"></i></span>
                     <span>Gestión de Clientes</span>
                 </a>
@@ -1110,13 +1110,13 @@
                     <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
                     <span>Salida de Productos</span>
                 </a>
-                <a href="{% url 'registro_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'registro_clientes' %}active{% endif %}">
+                <a href="{% url 'registrodeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'registrodeclientes' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
                     <span>Registro de Clientes</span>
                 </a>
-                <a href="{% url 'gestion_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestion_clientes' %}active{% endif %}">
+                <a href="{% url 'gestiondeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondeclientes' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-users-cog"></i></span>
                     <span>Gestión de Clientes</span>
                 </a>
@@ -1138,13 +1138,13 @@
                     <span class="nav-icon"><i class="fas fa-receipt"></i></span>
                     <span>Facturación</span>
                 </a>
-                <a href="{% url 'registro_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'registro_clientes' %}active{% endif %}">
+                <a href="{% url 'registrodeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'registrodeclientes' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
                     <span>Registro de Clientes</span>
                 </a>
-                <a href="{% url 'gestion_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestion_clientes' %}active{% endif %}">
+                <a href="{% url 'gestiondeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondeclientes' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-users-cog"></i></span>
                     <span>Gestión de Clientes</span>
                 </a>
@@ -1192,13 +1192,13 @@
                     <span class="nav-icon"><i class="fas fa-box-open"></i></span>
                     <span>Salida de Productos</span>
                 </a>
-                <a href="{% url 'registro_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'registro_clientes' %}active{% endif %}">
+                <a href="{% url 'registrodeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'registrodeclientes' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
                     <span>Registro de Clientes</span>
                 </a>
-                <a href="{% url 'gestion_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestion_clientes' %}active{% endif %}">
+                <a href="{% url 'gestiondeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondeclientes' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-users-cog"></i></span>
                     <span>Gestión de Clientes</span>
                 </a>
@@ -1268,7 +1268,7 @@
                             <h3>Buscar y Filtrar Clientes</h3>
                             <div style="display: flex; gap: 1rem;">
                                 <button class="btn btn-success"
-                                    onclick="window.location.href='{% url 'registro_clientes' %}'" type="button">
+                                    onclick="window.location.href='{% url 'registrodeclientes' %}'" type="button">
                                     <span><i class="fas fa-user-plus"></i></span>
                                     <span>Nuevo Cliente</span>
                                 </button>
@@ -1294,9 +1294,9 @@
                                     <label for="statusFilter"><i class="fas fa-toggle-on"></i> Estado</label>
                                     <select class="filter-select" id="statusFilter" name="estado">
                                         <option value="">Todos los estados</option>
-                                        <option value="activo" {% if filtros.estado=='activo' %}selected{% endif %}>
+                                        <option value="activo" {% if filtros.estado == 'activo' %}selected{% endif %}>
                                             Activo</option>
-                                        <option value="inactivo" {% if filtros.estado=='inactivo' %}selected{% endif %}>
+                                        <option value="inactivo" {% if filtros.estado == 'inactivo' %}selected{% endif %}>
                                             Inactivo</option>
                                     </select>
                                 </div>
@@ -1306,14 +1306,10 @@
                                         Crédito</label>
                                     <select class="filter-select" id="creditoFilter" name="credito">
                                         <option value="">Todos</option>
-                                        <option value="con_credito" {% if filtros.credito=='con_credito' %}selected{%
-                                            endif %}>Con Crédito</option>
-                                        <option value="sin_credito" {% if filtros.credito=='sin_credito' %}selected{%
-                                            endif %}>Sin Crédito</option>
-                                        <option value="agotado" {% if filtros.credito=='agotado' %}selected{% endif %}>
-                                            Crédito Agotado</option>
-                                        <option value="excedido" {% if filtros.credito=='excedido' %}selected{% endif
-                                            %}>Crédito Excedido</option>
+                                        <option value="con_credito" {% if filtros.credito == 'con_credito' %}selected{% endif %}>Con Crédito</option>
+                                        <option value="sin_credito" {% if filtros.credito == 'sin_credito' %}selected{% endif %}>Sin Crédito</option>
+                                        <option value="agotado" {% if filtros.credito == 'agotado' %}selected{% endif %}>Crédito Agotado</option>
+                                        <option value="excedido" {% if filtros.credito == 'excedido' %}selected{% endif %}>Crédito Excedido</option>
                                     </select>
                                 </div>
 
@@ -1321,34 +1317,23 @@
                                     <label for="dateFilter"><i class="fas fa-calendar"></i> Fecha de Registro</label>
                                     <select class="filter-select" id="dateFilter" name="fecha">
                                         <option value="">Todas las fechas</option>
-                                        <option value="hoy" {% if filtros.fecha=='hoy' %}selected{% endif %}>Hoy
-                                        </option>
-                                        <option value="ayer" {% if filtros.fecha=='ayer' %}selected{% endif %}>Ayer
-                                        </option>
-                                        <option value="semana" {% if filtros.fecha=='semana' %}selected{% endif %}>Esta
-                                            Semana</option>
-                                        <option value="mes" {% if filtros.fecha=='mes' %}selected{% endif %}>Este Mes
-                                        </option>
+                                        <option value="hoy" {% if filtros.fecha == 'hoy' %}selected{% endif %}>Hoy</option>
+                                        <option value="ayer" {% if filtros.fecha == 'ayer' %}selected{% endif %}>Ayer</option>
+                                        <option value="semana" {% if filtros.fecha == 'semana' %}selected{% endif %}>Esta Semana</option>
+                                        <option value="mes" {% if filtros.fecha == 'mes' %}selected{% endif %}>Este Mes</option>
                                     </select>
                                 </div>
 
                                 <div class="form-group" style="flex: 1;">
                                     <label for="sortFilter"><i class="fas fa-sort"></i> Ordenar por</label>
                                     <select class="filter-select" id="sortFilter" name="sort">
-                                        <option value="nombre" {% if filtros.sort=='nombre' %}selected{% endif %}>Nombre
-                                            (A-Z)</option>
-                                        <option value="nombre_desc" {% if filtros.sort=='nombre_desc' %}selected{% endif
-                                            %}>Nombre (Z-A)</option>
-                                        <option value="cedula" {% if filtros.sort=='cedula' %}selected{% endif %}>Cédula
-                                        </option>
-                                        <option value="fecha_desc" {% if filtros.sort=='fecha_desc' %}selected{% endif
-                                            %}>Más Reciente</option>
-                                        <option value="fecha_asc" {% if filtros.sort=='fecha_asc' %}selected{% endif %}>
-                                            Más Antiguo</option>
-                                        <option value="credito_desc" {% if filtros.sort=='credito_desc' %}selected{%
-                                            endif %}>Límite Crédito (Mayor)</option>
-                                        <option value="credito_asc" {% if filtros.sort=='credito_asc' %}selected{% endif
-                                            %}>Límite Crédito (Menor)</option>
+                                        <option value="nombre" {% if filtros.sort == 'nombre' %}selected{% endif %}>Nombre (A-Z)</option>
+                                        <option value="nombre_desc" {% if filtros.sort == 'nombre_desc' %}selected{% endif %}>Nombre (Z-A)</option>
+                                        <option value="cedula" {% if filtros.sort == 'cedula' %}selected{% endif %}>Cédula</option>
+                                        <option value="fecha_desc" {% if filtros.sort == 'fecha_desc' %}selected{% endif %}>Más Reciente</option>
+                                        <option value="fecha_asc" {% if filtros.sort == 'fecha_asc' %}selected{% endif %}>Más Antiguo</option>
+                                        <option value="credito_desc" {% if filtros.sort == 'credito_desc' %}selected{% endif %}>Límite Crédito (Mayor)</option>
+                                        <option value="credito_asc" {% if filtros.sort == 'credito_asc' %}selected{% endif %}>Límite Crédito (Menor)</option>
                                     </select>
                                 </div>
 
@@ -1486,7 +1471,7 @@
                                         <h3>No se encontraron clientes</h3>
                                         <p>No hay clientes registrados o no hay clientes con los filtros aplicados</p>
                                         <div style="margin-top: 1rem;">
-                                            <a href="{% url 'registro_clientes' %}" class="btn btn-success"
+                                            <a href="{% url 'registrodeclientes' %}" class="btn btn-success"
                                                 style="text-decoration: none;">
                                                 <span><i class="fas fa-user-plus"></i></span>
                                                 <span>Registrar Primer Cliente</span>
@@ -1631,7 +1616,7 @@
         function verCliente(clienteId) {
             console.log('Cargando detalles del cliente:', clienteId);
 
-            fetch(`/gestion_clientes/detalle/${clienteId}/`)
+            fetch(`/gestiondeclientes/detalle/${clienteId}/`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`Error ${response.status}: Cliente no encontrado`);
@@ -1859,7 +1844,7 @@
         function editarCliente(clienteId) {
             clienteEditando = clienteId;
 
-            fetch(`/gestion_clientes/detalle/${clienteId}/`)
+            fetch(`/gestiondeclientes/detalle/${clienteId}/`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`Error ${response.status}: Cliente no encontrado`);
@@ -2272,7 +2257,7 @@
             saveBtn.disabled = true;
 
             // Enviar datos
-            fetch(`/gestion_clientes/editar/${clienteId}/`, {
+            fetch(`/gestiondeclientes/editar/${clienteId}/`, {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -2432,7 +2417,7 @@
         function verHistorial(clienteId) {
             mostrarNotificacion(`Redirigiendo al historial del cliente #${clienteId}`, 'info');
             // Aquí puedes redirigir a una página de historial específica
-            // window.location.href = `/gestion_clientes/historial/${clienteId}/`;
+            // window.location.href = `/gestiondeclientes/historial/${clienteId}/`;
         }
 
         // Función para eliminar cliente
@@ -2441,7 +2426,7 @@
                 return;
             }
 
-            fetch(`/gestion_clientes/eliminar/${clienteId}/`, {
+            fetch(`/gestiondeclientes/eliminar/${clienteId}/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2475,7 +2460,7 @@
                             <h3>No se encontraron clientes</h3>
                             <p>No hay clientes registrados o no hay clientes con los filtros aplicados</p>
                             <div style="margin-top: 1rem;">
-                                <a href="{% url 'registro_clientes' %}" class="btn btn-success" style="text-decoration: none;">
+                                <a href="{% url 'registrodeclientes' %}" class="btn btn-success" style="text-decoration: none;">
                                     <span><i class="fas fa-user-plus"></i></span>
                                     <span>Registrar Primer Cliente</span>
                                 </a>
