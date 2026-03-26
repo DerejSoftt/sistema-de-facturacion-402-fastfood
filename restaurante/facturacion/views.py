@@ -7557,7 +7557,10 @@ def _calcular_saldo_credito_cliente(cliente, facturas_pendientes=None):
 
 
 def _saldo_factura_pendiente(factura):
-    total_pagado = sum((pago.monto for pago in factura.pagos_cxc.all()), Decimal('0.00'))
+    # Calcular desde DB para evitar datos stale cuando hay prefetch de pagos.
+    total_pagado = PagoCuentaCobrar.objects.filter(
+        factura=factura
+    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     total_factura = Decimal(str(factura.total or 0))
     saldo = total_factura - total_pagado
     return saldo if saldo > 0 else Decimal('0.00')
@@ -7591,7 +7594,9 @@ def _sincronizar_cuenta_por_cobrar(factura, cliente_match=None):
     }
     cuenta, created = CuentaPorCobrar.objects.get_or_create(factura=factura, defaults=defaults)
 
-    total_pagado = sum((pago.monto for pago in factura.pagos_cxc.all()), Decimal('0.00'))
+    total_pagado = PagoCuentaCobrar.objects.filter(
+        factura=factura
+    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     saldo = total_factura - total_pagado
     saldo = saldo if saldo > 0 else Decimal('0.00')
 

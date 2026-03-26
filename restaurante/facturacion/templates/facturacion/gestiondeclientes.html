@@ -517,6 +517,45 @@
             color: white;
         }
 
+        /* Estado de facturas en historial de cliente */
+        .invoice-status-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 105px;
+            padding: 0.35rem 0.7rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            border: 1px solid transparent;
+        }
+
+        .invoice-status-pagada {
+            background: #d9f7e8;
+            border-color: #8ed9b2;
+            color: #1d7f52;
+        }
+
+        .invoice-status-parcial {
+            background: #dcefff;
+            border-color: #96c6f5;
+            color: #1f5f9a;
+        }
+
+        .invoice-status-pendiente {
+            background: #fff5cc;
+            border-color: #f2dd82;
+            color: #8a6d1d;
+        }
+
+        .invoice-status-default {
+            background: #edf2f7;
+            border-color: #d3dce8;
+            color: #4a5568;
+        }
+
         /* Badges para tipo de crédito */
         .credito-badge {
             display: inline-block;
@@ -2490,6 +2529,21 @@
                             </div>
                         `;
                     } else {
+                        const getFacturaEstadoBadge = (estadoRaw) => {
+                            const estado = String(estadoRaw || '').toLowerCase().trim();
+                            let cssClass = 'invoice-status-default';
+
+                            if (estado === 'pagada') {
+                                cssClass = 'invoice-status-pagada';
+                            } else if (estado === 'parcial') {
+                                cssClass = 'invoice-status-parcial';
+                            } else if (estado === 'pendiente') {
+                                cssClass = 'invoice-status-pendiente';
+                            }
+
+                            return `<span class="invoice-status-badge ${cssClass}">${estado || '-'}</span>`;
+                        };
+
                         const filas = historial.map(item => {
                             const fecha = item.fecha_factura ? new Date(item.fecha_factura).toLocaleDateString('es-DO') : '-';
                             const total = Number(item.total || 0).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -2497,7 +2551,7 @@
                                 <tr>
                                     <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7;">${item.numero_factura || '-'}</td>
                                     <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7;">${fecha}</td>
-                                    <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7; text-transform: capitalize;">${item.estado || '-'}</td>
+                                    <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7;">${getFacturaEstadoBadge(item.estado)}</td>
                                     <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7; text-transform: capitalize;">${item.tipo_pedido || '-'}</td>
                                     <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7; text-transform: capitalize;">${item.metodo_pago || '-'}</td>
                                     <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7; font-weight: 700; color: #2b6cb0;">RD$ ${total}</td>
