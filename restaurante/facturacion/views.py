@@ -1546,6 +1546,15 @@ def actualizar_inventario_bebidas(items, operacion='restar'):
         item_name = item.get('name', '')
         cantidad = item.get('quantity', 1)
 
+        # Evitar ruido/errores: solo procesar items de bebidas.
+        categoria_item = str(item.get('categoria', '') or '').lower()
+        tipo_item = str(item.get('tipo', '') or '').lower()
+        es_bebida = bool(item.get('es_bebida')) or categoria_item == 'bebida' or tipo_item == 'bebida'
+        if isinstance(item_id, str) and item_id.startswith('plato_'):
+            es_bebida = False
+        if not es_bebida and not (isinstance(item_id, str) and item_id.startswith('PROD-')):
+            continue
+
         print(
             f"  Procesando item: {item_name} (id: {item_id}, cantidad: {cantidad})")
 
@@ -2010,9 +2019,36 @@ def cambiar_estado_pedido(request, pedido_id):
         # Actualizar el pedido con los nuevos items
         pedido.items = json.dumps(items_actuales)
 
-        # Recalcular subtotal, total, etc.
-        subtotal = sum(item['total'] for item in items_actuales)
-        total = subtotal + float(pedido.envio)
+        # Recalcular subtotal/total sin asumir estructura exacta del item.
+        def calcular_total_item(item):
+            cantidad_item = item.get('quantity', item.get('cantidad', 1))
+            try:
+                cantidad_decimal = Decimal(str(cantidad_item or 1))
+            except (ValueError, TypeError):
+                cantidad_decimal = Decimal('1')
+
+            if item.get('total') is not None:
+                try:
+                    return Decimal(str(item.get('total')))
+                except (ValueError, TypeError):
+                    pass
+
+            if item.get('subtotal') is not None:
+                try:
+                    return Decimal(str(item.get('subtotal')))
+                except (ValueError, TypeError):
+                    pass
+
+            precio_item = item.get('price', item.get('precio', 0))
+            try:
+                precio_decimal = Decimal(str(precio_item or 0))
+            except (ValueError, TypeError):
+                precio_decimal = Decimal('0')
+
+            return precio_decimal * cantidad_decimal
+
+        subtotal = sum((calcular_total_item(item) for item in items_actuales), Decimal('0.00'))
+        total = subtotal + Decimal(str(pedido.envio or 0))
 
         pedido.subtotal = subtotal
         pedido.total = total
