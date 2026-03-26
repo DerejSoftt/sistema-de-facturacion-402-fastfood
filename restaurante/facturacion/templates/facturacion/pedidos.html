@@ -1608,6 +1608,104 @@ body {
     font-size: 1.4rem;
 }
 
+/* Payment Methods */
+.payment-methods {
+    margin-bottom: 1.4rem;
+    padding: 1rem;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #ffffff 0%, #f7faff 100%);
+    border: 1px solid #dfe8ff;
+    box-shadow: 0 8px 20px rgba(38, 52, 77, 0.08);
+}
+
+.payment-methods-title {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.payment-methods-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.1rem;
+    position: relative;
+    padding: 0.15rem 0.1rem;
+}
+
+.payment-methods-grid::before {
+    content: "";
+    position: absolute;
+    top: 0.3rem;
+    bottom: 0.3rem;
+    left: 50%;
+    width: 1px;
+    background: linear-gradient(to bottom, rgba(219, 229, 255, 0), #dbe5ff 20%, #dbe5ff 80%, rgba(219, 229, 255, 0));
+    transform: translateX(-0.5px);
+}
+
+.payment-option {
+    position: relative;
+}
+
+.payment-option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.payment-card {
+    min-height: 84px;
+    border-radius: 12px;
+    border: 2px solid #dbe5ff;
+    background: #ffffff;
+    color: #253247;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-weight: 700;
+    text-align: center;
+    box-shadow: 0 6px 14px rgba(44, 62, 80, 0.07);
+}
+
+.payment-card i {
+    font-size: 1.2rem;
+}
+
+.payment-card small {
+    display: block;
+    font-size: 0.74rem;
+    font-weight: 600;
+    opacity: 0.8;
+}
+
+.payment-option input:checked + .payment-card {
+    border-color: #ff7e5f;
+    background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+    color: #ffffff;
+    box-shadow: 0 12px 24px rgba(255, 126, 95, 0.35);
+    transform: translateY(-2px);
+}
+
+.payment-option input:focus-visible + .payment-card {
+    outline: 3px solid rgba(255, 126, 95, 0.28);
+    outline-offset: 2px;
+}
+
+.payment-card:hover {
+    transform: translateY(-2px);
+    border-color: #ff9a7d;
+}
+
 /* Customer Form - MODIFICADO */
 .customer-form {
     margin-bottom: 2rem;
@@ -2371,6 +2469,14 @@ body {
     .form-group.full-width {
         grid-column: span 1;
     }
+
+    .payment-methods-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .payment-methods-grid::before {
+        display: none;
+    }
     
     .tables-grid {
         grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
@@ -2706,6 +2812,31 @@ body {
                             
                             <!-- Order Section -->
                             <div class="order-section">
+                                <div class="payment-methods">
+                                    <div class="payment-methods-title">
+                                        <i class="fas fa-credit-card"></i>
+                                        <span>Método de pago</span>
+                                    </div>
+                                    <div class="payment-methods-grid">
+                                        <label class="payment-option" for="pagoContado">
+                                            <input type="radio" id="pagoContado" name="tipo_pago" value="contado" checked>
+                                            <span class="payment-card">
+                                                <i class="fas fa-money-bill-wave"></i>
+                                                <span>Contado</span>
+                                                <small>Pago inmediato</small>
+                                            </span>
+                                        </label>
+
+                                        <label class="payment-option" for="pagoCredito">
+                                            <input type="radio" id="pagoCredito" name="tipo_pago" value="credito">
+                                            <span class="payment-card">
+                                                <i class="fas fa-file-invoice-dollar"></i>
+                                                <span>Crédito</span>
+                                                <small>Pagar después</small>
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
                                 <h2>Tu Pedido</h2>
                                 
                                 <!-- Order Code Display -->
