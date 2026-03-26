@@ -1355,7 +1355,7 @@ def limpiar_carrito(request):
 
 @csrf_exempt
 def gestiondepedidos(request):
-    """Vista principal de gestión de pedidos - EXCLUYE PEDIDOS PAGADOS"""
+    """Vista principal de gestión de pedidos - EXCLUYE PEDIDOS FACTURADOS"""
     # Obtener parámetros de filtrado
     search = request.GET.get('search', '')
     estado = request.GET.get('estado', '')
@@ -1364,21 +1364,23 @@ def gestiondepedidos(request):
     sort_by = request.GET.get('sort', '-fecha_pedido')
     page = request.GET.get('page', 1)
 
-    # Construir query base - EXCLUIR PEDIDOS CON FACTURAS PAGADAS
+    # Construir query base - EXCLUIR PEDIDOS CON FACTURAS ACTIVAS
     from django.db.models import Q, Exists, OuterRef
 
-    # Subconsulta para verificar si el pedido tiene facturas pagadas
-    facturas_pagadas = Factura.objects.filter(
+    # Subconsulta para verificar si el pedido tiene factura activa.
+    # Solo volvemos a mostrar pedidos con factura anulada.
+    facturas_activas = Factura.objects.filter(
         pedido_id=OuterRef('pk'),
-        estado='pagada'
+    ).exclude(
+        estado='anulada'
     )
 
-    # Consulta principal: todos los pedidos que NO tienen facturas pagadas
+    # Consulta principal: todos los pedidos que NO tienen facturas activas
     # Usamos un nombre diferente para la anotación para evitar conflicto con la propiedad
     pedidos = Pedido.objects.annotate(
-        factura_pagada_annotated=Exists(facturas_pagadas)  # Cambiado el nombre
+        factura_activa_annotated=Exists(facturas_activas)
     ).filter(
-        factura_pagada_annotated=False  # Solo pedidos SIN facturas pagadas
+        factura_activa_annotated=False
     ).select_related('mesa').order_by('-fecha_pedido')
 
     # Si no se especifica estado, excluir cancelados por defecto
@@ -1428,11 +1430,11 @@ def gestiondepedidos(request):
     pedidos = pedidos.order_by(sort_field)
 
     # 🔥 ACTUALIZAR ESTADO DE MESAS SEGÚN PEDIDOS ACTIVOS
-    # Solo para pedidos que no tienen facturas pagadas
+    # Solo para pedidos que no tienen facturas activas
     pedidos_activos = Pedido.objects.annotate(
-        factura_pagada_annotated=Exists(facturas_pagadas)  # Mismo nombre
+        factura_activa_annotated=Exists(facturas_activas)
     ).filter(
-        factura_pagada_annotated=False,
+        factura_activa_annotated=False,
         tipo_pedido='mesa',
         estado__in=['pendiente', 'confirmado',
                     'preparacion', 'listo', 'entregado']
@@ -1457,20 +1459,20 @@ def gestiondepedidos(request):
     inicio_dia = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
     fin_dia = inicio_dia + timedelta(days=1)
 
-    # Total de pedidos activos (sin factura pagada)
+    # Total de pedidos activos (sin factura activa)
     total_pedidos_activos = Pedido.objects.annotate(
-        factura_pagada_annotated=Exists(facturas_pagadas)  # Mismo nombre
+        factura_activa_annotated=Exists(facturas_activas)
     ).filter(
-        factura_pagada_annotated=False
+        factura_activa_annotated=False
     ).exclude(
         estado='cancelado'
     ).count()
 
-    # Pedidos pendientes (sin factura pagada)
+    # Pedidos pendientes (sin factura activa)
     pedidos_pendientes_count = Pedido.objects.annotate(
-        factura_pagada_annotated=Exists(facturas_pagadas)
+        factura_activa_annotated=Exists(facturas_activas)
     ).filter(
-        factura_pagada_annotated=False,
+        factura_activa_annotated=False,
         estado__in=['pendiente', 'confirmado']
     ).count()
 
@@ -1483,11 +1485,11 @@ def gestiondepedidos(request):
     ingresos_hoy = facturas_hoy_pagadas.aggregate(total=Sum('total'))[
         'total'] or 0
 
-    # Pedidos a domicilio activos (sin factura pagada)
+    # Pedidos a domicilio activos (sin factura activa)
     pedidos_domicilio_activos = Pedido.objects.annotate(
-        factura_pagada_annotated=Exists(facturas_pagadas)
+        factura_activa_annotated=Exists(facturas_activas)
     ).filter(
-        factura_pagada_annotated=False,
+        factura_activa_annotated=False,
         tipo_pedido='delivery'
     ).exclude(
         estado='cancelado'
@@ -2549,18 +2551,19 @@ def facturacion(request):
     from datetime import datetime
 
     try:
-        # Obtener IDs de pedidos que ya tienen factura PAGADA
-        pedidos_con_factura_pagada_ids = set(
-            Factura.objects.filter(estado='pagada').values_list(
+        # Obtener IDs de pedidos que ya tienen factura activa (pagada o pendiente de crédito).
+        # Solo se permite volver a mostrar si la factura está anulada.
+        pedidos_con_factura_activa_ids = set(
+            Factura.objects.exclude(estado='anulada').values_list(
                 'pedido_id', flat=True)
         )
 
-        # 🔥 Obtener pedidos que están ocupando mesa y NO tienen factura PAGADA
+        # 🔥 Obtener pedidos que NO tienen factura activa
         pedidos_pendientes = Pedido.objects.filter(
             estado__in=['pendiente', 'confirmado', 'preparacion',
                         'listo', 'entregado', 'completado']
         ).exclude(
-            id__in=pedidos_con_factura_pagada_ids  # EXCLUIR pedidos con facturas PAGADAS
+            id__in=pedidos_con_factura_activa_ids  # EXCLUIR pedidos con facturas ya creadas (incluye crédito)
         ).select_related('mesa').order_by('-fecha_pedido')
 
         # Obtener facturas PENDIENTES (las pagadas NO se muestran)
