@@ -7820,7 +7820,7 @@ def cuentaporcobrar_comprobante_pdf(request):
     cliente_nombre = factura_ref.nombre_cliente or 'Cliente'
 
     total_pagado = sum((p.monto for p in pagos), Decimal('0.00'))
-    comprobantes = [p.numero_comprobante or f'PAGO-{p.id}' for p in pagos]
+    comprobantes = [p.numero_comprobante or f'CP-{p.id}' for p in pagos]
     comprobante_principal = comprobantes[0]
 
     c.setFont('Helvetica-Bold', 10)
@@ -7848,7 +7848,7 @@ def cuentaporcobrar_comprobante_pdf(request):
     c.setFont('Helvetica', 8)
     for pago in pagos:
         numero = str(pago.factura.numero_factura or f'FACT-{pago.factura_id}')
-        numero_comprobante = (pago.numero_comprobante or f'PAGO-{pago.id}')[:16]
+        numero_comprobante = (pago.numero_comprobante or f'CP-{pago.id}')[:16]
         c.drawString(5 * mm, y, f'{numero[:12]} {numero_comprobante}')
         c.drawRightString(ancho_ticket - 5 * mm, y, f'RD$ {pago.monto:.2f}')
         y -= alto_linea

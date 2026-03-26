@@ -1421,7 +1421,22 @@ class PagoCuentaCobrar(models.Model):
 
     def _generar_numero_comprobante(self):
         fecha_ref = self.fecha_pago or timezone.localdate()
-        return f"CXC-{fecha_ref.strftime('%Y%m')}-{self.pk:06d}"
+        numero_factura = (self.factura.numero_factura or '').strip()
+
+        # Reutiliza la misma secuencia de la factura: FAC-YYYYMM-###### -> CP-YYYYMM-######
+        match = re.match(r'^[A-Z]+-(\d{6})-(\d+)$', numero_factura)
+        if match:
+            periodo = match.group(1)
+            secuencia = match.group(2)
+            pagos_previos = type(self).objects.filter(factura=self.factura).exclude(pk=self.pk).count()
+            indice_pago = pagos_previos + 1
+
+            if indice_pago == 1:
+                return f"CP-{periodo}-{secuencia}"
+            return f"CP-{periodo}-{secuencia}-{indice_pago:02d}"
+
+        # Fallback defensivo si la factura no sigue el formato esperado.
+        return f"CP-{fecha_ref.strftime('%Y%m')}-{self.pk:06d}"
 
     def save(self, *args, **kwargs):
         if self.pk is None and not self.numero_comprobante:
@@ -1436,7 +1451,7 @@ class PagoCuentaCobrar(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        comprobante = self.numero_comprobante or f"PAGO-{self.id}"
+        comprobante = self.numero_comprobante or f"CP-{self.id}"
         return f"{comprobante} - {self.factura.numero_factura} - {self.monto}"
 
 
