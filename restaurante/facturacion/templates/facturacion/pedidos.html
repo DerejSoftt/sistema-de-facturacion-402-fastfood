@@ -1706,6 +1706,28 @@ body {
     border-color: #ff9a7d;
 }
 
+.credit-fields {
+    margin-bottom: 1.1rem;
+    padding: 1rem;
+    border-radius: 12px;
+    border: 1px solid #dbe5ff;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.credit-fields .form-group {
+    margin-bottom: 0.85rem;
+}
+
+.credit-fields .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.credit-client-help {
+    font-size: 0.8rem;
+    color: #5a6475;
+    margin-top: 0.35rem;
+}
+
 /* Customer Form - MODIFICADO */
 .customer-form {
     margin-bottom: 2rem;
@@ -2855,6 +2877,21 @@ body {
                                     <input type="hidden" name="subtotal" id="subtotalInput" value="0">
                                     <input type="hidden" name="envio" id="envioInput" value="0">
                                     <input type="hidden" name="total" id="totalInput" value="0">
+                                    <input type="hidden" name="cliente_credito_id" id="clienteCreditoIdInput" value="">
+
+                                    <div class="credit-fields hidden" id="creditFields">
+                                        <div class="form-group">
+                                            <label for="creditClientSearch"><i class="fas fa-search"></i> Buscar cliente para crédito</label>
+                                            <input type="text" id="creditClientSearch" placeholder="Escribe nombre, cédula o teléfono">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="creditClientSelect"><i class="fas fa-user-check"></i> Seleccionar cliente</label>
+                                            <select id="creditClientSelect" name="cliente_credito_selector">
+                                                <option value="">Selecciona un cliente</option>
+                                            </select>
+                                            <div class="credit-client-help" id="creditClientHelp">Selecciona el cliente para registrar la venta a crédito.</div>
+                                        </div>
+                                    </div>
                                     
                                     <div class="form-row">
                                         <div class="form-group">
@@ -3044,6 +3081,9 @@ body {
     let currentTableNumber = '';
     let currentDeliveryCode = '';
     let currentLlevarCode = '';
+    let currentPaymentMethod = 'contado';
+    let creditClientsData = [];
+    let currentCreditClientId = '';
     
     // Combinar platos y bebidas
     let menuItems = [];
@@ -3207,6 +3247,14 @@ body {
             console.error("❌ Error parseando bebidas_json:", e);
             bebidasData = [];
         }
+
+        try {
+            creditClientsData = JSON.parse('{{ clientes_credito_json|safe }}');
+            console.log("✅ Clientes de crédito cargados:", creditClientsData.length);
+        } catch (e) {
+            console.error("❌ Error parseando clientes_credito_json:", e);
+            creditClientsData = [];
+        }
         
         // Combinar ambos en un solo array
         menuItems = [...platosData, ...bebidasData];
@@ -3236,6 +3284,7 @@ body {
         renderCart();
         updateCartSummary();
         setupEventListeners();
+        updatePaymentMethod();
         updateOrderCode();
         
         loadFormData();
@@ -3316,10 +3365,30 @@ body {
         const customerName = document.getElementById('customerName');
         const customerPhone = document.getElementById('customerPhone');
         const customerNameTakeaway = document.getElementById('customerNameTakeaway');
+        const creditClientSearch = document.getElementById('creditClientSearch');
+        const creditClientSelect = document.getElementById('creditClientSelect');
+        const paymentRadios = document.querySelectorAll('input[name="tipo_pago"]');
         
         if (customerName) customerName.addEventListener('input', updatePlaceOrderButton);
         if (customerPhone) customerPhone.addEventListener('input', updatePlaceOrderButton);
         if (customerNameTakeaway) customerNameTakeaway.addEventListener('input', updatePlaceOrderButton);
+        if (creditClientSearch) {
+            creditClientSearch.addEventListener('input', function() {
+                renderCreditClientOptions(this.value);
+            });
+        }
+        if (creditClientSelect) {
+            creditClientSelect.addEventListener('change', function() {
+                currentCreditClientId = this.value || '';
+                document.getElementById('clienteCreditoIdInput').value = currentCreditClientId;
+                updatePlaceOrderButton();
+            });
+        }
+        if (paymentRadios.length > 0) {
+            paymentRadios.forEach((radio) => {
+                radio.addEventListener('change', updatePaymentMethod);
+            });
+        }
         
         document.getElementById('customerAddress')?.addEventListener('input', updatePlaceOrderButton);
         
@@ -3391,6 +3460,70 @@ body {
                 });
             });
         }
+    }
+
+    function renderCreditClientOptions(searchValue = '') {
+        const creditClientSelect = document.getElementById('creditClientSelect');
+        const creditClientHelp = document.getElementById('creditClientHelp');
+        if (!creditClientSelect) return;
+
+        const term = (searchValue || '').toLowerCase().trim();
+        const filteredClients = creditClientsData.filter((cliente) => {
+            const nombre = (cliente.nombre || '').toLowerCase();
+            const cedula = (cliente.cedula || '').toLowerCase();
+            const telefono = (cliente.telefono || '').toLowerCase();
+            return !term || nombre.includes(term) || cedula.includes(term) || telefono.includes(term);
+        });
+
+        const options = ['<option value="">Selecciona un cliente</option>'];
+        filteredClients.forEach((cliente) => {
+            options.push(`<option value="${cliente.id}">${cliente.nombre} - ${cliente.cedula} (RD$${Number(cliente.limite_credito || 0).toFixed(2)})</option>`);
+        });
+
+        creditClientSelect.innerHTML = options.join('');
+
+        if (currentCreditClientId && filteredClients.some((cliente) => String(cliente.id) === String(currentCreditClientId))) {
+            creditClientSelect.value = currentCreditClientId;
+        } else {
+            currentCreditClientId = '';
+            creditClientSelect.value = '';
+            document.getElementById('clienteCreditoIdInput').value = '';
+        }
+
+        if (creditClientHelp) {
+            if (filteredClients.length === 0) {
+                creditClientHelp.textContent = 'No se encontraron clientes con esa búsqueda.';
+            } else {
+                creditClientHelp.textContent = `${filteredClients.length} cliente(s) disponible(s) para seleccionar.`;
+            }
+        }
+
+        updatePlaceOrderButton();
+    }
+
+    function updatePaymentMethod() {
+        const selectedPayment = document.querySelector('input[name="tipo_pago"]:checked');
+        const creditFields = document.getElementById('creditFields');
+        const creditClientSearch = document.getElementById('creditClientSearch');
+
+        currentPaymentMethod = selectedPayment ? selectedPayment.value : 'contado';
+
+        if (currentPaymentMethod === 'credito') {
+            creditFields?.classList.remove('hidden');
+            renderCreditClientOptions(creditClientSearch ? creditClientSearch.value : '');
+            setTimeout(() => {
+                creditClientSearch?.focus();
+            }, 80);
+        } else {
+            creditFields?.classList.add('hidden');
+            currentCreditClientId = '';
+            const creditClientSelect = document.getElementById('creditClientSelect');
+            if (creditClientSelect) creditClientSelect.value = '';
+            if (creditClientSearch) creditClientSearch.value = '';
+            document.getElementById('clienteCreditoIdInput').value = '';
+        }
+
+        updatePlaceOrderButton();
     }
     
     /**
@@ -3762,6 +3895,13 @@ body {
                 return false;
             }
         }
+
+        if (currentPaymentMethod === 'credito') {
+            if (!currentCreditClientId || currentCreditClientId === '') {
+                showNotification('<i class="fas fa-times-circle"></i> Selecciona un cliente para venta a crédito', 'error');
+                return false;
+            }
+        }
         
         return true;
     }
@@ -3785,6 +3925,12 @@ body {
                 document.getElementById('mesaIdInput').value = '';
                 document.getElementById('codigoDeliveryInput').value = '';
                 document.getElementById('codigoLlevarInput').value = currentLlevarCode;
+            }
+
+            if (currentPaymentMethod === 'credito') {
+                document.getElementById('clienteCreditoIdInput').value = currentCreditClientId || '';
+            } else {
+                document.getElementById('clienteCreditoIdInput').value = '';
             }
             
             return true;
@@ -3831,6 +3977,12 @@ body {
             
             if (!codeValid) missingFields.push('código para llevar');
             if (!hasLlevarCodes) missingFields.push('códigos disponibles');
+        }
+
+        if (currentPaymentMethod === 'credito') {
+            const creditClientValid = currentCreditClientId && currentCreditClientId !== '';
+            isValid = isValid && creditClientValid;
+            if (!creditClientValid) missingFields.push('cliente de crédito');
         }
         
         placeOrderBtn.disabled = !isValid;

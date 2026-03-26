@@ -737,6 +737,17 @@ def pedidos(request):
             'llevar_codes': llevar_codes,
             'bebidas_json': json.dumps(bebidas_json),  # Solo bebidas
             'platos_json': json.dumps(platos_json),    # Solo platos
+            'clientes_credito_json': json.dumps([
+                {
+                    'id': cliente.id,
+                    'nombre': cliente.nombre_completo,
+                    'cedula': cliente.cedula,
+                    'telefono': cliente.telefono_principal,
+                    'limite_credito': float(cliente.limite_credito or 0),
+                    'dias_credito': int(cliente.dias_credito or 0),
+                }
+                for cliente in Cliente.objects.filter(activo=True).order_by('nombre_completo')
+            ]),
             'total_bebidas': bebidas.count(),
             'total_platos': platos.count(),
             'title': 'Realizar Pedido',
@@ -755,6 +766,7 @@ def pedidos(request):
             'llevar_codes': [],
             'bebidas_json': '[]',
             'platos_json': '[]',
+            'clientes_credito_json': '[]',
             'total_bebidas': 0,
             'total_platos': 0,
             'title': 'Realizar Pedido',
@@ -770,6 +782,22 @@ def crear_pedido(request):
             # Obtener datos del formulario con valores por defecto
             tipo_pedido = request.POST.get('tipo_pedido')
             cart_items_json = request.POST.get('cart_items')
+            tipo_pago = (request.POST.get('tipo_pago', 'contado') or 'contado').strip().lower()
+            cliente_credito_id = (request.POST.get('cliente_credito_id', '') or '').strip()
+            cliente_credito = None
+
+            if tipo_pago not in ['contado', 'credito']:
+                tipo_pago = 'contado'
+
+            if tipo_pago == 'credito':
+                if not cliente_credito_id:
+                    messages.error(request, 'Para venta a crédito debes seleccionar un cliente')
+                    return redirect('pedidos')
+                try:
+                    cliente_credito = Cliente.objects.get(id=cliente_credito_id, activo=True)
+                except Cliente.DoesNotExist:
+                    messages.error(request, 'El cliente seleccionado para crédito no es válido')
+                    return redirect('pedidos')
 
             print("=" * 80)
             print("CART ITEMS JSON RECIBIDO:")
@@ -1101,6 +1129,14 @@ def crear_pedido(request):
             else:
                 messages.error(request, 'Tipo de pedido no válido')
                 return redirect('pedidos')
+
+            # Persistir metadatos de pago para usarlos al facturar/CxC.
+            if tipo_pago == 'credito' and cliente_credito:
+                pedido.nombre_cliente = cliente_credito.nombre_completo
+                pedido.telefono_cliente = cliente_credito.telefono_principal or pedido.telefono_cliente
+                pedido.notas = f"TIPO_PAGO_PEDIDO=credito;CLIENTE_CREDITO_ID={cliente_credito.id}"
+            else:
+                pedido.notas = "TIPO_PAGO_PEDIDO=contado"
 
             # Guardar el pedido (esto generará automáticamente el código_pedido)
             pedido.save()
@@ -2566,6 +2602,9 @@ def facturacion(request):
             elif pedido.codigo_delivery:
                 numero_mesa_codigo = pedido.codigo_delivery
 
+            notas_pedido = pedido.notas or ''
+            es_venta_credito = 'TIPO_PAGO_PEDIDO=credito' in notas_pedido
+
             pedido_dict = {
                 'id': pedido.id,
                 'codigo_pedido': pedido.codigo_pedido,
@@ -2591,6 +2630,7 @@ def facturacion(request):
                 'estado_factura': None,
                 'metodo_pago': None,
                 'fecha_factura': None,
+                'es_venta_credito': es_venta_credito,
             }
 
             pedidos_json.append(pedido_dict)
@@ -2681,13 +2721,30 @@ def crear_factura(request):
             pedido_id = request.POST.get('pedido_id')
             pedido = get_object_or_404(Pedido, id=pedido_id)
 
-            # Calcular totales - SIN IVA NI ENVÍO
-            subtotal = float(request.POST.get('subtotal', pedido.subtotal))
-            envio = 0  # Establecer envío a 0 ya que no lo estamos usando
-            iva = 0  # Establecer IVA a 0 ya que no lo estamos usando
+            notas_pedido = pedido.notas or ''
+            pedido_es_credito = 'TIPO_PAGO_PEDIDO=credito' in notas_pedido
+            cliente_credito = None
+
+            if pedido_es_credito and 'CLIENTE_CREDITO_ID=' in notas_pedido:
+                try:
+                    cliente_id_str = notas_pedido.split('CLIENTE_CREDITO_ID=')[-1].split(';')[0].strip()
+                    cliente_credito = Cliente.objects.filter(id=int(cliente_id_str), activo=True).first()
+                except (ValueError, TypeError):
+                    cliente_credito = None
+
+            # Calcular totales como Decimal para evitar errores float vs Decimal.
+            def _to_decimal(value, default='0.00'):
+                try:
+                    return Decimal(str(value))
+                except (ValueError, TypeError):
+                    return Decimal(default)
+
+            subtotal = _to_decimal(request.POST.get('subtotal', pedido.subtotal), '0.00')
+            envio = Decimal('0.00')  # Establecer envío a 0 ya que no lo estamos usando
+            iva = Decimal('0.00')  # Establecer IVA a 0 ya que no lo estamos usando
 
             # TOTAL sin IVA ni envío - usar el total del pedido directamente
-            total = float(request.POST.get('total', pedido.total))
+            total = _to_decimal(request.POST.get('total', pedido.total), '0.00')
 
             # Obtener items del pedido
             items_json = request.POST.get('items', '[]')
@@ -2707,7 +2764,7 @@ def crear_factura(request):
                 pedido=pedido,
                 tipo_pedido=pedido.tipo_pedido,
                 metodo_pago=request.POST.get('metodo_pago', 'efectivo'),
-                estado='pagada',  # Estado PAGADA automáticamente
+                estado='pendiente' if pedido_es_credito else 'pagada',
                 subtotal=subtotal,
                 iva=iva,
                 envio=envio,
@@ -2728,11 +2785,18 @@ def crear_factura(request):
                 factura.nombre_cliente = pedido.nombre_cliente
                 factura.telefono_cliente = pedido.telefono_cliente
 
+            if pedido_es_credito and cliente_credito:
+                factura.nombre_cliente = cliente_credito.nombre_completo
+                factura.telefono_cliente = cliente_credito.telefono_principal
+
             if pedido.tipo_pedido == 'delivery':
                 factura.direccion_entrega = pedido.direccion_entrega
 
             # Guardar la factura
             factura.save()
+
+            if pedido_es_credito:
+                _sincronizar_cuenta_por_cobrar(factura, cliente_credito)
 
             # IMPORTANTE: Actualizar estado del pedido a 'completado'
             pedido.estado = 'completado'
@@ -7455,7 +7519,8 @@ def _calcular_saldo_credito_cliente(cliente, facturas_pendientes=None):
 
 def _saldo_factura_pendiente(factura):
     total_pagado = sum((pago.monto for pago in factura.pagos_cxc.all()), Decimal('0.00'))
-    saldo = (factura.total or Decimal('0.00')) - total_pagado
+    total_factura = Decimal(str(factura.total or 0))
+    saldo = total_factura - total_pagado
     return saldo if saldo > 0 else Decimal('0.00')
 
 
@@ -7474,26 +7539,27 @@ def _calcular_fechas_cxc(factura, cliente_match=None):
 
 def _sincronizar_cuenta_por_cobrar(factura, cliente_match=None):
     fecha_emision, fecha_vencimiento = _calcular_fechas_cxc(factura, cliente_match)
+    total_factura = Decimal(str(factura.total or 0))
 
     defaults = {
         'cliente': cliente_match,
         'fecha_emision': fecha_emision,
         'fecha_vencimiento': fecha_vencimiento,
-        'monto_original': factura.total or Decimal('0.00'),
-        'saldo_pendiente': factura.total or Decimal('0.00'),
+        'monto_original': total_factura,
+        'saldo_pendiente': total_factura,
         'estado': 'pendiente',
         'notas': factura.notas or '',
     }
     cuenta, created = CuentaPorCobrar.objects.get_or_create(factura=factura, defaults=defaults)
 
     total_pagado = sum((pago.monto for pago in factura.pagos_cxc.all()), Decimal('0.00'))
-    saldo = (factura.total or Decimal('0.00')) - total_pagado
+    saldo = total_factura - total_pagado
     saldo = saldo if saldo > 0 else Decimal('0.00')
 
     hoy = timezone.localdate()
     if saldo <= 0:
         estado = 'pagada'
-    elif saldo < (factura.total or Decimal('0.00')):
+    elif saldo < total_factura:
         estado = 'vencida' if cuenta.fecha_vencimiento < hoy else 'parcial'
     else:
         estado = 'vencida' if cuenta.fecha_vencimiento < hoy else 'pendiente'
@@ -7508,8 +7574,8 @@ def _sincronizar_cuenta_por_cobrar(factura, cliente_match=None):
     if cuenta.fecha_vencimiento != fecha_vencimiento:
         cuenta.fecha_vencimiento = fecha_vencimiento
         cambios.append('fecha_vencimiento')
-    if cuenta.monto_original != (factura.total or Decimal('0.00')):
-        cuenta.monto_original = factura.total or Decimal('0.00')
+    if cuenta.monto_original != total_factura:
+        cuenta.monto_original = total_factura
         cambios.append('monto_original')
     if cuenta.saldo_pendiente != saldo:
         cuenta.saldo_pendiente = saldo
