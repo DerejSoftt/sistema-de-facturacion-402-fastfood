@@ -364,6 +364,23 @@
             background: white;
             box-shadow: 0 4px 6px rgba(50, 50, 93, 0.05);
         }
+
+        .credit-sale-badge {
+            display: none;
+            margin-bottom: 1rem;
+            padding: 0.85rem 1rem;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #fff5f0 0%, #ffe7dc 100%);
+            border: 1px solid #ffcfba;
+            color: #a63d1f;
+            font-weight: 700;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .credit-sale-badge i {
+            color: #ff7e5f;
+        }
         
         .form-group input:focus,
         .form-group select:focus {
@@ -1344,6 +1361,11 @@
                     <label for="totalAmount"><i class="fas fa-dollar-sign"></i> Total a Pagar</label>
                     <input type="text" id="totalAmount" readonly style="font-size: 1.2rem; font-weight: bold; color: #38a169;">
                 </div>
+
+                <div id="creditSaleBadge" class="credit-sale-badge">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    <span>Venta a crédito</span>
+                </div>
                 
                 <div class="form-actions">
                     <button class="btn" onclick="closeCreateInvoiceModal()" style="background: #f8f9ff; color: #4a5568;">
@@ -1878,6 +1900,11 @@
         currentOrder = order;
         document.getElementById('pedidoId').value = pedidoId;
         document.getElementById('totalAmount').value = `RD$${(order.total || 0).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+        const creditBadge = document.getElementById('creditSaleBadge');
+        if (creditBadge) {
+            creditBadge.style.display = order.es_venta_credito ? 'flex' : 'none';
+        }
         
         // Mostrar modal
         document.getElementById('createInvoiceModal').classList.add('active');
