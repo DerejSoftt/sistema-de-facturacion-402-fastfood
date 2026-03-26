@@ -701,6 +701,88 @@
             font-weight: 600;
         }
 
+        .pago-global-modo {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            border: 2px solid #e0e6ff;
+            border-radius: 12px;
+            padding: 0.8rem 1rem;
+            background: #f8f9ff;
+        }
+
+        .pago-global-help {
+            font-size: 0.85rem;
+            color: #718096;
+            text-align: right;
+        }
+
+        .pago-global-switch {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 700;
+            color: #2c3e50;
+            cursor: pointer;
+        }
+
+        .pago-global-switch input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .pago-global-switch-track {
+            position: relative;
+            width: 64px;
+            height: 34px;
+            border-radius: 999px;
+            background: #cbd5e0;
+            transition: background 0.25s ease;
+            flex-shrink: 0;
+        }
+
+        .pago-global-switch-track::after {
+            content: "";
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+            transition: transform 0.25s ease;
+        }
+
+        .pago-global-switch-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.1;
+        }
+
+        .pago-global-switch-text strong {
+            font-size: 1rem;
+            color: #2c3e50;
+        }
+
+        .pago-global-switch-text small {
+            font-size: 0.8rem;
+            color: #718096;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.45px;
+        }
+
+        .pago-global-switch input:checked + .pago-global-switch-track {
+            background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+        }
+
+        .pago-global-switch input:checked + .pago-global-switch-track::after {
+            transform: translateX(30px);
+        }
+
         .resumen-deuda {
             background: #f8f9ff;
             color: #2c3e50;
@@ -761,15 +843,88 @@
         }
 
         .pago-item {
-            padding: 0.75rem;
-            border-bottom: 1px solid #e0e6ff;
+            padding: 1rem 1.1rem;
+            border: 1px solid #e0e6ff;
+            border-radius: 14px;
+            background: #f8f9ff;
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .pago-item + .pago-item {
+            margin-top: 0.75rem;
         }
 
         .pago-item:last-child {
-            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .pago-item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .pago-item-comprobante {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #2d3748;
+            line-height: 1.2;
+        }
+
+        .pago-item-meta {
+            font-size: 0.95rem;
+            color: #718096;
+        }
+
+        .pago-item-factura {
+            font-size: 0.9rem;
+            color: #4a5568;
+            font-weight: 600;
+        }
+
+        .pago-item-monto {
+            margin-left: auto;
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.15rem;
+        }
+
+        .pago-item-monto-label {
+            font-size: 0.8rem;
+            color: #718096;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .pago-item-monto-valor {
+            font-size: 1.7rem;
+            font-weight: 700;
+            color: #2f855a;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 768px) {
+            .pago-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .pago-item-monto {
+                margin-left: 0;
+                text-align: left;
+                align-items: flex-start;
+            }
+
+            .pago-item-monto-valor {
+                font-size: 1.35rem;
+            }
         }
 
         /* ===== MODALES ===== */
@@ -1828,12 +1983,14 @@
             const historialHTML = cliente.historial_pagos && cliente.historial_pagos.length > 0 ?
                 cliente.historial_pagos.map(pago => `
                     <div class="pago-item">
-                        <div>
-                            <strong>${formatDate(pago.fecha)}</strong>
-                            <div style="font-size: 0.85rem; color: #718096;">${pago.metodo}</div>
+                        <div class="pago-item-info">
+                            <div class="pago-item-comprobante">${pago.numero_comprobante ? `Comprobante #${pago.numero_comprobante}` : (pago.referencia ? `Referencia: ${pago.referencia}` : 'Comprobante no disponible')}</div>
+                            <div class="pago-item-meta">${formatDate(pago.fecha)} | ${pago.metodo}</div>
+                            <div class="pago-item-factura">${pago.numero_factura ? `Factura #${pago.numero_factura}` : 'Factura no disponible'}</div>
                         </div>
-                        <div style="font-weight: 700; color: #38a169;">
-                            +$${formatCurrency(pago.monto)}
+                        <div class="pago-item-monto">
+                            <span class="pago-item-monto-label">Pagado</span>
+                            <span class="pago-item-monto-valor">+RD$${formatCurrency(pago.monto)}</span>
                         </div>
                     </div>
                 `).join('') :
@@ -1988,6 +2145,10 @@
             const factura = cliente.facturas.find(f => f.id === facturaId);
             const saldoPendiente = parseFloat(factura.saldo_pendiente || 0);
             const estadoCuenta = String(factura.estado_cuenta || '').toLowerCase();
+            const numeroFacturaActual = String(factura.numero || '').trim().toLowerCase();
+            const cantidadPagosFactura = (cliente.historial_pagos || []).filter(pago =>
+                String(pago.numero_factura || '').trim().toLowerCase() === numeroFacturaActual
+            ).length;
 
             const estaPagada = saldoPendiente <= 0 || estadoCuenta === 'pagada';
             const estaVencida = !estaPagada && (estadoCuenta === 'vencida' || factura.vencida);
@@ -2071,6 +2232,10 @@
                                     <span>Saldo Pendiente:</span>
                                     <span>RD$${formatCurrency(factura.saldo_pendiente)}</span>
                                 </div>
+                                <div style="display: flex; justify-content: space-between; margin-top: 0.6rem; font-weight: 600; color: #2c3e50;">
+                                    <span>${estaPagada ? 'Pagada en:' : 'Pagos realizados:'}</span>
+                                    <span>${cantidadPagosFactura} ${cantidadPagosFactura === 1 ? 'pago' : 'pagos'}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2117,6 +2282,10 @@
         function registrarPago(clienteId) {
             currentClienteId = clienteId;
             const cliente = clientesData.find(c => c.id === clienteId);
+            const facturasPendientes = (cliente.facturas || []).filter(f => parseFloat(f.saldo_pendiente || 0) > 0);
+            const facturasOptions = facturasPendientes.map(f => `
+                <option value="${f.id}">Factura #${f.numero} - Saldo RD$${formatCurrency(f.saldo_pendiente)}</option>
+            `).join('');
 
             const modalBody = document.getElementById('pagoModalBody');
             const totalPendiente = cliente.total_adeudado;
@@ -2140,6 +2309,31 @@
                     <h4 style="color: #2c3e50; margin-bottom: 1rem;"><i class="fas fa-money-bill-wave"></i> Registrar Pago</h4>
 
                     <div class="pago-form-grid">
+                        <div class="form-group form-span-2">
+                            <label><i class="fas fa-sliders-h"></i> Modo de Cobro</label>
+                            <div class="pago-global-modo">
+                                <label class="pago-global-switch">
+                                    <input type="checkbox" id="pagoCompletoToggle" checked onchange="togglePagoCompletoGlobal()">
+                                    <span class="pago-global-switch-track"></span>
+                                    <span class="pago-global-switch-text">
+                                        <strong>Pagar deuda completa</strong>
+                                        <small id="pagoCompletoEstado">ON</small>
+                                    </span>
+                                </label>
+                                <div class="pago-global-help" id="pagoGlobalHelpText">
+                                    Activado: el pago se distribuye entre todas las facturas pendientes.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group form-span-2" id="facturaObjetivoGroup" style="display: none;">
+                            <label for="facturaObjetivo"><i class="fas fa-file-invoice"></i> Seleccionar Factura a Pagar *</label>
+                            <select id="facturaObjetivo" onchange="actualizarLimitePagoGlobal()">
+                                <option value="">Seleccione una factura</option>
+                                ${facturasOptions}
+                            </select>
+                        </div>
+
                         <div class="form-group">
                             <label for="montoPago"><i class="fas fa-dollar-sign"></i> Monto a Pagar *</label>
                             <input type="text" id="montoPago" 
@@ -2149,7 +2343,7 @@
                                 onfocus="prepararEdicionMoneda(this)"
                                 onblur="normalizarInputMoneda(this)"
                                 oninput="formatearMontoEnVivo(this, actualizarSaldoRestante)">
-                            <div style="font-size: 0.85rem; color: #718096; margin-top: 0.25rem;">
+                            <div id="montoPagoMaximoText" style="font-size: 0.85rem; color: #718096; margin-top: 0.25rem;">
                                 Máximo: RD$${formatCurrency(totalPendiente)}
                             </div>
                         </div>
@@ -2197,7 +2391,7 @@
                         <div id="saldoRestanteContainer" class="form-span-2" style="background: #e6fffa; padding: 1rem; border-radius: 10px; margin-top: 0.25rem; display: none;">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <div>
-                                    <strong>Saldo Restante:</strong>
+                                    <strong id="saldoRestanteLabel">Saldo Restante Total:</strong>
                                     <div style="color: #718096; font-size: 0.9rem;">Después de este pago</div>
                                 </div>
                                 <div style="font-size: 1.35rem; font-weight: 700; color: #38a169;" id="saldoRestante">
@@ -2218,7 +2412,7 @@
             `;
 
             seleccionarMetodoPago('efectivo');
-            actualizarSaldoRestante();
+            togglePagoCompletoGlobal();
 
             document.getElementById('pagoModal').classList.add('active');
         }
@@ -2355,22 +2549,118 @@
             document.getElementById('metodoPago').value = metodo;
         }
 
+        function obtenerContextoPagoGlobal() {
+            const clienteIdInput = document.getElementById('pagoClienteId');
+            const clienteId = clienteIdInput ? parseInt(clienteIdInput.value) : NaN;
+            const cliente = clientesData.find(c => c.id === clienteId);
+            if (!cliente) return null;
+
+            const pagoCompletoToggle = document.getElementById('pagoCompletoToggle');
+            const pagoCompleto = pagoCompletoToggle ? pagoCompletoToggle.checked : true;
+            const totalPendiente = parseFloat(cliente.total_adeudado || 0);
+
+            const facturaSelect = document.getElementById('facturaObjetivo');
+            const facturaId = facturaSelect ? parseInt(facturaSelect.value) : NaN;
+            const facturaSeleccionada = Number.isFinite(facturaId)
+                ? (cliente.facturas || []).find(f => f.id === facturaId)
+                : null;
+
+            const saldoObjetivo = pagoCompleto
+                ? totalPendiente
+                : parseFloat((facturaSeleccionada && facturaSeleccionada.saldo_pendiente) || 0);
+
+            return {
+                cliente,
+                pagoCompleto,
+                facturaSeleccionada,
+                totalPendiente,
+                saldoObjetivo,
+            };
+        }
+
+        function togglePagoCompletoGlobal() {
+            const pagoCompletoToggle = document.getElementById('pagoCompletoToggle');
+            const facturaGroup = document.getElementById('facturaObjetivoGroup');
+            const ayuda = document.getElementById('pagoGlobalHelpText');
+            const estadoToggle = document.getElementById('pagoCompletoEstado');
+            const pagoCompleto = pagoCompletoToggle ? pagoCompletoToggle.checked : true;
+
+            if (facturaGroup) {
+                facturaGroup.style.display = pagoCompleto ? 'none' : 'block';
+            }
+
+            if (ayuda) {
+                ayuda.textContent = pagoCompleto
+                    ? 'Activado: el pago se distribuye entre todas las facturas pendientes.'
+                    : 'Desactivado: el pago se aplica solo a la factura seleccionada.';
+            }
+
+            if (estadoToggle) {
+                estadoToggle.textContent = pagoCompleto ? 'ON' : 'OFF';
+            }
+
+            const facturaSelect = document.getElementById('facturaObjetivo');
+            if (!pagoCompleto && facturaSelect && !facturaSelect.value && facturaSelect.options.length > 1) {
+                facturaSelect.selectedIndex = 1;
+            }
+
+            actualizarLimitePagoGlobal();
+        }
+
+        function actualizarLimitePagoGlobal() {
+            const contexto = obtenerContextoPagoGlobal();
+            if (!contexto) return;
+
+            const { pagoCompleto, saldoObjetivo } = contexto;
+            const maximo = Math.max(0, saldoObjetivo);
+
+            const maximoText = document.getElementById('montoPagoMaximoText');
+            if (maximoText) {
+                maximoText.textContent = `Máximo: RD$${formatCurrency(maximo)}`;
+            }
+
+            const saldoLabel = document.getElementById('saldoRestanteLabel');
+            if (saldoLabel) {
+                saldoLabel.textContent = pagoCompleto ? 'Saldo Restante Total:' : 'Saldo Restante de la Factura:';
+            }
+
+            const montoInput = document.getElementById('montoPago');
+            if (montoInput) {
+                const montoActual = parseCurrencyInput(montoInput.value);
+                if (montoActual <= 0 || montoActual > maximo) {
+                    montoInput.value = formatCurrency(maximo);
+                }
+            }
+
+            actualizarSaldoRestante();
+        }
+
         function actualizarSaldoRestante() {
             const montoInput = document.getElementById('montoPago');
             const montoPago = parseCurrencyInput(montoInput.value);
-            const clienteId = document.getElementById('pagoClienteId').value;
-            const cliente = clientesData.find(c => c.id === parseInt(clienteId));
+            const contexto = obtenerContextoPagoGlobal();
+            if (!contexto) return;
 
-            if (!cliente) return;
-
-            const totalPendiente = cliente.total_adeudado;
-            const saldoRestante = totalPendiente - montoPago;
+            const { pagoCompleto, facturaSeleccionada, totalPendiente, saldoObjetivo } = contexto;
+            const saldoRestante = saldoObjetivo - montoPago;
             const saldoElement = document.getElementById('saldoRestante');
             const container = document.getElementById('saldoRestanteContainer');
+
+            if (!pagoCompleto && !facturaSeleccionada) {
+                if (saldoElement) {
+                    saldoElement.textContent = 'Seleccione factura';
+                    saldoElement.style.color = '#b7791f';
+                }
+                if (container) container.style.display = 'block';
+                return;
+            }
+
             const excede = validarExcesoMontoInput(
                 montoInput,
-                totalPendiente,
-                `Te estas excediendo del monto pendiente del cliente (RD$ ${formatCurrency(totalPendiente)}).`
+                saldoObjetivo,
+                pagoCompleto
+                    ? `Te estas excediendo del monto pendiente del cliente (RD$ ${formatCurrency(totalPendiente)}).`
+                    : `Te estas excediendo del monto pendiente de la factura (RD$ ${formatCurrency(saldoObjetivo)}).`
             );
 
             if (saldoElement) {
@@ -2436,6 +2726,10 @@
             const metodo = document.getElementById('metodoPago').value;
             const referencia = document.getElementById('referenciaPago').value;
             const notas = document.getElementById('notasPago').value;
+            const pagoCompletoToggle = document.getElementById('pagoCompletoToggle');
+            const pagoCompleto = pagoCompletoToggle ? pagoCompletoToggle.checked : true;
+            const facturaSelect = document.getElementById('facturaObjetivo');
+            const facturaObjetivoId = facturaSelect ? parseInt(facturaSelect.value) : NaN;
             const cliente = clientesData.find(c => c.id === clienteId);
 
             // Validaciones
@@ -2454,7 +2748,18 @@
                 return;
             }
 
-            const maximoPermitido = parseFloat(cliente.total_adeudado || 0);
+            const facturaSeleccionada = Number.isFinite(facturaObjetivoId)
+                ? (cliente.facturas || []).find(f => f.id === facturaObjetivoId)
+                : null;
+
+            if (!pagoCompleto && !facturaSeleccionada) {
+                showNotification('Selecciona una factura o activa el pago completo de la deuda.', 'error');
+                return;
+            }
+
+            const maximoPermitido = pagoCompleto
+                ? parseFloat(cliente.total_adeudado || 0)
+                : parseFloat((facturaSeleccionada && facturaSeleccionada.saldo_pendiente) || 0);
             if (monto > maximoPermitido) {
                 showNotification(`El monto no puede ser mayor al saldo pendiente (RD$ ${formatCurrency(maximoPermitido)}).`, 'error');
                 return;
@@ -2470,6 +2775,8 @@
                     body: JSON.stringify({
                         cliente_nombre: cliente.nombre_completo,
                         cliente_telefono: cliente.telefono,
+                        factura_id: pagoCompleto ? null : facturaSeleccionada.id,
+                        pago_completo: pagoCompleto,
                         monto: monto,
                         fecha_pago: fecha,
                         metodo_pago: metodo,

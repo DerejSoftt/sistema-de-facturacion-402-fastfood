@@ -7738,6 +7738,7 @@ def _armar_clientes_cuentas_por_cobrar():
                 'metodo': metodo_label,
                 'referencia': pago.referencia or '',
                 'numero_comprobante': pago.numero_comprobante or '',
+                'numero_factura': factura.numero_factura or '',
             })
 
     clientes_payload = []
@@ -7909,6 +7910,12 @@ def cuentaporcobrar_registrar_pago(request):
     referencia = (payload.get('referencia') or '').strip()
     notas = (payload.get('notas') or '').strip()
 
+    raw_pago_completo = payload.get('pago_completo', True)
+    if isinstance(raw_pago_completo, bool):
+        pago_completo = raw_pago_completo
+    else:
+        pago_completo = str(raw_pago_completo).strip().lower() in {'1', 'true', 'si', 'sí', 'on'}
+
     factura_id = payload.get('factura_id')
     cliente_nombre = (payload.get('cliente_nombre') or '').strip()
     cliente_telefono = _telefono_solo_digitos(payload.get('cliente_telefono'))
@@ -7954,6 +7961,12 @@ def cuentaporcobrar_registrar_pago(request):
 
         if not cliente_nombre and not cliente_telefono:
             return JsonResponse({'success': False, 'error': 'Debe indicar cliente para aplicar el pago.'}, status=400)
+
+        if not pago_completo:
+            return JsonResponse({
+                'success': False,
+                'error': 'Seleccione una factura específica o active el pago completo de la deuda.'
+            }, status=400)
 
         facturas_no_pagadas = Factura.objects.exclude(estado='pagada').prefetch_related('pagos_cxc').order_by('fecha_factura')
         facturas_cliente = []
