@@ -738,38 +738,7 @@
             <nav class="sidebar-nav">
                 <!-- Verificar grupos sin template tag -->
                 {% with user_groups=user.groups.all|join:"," %}
-
-                <!-- Menú para Usuario Normal (excluye superusuarios) -->
-                {% if "Usuario Normal" in user_groups and not user.is_superuser %}
-                <a href="{% url 'pedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
-                </a>
-                <a href="{% url 'inventario' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
-                    <span>Inventario</span>
-                </a>
-                <a href="{% url 'gestiondepedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
-                    <span>Gestión de Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                    <span>Facturación</span>
-                </a>
-                <a href="{% url 'salida' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
-                    <span>Salida de Productos</span>
-                </a>
-                {% endif %}
-
-                <!-- Menú para Administrador -->
-                {% if "Administrador" in user_groups and not user.is_superuser %}
+                {% if user.is_superuser or "Administrador" in user_groups %}
                 <a href="{% url 'entradadeproductos' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-box"></i></span>
@@ -805,100 +774,95 @@
                     <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                     <span>Facturación</span>
                 </a>
-                <a href="{% url 'salida' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
-                    <span>Salida de Productos</span>
-                </a>
-                <a href="{% url 'roles' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-users"></i></span>
-                    <span>Gestión de Usuarios</span>
-                </a>
-                {% endif %}
-
-                <!-- Menú para otros grupos... -->
-                {% if "Gerente" in user_groups and not user.is_superuser %}
-                <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
-                {% endif %}
-
-                {% if "Cajero" in user_groups and not user.is_superuser %}
-                <a href="{% url 'pedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                    <span>Facturación</span>
-                </a>
-                {% endif %}
-
-                <!-- Menú EXCLUSIVO para superusuarios -->
-                {% if user.is_superuser %}
-                <a href="{% url 'entradadeproductos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-box"></i></span>
-                    <span>Entrada de Productos</span>
-                </a>
-                <a href="{% url 'inventario' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
-                    <span>Inventario</span>
-                </a>
-                <a href="{% url 'entradadeplatillos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
-                    <span>Entrada de Platos</span>
-                </a>
-                <a href="{% url 'listadeplatillos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
-                    <span>Gestión de Platos</span>
-                </a>
-                <a href="{% url 'pedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
-                </a>
-                <a href="{% url 'gestiondepedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
-                    <span>Gestión de Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                    <span>Facturación</span>
+                <a href="{% url 'cuentaporcobrar' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'cuentaporcobrar' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span>
+                    <span>Cuentas por Cobrar</span>
                 </a>
                 <a href="{% url 'salida' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
                     <span>Salida de Productos</span>
                 </a>
+                <a href="{% url 'gestiondeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondeclientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-address-book"></i></span>
+                    <span>Gestión de Clientes</span>
+                </a>
+                <a href="{% url 'registrodeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'registrodeclientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
+                    <span>Registro de Clientes</span>
+                </a>
                 <a href="{% url 'roles' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>Gestión de Usuarios</span>
                 </a>
-
-                 <a href="{% url 'anulacionydevolucion' %}"
+                <a href="{% url 'anulacionydevolucion' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'anulacionydevolucion' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-undo"></i></span>
                     <span>Devolución</span>
                 </a>
-
-
-                <!-- Dashboard solo para superusuario -->
                 <a href="{% url 'dashbort' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
                     <span>Dashboard</span>
                 </a>
+                {% elif "Cajero" in user_groups %}
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'cuentaporcobrar' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'cuentaporcobrar' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span>
+                    <span>Cuentas por Cobrar</span>
+                </a>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Lista de Platillos</span>
+                </a>
+                {% elif "Usuario Normal" in user_groups %}
+                <a href="{% url 'entradadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'salida' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Lista de Platillos</span>
+                </a>
                 {% endif %}
 
-                <!-- Cerrar sesión para todos -->
                 <a href="{% url 'logout' %}" class="nav-item">
                     <span class="nav-icon"><i class="fas fa-door-open"></i></span>
                     <span>Cerrar Sesión</span>
@@ -914,8 +878,8 @@
         <div class="main-content">
             <div class="container">
                 <div class="header">
-                    <h1><i class="fas fa-file-invoice"></i> Historial de Facturas Emitidas</h1>
-                    <p>Consulta todas las facturas emitidas en BD con paginación de 20 registros por página</p>
+                    <h1><i class="fas fa-file-invoice"></i> Historial de Facturas</h1>
+                    <p>Consulta todas las facturas emitidas con paginación de 50 registros por página</p>
                 </div>
                 
                 <div class="content">
@@ -941,7 +905,7 @@
                     <!-- Controls Section -->
                     <div class="controls-section">
                         <div class="controls-header">
-                            <h3>Buscar Facturas Emitidas</h3>
+                            <h3>Buscar Facturas</h3>
                             <div style="display: flex; gap: 1rem;">
                                 <button class="btn btn-warning btn-sm" 
                                         type="button"
@@ -980,13 +944,16 @@
                                 </div>
                                 
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="dateFilter"><i class="fas fa-calendar-alt"></i> Fecha</label>
+                                    <label for="dateFilter"><i class="fas fa-calendar-alt"></i> Periodo</label>
                                     <select class="filter-select" id="dateFilter" name="fecha">
-                                        <option value="">Todas las fechas</option>
+                                        <option value="">Todos los periodos</option>
                                         <option value="hoy" {% if filtros.fecha == 'hoy' %}selected{% endif %}>Hoy</option>
                                         <option value="ayer" {% if filtros.fecha == 'ayer' %}selected{% endif %}>Ayer</option>
-                                        <option value="semana" {% if filtros.fecha == 'semana' %}selected{% endif %}>Esta Semana</option>
-                                        <option value="mes" {% if filtros.fecha == 'mes' %}selected{% endif %}>Este Mes</option>
+                                        <option value="ultimos_7_dias" {% if filtros.fecha == 'ultimos_7_dias' %}selected{% endif %}>Ultimos 7 dias</option>
+                                        <option value="ultimos_30_dias" {% if filtros.fecha == 'ultimos_30_dias' %}selected{% endif %}>Ultimos 30 dias</option>
+                                        <option value="este_mes" {% if filtros.fecha == 'este_mes' %}selected{% endif %}>Este mes</option>
+                                        <option value="mes_pasado" {% if filtros.fecha == 'mes_pasado' %}selected{% endif %}>Mes pasado</option>
+                                        <option value="este_anio" {% if filtros.fecha == 'este_anio' %}selected{% endif %}>Este ano</option>
                                     </select>
                                 </div>
                                 
@@ -1068,7 +1035,7 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            <div class="order-total">${{ pedido.total|floatformat:2 }}</div>
+                                            <div class="order-total">RD${{ pedido.total|floatformat:2 }}</div>
                                         </td>
                                         <td>
                                             <span class="status-pagado">
@@ -1114,7 +1081,7 @@
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                                             </svg>
-                                            <h3>No se encontraron facturas emitidas</h3>
+                                            <h3>No se encontraron facturas</h3>
                                             <p>No hay facturas para los filtros aplicados</p>
                                             <div style="margin-top: 1rem;">
                                                 <a href="{% url 'gestiondepedidos' %}" class="btn btn-primary" style="text-decoration: none;">
@@ -1129,22 +1096,48 @@
                         </table>
                     </div>
                     
-                    <!-- Pagination -->
+                    <!-- Pagination Bottom -->
                     {% if paginator.num_pages > 1 %}
-                    <div class="pagination" id="pagination">
-                        {% if paginator.has_previous %}
-                            <a href="?page={{ paginator.previous_page_number }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
-                               class="page-btn">← Anterior</a>
-                        {% endif %}
+                    <div class="pagination" id="pagination" style="margin-top: 2rem; padding: 2rem; background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%); border-radius: 12px; border: 1px solid rgba(255, 126, 95, 0.1); display: flex; flex-direction: column; align-items: center; gap: 1.5rem;">
                         
-                        <span class="page-info" id="pageInfo">
-                            Página {{ paginator.number }} de {{ paginator.num_pages }} · 20 facturas por página
+                        <!-- Botones en una fila -->
+                        <div style="display: flex; justify-content: center; align-items: flex-start; gap: 1.5rem; flex-wrap: wrap;">
+                            
+                            <!-- Botón Anterior -->
+                            {% if page_obj.has_previous %}
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem;">
+                                <a href="?page={{ page_obj.previous_page_number }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                                   class="page-btn">← Anterior</a>
+                                <small style="color: #718096; font-size: 0.75rem; font-weight: 500;">Anterior</small>
+                            </div>
+                            {% endif %}
+                            
+                            <!-- Input Ir a página -->
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; background: white; padding: 0.75rem 1rem; border-radius: 10px; border: 1px solid #e0e6ff;">
+                                    <input type="number" id="goToPageBottom" name="goToPage" min="1" max="{{ paginator.num_pages }}" value="{{ page_obj.number }}" 
+                                           style="width: 70px; padding: 0.5rem; border: 1px solid #e0e6ff; border-radius: 6px; text-align: center; font-weight: 600; font-size: 1rem;">
+                                    <button onclick="goToPage(document.getElementById('goToPageBottom').value, false)" class="page-btn" style="padding: 0.5rem 0.75rem; font-size: 0.875rem; min-width: auto;">
+                                        ✓
+                                    </button>
+                                </div>
+                                <small style="color: #718096; font-size: 0.75rem; font-weight: 500;">Ir a página</small>
+                            </div>
+                            
+                            <!-- Botón Siguiente -->
+                            {% if page_obj.has_next %}
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem;">
+                                <a href="?page={{ page_obj.next_page_number }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
+                                   class="page-btn">Siguiente →</a>
+                                <small style="color: #718096; font-size: 0.75rem; font-weight: 500;">Siguiente</small>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Información de página -->
+                        <span class="page-info" id="pageInfo" style="white-space: nowrap; font-weight: 600; color: #2c3e50; font-size: 1rem;">
+                            Página {{ page_obj.number }} de {{ paginator.num_pages }} · 50 facturas por página
                         </span>
-                        
-                        {% if paginator.has_next %}
-                            <a href="?page={{ paginator.next_page_number }}{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}" 
-                               class="page-btn">Siguiente →</a>
-                        {% endif %}
                     </div>
                     {% endif %}
                 </div>
@@ -1195,6 +1188,50 @@
             });
         });
         
+        // Función para ir a una página específica
+        function goToPage(pageNum, isTop) {
+            const maxPages = parseInt('{{ paginator.num_pages }}', 10) || 1;
+            const pageNumber = parseInt(pageNum, 10);
+            
+            // Validar que sea un número válido
+            if (isNaN(pageNumber) || pageNumber < 1 || pageNumber > maxPages) {
+                alert(`Por favor ingresa un número entre 1 y ${maxPages}`);
+                const inputId = isTop ? 'goToPageTop' : 'goToPageBottom';
+                document.getElementById(inputId).focus();
+                return;
+            }
+            
+            // Obtener parámetros de filtro
+            const urlParams = new URLSearchParams(window.location.search);
+            let url = `?page=${pageNumber}`;
+            
+            // Agregar parámetros de filtro si existen
+            if (urlParams.has('search')) {
+                url += `&search=${urlParams.get('search')}`;
+            }
+            if (urlParams.has('tipo_pedido')) {
+                url += `&tipo_pedido=${urlParams.get('tipo_pedido')}`;
+            }
+            if (urlParams.has('fecha')) {
+                url += `&fecha=${urlParams.get('fecha')}`;
+            }
+            
+            window.location.href = url;
+        }
+        
+        // Permitir Enter en los inputs de página
+        document.getElementById('goToPageTop')?.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                goToPage(this.value, true);
+            }
+        });
+        
+        document.getElementById('goToPageBottom')?.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                goToPage(this.value, false);
+            }
+        });
+        
         // Función para alternar sidebar
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
@@ -1235,4 +1272,3 @@
     </script>
 </body>
 </html>
-

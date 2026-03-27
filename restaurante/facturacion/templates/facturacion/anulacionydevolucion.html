@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 {% load static %}
+{% load humanize %}
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -1131,38 +1132,7 @@
             <nav class="sidebar-nav">
                 <!-- Verificar grupos sin template tag -->
                 {% with user_groups=user.groups.all|join:"," %}
-
-                <!-- Menú para Usuario Normal (excluye superusuarios) -->
-                {% if "Usuario Normal" in user_groups and not user.is_superuser %}
-                <a href="{% url 'pedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
-                </a>
-                <a href="{% url 'inventario' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
-                    <span>Inventario</span>
-                </a>
-                <a href="{% url 'gestiondepedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
-                    <span>Gestión de Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                    <span>Facturación</span>
-                </a>
-                <a href="{% url 'salida' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
-                    <span>Salida de Productos</span>
-                </a>
-                {% endif %}
-
-                <!-- Menú para Administrador -->
-                {% if "Administrador" in user_groups and not user.is_superuser %}
+                {% if user.is_superuser or "Administrador" in user_groups %}
                 <a href="{% url 'entradadeproductos' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-box"></i></span>
@@ -1198,100 +1168,95 @@
                     <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                     <span>Facturación</span>
                 </a>
-                <a href="{% url 'salida' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
-                    <span>Salida de Productos</span>
-                </a>
-                <a href="{% url 'roles' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-users"></i></span>
-                    <span>Gestión de Usuarios</span>
-                </a>
-                {% endif %}
-
-                <!-- Menú para otros grupos... -->
-                {% if "Gerente" in user_groups and not user.is_superuser %}
-                <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
-                {% endif %}
-
-                {% if "Cajero" in user_groups and not user.is_superuser %}
-                <a href="{% url 'pedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                    <span>Facturación</span>
-                </a>
-                {% endif %}
-
-                <!-- Menú EXCLUSIVO para superusuarios -->
-                {% if user.is_superuser %}
-                <a href="{% url 'entradadeproductos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-box"></i></span>
-                    <span>Entrada de Productos</span>
-                </a>
-                <a href="{% url 'inventario' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
-                    <span>Inventario</span>
-                </a>
-                <a href="{% url 'entradadeplatillos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
-                    <span>Entrada de Platos</span>
-                </a>
-                <a href="{% url 'listadeplatillos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
-                    <span>Gestión de Platos</span>
-                </a>
-                <a href="{% url 'pedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
-                </a>
-                <a href="{% url 'gestiondepedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
-                    <span>Gestión de Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                    <span>Facturación</span>
+                <a href="{% url 'cuentaporcobrar' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'cuentaporcobrar' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span>
+                    <span>Cuentas por Cobrar</span>
                 </a>
                 <a href="{% url 'salida' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
                     <span>Salida de Productos</span>
                 </a>
+                <a href="{% url 'gestiondeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondeclientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-address-book"></i></span>
+                    <span>Gestión de Clientes</span>
+                </a>
+                <a href="{% url 'registrodeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'registrodeclientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
+                    <span>Registro de Clientes</span>
+                </a>
                 <a href="{% url 'roles' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>Gestión de Usuarios</span>
                 </a>
-
-                 <a href="{% url 'anulacionydevolucion' %}"
+                <a href="{% url 'anulacionydevolucion' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'anulacionydevolucion' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-undo"></i></span>
                     <span>Devolución</span>
                 </a>
-
-
-                <!-- Dashboard solo para superusuario -->
                 <a href="{% url 'dashbort' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
                     <span>Dashboard</span>
                 </a>
+                {% elif "Cajero" in user_groups %}
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'cuentaporcobrar' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'cuentaporcobrar' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span>
+                    <span>Cuentas por Cobrar</span>
+                </a>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Lista de Platillos</span>
+                </a>
+                {% elif "Usuario Normal" in user_groups %}
+                <a href="{% url 'entradadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'salida' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Lista de Platillos</span>
+                </a>
                 {% endif %}
 
-                <!-- Cerrar sesión para todos -->
                 <a href="{% url 'logout' %}" class="nav-item">
                     <span class="nav-icon"><i class="fas fa-door-open"></i></span>
                     <span>Cerrar Sesión</span>
@@ -1423,8 +1388,8 @@
                                             {% endif %}
                                         </td>
                                         <td>{{ item.cantidad }}</td>
-                                        <td>${{ item.precio|floatformat:2 }}</td>
-                                        <td>${{ item.subtotal|floatformat:2 }}</td>
+                                        <td>RD${{ item.precio|floatformat:2|intcomma }}</td>
+                                        <td>RD${{ item.subtotal|floatformat:2|intcomma }}</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -1465,7 +1430,7 @@
                                             <td>{{ item.nombre }}</td>
                                             <td>{{ item.codigo|default:"No disponible" }}</td>
                                             <td>{{ item.cantidad }}</td>
-                                            <td>${{ item.precio|floatformat:2 }}</td>
+                                            <td>RD${{ item.precio|floatformat:2|intcomma }}</td>
                                             <td>{{ item.categoria }}</td>
                                         </tr>
                                         {% empty %}
@@ -1504,27 +1469,27 @@
                             <div class="invoice-summary">
                                 <div class="summary-row">
                                     <span>Subtotal:</span>
-                                    <span>${{ factura.subtotal|floatformat:2 }}</span>
+                                    <span>RD${{ factura.subtotal|floatformat:2|intcomma }}</span>
                                 </div>
                                 <div class="summary-row">
                                     <span>IVA (12%):</span>
-                                    <span>${{ factura.iva|floatformat:2 }}</span>
+                                    <span>RD${{ factura.iva|floatformat:2|intcomma }}</span>
                                 </div>
                                 {% if factura.envio and factura.envio > 0 %}
                                 <div class="summary-row">
                                     <span>Envío:</span>
-                                    <span>${{ factura.envio|floatformat:2 }}</span>
+                                    <span>RD${{ factura.envio|floatformat:2|intcomma }}</span>
                                 </div>
                                 {% endif %}
                                 {% if factura.descuento and factura.descuento > 0 %}
                                 <div class="summary-row">
                                     <span>Descuento:</span>
-                                    <span>-${{ factura.descuento|floatformat:2 }}</span>
+                                    <span>-RD${{ factura.descuento|floatformat:2|intcomma }}</span>
                                 </div>
                                 {% endif %}
                                 <div class="summary-row summary-total">
                                     <span>Total:</span>
-                                    <span class="total-amount">${{ factura.total|floatformat:2 }}</span>
+                                    <span class="total-amount">RD${{ factura.total|floatformat:2|intcomma }}</span>
                                 </div>
                             </div>
                         </div>
@@ -1647,7 +1612,7 @@
                         </div>
                         <div class="modal-total-section">
                             <span class="modal-total-label">Total a Devolver:</span>
-                            <span class="modal-total-amount" id="partialReturnTotal">$0.00</span>
+                            <span class="modal-total-amount" id="partialReturnTotal">RD$0.00</span>
                         </div>
                         <input type="hidden" name="numero_factura" id="modalFacturaNumero" value="{{ factura.numero_factura|default:'' }}">
                         <input type="hidden" name="productos_devueltos" id="productosDevueltosInput" value="[]">
@@ -1683,7 +1648,7 @@
                             </h4>
                             <div><strong>Número:</strong> {{ factura.numero_factura }}</div>
                             <div><strong>Cliente:</strong> {{ factura.nombre_cliente|default:"No especificado" }}</div>
-                            <div><strong>Total:</strong> ${{ factura.total|floatformat:2 }}</div>
+                            <div><strong>Total:</strong> RD${{ factura.total|floatformat:2|intcomma }}</div>
                         </div>
                         
                         <div style="margin-bottom: 1.5rem;">
@@ -1722,37 +1687,36 @@
 
    <script>
     // Datos de la factura actual (si existe)
-    {% if factura %}
-    const facturaActual = {
-        numero: "{{ factura.numero_factura }}",
-        estado: "{{ factura.estado }}",
-        items: {{ items_json|safe }},
-        productosDisponibles: {{ productos_disponibles_json|safe }},
-        productosDevueltos: {{ productos_devueltos_json|safe }}
-    };
-    
-    console.log('✅ Factura actual cargada:', facturaActual.numero);
-    console.log('📦 Items en factura:', facturaActual.items.length);
-    console.log('✅ Productos disponibles para devolver:', facturaActual.productosDisponibles.length);
-    console.log('🔄 Productos ya devueltos:', facturaActual.productosDevueltos.length);
-    
-    if (facturaActual.items && facturaActual.items.length > 0) {
-        console.log('📋 Detalle de productos:');
-        facturaActual.items.forEach((item, index) => {
-            console.log(`  ${index + 1}. ${item.nombre || 'Sin nombre'}`);
-            console.log(`     Código: "${item.codigo || 'No disponible'}"`);
-            console.log(`     Categoría: "${item.categoria || 'No disponible'}"`);
-            console.log(`     Cantidad: ${item.cantidad || 0}`);
-            console.log(`     Precio: $${item.precio || 0}`);
-        });
+    const facturaCargada = '{{ factura|yesno:"true,false" }}' === 'true';
+    const facturaActual = facturaCargada ? {
+        numero: '{{ factura.numero_factura|default_if_none:""|escapejs }}',
+        estado: '{{ factura.estado|default_if_none:""|escapejs }}',
+        items: JSON.parse('{{ items_json|default:"[]"|escapejs }}'),
+        productosDisponibles: JSON.parse('{{ productos_disponibles_json|default:"[]"|escapejs }}'),
+        productosDevueltos: JSON.parse('{{ productos_devueltos_json|default:"[]"|escapejs }}')
+    } : null;
+
+    if (facturaActual) {
+        console.log('✅ Factura actual cargada:', facturaActual.numero);
+        console.log('📦 Items en factura:', facturaActual.items.length);
+        console.log('✅ Productos disponibles para devolver:', facturaActual.productosDisponibles.length);
+        console.log('🔄 Productos ya devueltos:', facturaActual.productosDevueltos.length);
+
+        if (facturaActual.items && facturaActual.items.length > 0) {
+            console.log('📋 Detalle de productos:');
+            facturaActual.items.forEach((item, index) => {
+                console.log(`  ${index + 1}. ${item.nombre || 'Sin nombre'}`);
+                console.log(`     Código: "${item.codigo || 'No disponible'}"`);
+                console.log(`     Categoría: "${item.categoria || 'No disponible'}"`);
+                console.log(`     Cantidad: ${item.cantidad || 0}`);
+                console.log(`     Precio: RD$${item.precio || 0}`);
+            });
+        } else {
+            console.warn('⚠️  No hay items en la factura');
+        }
     } else {
-        console.warn('⚠️  No hay items en la factura');
+        console.log('ℹ️  No hay factura cargada');
     }
-    
-    {% else %}
-    const facturaActual = null;
-    console.log('ℹ️  No hay factura cargada');
-    {% endif %}
 
     function getCSRFToken() {
         const name = 'csrftoken=';
@@ -1772,6 +1736,14 @@
         document.querySelectorAll('input[name="csrfmiddlewaretoken"]').forEach((input) => {
             input.value = cookieToken;
         });
+    }
+
+    function formatCurrency(value) {
+        const amount = Number(value) || 0;
+        return `RD$${amount.toLocaleString('es-DO', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        })}`;
     }
 
     // Inicializar la aplicación
@@ -1901,8 +1873,9 @@
             mensaje += 'No hay productos bebida para reponer stock.\n';
         }
         
-        mensaje += `\nMonto total a devolver: $${facturaActual.items.reduce((sum, item) => 
-            sum + (item.cantidad * item.precio), 0).toFixed(2)}`;
+        const totalDevolucion = facturaActual.items.reduce((sum, item) =>
+            sum + (item.cantidad * item.precio), 0);
+        mensaje += `\nMonto total a devolver: ${formatCurrency(totalDevolucion)}`;
         
         return confirm(mensaje);
     }
@@ -1942,7 +1915,7 @@
                         <div>
                             <strong style="color: #2c3e50;">Total Devuelto:</strong>
                             <div style="font-size: 1.8rem; font-weight: bold; color: #4CAF50;">
-                                $${montoTotal.toFixed(2)}
+                                ${formatCurrency(montoTotal)}
                             </div>
                         </div>
                         <div style="color: #718096; font-size: 0.9rem; text-align: right;">
@@ -1968,7 +1941,7 @@
                             </div>
                         </div>
                         <div style="font-weight: 700; color: #4CAF50;">
-                            $${parseFloat(producto.subtotal || 0).toFixed(2)}
+                            ${formatCurrency(parseFloat(producto.subtotal || 0))}
                         </div>
                     </div>
                 `;
@@ -2010,7 +1983,7 @@
                     p.categoria && p.categoria.toLowerCase() === 'bebida'
                 );
                 
-                let mensaje = `¿Estás seguro de procesar la devolución de ${productosSeleccionados.length} producto(s) por un total de $${total.toFixed(2)}?\n\n`;
+                let mensaje = `¿Estás seguro de procesar la devolución de ${productosSeleccionados.length} producto(s) por un total de ${formatCurrency(total)}?\n\n`;
                 
                 if (bebidas.length > 0) {
                     mensaje += `Se repondrá el stock de ${bebidas.length} producto(s) bebida:\n`;
@@ -2209,7 +2182,7 @@
                     <div class="product-info">
                         <div class="product-name">${productoNombre}</div>
                         <div class="product-details">
-                            <div>Precio unitario: $${(item.precio || 0).toFixed(2)}</div>
+                            <div>Precio unitario: ${formatCurrency(item.precio || 0)}</div>
                             <div>Disponible para devolver: ${cantidadDisponible} de ${cantidadOriginal}</div>
                             ${codigoProducto ? `<div>Código: <strong>${codigoProducto}</strong></div>` : '<div>Código: <em>No disponible</em></div>'}
                             ${cantidadYaDevuelta > 0 ? `<div style="color: #667eea;">Ya devuelto: ${cantidadYaDevuelta}</div>` : ''}
@@ -2230,7 +2203,7 @@
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
-                    <div class="product-total-price" id="price-${index}">$${(item.precio || 0).toFixed(2)}</div>
+                    <div class="product-total-price" id="price-${index}">${formatCurrency(item.precio || 0)}</div>
                 </div>
             `;
             productList.appendChild(productItem);
@@ -2347,7 +2320,7 @@
             // Actualizar precio mostrado
             const priceElement = document.getElementById(`price-${index}`);
             if (priceElement) {
-                priceElement.textContent = `$${subtotal.toFixed(2)}`;
+                priceElement.textContent = formatCurrency(subtotal);
             }
             
             productosSeleccionados.push({
@@ -2363,7 +2336,7 @@
         // Actualizar total
         const totalElement = document.getElementById('partialReturnTotal');
         if (totalElement) {
-            totalElement.textContent = `$${total.toFixed(2)}`;
+            totalElement.textContent = formatCurrency(total);
         }
         
         // Actualizar input hidden con productos seleccionados
@@ -2432,13 +2405,13 @@
             const checkbox = document.querySelector(`.product-checkbox[data-index="${index}"]`);
             if (checkbox) {
                 const precio = parseFloat(checkbox.dataset.price) || 0;
-                priceEl.textContent = `$${precio.toFixed(2)}`;
+                priceEl.textContent = formatCurrency(precio);
             }
         });
         
         const totalElement = document.getElementById('partialReturnTotal');
         if (totalElement) {
-            totalElement.textContent = '$0.00';
+            totalElement.textContent = formatCurrency(0);
         }
         
         const confirmBtn = document.getElementById('confirmarDevolucionBtn');
@@ -2508,4 +2481,3 @@ function ocultarLoading() {
     </script>
 </body>
 </html>
-

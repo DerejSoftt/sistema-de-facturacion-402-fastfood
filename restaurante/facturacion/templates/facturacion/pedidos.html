@@ -1408,7 +1408,7 @@ body {
     grid-template-columns: repeat(var(--menu-columns), minmax(0, 1fr));
     grid-auto-rows: var(--menu-card-height);
     gap: var(--menu-grid-gap);
-    max-height: calc((var(--menu-card-height) * 2) + var(--menu-grid-gap));
+    max-height: calc((var(--menu-card-height) * 3) + (var(--menu-grid-gap) * 2));
     overflow-y: auto;
     overflow-x: hidden;
     padding-right: 0.35rem;
@@ -1606,6 +1606,126 @@ body {
 .order-section h2::before {
     content: "📋";
     font-size: 1.4rem;
+}
+
+/* Payment Methods */
+.payment-methods {
+    margin-bottom: 1.4rem;
+    padding: 1rem;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #ffffff 0%, #f7faff 100%);
+    border: 1px solid #dfe8ff;
+    box-shadow: 0 8px 20px rgba(38, 52, 77, 0.08);
+}
+
+.payment-methods-title {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.payment-methods-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.1rem;
+    position: relative;
+    padding: 0.15rem 0.1rem;
+}
+
+.payment-methods-grid::before {
+    content: "";
+    position: absolute;
+    top: 0.3rem;
+    bottom: 0.3rem;
+    left: 50%;
+    width: 1px;
+    background: linear-gradient(to bottom, rgba(219, 229, 255, 0), #dbe5ff 20%, #dbe5ff 80%, rgba(219, 229, 255, 0));
+    transform: translateX(-0.5px);
+}
+
+.payment-option {
+    position: relative;
+}
+
+.payment-option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.payment-card {
+    min-height: 84px;
+    border-radius: 12px;
+    border: 2px solid #dbe5ff;
+    background: #ffffff;
+    color: #253247;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-weight: 700;
+    text-align: center;
+    box-shadow: 0 6px 14px rgba(44, 62, 80, 0.07);
+}
+
+.payment-card i {
+    font-size: 1.2rem;
+}
+
+.payment-card small {
+    display: block;
+    font-size: 0.74rem;
+    font-weight: 600;
+    opacity: 0.8;
+}
+
+.payment-option input:checked + .payment-card {
+    border-color: #ff7e5f;
+    background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+    color: #ffffff;
+    box-shadow: 0 12px 24px rgba(255, 126, 95, 0.35);
+    transform: translateY(-2px);
+}
+
+.payment-option input:focus-visible + .payment-card {
+    outline: 3px solid rgba(255, 126, 95, 0.28);
+    outline-offset: 2px;
+}
+
+.payment-card:hover {
+    transform: translateY(-2px);
+    border-color: #ff9a7d;
+}
+
+.credit-fields {
+    margin-bottom: 1.1rem;
+    padding: 1rem;
+    border-radius: 12px;
+    border: 1px solid #dbe5ff;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.credit-fields .form-group {
+    margin-bottom: 0.85rem;
+}
+
+.credit-fields .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.credit-client-help {
+    font-size: 0.8rem;
+    color: #5a6475;
+    margin-top: 0.35rem;
 }
 
 /* Customer Form - MODIFICADO */
@@ -2211,7 +2331,7 @@ body {
     }
     
     .menu-grid {
-        max-height: calc((var(--menu-card-height) * 2) + var(--menu-grid-gap));
+        max-height: calc((var(--menu-card-height) * 3) + (var(--menu-grid-gap) * 2));
         overflow-y: auto;
     }
     
@@ -2246,7 +2366,7 @@ body {
     
     .menu-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        max-height: calc((var(--menu-card-height) * 2) + var(--menu-grid-gap));
+        max-height: calc((var(--menu-card-height) * 3) + (var(--menu-grid-gap) * 2));
         overflow-y: auto;
     }
     
@@ -2258,7 +2378,7 @@ body {
     }
     
     .menu-grid {
-        max-height: calc((var(--menu-card-height) * 2) + var(--menu-grid-gap));
+        max-height: calc((var(--menu-card-height) * 3) + (var(--menu-grid-gap) * 2));
         overflow-y: auto;
     }
 
@@ -2371,6 +2491,14 @@ body {
     .form-group.full-width {
         grid-column: span 1;
     }
+
+    .payment-methods-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .payment-methods-grid::before {
+        display: none;
+    }
     
     .tables-grid {
         grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
@@ -2428,38 +2556,7 @@ body {
         <nav class="sidebar-nav">
                 <!-- Verificar grupos sin template tag -->
                 {% with user_groups=user.groups.all|join:"," %}
-
-                <!-- Menú para Usuario Normal (excluye superusuarios) -->
-                {% if "Usuario Normal" in user_groups and not user.is_superuser %}
-                <a href="{% url 'pedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
-                </a>
-                <a href="{% url 'inventario' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
-                    <span>Inventario</span>
-                </a>
-                <a href="{% url 'gestiondepedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
-                    <span>Gestión de Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                    <span>Facturación</span>
-                </a>
-                <a href="{% url 'salida' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
-                    <span>Salida de Productos</span>
-                </a>
-                {% endif %}
-
-                <!-- Menú para Administrador -->
-                {% if "Administrador" in user_groups and not user.is_superuser %}
+                {% if user.is_superuser or "Administrador" in user_groups %}
                 <a href="{% url 'entradadeproductos' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-box"></i></span>
@@ -2495,100 +2592,95 @@ body {
                     <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                     <span>Facturación</span>
                 </a>
-                <a href="{% url 'salida' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
-                    <span>Salida de Productos</span>
-                </a>
-                <a href="{% url 'roles' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-users"></i></span>
-                    <span>Gestión de Usuarios</span>
-                </a>
-                {% endif %}
-
-                <!-- Menú para otros grupos... -->
-                {% if "Gerente" in user_groups and not user.is_superuser %}
-                <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
-                {% endif %}
-
-                {% if "Cajero" in user_groups and not user.is_superuser %}
-                <a href="{% url 'pedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                    <span>Facturación</span>
-                </a>
-                {% endif %}
-
-                <!-- Menú EXCLUSIVO para superusuarios -->
-                {% if user.is_superuser %}
-                <a href="{% url 'entradadeproductos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-box"></i></span>
-                    <span>Entrada de Productos</span>
-                </a>
-                <a href="{% url 'inventario' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
-                    <span>Inventario</span>
-                </a>
-                <a href="{% url 'entradadeplatillos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
-                    <span>Entrada de Platos</span>
-                </a>
-                <a href="{% url 'listadeplatillos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
-                    <span>Gestión de Platos</span>
-                </a>
-                <a href="{% url 'pedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
-                </a>
-                <a href="{% url 'gestiondepedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
-                    <span>Gestión de Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                    <span>Facturación</span>
+                <a href="{% url 'cuentaporcobrar' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'cuentaporcobrar' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span>
+                    <span>Cuentas por Cobrar</span>
                 </a>
                 <a href="{% url 'salida' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
                     <span>Salida de Productos</span>
                 </a>
+                <a href="{% url 'gestiondeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondeclientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-address-book"></i></span>
+                    <span>Gestión de Clientes</span>
+                </a>
+                <a href="{% url 'registrodeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'registrodeclientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
+                    <span>Registro de Clientes</span>
+                </a>
                 <a href="{% url 'roles' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>Gestión de Usuarios</span>
                 </a>
-
-                 <a href="{% url 'anulacionydevolucion' %}"
+                <a href="{% url 'anulacionydevolucion' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'anulacionydevolucion' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-undo"></i></span>
                     <span>Devolución</span>
                 </a>
-
-
-                <!-- Dashboard solo para superusuario -->
                 <a href="{% url 'dashbort' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
                     <span>Dashboard</span>
                 </a>
+                {% elif "Cajero" in user_groups %}
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'cuentaporcobrar' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'cuentaporcobrar' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span>
+                    <span>Cuentas por Cobrar</span>
+                </a>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Lista de Platillos</span>
+                </a>
+                {% elif "Usuario Normal" in user_groups %}
+                <a href="{% url 'entradadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'salida' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Lista de Platillos</span>
+                </a>
                 {% endif %}
 
-                <!-- Cerrar sesión para todos -->
                 <a href="{% url 'logout' %}" class="nav-item">
                     <span class="nav-icon"><i class="fas fa-door-open"></i></span>
                     <span>Cerrar Sesión</span>
@@ -2706,6 +2798,31 @@ body {
                             
                             <!-- Order Section -->
                             <div class="order-section">
+                                <div class="payment-methods">
+                                    <div class="payment-methods-title">
+                                        <i class="fas fa-credit-card"></i>
+                                        <span>Método de pago</span>
+                                    </div>
+                                    <div class="payment-methods-grid">
+                                        <label class="payment-option" for="pagoContado">
+                                            <input type="radio" id="pagoContado" name="tipo_pago" value="contado" checked>
+                                            <span class="payment-card">
+                                                <i class="fas fa-money-bill-wave"></i>
+                                                <span>Contado</span>
+                                                <small>Pago inmediato</small>
+                                            </span>
+                                        </label>
+
+                                        <label class="payment-option" for="pagoCredito">
+                                            <input type="radio" id="pagoCredito" name="tipo_pago" value="credito">
+                                            <span class="payment-card">
+                                                <i class="fas fa-file-invoice-dollar"></i>
+                                                <span>Crédito</span>
+                                                <small>Pagar después</small>
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
                                 <h2>Tu Pedido</h2>
                                 
                                 <!-- Order Code Display -->
@@ -2724,6 +2841,21 @@ body {
                                     <input type="hidden" name="subtotal" id="subtotalInput" value="0">
                                     <input type="hidden" name="envio" id="envioInput" value="0">
                                     <input type="hidden" name="total" id="totalInput" value="0">
+                                    <input type="hidden" name="cliente_credito_id" id="clienteCreditoIdInput" value="">
+
+                                    <div class="credit-fields hidden" id="creditFields">
+                                        <div class="form-group">
+                                            <label for="creditClientSearch"><i class="fas fa-search"></i> Buscar cliente para crédito</label>
+                                            <input type="text" id="creditClientSearch" placeholder="Escribe nombre, cédula o teléfono">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="creditClientSelect"><i class="fas fa-user-check"></i> Seleccionar cliente</label>
+                                            <select id="creditClientSelect" name="cliente_credito_selector">
+                                                <option value="">Selecciona un cliente</option>
+                                            </select>
+                                            <div class="credit-client-help" id="creditClientHelp">Selecciona el cliente para registrar la venta a crédito.</div>
+                                        </div>
+                                    </div>
                                     
                                     <div class="form-row">
                                         <div class="form-group">
@@ -2863,12 +2995,12 @@ body {
                                 <div class="order-summary" id="orderSummary" style="display: none;">
                                     <div class="summary-row">
                                         <span>Subtotal:</span>
-                                        <span id="subtotalDisplay">$0.00</span>
+                                        <span id="subtotalDisplay">RD$0.00</span>
                                     </div>
                                     <!-- 🔥 COMENTADO: Se eliminó la fila de envío -->
                                     <div class="summary-row total">
                                         <span>Total:</span>
-                                        <span class="total-amount" id="totalAmountDisplay">$0.00</span>
+                                        <span class="total-amount" id="totalAmountDisplay">RD$0.00</span>
                                     </div>
                                 </div>
                                 
@@ -2913,6 +3045,9 @@ body {
     let currentTableNumber = '';
     let currentDeliveryCode = '';
     let currentLlevarCode = '';
+    let currentPaymentMethod = 'contado';
+    let creditClientsData = [];
+    let currentCreditClientId = '';
     
     // Combinar platos y bebidas
     let menuItems = [];
@@ -3076,6 +3211,14 @@ body {
             console.error("❌ Error parseando bebidas_json:", e);
             bebidasData = [];
         }
+
+        try {
+            creditClientsData = JSON.parse('{{ clientes_credito_json|safe }}');
+            console.log("✅ Clientes de crédito cargados:", creditClientsData.length);
+        } catch (e) {
+            console.error("❌ Error parseando clientes_credito_json:", e);
+            creditClientsData = [];
+        }
         
         // Combinar ambos en un solo array
         menuItems = [...platosData, ...bebidasData];
@@ -3105,6 +3248,7 @@ body {
         renderCart();
         updateCartSummary();
         setupEventListeners();
+        updatePaymentMethod();
         updateOrderCode();
         
         loadFormData();
@@ -3185,10 +3329,30 @@ body {
         const customerName = document.getElementById('customerName');
         const customerPhone = document.getElementById('customerPhone');
         const customerNameTakeaway = document.getElementById('customerNameTakeaway');
+        const creditClientSearch = document.getElementById('creditClientSearch');
+        const creditClientSelect = document.getElementById('creditClientSelect');
+        const paymentRadios = document.querySelectorAll('input[name="tipo_pago"]');
         
         if (customerName) customerName.addEventListener('input', updatePlaceOrderButton);
         if (customerPhone) customerPhone.addEventListener('input', updatePlaceOrderButton);
         if (customerNameTakeaway) customerNameTakeaway.addEventListener('input', updatePlaceOrderButton);
+        if (creditClientSearch) {
+            creditClientSearch.addEventListener('input', function() {
+                renderCreditClientOptions(this.value);
+            });
+        }
+        if (creditClientSelect) {
+            creditClientSelect.addEventListener('change', function() {
+                currentCreditClientId = this.value || '';
+                document.getElementById('clienteCreditoIdInput').value = currentCreditClientId;
+                updatePlaceOrderButton();
+            });
+        }
+        if (paymentRadios.length > 0) {
+            paymentRadios.forEach((radio) => {
+                radio.addEventListener('change', updatePaymentMethod);
+            });
+        }
         
         document.getElementById('customerAddress')?.addEventListener('input', updatePlaceOrderButton);
         
@@ -3260,6 +3424,70 @@ body {
                 });
             });
         }
+    }
+
+    function renderCreditClientOptions(searchValue = '') {
+        const creditClientSelect = document.getElementById('creditClientSelect');
+        const creditClientHelp = document.getElementById('creditClientHelp');
+        if (!creditClientSelect) return;
+
+        const term = (searchValue || '').toLowerCase().trim();
+        const filteredClients = creditClientsData.filter((cliente) => {
+            const nombre = (cliente.nombre || '').toLowerCase();
+            const cedula = (cliente.cedula || '').toLowerCase();
+            const telefono = (cliente.telefono || '').toLowerCase();
+            return !term || nombre.includes(term) || cedula.includes(term) || telefono.includes(term);
+        });
+
+        const options = ['<option value="">Selecciona un cliente</option>'];
+        filteredClients.forEach((cliente) => {
+            options.push(`<option value="${cliente.id}">${cliente.nombre} - ${cliente.cedula} (RD$${Number(cliente.limite_credito || 0).toFixed(2)})</option>`);
+        });
+
+        creditClientSelect.innerHTML = options.join('');
+
+        if (currentCreditClientId && filteredClients.some((cliente) => String(cliente.id) === String(currentCreditClientId))) {
+            creditClientSelect.value = currentCreditClientId;
+        } else {
+            currentCreditClientId = '';
+            creditClientSelect.value = '';
+            document.getElementById('clienteCreditoIdInput').value = '';
+        }
+
+        if (creditClientHelp) {
+            if (filteredClients.length === 0) {
+                creditClientHelp.textContent = 'No se encontraron clientes con esa búsqueda.';
+            } else {
+                creditClientHelp.textContent = `${filteredClients.length} cliente(s) disponible(s) para seleccionar.`;
+            }
+        }
+
+        updatePlaceOrderButton();
+    }
+
+    function updatePaymentMethod() {
+        const selectedPayment = document.querySelector('input[name="tipo_pago"]:checked');
+        const creditFields = document.getElementById('creditFields');
+        const creditClientSearch = document.getElementById('creditClientSearch');
+
+        currentPaymentMethod = selectedPayment ? selectedPayment.value : 'contado';
+
+        if (currentPaymentMethod === 'credito') {
+            creditFields?.classList.remove('hidden');
+            renderCreditClientOptions(creditClientSearch ? creditClientSearch.value : '');
+            setTimeout(() => {
+                creditClientSearch?.focus();
+            }, 80);
+        } else {
+            creditFields?.classList.add('hidden');
+            currentCreditClientId = '';
+            const creditClientSelect = document.getElementById('creditClientSelect');
+            if (creditClientSelect) creditClientSelect.value = '';
+            if (creditClientSearch) creditClientSearch.value = '';
+            document.getElementById('clienteCreditoIdInput').value = '';
+        }
+
+        updatePlaceOrderButton();
     }
     
     /**
@@ -3631,6 +3859,13 @@ body {
                 return false;
             }
         }
+
+        if (currentPaymentMethod === 'credito') {
+            if (!currentCreditClientId || currentCreditClientId === '') {
+                showNotification('<i class="fas fa-times-circle"></i> Selecciona un cliente para venta a crédito', 'error');
+                return false;
+            }
+        }
         
         return true;
     }
@@ -3654,6 +3889,12 @@ body {
                 document.getElementById('mesaIdInput').value = '';
                 document.getElementById('codigoDeliveryInput').value = '';
                 document.getElementById('codigoLlevarInput').value = currentLlevarCode;
+            }
+
+            if (currentPaymentMethod === 'credito') {
+                document.getElementById('clienteCreditoIdInput').value = currentCreditClientId || '';
+            } else {
+                document.getElementById('clienteCreditoIdInput').value = '';
             }
             
             return true;
@@ -3700,6 +3941,12 @@ body {
             
             if (!codeValid) missingFields.push('código para llevar');
             if (!hasLlevarCodes) missingFields.push('códigos disponibles');
+        }
+
+        if (currentPaymentMethod === 'credito') {
+            const creditClientValid = currentCreditClientId && currentCreditClientId !== '';
+            isValid = isValid && creditClientValid;
+            if (!creditClientValid) missingFields.push('cliente de crédito');
         }
         
         placeOrderBtn.disabled = !isValid;
@@ -4183,4 +4430,3 @@ body {
 
 </body>
 </html>
-

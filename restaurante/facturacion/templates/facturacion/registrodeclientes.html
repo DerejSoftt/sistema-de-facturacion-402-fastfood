@@ -381,13 +381,16 @@
             left: 1rem;
             top: 50%;
             transform: translateY(-50%);
+            width: 2.8rem;
+            text-align: left;
+            pointer-events: none;
             color: #ff7e5f;
             font-weight: bold;
             font-size: 1.1rem;
         }
 
         .credito-input {
-            padding-left: 2.5rem !important;
+            padding-left: 4.2rem !important;
         }
 
         /* Acciones del formulario */
@@ -489,38 +492,7 @@
             <nav class="sidebar-nav">
                 <!-- Verificar grupos sin template tag -->
                 {% with user_groups=user.groups.all|join:"," %}
-
-                <!-- Menú para Usuario Normal (excluye superusuarios) -->
-                {% if "Usuario Normal" in user_groups and not user.is_superuser %}
-                <a href="{% url 'pedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
-                </a>
-                <a href="{% url 'inventario' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
-                    <span>Inventario</span>
-                </a>
-                <a href="{% url 'gestiondepedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
-                    <span>Gestión de Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                    <span>Facturación</span>
-                </a>
-                <a href="{% url 'salida' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
-                    <span>Salida de Productos</span>
-                </a>
-                {% endif %}
-
-                <!-- Menú para Administrador -->
-                {% if "Administrador" in user_groups and not user.is_superuser %}
+                {% if user.is_superuser or "Administrador" in user_groups %}
                 <a href="{% url 'entradadeproductos' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-box"></i></span>
@@ -556,100 +528,95 @@
                     <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                     <span>Facturación</span>
                 </a>
-                <a href="{% url 'salida' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
-                    <span>Salida de Productos</span>
-                </a>
-                <a href="{% url 'roles' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-users"></i></span>
-                    <span>Gestión de Usuarios</span>
-                </a>
-                {% endif %}
-
-                <!-- Menú para otros grupos... -->
-                {% if "Gerente" in user_groups and not user.is_superuser %}
-                <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
-                {% endif %}
-
-                {% if "Cajero" in user_groups and not user.is_superuser %}
-                <a href="{% url 'pedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                    <span>Facturación</span>
-                </a>
-                {% endif %}
-
-                <!-- Menú EXCLUSIVO para superusuarios -->
-                {% if user.is_superuser %}
-                <a href="{% url 'entradadeproductos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-box"></i></span>
-                    <span>Entrada de Productos</span>
-                </a>
-                <a href="{% url 'inventario' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
-                    <span>Inventario</span>
-                </a>
-                <a href="{% url 'entradadeplatillos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
-                    <span>Entrada de Platos</span>
-                </a>
-                <a href="{% url 'listadeplatillos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
-                    <span>Gestión de Platos</span>
-                </a>
-                <a href="{% url 'pedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
-                </a>
-                <a href="{% url 'gestiondepedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
-                    <span>Gestión de Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
-                    <span>Facturación</span>
+                <a href="{% url 'cuentaporcobrar' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'cuentaporcobrar' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span>
+                    <span>Cuentas por Cobrar</span>
                 </a>
                 <a href="{% url 'salida' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
                     <span>Salida de Productos</span>
                 </a>
+                <a href="{% url 'gestiondeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondeclientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-address-book"></i></span>
+                    <span>Gestión de Clientes</span>
+                </a>
+                <a href="{% url 'registrodeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'registrodeclientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
+                    <span>Registro de Clientes</span>
+                </a>
                 <a href="{% url 'roles' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>Gestión de Usuarios</span>
                 </a>
-
-                 <a href="{% url 'anulacionydevolucion' %}"
+                <a href="{% url 'anulacionydevolucion' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'anulacionydevolucion' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-undo"></i></span>
                     <span>Devolución</span>
                 </a>
-
-
-                <!-- Dashboard solo para superusuario -->
                 <a href="{% url 'dashbort' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
                     <span>Dashboard</span>
                 </a>
+                {% elif "Cajero" in user_groups %}
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="{% url 'gestiondepedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+                    <span>Facturación</span>
+                </a>
+                <a href="{% url 'cuentaporcobrar' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'cuentaporcobrar' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span>
+                    <span>Cuentas por Cobrar</span>
+                </a>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Lista de Platillos</span>
+                </a>
+                {% elif "Usuario Normal" in user_groups %}
+                <a href="{% url 'entradadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Gestión de Platos</span>
+                </a>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
+                </a>
+                <a href="{% url 'salida' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
+                    <span>Salida de Productos</span>
+                </a>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Lista de Platillos</span>
+                </a>
                 {% endif %}
 
-                <!-- Cerrar sesión para todos -->
                 <a href="{% url 'logout' %}" class="nav-item">
                     <span class="nav-icon"><i class="fas fa-door-open"></i></span>
                     <span>Cerrar Sesión</span>
@@ -672,7 +639,7 @@
                 <div class="content">
                     <!-- Formulario de Registro -->
                     <div class="form-container">
-                        <form id="clienteForm" method="POST" action="{% url 'registro_clientes' %}">
+                        <form id="clienteForm" method="POST" action="{% url 'registrodeclientes' %}">
                             {% csrf_token %}
 
                             <div class="form-section">
@@ -683,14 +650,12 @@
                                             <i class="fas fa-id-card"></i> Número de Cédula
                                         </label>
                                         <div class="cedula-input-container">
-                                            <input type="text" id="cedula" name="cedula" maxlength="11"
-                                                placeholder="00000000000" required pattern="\d{11}"
-                                                title="Debe contener exactamente 11 dígitos numéricos">
-                                            <span class="cedula-format">11 dígitos</span>
+                                            <input type="text" id="cedula" name="cedula" maxlength="13"
+                                                placeholder="000-0000000-0" required pattern="\d{3}-\d{7}-\d"
+                                                title="Formato: 000-0000000-0">
                                         </div>
                                         <div class="form-help" id="cedulaHelp">
-                                            <i class="fas fa-info-circle"></i> La cédula debe contener exactamente 11
-                                            dígitos
+                                            <i class="fas fa-info-circle"></i> Formato requerido: 000-0000000-0
                                         </div>
                                     </div>
 
@@ -729,10 +694,10 @@
                                             <i class="fas fa-phone"></i> Teléfono Principal
                                         </label>
                                         <input type="tel" id="telefono_principal" name="telefono_principal"
-                                            placeholder="Ej: 8091234567" pattern="[0-9]{10}"
-                                            title="Debe contener 10 dígitos" required>
+                                            placeholder="Ej: 809-123-4567" pattern="\d{3}-\d{3}-\d{4}"
+                                            title="Formato: 000-000-0000" required>
                                         <div class="form-help">
-                                            <i class="fas fa-info-circle"></i> 10 dígitos sin guiones ni espacios
+                                            <i class="fas fa-info-circle"></i> Formato: 000-000-0000
                                         </div>
                                     </div>
 
@@ -741,8 +706,8 @@
                                             <i class="fas fa-phone-alt"></i> Teléfono Alternativo
                                         </label>
                                         <input type="tel" id="telefono_alternativo" name="telefono_alternativo"
-                                            placeholder="Ej: 8299876543" pattern="[0-9]{10}"
-                                            title="Debe contener 10 dígitos">
+                                            placeholder="Ej: 829-987-6543" pattern="\d{3}-\d{3}-\d{4}"
+                                            title="Formato: 000-000-0000">
                                         <div class="form-help">
                                             <i class="fas fa-info-circle"></i> Opcional - 10 dígitos sin guiones
                                         </div>
@@ -758,10 +723,10 @@
                                             <i class="fas fa-dollar-sign"></i> Límite de Crédito
                                         </label>
                                         <div class="credito-container">
-                                            <span class="credito-symbol">$</span>
-                                            <input type="number" id="limite_credito" name="limite_credito"
-                                                class="credito-input" placeholder="0.00" step="0.01" min="0"
-                                                max="1000000" value="0.00" required>
+                                            <span class="credito-symbol">RD$</span>
+                                            <input type="text" id="limite_credito" name="limite_credito"
+                                                class="credito-input" placeholder="0.00" inputmode="decimal"
+                                                value="0.00" required>
                                         </div>
                                         <div class="form-help" id="creditoHelp">
                                             <i class="fas fa-info-circle"></i> Establezca el límite máximo de crédito
@@ -870,6 +835,13 @@
             // Validar límite de crédito mientras se escribe
             const limiteCreditoInput = document.getElementById('limite_credito');
             if (limiteCreditoInput) {
+                limiteCreditoInput.addEventListener('focus', function () {
+                    // Permite escribir de una vez sin borrar manualmente el valor inicial.
+                    if (this.value === '0.00') {
+                        this.value = '';
+                    }
+                    this.select();
+                });
                 limiteCreditoInput.addEventListener('input', validarLimiteCredito);
                 limiteCreditoInput.addEventListener('blur', formatearLimiteCredito);
             }
@@ -895,13 +867,14 @@
 
             cedulaInput.addEventListener('blur', function () {
                 const valor = cedulaInput.value.trim();
+                const soloNumeros = valor.replace(/\D/g, '');
 
                 if (valor.length === 0) {
                     mostrarError(cedulaInput, cedulaHelp, 'La cédula es requerida');
-                } else if (valor.length !== 11) {
+                } else if (soloNumeros.length !== 11) {
                     mostrarError(cedulaInput, cedulaHelp, 'La cédula debe tener exactamente 11 dígitos');
-                } else if (!/^\d+$/.test(valor)) {
-                    mostrarError(cedulaInput, cedulaHelp, 'La cédula solo puede contener números');
+                } else if (!/^\d{3}-\d{7}-\d$/.test(valor)) {
+                    mostrarError(cedulaInput, cedulaHelp, 'Formato inválido. Use 000-0000000-0');
                 } else {
                     mostrarExito(cedulaInput, cedulaHelp, 'Cédula válida');
                 }
@@ -937,12 +910,13 @@
             const telefonoInput = document.getElementById('telefono_principal');
             telefonoInput.addEventListener('blur', function () {
                 const valor = telefonoInput.value.trim();
+                const soloNumeros = valor.replace(/\D/g, '');
                 if (valor.length === 0) {
                     mostrarError(telefonoInput, null, 'El teléfono principal es requerido');
-                } else if (valor.length !== 10) {
+                } else if (soloNumeros.length !== 10) {
                     mostrarError(telefonoInput, null, 'El teléfono debe tener exactamente 10 dígitos');
-                } else if (!/^\d+$/.test(valor)) {
-                    mostrarError(telefonoInput, null, 'El teléfono solo puede contener números');
+                } else if (!/^\d{3}-\d{3}-\d{4}$/.test(valor)) {
+                    mostrarError(telefonoInput, null, 'Formato inválido. Use 000-000-0000');
                 } else {
                     mostrarExito(telefonoInput, null, 'Teléfono válido');
                 }
@@ -953,11 +927,12 @@
             if (telefonoAltInput) {
                 telefonoAltInput.addEventListener('blur', function () {
                     const valor = telefonoAltInput.value.trim();
+                    const soloNumeros = valor.replace(/\D/g, '');
                     if (valor.length > 0) {
-                        if (valor.length !== 10) {
+                        if (soloNumeros.length !== 10) {
                             mostrarError(telefonoAltInput, null, 'El teléfono alternativo debe tener exactamente 10 dígitos');
-                        } else if (!/^\d+$/.test(valor)) {
-                            mostrarError(telefonoAltInput, null, 'El teléfono solo puede contener números');
+                        } else if (!/^\d{3}-\d{3}-\d{4}$/.test(valor)) {
+                            mostrarError(telefonoAltInput, null, 'Formato inválido. Use 000-000-0000');
                         } else {
                             mostrarExito(telefonoAltInput, null, 'Teléfono válido');
                         }
@@ -971,12 +946,13 @@
 
             if (limiteCreditoInput && creditoHelp) {
                 limiteCreditoInput.addEventListener('blur', function () {
-                    const valor = parseFloat(limiteCreditoInput.value) || 0;
+                    const valorNormalizado = normalizarValorCredito(limiteCreditoInput.value);
+                    const valor = parseFloat(valorNormalizado) || 0;
 
                     if (valor < 0) {
                         mostrarError(limiteCreditoInput, creditoHelp, 'El límite de crédito no puede ser negativo');
                     } else if (valor > 1000000) {
-                        mostrarError(limiteCreditoInput, creditoHelp, 'El límite de crédito máximo es $1,000,000');
+                        mostrarError(limiteCreditoInput, creditoHelp, 'El límite de crédito máximo es RD$1,000,000');
                     } else {
                         mostrarExito(limiteCreditoInput, creditoHelp, 'Límite de crédito válido');
                     }
@@ -1007,23 +983,27 @@
 
             // Solo permitir números
             const soloNumeros = valor.replace(/\D/g, '');
+            const digitos = soloNumeros.substring(0, 11);
 
-            // Limitar a 11 dígitos
-            if (soloNumeros.length > 11) {
-                input.value = soloNumeros.substring(0, 11);
-            } else {
-                input.value = soloNumeros;
+            let formateada = digitos;
+            if (digitos.length > 3) {
+                formateada = `${digitos.substring(0, 3)}-${digitos.substring(3)}`;
             }
+            if (digitos.length > 10) {
+                formateada = `${digitos.substring(0, 3)}-${digitos.substring(3, 10)}-${digitos.substring(10, 11)}`;
+            }
+
+            input.value = formateada;
 
             // Actualizar ayuda visual
             const cedulaHelp = document.getElementById('cedulaHelp');
-            const caracteresRestantes = 11 - soloNumeros.length;
+            const caracteresRestantes = 11 - digitos.length;
 
             if (caracteresRestantes > 0) {
                 cedulaHelp.innerHTML = `<i class="fas fa-info-circle"></i> ${caracteresRestantes} dígitos restantes`;
                 cedulaHelp.className = 'form-help';
             } else {
-                cedulaHelp.innerHTML = `<i class="fas fa-check-circle"></i> Cédula completa (11 dígitos)`;
+                cedulaHelp.innerHTML = `<i class="fas fa-check-circle"></i> Cédula completa (000-0000000-0)`;
                 cedulaHelp.className = 'form-help success';
             }
         }
@@ -1035,41 +1015,45 @@
 
             // Solo permitir números
             const soloNumeros = valor.replace(/\D/g, '');
+            const digitos = soloNumeros.substring(0, 10);
 
-            // Limitar a 10 dígitos
-            if (soloNumeros.length > 10) {
-                input.value = soloNumeros.substring(0, 10);
-            } else {
-                input.value = soloNumeros;
+            let formateado = digitos;
+            if (digitos.length > 3) {
+                formateado = `${digitos.substring(0, 3)}-${digitos.substring(3)}`;
             }
+            if (digitos.length > 6) {
+                formateado = `${digitos.substring(0, 3)}-${digitos.substring(3, 6)}-${digitos.substring(6, 10)}`;
+            }
+
+            input.value = formateado;
         }
 
         // Función para validar límite de crédito en tiempo real
         function validarLimiteCredito() {
             const input = document.getElementById('limite_credito');
-            const valor = input.value;
+            const normalizado = normalizarValorCredito(input.value);
 
-            // Solo permitir números y un punto decimal
-            const soloNumeros = valor.replace(/[^\d.]/g, '');
-
-            // Limitar a un punto decimal
-            const partes = soloNumeros.split('.');
-            if (partes.length > 2) {
-                input.value = partes[0] + '.' + partes.slice(1).join('');
-            } else {
-                input.value = soloNumeros;
+            if (normalizado === '') {
+                input.value = '';
+                const creditoHelpVacio = document.getElementById('creditoHelp');
+                if (creditoHelpVacio) {
+                    creditoHelpVacio.innerHTML = `<i class="fas fa-info-circle"></i> Establezca el límite máximo de crédito para el cliente`;
+                    creditoHelpVacio.className = 'form-help';
+                }
+                return;
             }
 
-            // Limitar a 2 decimales
-            if (partes.length === 2 && partes[1].length > 2) {
-                input.value = partes[0] + '.' + partes[1].substring(0, 2);
+            let valorNumerico = parseFloat(normalizado);
+            if (isNaN(valorNumerico)) {
+                valorNumerico = 0;
             }
 
             // Limitar máximo a 1,000,000
-            const valorNumerico = parseFloat(input.value) || 0;
             if (valorNumerico > 1000000) {
-                input.value = '1000000';
+                valorNumerico = 1000000;
             }
+
+            input.value = formatearMonedaInput(normalizado);
 
             // Actualizar ayuda visual
             const creditoHelp = document.getElementById('creditoHelp');
@@ -1078,7 +1062,7 @@
             if (valorNumerico === 0) {
                 creditoHelp.innerHTML = `<i class="fas fa-info-circle"></i> Sin crédito - solo ventas al contado`;
             } else if (valorNumerico > 0) {
-                creditoHelp.innerHTML = `<i class="fas fa-check-circle"></i> Límite establecido: $${valorFormateado}`;
+                creditoHelp.innerHTML = `<i class="fas fa-check-circle"></i> Límite establecido: RD$${valorFormateado}`;
                 creditoHelp.className = 'form-help success';
             }
         }
@@ -1086,15 +1070,96 @@
         // Función para formatear límite de crédito
         function formatearLimiteCredito() {
             const input = document.getElementById('limite_credito');
-            const valor = parseFloat(input.value) || 0;
+            const normalizado = normalizarValorCredito(input.value);
 
-            // Formatear a 2 decimales
-            input.value = valor.toFixed(2);
+            if (normalizado === '') {
+                input.value = '0.00';
+                return;
+            }
+
+            let valor = parseFloat(normalizado);
+            if (isNaN(valor) || valor < 0) {
+                valor = 0;
+            }
+
+            if (valor > 1000000) {
+                valor = 1000000;
+            }
+
+            // Formatear a 2 decimales con separador de miles
+            input.value = new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(valor);
 
             // Si el valor es 0, establecer como 0.00
             if (valor === 0) {
                 input.value = '0.00';
             }
+        }
+
+        // Formatea el valor para mostrar miles y hasta 2 decimales mientras se escribe.
+        function formatearMonedaInput(valorNormalizado) {
+            if (!valorNormalizado) return '';
+
+            const partes = valorNormalizado.split('.');
+            const parteEntera = (partes[0] || '0').replace(/\D/g, '');
+            const parteDecimal = (partes[1] || '').replace(/\D/g, '').substring(0, 2);
+
+            const enteroNumero = parseInt(parteEntera, 10) || 0;
+            const enteroFormateado = new Intl.NumberFormat('en-US', {
+                maximumFractionDigits: 0
+            }).format(enteroNumero);
+
+            return parteDecimal ? `${enteroFormateado}.${parteDecimal}` : enteroFormateado;
+        }
+
+        // Normaliza entradas como "1,234.56", "1.234,56" o "1234,56" a formato numérico con punto decimal
+        function normalizarValorCredito(valor) {
+            let texto = (valor || '').toString().trim();
+            if (!texto) return '';
+
+            texto = texto.replace(/\s+/g, '').replace(/[^\d.,]/g, '');
+            if (!texto) return '';
+
+            let parteEntera = texto;
+            let parteDecimal = '';
+            const cantidadPuntos = (texto.match(/\./g) || []).length;
+            const cantidadComas = (texto.match(/,/g) || []).length;
+
+            if (cantidadPuntos > 0 && cantidadComas > 0) {
+                // Si tiene ambos separadores, el último es decimal y el otro es de miles.
+                const ultimoPunto = texto.lastIndexOf('.');
+                const ultimaComa = texto.lastIndexOf(',');
+                const indiceDecimal = Math.max(ultimoPunto, ultimaComa);
+                parteEntera = texto.substring(0, indiceDecimal);
+                parteDecimal = texto.substring(indiceDecimal + 1);
+            } else if (cantidadComas > 0) {
+                const indiceComa = texto.lastIndexOf(',');
+                const decimalesPosibles = texto.substring(indiceComa + 1).replace(/\D/g, '');
+                // Una sola coma con 1-2 dígitos al final: decimal. El resto: miles.
+                if (cantidadComas === 1 && decimalesPosibles.length > 0 && decimalesPosibles.length <= 2) {
+                    parteEntera = texto.substring(0, indiceComa);
+                    parteDecimal = texto.substring(indiceComa + 1);
+                }
+            } else if (cantidadPuntos > 0) {
+                const indicePunto = texto.lastIndexOf('.');
+                const decimalesPosibles = texto.substring(indicePunto + 1).replace(/\D/g, '');
+                // Un solo punto con 1-2 dígitos al final: decimal. El resto: miles.
+                if (cantidadPuntos === 1 && decimalesPosibles.length > 0 && decimalesPosibles.length <= 2) {
+                    parteEntera = texto.substring(0, indicePunto);
+                    parteDecimal = texto.substring(indicePunto + 1);
+                }
+            }
+
+            parteEntera = parteEntera.replace(/[.,]/g, '');
+            parteDecimal = parteDecimal.replace(/[.,]/g, '').substring(0, 2);
+
+            if (parteEntera === '') {
+                parteEntera = '0';
+            }
+
+            return parteDecimal ? `${parteEntera}.${parteDecimal}` : parteEntera;
         }
 
         // Función para validar días de crédito
@@ -1200,15 +1265,18 @@
 
             // Validar todos los campos requeridos
             const cedula = document.getElementById('cedula').value.trim();
+            const cedulaDigitos = cedula.replace(/\D/g, '');
             const nombre = document.getElementById('nombre_completo').value.trim();
             const direccion = document.getElementById('direccion').value.trim();
             const telefono = document.getElementById('telefono_principal').value.trim();
+            const telefonoDigitos = telefono.replace(/\D/g, '');
             const limiteCredito = document.getElementById('limite_credito').value.trim();
+            const limiteCreditoNormalizado = normalizarValorCredito(limiteCredito);
 
             let formularioValido = true;
 
             // Validar cédula
-            if (cedula.length !== 11 || !/^\d+$/.test(cedula)) {
+            if (cedulaDigitos.length !== 11 || !/^\d{3}-\d{7}-\d$/.test(cedula)) {
                 mostrarError(document.getElementById('cedula'), document.getElementById('cedulaHelp'), 'Cédula inválida. Debe tener 11 dígitos numéricos.');
                 formularioValido = false;
             }
@@ -1226,20 +1294,21 @@
             }
 
             // Validar teléfono
-            if (telefono.length !== 10 || !/^\d+$/.test(telefono)) {
+            if (telefonoDigitos.length !== 10 || !/^\d{3}-\d{3}-\d{4}$/.test(telefono)) {
                 mostrarError(document.getElementById('telefono_principal'), null, 'Teléfono inválido. Debe tener 10 dígitos numéricos.');
                 formularioValido = false;
             }
 
             // Validar teléfono alternativo si tiene valor
             const telefonoAlt = document.getElementById('telefono_alternativo').value.trim();
-            if (telefonoAlt.length > 0 && (telefonoAlt.length !== 10 || !/^\d+$/.test(telefonoAlt))) {
+            const telefonoAltDigitos = telefonoAlt.replace(/\D/g, '');
+            if (telefonoAlt.length > 0 && (telefonoAltDigitos.length !== 10 || !/^\d{3}-\d{3}-\d{4}$/.test(telefonoAlt))) {
                 mostrarError(document.getElementById('telefono_alternativo'), null, 'Teléfono alternativo inválido. Debe tener 10 dígitos numéricos.');
                 formularioValido = false;
             }
 
             // Validar límite de crédito
-            const limiteCreditoNum = parseFloat(limiteCredito) || 0;
+            const limiteCreditoNum = parseFloat(limiteCreditoNormalizado) || 0;
             if (limiteCreditoNum < 0) {
                 mostrarError(document.getElementById('limite_credito'), document.getElementById('creditoHelp'), 'El límite de crédito no puede ser negativo.');
                 formularioValido = false;
@@ -1304,7 +1373,7 @@
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                     <strong>Límite Crédito:</strong>
                     <span style="color: ${datos.limiteCredito > 0 ? '#38a169' : '#718096'}; font-weight: bold;">
-                        $${limiteFormateado}
+                        RD$${limiteFormateado}
                     </span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
@@ -1402,6 +1471,8 @@
             // Enviar formulario usando Fetch API
             const form = document.getElementById('clienteForm');
             const formData = new FormData(form);
+            // Enviar el valor limpio para que el backend lo procese como Decimal sin problemas.
+            formData.set('limite_credito', normalizarValorCredito(formData.get('limite_credito')) || '0.00');
 
             fetch(form.action, {
                 method: 'POST',
@@ -1415,7 +1486,10 @@
                 .then(data => {
                     if (data.success) {
                         mostrarNotificacion(data.mensaje, 'success');
-                        limpiarFormulario();
+                        // Llevar al usuario a la vista de gestión para ver el cliente recién creado.
+                        setTimeout(() => {
+                            window.location.href = "{% url 'gestiondeclientes' %}";
+                        }, 700);
                     } else {
                         mostrarNotificacion(data.error || 'Error al registrar cliente', 'error');
                     }
@@ -1452,7 +1526,7 @@
             // Restaurar ayuda de cédula
             const cedulaHelp = document.getElementById('cedulaHelp');
             if (cedulaHelp) {
-                cedulaHelp.innerHTML = `<i class="fas fa-info-circle"></i> La cédula debe contener exactamente 11 dígitos`;
+                cedulaHelp.innerHTML = `<i class="fas fa-info-circle"></i> Formato requerido: 000-0000000-0`;
                 cedulaHelp.className = 'form-help';
             }
 
@@ -1552,4 +1626,3 @@
 </body>
 
 </html>
-

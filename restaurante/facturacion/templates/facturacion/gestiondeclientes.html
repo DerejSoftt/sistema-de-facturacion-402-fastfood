@@ -339,9 +339,10 @@
             gap: 10px;
         }
 
-        .controls-header h3::before {
-            content: "🔍";
-            font-size: 1.2rem;
+        .controls-header h3 i,
+        .form-group label i,
+        .search-icon i {
+            color: inherit;
         }
 
         /* Form inputs */
@@ -397,7 +398,7 @@
             top: 50%;
             transform: translateY(-50%);
             font-size: 1.2rem;
-            color: #ff7e5f;
+            color: #2c3e50;
         }
 
         .filter-select {
@@ -423,6 +424,25 @@
             gap: 1rem;
             align-items: flex-end;
             flex-wrap: wrap;
+        }
+
+        .filter-action {
+            flex: 1;
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .filter-action .btn {
+            width: 100%;
+            min-height: 56px;
+        }
+
+        .filter-action-label {
+            visibility: hidden;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            line-height: 1.2;
         }
 
         /* Clientes Table */
@@ -474,13 +494,17 @@
 
         /* Badges para estado */
         .status-badge {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             padding: 0.5rem 1rem;
+            min-width: 120px;
             border-radius: 20px;
             font-size: 0.85rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            text-align: center;
         }
 
         .status-active {
@@ -491,6 +515,45 @@
         .status-inactive {
             background: linear-gradient(135deg, #a0aec0 0%, #718096 100%);
             color: white;
+        }
+
+        /* Estado de facturas en historial de cliente */
+        .invoice-status-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 105px;
+            padding: 0.35rem 0.7rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            border: 1px solid transparent;
+        }
+
+        .invoice-status-pagada {
+            background: #d9f7e8;
+            border-color: #8ed9b2;
+            color: #1d7f52;
+        }
+
+        .invoice-status-parcial {
+            background: #dcefff;
+            border-color: #96c6f5;
+            color: #1f5f9a;
+        }
+
+        .invoice-status-pendiente {
+            background: #fff5cc;
+            border-color: #f2dd82;
+            color: #8a6d1d;
+        }
+
+        .invoice-status-default {
+            background: #edf2f7;
+            border-color: #d3dce8;
+            color: #4a5568;
         }
 
         /* Badges para tipo de crédito */
@@ -909,6 +972,10 @@
                 width: 100%;
             }
 
+            .filter-action {
+                width: 100%;
+            }
+
             .action-buttons {
                 flex-direction: column;
             }
@@ -964,48 +1031,7 @@
             </div>
             <nav class="sidebar-nav">
                 {% with user_groups=user.groups.all|join:"," %}
-
-                <!-- Menú para Usuario Normal -->
-                {% if "Usuario Normal" in user_groups and not user.is_superuser %}
-                <a href="{% url 'pedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
-                </a>
-                <a href="{% url 'inventario' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
-                    <span>Inventario</span>
-                </a>
-                <a href="{% url 'gestiondepedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
-                    <span>Gestión de Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
-                    <span>Facturación</span>
-                </a>
-                <a href="{% url 'salida' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
-                    <span>Salida de Productos</span>
-                </a>
-                <a href="{% url 'registro_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'registro_clientes' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
-                    <span>Registro de Clientes</span>
-                </a>
-                <a href="{% url 'gestion_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestion_clientes' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-users-cog"></i></span>
-                    <span>Gestión de Clientes</span>
-                </a>
-                {% endif %}
-
-                <!-- Menú para Administrador -->
-                {% if "Administrador" in user_groups and not user.is_superuser %}
+                {% if user.is_superuser or "Administrador" in user_groups %}
                 <a href="{% url 'entradadeproductos' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-box"></i></span>
@@ -1033,63 +1059,50 @@
                 </a>
                 <a href="{% url 'gestiondepedidos' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
                     <span>Gestión de Pedidos</span>
                 </a>
                 <a href="{% url 'facturacion' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                     <span>Facturación</span>
+                </a>
+                <a href="{% url 'cuentaporcobrar' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'cuentaporcobrar' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span>
+                    <span>Cuentas por Cobrar</span>
                 </a>
                 <a href="{% url 'salida' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
                     <span>Salida de Productos</span>
                 </a>
-                <a href="{% url 'registro_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'registro_clientes' %}active{% endif %}">
+                <a href="{% url 'gestiondeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondeclientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-address-book"></i></span>
+                    <span>Gestión de Clientes</span>
+                </a>
+                <a href="{% url 'registrodeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'registrodeclientes' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
                     <span>Registro de Clientes</span>
-                </a>
-                <a href="{% url 'gestion_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestion_clientes' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-users-cog"></i></span>
-                    <span>Gestión de Clientes</span>
                 </a>
                 <a href="{% url 'roles' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>Gestión de Usuarios</span>
                 </a>
+                <a href="{% url 'anulacionydevolucion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'anulacionydevolucion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-undo"></i></span>
+                    <span>Devolución</span>
+                </a>
                 <a href="{% url 'dashbort' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
                     <span>Dashboard</span>
                 </a>
-                {% endif %}
-
-                <!-- Menú para Gerente -->
-                {% if "Gerente" in user_groups and not user.is_superuser %}
-                <a href="{% url 'entradadeproductos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-box"></i></span>
-                    <span>Entrada de Productos</span>
-                </a>
-                <a href="{% url 'inventario' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-list"></i></span>
-                    <span>Inventario</span>
-                </a>
-                <a href="{% url 'entradadeplatillos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
-                    <span>Entrada de Platos</span>
-                </a>
-                <a href="{% url 'listadeplatillos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
-                    <span>Gestión de Platos</span>
-                </a>
+                {% elif "Cajero" in user_groups %}
                 <a href="{% url 'pedidos' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
@@ -1097,126 +1110,54 @@
                 </a>
                 <a href="{% url 'gestiondepedidos' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-list"></i></span>
+                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
                     <span>Gestión de Pedidos</span>
                 </a>
                 <a href="{% url 'facturacion' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                     <span>Facturación</span>
                 </a>
-                <a href="{% url 'salida' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
-                    <span>Salida de Productos</span>
-                </a>
-                <a href="{% url 'registro_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'registro_clientes' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
-                    <span>Registro de Clientes</span>
-                </a>
-                <a href="{% url 'gestion_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestion_clientes' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-users-cog"></i></span>
-                    <span>Gestión de Clientes</span>
-                </a>
-                <a href="{% url 'dashbort' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
-                    <span>Dashboard</span>
-                </a>
-                {% endif %}
-
-                {% if "Cajero" in user_groups and not user.is_superuser %}
-                <a href="{% url 'pedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
-                    <span>Facturación</span>
-                </a>
-                <a href="{% url 'registro_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'registro_clientes' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
-                    <span>Registro de Clientes</span>
-                </a>
-                <a href="{% url 'gestion_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestion_clientes' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-users-cog"></i></span>
-                    <span>Gestión de Clientes</span>
-                </a>
-                {% endif %}
-
-                <!-- Menú EXCLUSIVO para superusuarios -->
-                {% if user.is_superuser %}
-                <a href="{% url 'entradadeproductos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-box"></i></span>
-                    <span>Entrada de Productos</span>
+                <a href="{% url 'cuentaporcobrar' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'cuentaporcobrar' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span>
+                    <span>Cuentas por Cobrar</span>
                 </a>
                 <a href="{% url 'inventario' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                     <span>Inventario</span>
                 </a>
-                <a href="{% url 'entradadeplatillos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
-                    <span>Entrada de Platos</span>
-                </a>
                 <a href="{% url 'listadeplatillos' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Lista de Platillos</span>
+                </a>
+                {% elif "Usuario Normal" in user_groups %}
+                <a href="{% url 'entradadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
                     <span>Gestión de Platos</span>
                 </a>
-                <a href="{% url 'pedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
-                </a>
-                <a href="{% url 'gestiondepedidos' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
-                    <span>Gestión de Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
-                    <span>Facturación</span>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
                 </a>
                 <a href="{% url 'salida' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
                     <span>Salida de Productos</span>
                 </a>
-                <a href="{% url 'registro_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'registro_clientes' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
-                    <span>Registro de Clientes</span>
-                </a>
-                <a href="{% url 'gestion_clientes' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'gestion_clientes' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-users-cog"></i></span>
-                    <span>Gestión de Clientes</span>
-                </a>
-                <a href="{% url 'roles' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-users"></i></span>
-                    <span>Gestión de Usuarios</span>
-                </a>
-                <a href="{% url 'dashbort' %}"
-                    class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
-                    <span>Dashboard</span>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Lista de Platillos</span>
                 </a>
                 {% endif %}
 
-                <!-- Cerrar sesión para todos -->
                 <a href="{% url 'logout' %}" class="nav-item">
-                    <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
+                    <span class="nav-icon"><i class="fas fa-door-open"></i></span>
                     <span>Cerrar Sesión</span>
                 </a>
 
@@ -1251,7 +1192,7 @@
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-credit-card"></i></span>
-                            <div class="stat-value" id="clientesCredito">$<span id="creditoTotal">{{
+                                <div class="stat-value" id="clientesCredito">RD$ <span id="creditoTotal">{{
                                     estadisticas.credito_total|default:"0"|intcomma }}</span></div>
                             <div class="stat-label">Crédito Otorgado</div>
                         </div>
@@ -1265,13 +1206,13 @@
                     <!-- Controls Section -->
                     <div class="controls-section">
                         <div class="controls-header">
-                            <h3>Buscar y Filtrar Clientes</h3>
+                            <h3><i class="fas fa-filter"></i> Buscar y Filtrar Clientes</h3>
                             <div style="display: flex; gap: 1rem;">
-                                <button class="btn btn-success"
-                                    onclick="window.location.href='{% url 'registro_clientes' %}'" type="button">
+                                <a class="btn btn-success" href="{% url 'registrodeclientes' %}"
+                                    style="text-decoration: none;">
                                     <span><i class="fas fa-user-plus"></i></span>
                                     <span>Nuevo Cliente</span>
-                                </button>
+                                </a>
                                 <button class="btn btn-info" onclick="exportarClientes()" type="button">
                                     <span><i class="fas fa-file-export"></i></span>
                                     <span>Exportar Clientes</span>
@@ -1294,9 +1235,9 @@
                                     <label for="statusFilter"><i class="fas fa-toggle-on"></i> Estado</label>
                                     <select class="filter-select" id="statusFilter" name="estado">
                                         <option value="">Todos los estados</option>
-                                        <option value="activo" {% if filtros.estado=='activo' %}selected{% endif %}>
+                                        <option value="activo" {% if filtros.estado == 'activo' %}selected{% endif %}>
                                             Activo</option>
-                                        <option value="inactivo" {% if filtros.estado=='inactivo' %}selected{% endif %}>
+                                        <option value="inactivo" {% if filtros.estado == 'inactivo' %}selected{% endif %}>
                                             Inactivo</option>
                                     </select>
                                 </div>
@@ -1306,14 +1247,10 @@
                                         Crédito</label>
                                     <select class="filter-select" id="creditoFilter" name="credito">
                                         <option value="">Todos</option>
-                                        <option value="con_credito" {% if filtros.credito=='con_credito' %}selected{%
-                                            endif %}>Con Crédito</option>
-                                        <option value="sin_credito" {% if filtros.credito=='sin_credito' %}selected{%
-                                            endif %}>Sin Crédito</option>
-                                        <option value="agotado" {% if filtros.credito=='agotado' %}selected{% endif %}>
-                                            Crédito Agotado</option>
-                                        <option value="excedido" {% if filtros.credito=='excedido' %}selected{% endif
-                                            %}>Crédito Excedido</option>
+                                        <option value="con_credito" {% if filtros.credito == 'con_credito' %}selected{% endif %}>Con Crédito</option>
+                                        <option value="sin_credito" {% if filtros.credito == 'sin_credito' %}selected{% endif %}>Sin Crédito</option>
+                                        <option value="agotado" {% if filtros.credito == 'agotado' %}selected{% endif %}>Crédito Agotado</option>
+                                        <option value="excedido" {% if filtros.credito == 'excedido' %}selected{% endif %}>Crédito Excedido</option>
                                     </select>
                                 </div>
 
@@ -1321,42 +1258,33 @@
                                     <label for="dateFilter"><i class="fas fa-calendar"></i> Fecha de Registro</label>
                                     <select class="filter-select" id="dateFilter" name="fecha">
                                         <option value="">Todas las fechas</option>
-                                        <option value="hoy" {% if filtros.fecha=='hoy' %}selected{% endif %}>Hoy
-                                        </option>
-                                        <option value="ayer" {% if filtros.fecha=='ayer' %}selected{% endif %}>Ayer
-                                        </option>
-                                        <option value="semana" {% if filtros.fecha=='semana' %}selected{% endif %}>Esta
-                                            Semana</option>
-                                        <option value="mes" {% if filtros.fecha=='mes' %}selected{% endif %}>Este Mes
-                                        </option>
+                                        <option value="hoy" {% if filtros.fecha == 'hoy' %}selected{% endif %}>Hoy</option>
+                                        <option value="ayer" {% if filtros.fecha == 'ayer' %}selected{% endif %}>Ayer</option>
+                                        <option value="semana" {% if filtros.fecha == 'semana' %}selected{% endif %}>Esta Semana</option>
+                                        <option value="mes" {% if filtros.fecha == 'mes' %}selected{% endif %}>Este Mes</option>
                                     </select>
                                 </div>
 
                                 <div class="form-group" style="flex: 1;">
                                     <label for="sortFilter"><i class="fas fa-sort"></i> Ordenar por</label>
                                     <select class="filter-select" id="sortFilter" name="sort">
-                                        <option value="nombre" {% if filtros.sort=='nombre' %}selected{% endif %}>Nombre
-                                            (A-Z)</option>
-                                        <option value="nombre_desc" {% if filtros.sort=='nombre_desc' %}selected{% endif
-                                            %}>Nombre (Z-A)</option>
-                                        <option value="cedula" {% if filtros.sort=='cedula' %}selected{% endif %}>Cédula
-                                        </option>
-                                        <option value="fecha_desc" {% if filtros.sort=='fecha_desc' %}selected{% endif
-                                            %}>Más Reciente</option>
-                                        <option value="fecha_asc" {% if filtros.sort=='fecha_asc' %}selected{% endif %}>
-                                            Más Antiguo</option>
-                                        <option value="credito_desc" {% if filtros.sort=='credito_desc' %}selected{%
-                                            endif %}>Límite Crédito (Mayor)</option>
-                                        <option value="credito_asc" {% if filtros.sort=='credito_asc' %}selected{% endif
-                                            %}>Límite Crédito (Menor)</option>
+                                        <option value="nombre" {% if filtros.sort == 'nombre' %}selected{% endif %}>Nombre (A-Z)</option>
+                                        <option value="nombre_desc" {% if filtros.sort == 'nombre_desc' %}selected{% endif %}>Nombre (Z-A)</option>
+                                        <option value="cedula" {% if filtros.sort == 'cedula' %}selected{% endif %}>Cédula</option>
+                                        <option value="fecha_desc" {% if filtros.sort == 'fecha_desc' %}selected{% endif %}>Más Reciente</option>
+                                        <option value="fecha_asc" {% if filtros.sort == 'fecha_asc' %}selected{% endif %}>Más Antiguo</option>
+                                        <option value="credito_desc" {% if filtros.sort == 'credito_desc' %}selected{% endif %}>Límite Crédito (Mayor)</option>
+                                        <option value="credito_asc" {% if filtros.sort == 'credito_asc' %}selected{% endif %}>Límite Crédito (Menor)</option>
                                     </select>
                                 </div>
 
-                                <button type="submit" class="btn btn-primary"
-                                    style="height: fit-content; margin-top: 1.5rem;">
-                                    <span><i class="fas fa-filter"></i></span>
-                                    <span>Filtrar</span>
-                                </button>
+                                <div class="form-group filter-action">
+                                    <label class="filter-action-label" aria-hidden="true">Filtrar</label>
+                                    <button type="submit" class="btn btn-primary">
+                                        <span><i class="fas fa-filter"></i></span>
+                                        <span>Filtrar</span>
+                                    </button>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -1404,11 +1332,11 @@
                                     <td>
                                         {% if cliente.limite_credito > 0 %}
                                         <div style="font-weight: bold; color: #4299e1;">
-                                            ${{ cliente.limite_credito|floatformat:2|intcomma }}
+                                            RD$ {{ cliente.limite_credito|floatformat:2|intcomma }}
                                         </div>
                                         {% if cliente.saldo_actual %}
                                         <div style="font-size: 0.85rem; color: #718096;">
-                                            Saldo: ${{ cliente.saldo_actual|floatformat:2|intcomma }}
+                                            Saldo: RD$ {{ cliente.saldo_actual|floatformat:2|intcomma }}
                                         </div>
                                         {% endif %}
                                         {% else %}
@@ -1434,18 +1362,6 @@
                                         {% else %}
                                         <span class="status-badge status-inactive">Inactivo</span>
                                         {% endif %}
-                                        <br>
-                                        {% if cliente.limite_credito > 0 %}
-                                        {% if cliente.saldo_disponible > 0 %}
-                                        <span class="credito-badge credito-activo">Crédito Disponible</span>
-                                        {% elif cliente.saldo_disponible == 0 %}
-                                        <span class="credito-badge credito-agotado">Crédito Agotado</span>
-                                        {% else %}
-                                        <span class="credito-badge credito-excedido">Crédito Excedido</span>
-                                        {% endif %}
-                                        {% else %}
-                                        <span class="credito-badge credito-sin">Sin Crédito</span>
-                                        {% endif %}
                                     </td>
                                     <td>
                                         <div class="date-badge">
@@ -1455,20 +1371,20 @@
                                     </td>
                                     <td>
                                         <div class="action-buttons">
-                                            <button class="btn-icon btn-view" onclick="verCliente({{ cliente.id }})"
-                                                title="Ver detalles">
+                                            <button class="btn-icon btn-view js-cliente-action" type="button"
+                                                data-action="ver" data-cliente-id="{{ cliente.id }}" title="Ver detalles">
                                                 <i class="fas fa-eye"></i>
                                             </button>
-                                            <button class="btn-icon btn-edit" onclick="editarCliente({{ cliente.id }})"
-                                                title="Editar cliente">
+                                            <button class="btn-icon btn-edit js-cliente-action" type="button"
+                                                data-action="editar" data-cliente-id="{{ cliente.id }}" title="Editar cliente">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <button class="btn-icon btn-history"
-                                                onclick="verHistorial({{ cliente.id }})" title="Ver historial">
+                                            <button class="btn-icon btn-history js-cliente-action" type="button"
+                                                data-action="historial" data-cliente-id="{{ cliente.id }}" title="Ver historial">
                                                 <i class="fas fa-history"></i>
                                             </button>
-                                            <button class="btn-icon btn-delete"
-                                                onclick="eliminarCliente({{ cliente.id }})" title="Eliminar cliente">
+                                            <button class="btn-icon btn-delete js-cliente-action" type="button"
+                                                data-action="eliminar" data-cliente-id="{{ cliente.id }}" title="Eliminar cliente">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
@@ -1486,7 +1402,7 @@
                                         <h3>No se encontraron clientes</h3>
                                         <p>No hay clientes registrados o no hay clientes con los filtros aplicados</p>
                                         <div style="margin-top: 1rem;">
-                                            <a href="{% url 'registro_clientes' %}" class="btn btn-success"
+                                            <a href="{% url 'registrodeclientes' %}" class="btn btn-success"
                                                 style="text-decoration: none;">
                                                 <span><i class="fas fa-user-plus"></i></span>
                                                 <span>Registrar Primer Cliente</span>
@@ -1579,19 +1495,51 @@
             const filterSelects = document.querySelectorAll('.filter-select');
             filterSelects.forEach(select => {
                 select.addEventListener('change', function () {
-                    updateURLFilters();
+                    updateURLFilters(false);
                 });
             });
+
+            const filterForm = document.getElementById('filterForm');
+            if (filterForm) {
+                filterForm.addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    updateURLFilters(false);
+                });
+            }
 
             // Buscar al presionar Enter
             const searchInput = document.getElementById('searchInput');
             if (searchInput) {
                 searchInput.addEventListener('keypress', function (e) {
                     if (e.key === 'Enter') {
-                        updateURLFilters();
+                        e.preventDefault();
+                        updateURLFilters(false);
                     }
                 });
             }
+
+            document.addEventListener('click', function (e) {
+                const actionButton = e.target.closest('.js-cliente-action');
+                if (!actionButton) {
+                    return;
+                }
+
+                const clienteId = parseInt(actionButton.dataset.clienteId || '0', 10);
+                if (!clienteId) {
+                    return;
+                }
+
+                const action = actionButton.dataset.action;
+                if (action === 'ver') {
+                    verCliente(clienteId);
+                } else if (action === 'editar') {
+                    editarCliente(clienteId);
+                } else if (action === 'historial') {
+                    verHistorial(clienteId);
+                } else if (action === 'eliminar') {
+                    eliminarCliente(clienteId);
+                }
+            });
         }
 
         // Configurar validación del formulario
@@ -1600,7 +1548,7 @@
         }
 
         // Actualizar URL con filtros
-        function updateURLFilters() {
+        function updateURLFilters(keepPage = false) {
             const form = document.getElementById('filterForm');
             const formData = new FormData(form);
             const params = new URLSearchParams();
@@ -1611,11 +1559,13 @@
                 }
             }
 
-            // Mantener el parámetro de página si existe
-            const currentParams = new URLSearchParams(window.location.search);
-            const page = currentParams.get('page');
-            if (page) {
-                params.append('page', page);
+            // Mantener página solo cuando se solicite explícitamente
+            if (keepPage) {
+                const currentParams = new URLSearchParams(window.location.search);
+                const page = currentParams.get('page');
+                if (page) {
+                    params.append('page', page);
+                }
             }
 
             // Actualizar URL y recargar
@@ -1627,11 +1577,35 @@
             mostrarNotificacion('Funcionalidad de exportación en desarrollo', 'info');
         }
 
+        // Divide textos largos en líneas de tamaño fijo para evitar desbordes en el modal.
+        function formatearTextoPorBloques(texto, maxCaracteres = 50) {
+            const valor = (texto || '').toString();
+            if (!valor) {
+                return '';
+            }
+
+            const lineasOriginales = valor.split(/\r?\n/);
+            const lineas = [];
+
+            lineasOriginales.forEach(linea => {
+                if (!linea) {
+                    lineas.push('');
+                    return;
+                }
+
+                for (let i = 0; i < linea.length; i += maxCaracteres) {
+                    lineas.push(linea.slice(i, i + maxCaracteres));
+                }
+            });
+
+            return lineas.join('<br>');
+        }
+
         // Función para ver detalles del cliente
         function verCliente(clienteId) {
             console.log('Cargando detalles del cliente:', clienteId);
 
-            fetch(`/gestion_clientes/detalle/${clienteId}/`)
+            fetch(`/gestiondeclientes/detalle/${clienteId}/`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`Error ${response.status}: Cliente no encontrado`);
@@ -1657,13 +1631,15 @@
             let estadoCredito = '';
             let colorCredito = '';
             let iconoCredito = '';
+            const saldoDisponible = Number(cliente.saldo_disponible || 0);
+            const saldoActual = Number(cliente.saldo_actual || 0);
 
             if (cliente.limite_credito > 0) {
-                if (cliente.saldo_disponible > 0) {
+                if (saldoDisponible > 0.009) {
                     estadoCredito = 'Crédito Disponible';
                     colorCredito = '#4299e1';
                     iconoCredito = 'fa-check-circle';
-                } else if (cliente.saldo_disponible === 0) {
+                } else if (Math.abs(saldoDisponible) <= 0.009) {
                     estadoCredito = 'Crédito Agotado';
                     colorCredito = '#ed8936';
                     iconoCredito = 'fa-exclamation-triangle';
@@ -1715,7 +1691,7 @@
                         </div>
                         <div>
                             <strong style="color: #4a5568;">Dirección:</strong>
-                            <div style="margin-top: 0.25rem;">${cliente.direccion}</div>
+                            <div style="margin-top: 0.25rem; line-height: 1.35; word-break: break-word;">${formatearTextoPorBloques(cliente.direccion, 50)}</div>
                         </div>
                     </div>
                 </div>
@@ -1760,14 +1736,14 @@
                         <div style="margin-bottom: 0.75rem;">
                             <strong style="color: #4a5568;">Límite de Crédito:</strong>
                             <div style="margin-top: 0.25rem; font-size: 1.2rem; font-weight: bold; color: ${cliente.limite_credito > 0 ? '#4299e1' : '#a0aec0'};">
-                                $${cliente.limite_credito.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                RD$ ${cliente.limite_credito.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                         </div>
                         ${cliente.saldo_actual !== undefined ? `
                             <div style="margin-bottom: 0.75rem;">
                                 <strong style="color: #4a5568;">Saldo Actual:</strong>
-                                <div style="margin-top: 0.25rem; font-size: 1.1rem; font-weight: bold; color: ${cliente.saldo_actual > 0 ? '#38a169' : '#e53e3e'};">
-                                    $${cliente.saldo_actual.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                <div style="margin-top: 0.25rem; font-size: 1.1rem; font-weight: bold; color: ${saldoActual > 0.009 ? '#e53e3e' : '#38a169'};">
+                                    RD$ ${cliente.saldo_actual.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </div>
                             </div>
                         ` : ''}
@@ -1775,7 +1751,7 @@
                             <div style="margin-bottom: 0.75rem;">
                                 <strong style="color: #4a5568;">Saldo Disponible:</strong>
                                 <div style="margin-top: 0.25rem; font-size: 1.1rem; font-weight: bold; color: ${cliente.saldo_disponible > 0 ? '#38a169' : cliente.saldo_disponible === 0 ? '#ed8936' : '#e53e3e'};">
-                                    $${cliente.saldo_disponible.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    RD$ ${cliente.saldo_disponible.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </div>
                             </div>
                         ` : ''}
@@ -1823,8 +1799,8 @@
                     <h4 style="color: #2c3e50; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
                         <i class="fas fa-sticky-note"></i> Notas sobre Crédito
                     </h4>
-                    <div style="background: #fff7ed; padding: 1rem; border-radius: 10px; border-left: 4px solid #ed8936;">
-                        ${cliente.notas_credito}
+                    <div style="background: #fff7ed; padding: 1rem; border-radius: 10px; border-left: 4px solid #ed8936; line-height: 1.35; word-break: break-word;">
+                        ${formatearTextoPorBloques(cliente.notas_credito, 50)}
                     </div>
                 </div>
             ` : ''}
@@ -1834,8 +1810,8 @@
                     <h4 style="color: #2c3e50; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
                         <i class="fas fa-edit"></i> Notas Generales
                     </h4>
-                    <div style="background: #e6fffa; padding: 1rem; border-radius: 10px; border-left: 4px solid #38a169;">
-                        ${cliente.notas_generales}
+                    <div style="background: #e6fffa; padding: 1rem; border-radius: 10px; border-left: 4px solid #38a169; line-height: 1.35; word-break: break-word;">
+                        ${formatearTextoPorBloques(cliente.notas_generales, 50)}
                     </div>
                 </div>
             ` : ''}
@@ -1859,7 +1835,7 @@
         function editarCliente(clienteId) {
             clienteEditando = clienteId;
 
-            fetch(`/gestion_clientes/detalle/${clienteId}/`)
+            fetch(`/gestiondeclientes/detalle/${clienteId}/`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`Error ${response.status}: Cliente no encontrado`);
@@ -2150,7 +2126,7 @@
             if (valorNumerico === 0) {
                 helpElement.innerHTML = `<i class="fas fa-info-circle"></i> Sin crédito - solo ventas al contado`;
             } else if (valorNumerico > 0) {
-                helpElement.innerHTML = `<i class="fas fa-check-circle"></i> Límite establecido: $${valorFormateado}`;
+                helpElement.innerHTML = `<i class="fas fa-check-circle"></i> Límite establecido: RD$ ${valorFormateado}`;
                 helpElement.className = 'form-help success';
             }
         }
@@ -2272,7 +2248,7 @@
             saveBtn.disabled = true;
 
             // Enviar datos
-            fetch(`/gestion_clientes/editar/${clienteId}/`, {
+            fetch(`/gestiondeclientes/editar/${clienteId}/`, {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -2332,26 +2308,6 @@
             const fila = document.querySelector(`tr[data-cliente-id="${clienteId}"]`);
             if (!fila) return;
 
-            // Determinar estado de crédito
-            let creditoBadge = '';
-            let creditoTexto = '';
-
-            if (cliente.limite_credito > 0) {
-                if (cliente.saldo_disponible > 0) {
-                    creditoBadge = 'credito-activo';
-                    creditoTexto = 'Crédito Disponible';
-                } else if (cliente.saldo_disponible === 0) {
-                    creditoBadge = 'credito-agotado';
-                    creditoTexto = 'Crédito Agotado';
-                } else {
-                    creditoBadge = 'credito-excedido';
-                    creditoTexto = 'Crédito Excedido';
-                }
-            } else {
-                creditoBadge = 'credito-sin';
-                creditoTexto = 'Sin Crédito';
-            }
-
             // Actualizar celdas
             fila.cells[0].textContent = cliente.cedula;
             fila.cells[1].textContent = cliente.nombre_completo;
@@ -2367,9 +2323,9 @@
 
             // Actualizar límite de crédito
             if (cliente.limite_credito > 0) {
-                let creditoHTML = `<div style="font-weight: bold; color: #4299e1;">$${cliente.limite_credito.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`;
+                let creditoHTML = `<div style="font-weight: bold; color: #4299e1;">RD$ ${cliente.limite_credito.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`;
                 if (cliente.saldo_actual !== undefined) {
-                    creditoHTML += `<div style="font-size: 0.85rem; color: #718096;">Saldo: $${cliente.saldo_actual.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`;
+                    creditoHTML += `<div style="font-size: 0.85rem; color: #718096;">Saldo: RD$ ${cliente.saldo_actual.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`;
                 }
                 fila.cells[4].innerHTML = creditoHTML;
             } else {
@@ -2388,8 +2344,6 @@
         ${cliente.activo ?
                     '<span class="status-badge status-active">Activo</span>' :
                     '<span class="status-badge status-inactive">Inactivo</span>'}
-        <br>
-        <span class="credito-badge ${creditoBadge}">${creditoTexto}</span>
     `;
 
             // Actualizar fecha de actualización
@@ -2430,9 +2384,93 @@
 
         // Función para ver historial del cliente
         function verHistorial(clienteId) {
-            mostrarNotificacion(`Redirigiendo al historial del cliente #${clienteId}`, 'info');
-            // Aquí puedes redirigir a una página de historial específica
-            // window.location.href = `/gestion_clientes/historial/${clienteId}/`;
+            fetch(`/gestiondeclientes/historial/${clienteId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        throw new Error(data.error || 'No se pudo cargar el historial');
+                    }
+
+                    const modalBody = document.getElementById('viewClienteBody');
+                    const cliente = data.cliente || {};
+                    const historial = data.historial || [];
+
+                    let contenidoHistorial = '';
+                    if (historial.length === 0) {
+                        contenidoHistorial = `
+                            <div style="padding: 1rem; border-radius: 10px; background: #f8f9ff; color: #4a5568;">
+                                Este cliente no tiene facturas asociadas todavía.
+                            </div>
+                        `;
+                    } else {
+                        const getFacturaEstadoBadge = (estadoRaw) => {
+                            const estado = String(estadoRaw || '').toLowerCase().trim();
+                            let cssClass = 'invoice-status-default';
+
+                            if (estado === 'pagada') {
+                                cssClass = 'invoice-status-pagada';
+                            } else if (estado === 'parcial') {
+                                cssClass = 'invoice-status-parcial';
+                            } else if (estado === 'pendiente') {
+                                cssClass = 'invoice-status-pendiente';
+                            }
+
+                            return `<span class="invoice-status-badge ${cssClass}">${estado || '-'}</span>`;
+                        };
+
+                        const filas = historial.map(item => {
+                            const fecha = item.fecha_factura ? new Date(item.fecha_factura).toLocaleDateString('es-DO') : '-';
+                            const total = Number(item.total || 0).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            return `
+                                <tr>
+                                    <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7;">${item.numero_factura || '-'}</td>
+                                    <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7;">${fecha}</td>
+                                    <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7;">${getFacturaEstadoBadge(item.estado)}</td>
+                                    <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7; text-transform: capitalize;">${item.tipo_pedido || '-'}</td>
+                                    <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7; text-transform: capitalize;">${item.metodo_pago || '-'}</td>
+                                    <td style="padding: 0.75rem; border-bottom: 1px solid #edf2f7; font-weight: 700; color: #2b6cb0;">RD$ ${total}</td>
+                                </tr>
+                            `;
+                        }).join('');
+
+                        contenidoHistorial = `
+                            <div style="overflow-x: auto; border: 1px solid #edf2f7; border-radius: 10px;">
+                                <table style="width: 100%; border-collapse: collapse; min-width: 700px;">
+                                    <thead style="background: #2c3e50; color: white;">
+                                        <tr>
+                                            <th style="padding: 0.75rem; text-align: left;">Factura</th>
+                                            <th style="padding: 0.75rem; text-align: left;">Fecha</th>
+                                            <th style="padding: 0.75rem; text-align: left;">Estado</th>
+                                            <th style="padding: 0.75rem; text-align: left;">Tipo</th>
+                                            <th style="padding: 0.75rem; text-align: left;">Pago</th>
+                                            <th style="padding: 0.75rem; text-align: left;">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${filas}</tbody>
+                                </table>
+                            </div>
+                        `;
+                    }
+
+                    modalBody.innerHTML = `
+                        <div style="padding: 1rem;">
+                            <h3 style="margin-bottom: 0.75rem; color: #2c3e50;">Historial de Cliente</h3>
+                            <p style="margin-bottom: 1rem; color: #4a5568;">
+                                <strong>${cliente.nombre_completo || '-'}</strong> | Cédula: ${cliente.cedula || '-'} | Tel: ${cliente.telefono_principal || '-'}
+                            </p>
+                            ${contenidoHistorial}
+                            <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
+                                <button class="btn btn-warning" onclick="cerrarViewModal()">Cerrar</button>
+                            </div>
+                        </div>
+                    `;
+
+                    document.getElementById('viewClienteModal').classList.add('active');
+                })
+                .catch(error => {
+                    console.error('Error al cargar historial:', error);
+                    mostrarNotificacion('Error al cargar historial del cliente', 'error');
+                });
         }
 
         // Función para eliminar cliente
@@ -2441,7 +2479,7 @@
                 return;
             }
 
-            fetch(`/gestion_clientes/eliminar/${clienteId}/`, {
+            fetch(`/gestiondeclientes/eliminar/${clienteId}/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2475,7 +2513,7 @@
                             <h3>No se encontraron clientes</h3>
                             <p>No hay clientes registrados o no hay clientes con los filtros aplicados</p>
                             <div style="margin-top: 1rem;">
-                                <a href="{% url 'registro_clientes' %}" class="btn btn-success" style="text-decoration: none;">
+                                <a href="{% url 'registrodeclientes' %}" class="btn btn-success" style="text-decoration: none;">
                                     <span><i class="fas fa-user-plus"></i></span>
                                     <span>Registrar Primer Cliente</span>
                                 </a>
