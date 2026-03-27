@@ -67,8 +67,36 @@ def index(request):
     """
     Vista principal que maneja tanto el login como el dashboard
     """
+    def obtener_redireccion_por_rol(usuario):
+        if usuario.is_superuser:
+            return 'dashbort'
+
+        grupos = set()
+        for nombre_grupo in usuario.groups.values_list('name', flat=True):
+            nombre = (nombre_grupo or '').strip().lower()
+            nombre = (
+                nombre
+                .replace('á', 'a')
+                .replace('é', 'e')
+                .replace('í', 'i')
+                .replace('ó', 'o')
+                .replace('ú', 'u')
+            )
+            grupos.add(nombre)
+
+        if 'admin' in grupos or 'administrador' in grupos:
+            return 'dashbort'
+
+        if 'usuario normal' in grupos or 'usuarionormal' in grupos:
+            return 'inventario'
+
+        if 'cajero' in grupos:
+            return 'pedidos'
+
+        return 'dashbort'
+
     if request.user.is_authenticated:
-        return render(request, 'facturacion/index.html')
+        return redirect(obtener_redireccion_por_rol(request.user))
 
     if request.method == 'POST':
         username = request.POST.get('username')
@@ -86,7 +114,7 @@ def index(request):
                 request.session.set_expiry(1209600)
 
             messages.success(request, f'¡Bienvenido {user.username}!')
-            return redirect('index')
+            return redirect(obtener_redireccion_por_rol(user))
         else:
             messages.error(request, 'Usuario o contraseña incorrectos')
 
