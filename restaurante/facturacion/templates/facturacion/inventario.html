@@ -30,14 +30,34 @@
         /* Sidebar styles */
         .sidebar {
             width: 260px;
-            height: 900px;
+            height: 100vh;
             background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
             box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
             display: flex;
             flex-direction: column;
             transition: transform 0.3s ease;
             position: fixed;
-            
+            top: 0;
+            left: 0;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 126, 95, 0.5);
+            border-radius: 3px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 126, 95, 0.8);
         }
         
         .sidebar-header {
