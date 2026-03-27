@@ -719,18 +719,6 @@ def pedidos(request):
                 'precio_formateado': f"${float(plato.precio):.2f}"
             })
 
-        # DEBUG: Mostrar información de bebidas y platos
-        print("=" * 50)
-        print(f"BEBIDAS ENCONTRADAS: {bebidas.count()}")
-        for bebida in bebidas:
-            print(
-                f"  - {bebida.nombre}: ${bebida.precio_compra} (Stock: {bebida.cantidad})")
-        print(f"PLATOS ENCONTRADOS: {platos.count()}")
-        for plato in platos:
-            print(
-                f"  - {plato.nombre}: ${plato.precio} ({plato.get_categoria_display()})")
-        print("=" * 50)
-
         context = {
             'mesas': mesas,
             'delivery_codes': delivery_codes,
