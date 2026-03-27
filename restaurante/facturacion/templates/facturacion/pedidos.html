@@ -1408,7 +1408,7 @@ body {
     grid-template-columns: repeat(var(--menu-columns), minmax(0, 1fr));
     grid-auto-rows: var(--menu-card-height);
     gap: var(--menu-grid-gap);
-    max-height: calc((var(--menu-card-height) * 2) + var(--menu-grid-gap));
+    max-height: calc((var(--menu-card-height) * 3) + (var(--menu-grid-gap) * 2));
     overflow-y: auto;
     overflow-x: hidden;
     padding-right: 0.35rem;
@@ -2331,7 +2331,7 @@ body {
     }
     
     .menu-grid {
-        max-height: calc((var(--menu-card-height) * 2) + var(--menu-grid-gap));
+        max-height: calc((var(--menu-card-height) * 3) + (var(--menu-grid-gap) * 2));
         overflow-y: auto;
     }
     
@@ -2366,7 +2366,7 @@ body {
     
     .menu-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        max-height: calc((var(--menu-card-height) * 2) + var(--menu-grid-gap));
+        max-height: calc((var(--menu-card-height) * 3) + (var(--menu-grid-gap) * 2));
         overflow-y: auto;
     }
     
@@ -2378,7 +2378,7 @@ body {
     }
     
     .menu-grid {
-        max-height: calc((var(--menu-card-height) * 2) + var(--menu-grid-gap));
+        max-height: calc((var(--menu-card-height) * 3) + (var(--menu-grid-gap) * 2));
         overflow-y: auto;
     }
 
