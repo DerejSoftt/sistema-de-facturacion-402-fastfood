@@ -3833,8 +3833,18 @@ def dashbort(request):
         estado='pagada'
     )
 
-    venta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))[
+    venta_dia_contado = facturas_hoy.aggregate(total_dia=Sum('total'))[
         'total_dia'] or Decimal('0.00')
+
+    # Los pagos CxC no tienen hora (DateField), por eso se asignan al dia de negocio actual.
+    dia_negocio_actual = inicio_dia.date()
+    pagos_credito_dia_qs = PagoCuentaCobrar.objects.filter(
+        fecha_pago=dia_negocio_actual
+    )
+    pagos_credito_dia = pagos_credito_dia_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    total_pagos_hoy = pagos_credito_dia_qs.count()
+
+    venta_dia = venta_dia_contado + pagos_credito_dia
 
     # 2. VENTA DEL MES - Esto se mantiene igual (mes calendario)
     primer_dia_mes = hoy_local.replace(day=1)
@@ -3859,17 +3869,32 @@ def dashbort(request):
         estado='pagada'
     )
 
-    venta_mes = facturas_mes.aggregate(total_mes=Sum('total'))[
+    venta_mes_contado = facturas_mes.aggregate(total_mes=Sum('total'))[
         'total_mes'] or Decimal('0.00')
+
+    pagos_credito_mes_qs = PagoCuentaCobrar.objects.filter(
+        fecha_pago__gte=primer_dia_mes,
+        fecha_pago__lte=ultimo_dia_mes
+    )
+    pagos_credito_mes = pagos_credito_mes_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    total_pagos_mes = pagos_credito_mes_qs.count()
+
+    venta_mes = venta_mes_contado + pagos_credito_mes
 
     # Ventas del día anterior (mismo rango 6 AM - 5:59 AM)
     inicio_dia_anterior = inicio_dia - timedelta(days=1)
     fin_dia_anterior = fin_dia - timedelta(days=1)
-    venta_dia_anterior = Factura.objects.filter(
+    venta_dia_anterior_contado = Factura.objects.filter(
         fecha_factura__gte=inicio_dia_anterior,
         fecha_factura__lte=fin_dia_anterior,
         estado='pagada'
     ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+    pagos_credito_dia_anterior = PagoCuentaCobrar.objects.filter(
+        fecha_pago=inicio_dia_anterior.date()
+    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+
+    venta_dia_anterior = venta_dia_anterior_contado + pagos_credito_dia_anterior
 
     # Ventas del mes anterior
     mes_pasado = hoy_local.replace(day=1) - timedelta(days=1)
@@ -3883,11 +3908,18 @@ def dashbort(request):
         datetime.combine(fin_mes_pasado, datetime.max.time())
     )
 
-    venta_mes_pasado = Factura.objects.filter(
+    venta_mes_pasado_contado = Factura.objects.filter(
         fecha_factura__gte=inicio_mes_pasado_time,
         fecha_factura__lte=fin_mes_pasado_time,
         estado='pagada'
     ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+    pagos_credito_mes_pasado = PagoCuentaCobrar.objects.filter(
+        fecha_pago__gte=inicio_mes_pasado,
+        fecha_pago__lte=fin_mes_pasado
+    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+
+    venta_mes_pasado = venta_mes_pasado_contado + pagos_credito_mes_pasado
 
     # 3. PEDIDOS HOY - Usar misma definición de "día" (6 AM a 5:59 AM)
     total_pedidos = Pedido.objects.filter(
@@ -4047,6 +4079,12 @@ def dashbort(request):
             fecha_factura__lte=dia_fin,
             estado='pagada'
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+        pagos_credito_dia_grafico = PagoCuentaCobrar.objects.filter(
+            fecha_pago=dia_inicio.date()
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+
+        venta_dia_grafico += pagos_credito_dia_grafico
 
         ultimos_7_dias.append(dia_str)
         ventas_7_dias.append(float(venta_dia_grafico))
@@ -4239,6 +4277,12 @@ def dashbort(request):
             estado='pagada'
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
+        pagos_credito_dia_mes = PagoCuentaCobrar.objects.filter(
+            fecha_pago=fecha_dia
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+
+        venta_dia_mes += pagos_credito_dia_mes
+
         labels_mensuales.append(fecha_dia.strftime('%d %b'))
         proyeccion_mensual.append(float(venta_dia_mes))
     
@@ -4273,6 +4317,13 @@ def dashbort(request):
             fecha_factura__lte=fin_mes_grafico,
             estado='pagada'
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+        pagos_credito_mes_grafico = PagoCuentaCobrar.objects.filter(
+            fecha_pago__gte=fecha_mes,
+            fecha_pago__lte=ultimo_dia
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+
+        venta_mes_grafico += pagos_credito_mes_grafico
         
         # Nombre del mes en español
         meses_esp = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
@@ -4324,6 +4375,12 @@ def dashbort(request):
         tipo_pedido = (factura.tipo_pedido or '').lower().strip()
         if tipo_pedido in tipos_pedido_totales:
             tipos_pedido_totales[tipo_pedido] += factura.total
+
+    # Sumar pagos de cuentas por cobrar al grafico por metodo de pago del mes.
+    for pago_cxc in pagos_credito_mes_qs:
+        metodo_pago_cxc = (pago_cxc.metodo_pago or '').lower().strip()
+        if metodo_pago_cxc in metodo_totales:
+            metodo_totales[metodo_pago_cxc] += pago_cxc.monto
 
     ventas_horarios_data = [float(horario_totales[label]) for label in horario_labels]
     ventas_metodos_data = [
@@ -4402,8 +4459,10 @@ def dashbort(request):
         'hora_actual': ahora_local.strftime('%I:%M:%S'),
         'hoy': hoy_local,
         'now_utc': timezone.now(),
-        'total_facturas_hoy': facturas_hoy_todas.count(),
+        'total_facturas_hoy': facturas_hoy.count(),
         'total_facturas_mes': facturas_mes.count(),
+        'total_pagos_hoy': total_pagos_hoy,
+        'total_pagos_mes': total_pagos_mes,
         'facturas_hoy_todas': facturas_hoy_todas,
         'todas_facturas': todas_facturas,
         
@@ -4537,8 +4596,17 @@ def dashboard_stats(request):
             estado='pagada'
         )
 
-        venta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))[
+        venta_dia_contado = facturas_hoy.aggregate(total_dia=Sum('total'))[
             'total_dia'] or Decimal('0.00')
+
+        dia_negocio_actual = inicio_dia.date()
+        pagos_credito_dia_qs = PagoCuentaCobrar.objects.filter(
+            fecha_pago=dia_negocio_actual
+        )
+        pagos_credito_dia = pagos_credito_dia_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+        total_pagos_hoy = pagos_credito_dia_qs.count()
+
+        venta_dia = venta_dia_contado + pagos_credito_dia
 
         # 2. VENTA DEL MES
         primer_dia_mes = hoy_local.replace(day=1)
@@ -4560,17 +4628,32 @@ def dashboard_stats(request):
             estado='pagada'
         )
 
-        venta_mes = facturas_mes.aggregate(total_mes=Sum('total'))[
+        venta_mes_contado = facturas_mes.aggregate(total_mes=Sum('total'))[
             'total_mes'] or Decimal('0.00')
+
+        pagos_credito_mes_qs = PagoCuentaCobrar.objects.filter(
+            fecha_pago__gte=primer_dia_mes,
+            fecha_pago__lte=ultimo_dia_mes
+        )
+        pagos_credito_mes = pagos_credito_mes_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+        total_pagos_mes = pagos_credito_mes_qs.count()
+
+        venta_mes = venta_mes_contado + pagos_credito_mes
 
         # Ventas del día anterior
         inicio_dia_anterior = inicio_dia - timedelta(days=1)
         fin_dia_anterior = fin_dia - timedelta(days=1)
-        venta_dia_anterior = Factura.objects.filter(
+        venta_dia_anterior_contado = Factura.objects.filter(
             fecha_factura__gte=inicio_dia_anterior,
             fecha_factura__lte=fin_dia_anterior,
             estado='pagada'
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+        pagos_credito_dia_anterior = PagoCuentaCobrar.objects.filter(
+            fecha_pago=inicio_dia_anterior.date()
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+
+        venta_dia_anterior = venta_dia_anterior_contado + pagos_credito_dia_anterior
 
         # Ventas del mes anterior
         mes_pasado = hoy_local.replace(day=1) - timedelta(days=1)
@@ -4590,7 +4673,14 @@ def dashboard_stats(request):
             estado='pagada'
         )
 
-        venta_mes_pasado = facturas_mes_pasado_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+        venta_mes_pasado_contado = facturas_mes_pasado_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+        pagos_credito_mes_pasado = PagoCuentaCobrar.objects.filter(
+            fecha_pago__gte=inicio_mes_pasado,
+            fecha_pago__lte=fin_mes_pasado
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+
+        venta_mes_pasado = venta_mes_pasado_contado + pagos_credito_mes_pasado
 
         # 3. PEDIDOS HOY
         total_pedidos = Pedido.objects.filter(
@@ -4740,6 +4830,12 @@ def dashboard_stats(request):
                     fecha_factura__lte=dia_fin,
                     estado='pagada'
                 ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+                pagos_credito_dia_grafico = PagoCuentaCobrar.objects.filter(
+                    fecha_pago=dia_inicio.date()
+                ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+
+                venta_dia_grafico += pagos_credito_dia_grafico
 
                 ultimos_7_dias.append(dia_str)
                 ventas_7_dias.append(float(venta_dia_grafico))
@@ -4911,6 +5007,12 @@ def dashboard_stats(request):
                     estado='pagada'
                 ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
+                pagos_credito_dia_mes = PagoCuentaCobrar.objects.filter(
+                    fecha_pago=fecha_dia
+                ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+
+                venta_dia_mes += pagos_credito_dia_mes
+
                 labels_mensuales.append(fecha_dia.strftime('%d %b'))
                 proyeccion_mensual.append(float(venta_dia_mes))
 
@@ -4934,6 +5036,13 @@ def dashboard_stats(request):
                     fecha_factura__lte=fin_mes_grafico,
                     estado='pagada'
                 ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+                pagos_credito_mes_grafico = PagoCuentaCobrar.objects.filter(
+                    fecha_pago__gte=fecha_mes,
+                    fecha_pago__lte=ultimo_dia
+                ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+
+                venta_mes_grafico += pagos_credito_mes_grafico
 
                 labels_anuales.append(meses_esp[fecha_mes.month - 1])
                 proyeccion_anual.append(float(venta_mes_grafico))
@@ -4994,6 +5103,12 @@ def dashboard_stats(request):
                 tipo_pedido = (factura.tipo_pedido or '').lower().strip()
                 if tipo_pedido in tipos_pedido_totales:
                     tipos_pedido_totales[tipo_pedido] += factura.total
+
+            # Sumar pagos de cuentas por cobrar al grafico por metodo de pago del mes.
+            for pago_cxc in pagos_credito_mes_qs:
+                metodo_pago_cxc = (pago_cxc.metodo_pago or '').lower().strip()
+                if metodo_pago_cxc in metodo_totales:
+                    metodo_totales[metodo_pago_cxc] += pago_cxc.monto
 
             ventas_horarios_data = [float(horario_totales[label]) for label in horario_labels]
             ventas_metodos_data = [
@@ -5059,6 +5174,8 @@ def dashboard_stats(request):
             'hora_actual': ahora_local.strftime('%H:%M:%S'),
             'total_facturas_hoy': facturas_hoy.count(),
             'total_facturas_mes': facturas_mes.count(),
+            'total_pagos_hoy': total_pagos_hoy,
+            'total_pagos_mes': total_pagos_mes,
             'costos_items_validos': costo_mes_stats['items_validos'],
             'costos_items_mapeados': costo_mes_stats['items_mapeados'],
             'costos_items_no_mapeados': costo_mes_stats['items_no_mapeados'],

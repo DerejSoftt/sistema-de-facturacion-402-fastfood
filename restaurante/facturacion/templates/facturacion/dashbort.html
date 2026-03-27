@@ -1507,12 +1507,8 @@
                             </div>
                             <div class="stat-value" id="ventaDia">RD${{ venta_dia|floatformat:2|intcomma }}</div>
                             <div class="stat-label">Venta del Día</div>
-                            <div class="stat-detail">
-                                {% if venta_dia > 0 %}
-                                {{ total_facturas_hoy }} factura(s) hoy • Tendencia vs ayer
-                                {% else %}
-                                No hay ventas registradas hoy • Tendencia vs ayer
-                                {% endif %}
+                            <div class="stat-detail" id="ventaDiaDetail">
+                                {{ total_facturas_hoy }} factura(s) • {{ total_pagos_hoy }} pago(s) hoy • Tendencia vs ayer
                             </div>
                             <!-- Botones para generar PDF -->
                             <div class="pdf-buttons-container">
@@ -1543,7 +1539,7 @@
                             </div>
                             <div class="stat-value" id="ventaMes">RD${{ venta_mes|floatformat:2|intcomma }}</div>
                             <div class="stat-label">Venta del Mes</div>
-                            <div class="stat-detail">{{ total_facturas_mes }} factura(s) este mes • Tendencia vs mes anterior</div>
+                            <div class="stat-detail" id="ventaMesDetail">{{ total_facturas_mes }} factura(s) • {{ total_pagos_mes }} pago(s) este mes • Tendencia vs mes anterior</div>
                         </div>
 
                         <div class="stat-card gastos">
@@ -1945,6 +1941,10 @@
             document.getElementById('totalPedidos').textContent = data.total_pedidos;
             document.getElementById('nuevosClientes').textContent = data.nuevos_clientes;
             document.getElementById('costosItemsNoMapeados').textContent = data.costos_items_no_mapeados || 0;
+            document.getElementById('ventaDiaDetail').textContent =
+                `${data.total_facturas_hoy || 0} factura(s) • ${data.total_pagos_hoy || 0} pago(s) hoy • Tendencia vs ayer`;
+            document.getElementById('ventaMesDetail').textContent =
+                `${data.total_facturas_mes || 0} factura(s) • ${data.total_pagos_mes || 0} pago(s) este mes • Tendencia vs mes anterior`;
 
             updateTrendBadge('trendVentaDia', 'trendVentaDiaIcon', 'trendVentaDiaValue', data.trend_venta_dia_class, data.trend_venta_dia_icon, data.trend_venta_dia);
             updateTrendBadge('trendVentaMes', 'trendVentaMesIcon', 'trendVentaMesValue', data.trend_venta_mes_class, data.trend_venta_mes_icon, data.trend_venta_mes);
