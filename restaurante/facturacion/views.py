@@ -790,9 +790,9 @@ def pedidos(request):
         return render(request, 'facturacion/pedidos.html', context)
 
 
-@csrf_exempt
+
 def crear_pedido(request):
-    """Vista para crear un nuevo pedido - funciona sin login"""
+    """Vista para crear un nuevo pedido. Solo staff autenticado puede crear pedidos a crédito."""
     if request.method == 'POST':
         try:
             # Obtener datos del formulario con valores por defecto
@@ -805,7 +805,11 @@ def crear_pedido(request):
             if tipo_pago not in ['contado', 'credito']:
                 tipo_pago = 'contado'
 
+            # RESTRICCIÓN DE SEGURIDAD: Solo staff autenticado puede crear pedidos a crédito
             if tipo_pago == 'credito':
+                if not request.user.is_authenticated or not request.user.is_staff:
+                    messages.error(request, 'Solo personal autorizado puede crear pedidos a crédito. Inicie sesión como staff.')
+                    return redirect('pedidos')
                 if not cliente_credito_id:
                     messages.error(request, 'Para venta a crédito debes seleccionar un cliente')
                     return redirect('pedidos')
