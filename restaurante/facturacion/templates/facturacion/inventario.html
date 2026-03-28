@@ -1306,8 +1306,14 @@
             if (normalizado.includes(',') && normalizado.includes('.')) {
                 normalizado = normalizado.replace(/,/g, '');
             } else if (normalizado.includes(',') && !normalizado.includes('.')) {
-                // Si solo hay comas, tratarlas como separador decimal.
-                normalizado = normalizado.replace(',', '.');
+                // Si hay múltiples comas, tratarlas como separador de miles.
+                // Si hay una sola coma, tratarla como separador decimal.
+                const commaCount = (normalizado.match(/,/g) || []).length;
+                if (commaCount > 1) {
+                    normalizado = normalizado.replace(/,/g, '');
+                } else {
+                    normalizado = normalizado.replace(',', '.');
+                }
             }
 
             const numero = parseFloat(normalizado);
