@@ -1031,8 +1031,8 @@
         </div>
         <nav class="sidebar-nav">
                 <!-- Verificar grupos sin template tag -->
-                {% with user_groups=user.groups.all|join:"," %}
-                {% if user.is_superuser or "Administrador" in user_groups %}
+                {% load auth_extras %}
+                {% if user.is_superuser or user|has_group:"Administrador" %}
                 <a href="{% url 'entradadeproductos' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-box"></i></span>
