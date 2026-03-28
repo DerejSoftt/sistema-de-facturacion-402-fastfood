@@ -1891,14 +1891,17 @@ def historial_pedidos_pagados(request):
         pedidos_procesados.append(pedido_procesado)
 
     # Estadísticas
-    total_facturas_emitidas = facturas.count()
-    ingresos_totales = facturas.aggregate(total=Sum('total'))['total'] or 0
 
-    # Ingresos del mes actual en zona horaria RD (independiente de filtros de tabla)
+    facturas_pagadas = facturas.filter(estado='pagada')
+    total_facturas_emitidas = facturas.count()
+    ingresos_totales = facturas_pagadas.aggregate(total=Sum('total'))['total'] or 0
+
+    # Ingresos del mes actual en zona horaria RD (solo facturas pagadas)
     inicio_mes_rd = ahora_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     inicio_hoy_rd = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
     fin_hoy_rd = inicio_hoy_rd + timedelta(days=1)
     ingresos_mes_actual = facturas_base.filter(
+        estado='pagada',
         fecha_factura__gte=inicio_mes_rd,
         fecha_factura__lt=fin_hoy_rd
     ).aggregate(total=Sum('total'))['total'] or 0
@@ -2799,11 +2802,17 @@ def crear_factura(request):
                     return Decimal(default)
 
             subtotal = _to_decimal(request.POST.get('subtotal', pedido.subtotal), '0.00')
-            envio = Decimal('0.00')  # Establecer envío a 0 ya que no lo estamos usando
+            # Obtener el valor real de envío si es delivery, si no, dejar en 0
+            if pedido.tipo_pedido == 'delivery':
+                envio = _to_decimal(request.POST.get('envio', pedido.envio), '0.00')
+            else:
+                envio = Decimal('0.00')
             iva = Decimal('0.00')  # Establecer IVA a 0 ya que no lo estamos usando
 
-            # TOTAL sin IVA ni envío - usar el total del pedido directamente
-            total = _to_decimal(request.POST.get('total', pedido.total), '0.00')
+            # Calcular el total correctamente
+            # Si hay descuento, tomarlo en cuenta (si no existe, usar 0)
+            descuento = _to_decimal(request.POST.get('descuento', 0), '0.00')
+            total = subtotal - descuento + envio
 
             # Obtener items del pedido
             items_json = request.POST.get('items', '[]')
@@ -7746,7 +7755,7 @@ def _sincronizar_cuenta_por_cobrar(factura, cliente_match=None):
         estado = 'vencida' if cuenta.fecha_vencimiento < hoy else 'pendiente'
 
     cambios = []
-    if cuenta.cliente_id != (cliente_match.id if cliente_match else None):
+    if cliente_match is not None and cuenta.cliente_id != cliente_match.id:
         cuenta.cliente = cliente_match
         cambios.append('cliente')
     if cuenta.fecha_emision != fecha_emision:
