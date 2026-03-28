@@ -2123,10 +2123,9 @@
                             <div class="product-info">
                                 <div class="product-icon"><i class="fas ${iconClass}"></i></div>
                                 <div>
-                                    <div style="font-weight: 600;">${String(producto.nombre || 'Producto').slice(0, 30)}</div>
+                                    <div style="font-weight: 600;">${escapeHtml(String(producto.nombre || 'Producto').slice(0, 30))}</div>
                                     <div style="font-size: 0.85rem; color: #718096;">Producto vendido</div>
-                                </div>
-                            </div>
+                                </div>                            </div>
                         </td>
                         <td>
                             <div class="product-sales">
