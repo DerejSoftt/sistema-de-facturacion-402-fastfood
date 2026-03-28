@@ -2412,7 +2412,7 @@
                             <label><i class="fas fa-sliders-h"></i> Modo de Cobro</label>
                             <div class="pago-global-modo">
                                 <label class="pago-global-switch">
-                                    <input type="checkbox" id="pagoCompletoToggle" checked onchange="togglePagoCompletoGlobal()">
+                                    <input type="checkbox" id="pagoCompletoToggle" onchange="togglePagoCompletoGlobal()">
                                     <span class="pago-global-switch-track"></span>
                                     <span class="pago-global-switch-text">
                                         <strong>Pagar deuda completa</strong>
@@ -2682,7 +2682,7 @@
             const facturaGroup = document.getElementById('facturaObjetivoGroup');
             const ayuda = document.getElementById('pagoGlobalHelpText');
             const estadoToggle = document.getElementById('pagoCompletoEstado');
-            const pagoCompleto = pagoCompletoToggle ? pagoCompletoToggle.checked : true;
+            const pagoCompleto = pagoCompletoToggle ? pagoCompletoToggle.checked : false;
 
             if (facturaGroup) {
                 facturaGroup.style.display = pagoCompleto ? 'none' : 'block';
