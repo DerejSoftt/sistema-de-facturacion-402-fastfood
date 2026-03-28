@@ -7932,14 +7932,52 @@ def cuentaporcobrar_comprobante_pdf(request):
     except ValueError:
         return HttpResponse('Formato de pagos invalido.', status=400)
 
-    pagos = list(PagoCuentaCobrar.objects.filter(id__in=pago_ids).select_related('factura').order_by('fecha_pago', 'id'))
+    pagos = list(
+        PagoCuentaCobrar.objects.filter(id__in=pago_ids)
+        .select_related('factura', 'registrado_por')
+        .order_by('fecha_pago', 'id')
+    )
     if not pagos:
         return HttpResponse('No se encontraron pagos para el comprobante.', status=404)
 
+    factura_ids = {p.factura_id for p in pagos}
+    pagos_facturas = list(
+        PagoCuentaCobrar.objects.filter(factura_id__in=factura_ids)
+        .only('id', 'factura_id', 'monto', 'fecha_pago')
+        .order_by('fecha_pago', 'id')
+    )
+
+    total_factura_por_id = {}
+    for pago in pagos:
+        total_factura_por_id[pago.factura_id] = Decimal(str(pago.factura.total or '0'))
+
+    acumulado_por_factura = {factura_id: Decimal('0.00') for factura_id in factura_ids}
+    resumen_por_pago = {}
+    for pago_hist in pagos_facturas:
+        total_factura = total_factura_por_id.get(pago_hist.factura_id, Decimal('0.00'))
+        acumulado_por_factura[pago_hist.factura_id] += Decimal(str(pago_hist.monto or '0'))
+
+        saldo_actual = total_factura - acumulado_por_factura[pago_hist.factura_id]
+        if saldo_actual < Decimal('0.00'):
+            saldo_actual = Decimal('0.00')
+
+        saldo_anterior = saldo_actual + Decimal(str(pago_hist.monto or '0'))
+        if saldo_anterior > total_factura:
+            saldo_anterior = total_factura
+
+        resumen_por_pago[pago_hist.id] = {
+            'saldo_anterior': saldo_anterior,
+            'saldo_actual': saldo_actual,
+        }
+
     ancho_ticket = 80 * mm
-    alto_base = 80 * mm
-    alto_linea = 6 * mm
-    alto_ticket = alto_base + (len(pagos) * alto_linea)
+    alto_linea = 4 * mm
+    lineas_encabezado = 14
+    lineas_por_pago = 13
+    lineas_pie = 6
+    alto_ticket = (lineas_encabezado + (len(pagos) * lineas_por_pago) + lineas_pie) * alto_linea
+    if alto_ticket < (120 * mm):
+        alto_ticket = 120 * mm
 
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="comprobante_cxc_{timezone.localtime().strftime("%Y%m%d_%H%M%S")}.pdf"'
@@ -7949,57 +7987,113 @@ def cuentaporcobrar_comprobante_pdf(request):
 
     tz_rd = pytz.timezone('America/Santo_Domingo')
     ahora_local = timezone.now().astimezone(tz_rd)
-    factura_ref = pagos[0].factura
-    cliente_nombre = factura_ref.nombre_cliente or 'Cliente'
-
     total_pagado = sum((p.monto for p in pagos), Decimal('0.00'))
-    comprobantes = [p.numero_comprobante or f'CP-{p.id}' for p in pagos]
-    comprobante_principal = comprobantes[0]
+
+    def _format_money(value):
+        return f'RD$ {Decimal(str(value or 0)):,.2f}'
+
+    def _draw_label_value(y_pos, label, value, label_x=5 * mm):
+        # Etiqueta en negrita y valor en regular; posicion dinamica para evitar solapes.
+        label_text = f'{label}:'
+        c.setFont('Helvetica-Bold', 8)
+        c.drawString(label_x, y_pos, label_text)
+
+        label_width = c.stringWidth(label_text, 'Helvetica-Bold', 8)
+        value_x = label_x + label_width + (2 * mm)
+        c.setFont('Helvetica', 8)
+        c.drawString(value_x, y_pos, str(value))
+
+    no_transaccion_general = pagos[0].id if pagos else 0
+    # Encabezado del negocio con logo
+    try:
+        logo_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+
+        if os.path.exists(logo_path):
+            logo_size = 14 * mm
+            logo_x = (ancho_ticket - logo_size) / 2
+            c.drawImage(logo_path, logo_x, y - logo_size, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
+            y -= (logo_size + 2 * mm)
+    except Exception:
+        pass
 
     c.setFont('Helvetica-Bold', 10)
-    c.drawCentredString(ancho_ticket / 2, y, 'COMPROBANTE DE PAGO')
-    y -= 5 * mm
-
-    c.setFont('Helvetica', 8)
-    c.drawString(5 * mm, y, f'Fecha: {ahora_local.strftime("%d/%m/%Y %I:%M %p")}')
-    y -= 4 * mm
-    c.drawString(5 * mm, y, f'Comprobante: {comprobante_principal[:28]}')
-    y -= 4 * mm
-    c.drawString(5 * mm, y, f'Cliente: {cliente_nombre[:34]}')
-    y -= 4 * mm
-    c.drawString(5 * mm, y, f'Pagos aplicados: {len(pagos)}')
-    y -= 4 * mm
+    c.drawCentredString(ancho_ticket / 2, y, '402 FASTFOOD')
+    y -= alto_linea
+    c.setFont('Helvetica', 7)
+    c.drawCentredString(ancho_ticket / 2, y, 'RNC: 00000000')
+    y -= alto_linea
+    c.drawCentredString(ancho_ticket / 2, y, 'Direccion: Castanuelas, calle 30 de mayo')
+    y -= alto_linea
+    c.drawCentredString(ancho_ticket / 2, y, 'Telefono: 876-987-9876')
+    y -= alto_linea
 
     c.line(5 * mm, y, ancho_ticket - 5 * mm, y)
-    y -= 4 * mm
+    y -= alto_linea
 
-    c.setFont('Helvetica-Bold', 8)
-    c.drawString(5 * mm, y, 'Factura')
-    c.drawRightString(ancho_ticket - 5 * mm, y, 'Monto')
-    y -= 4 * mm
+    c.setFont('Helvetica-Bold', 9)
+    c.drawCentredString(ancho_ticket / 2, y, 'COMPROBANTE DE PAGO')
+    y -= alto_linea
+    _draw_label_value(y, 'Generado', ahora_local.strftime('%d/%m/%Y %I:%M %p'))
+    y -= alto_linea
+    c.setFont('Helvetica', 7)
+    c.drawRightString(ancho_ticket - 5 * mm, y, f'Recibo: #{no_transaccion_general}')
+    y -= alto_linea
 
-    c.setFont('Helvetica', 8)
+
     for pago in pagos:
-        numero = str(pago.factura.numero_factura or f'FACT-{pago.factura_id}')
-        numero_comprobante = (pago.numero_comprobante or f'CP-{pago.id}')[:16]
-        c.drawString(5 * mm, y, f'{numero[:12]} {numero_comprobante}')
-        c.drawRightString(ancho_ticket - 5 * mm, y, f'RD$ {pago.monto:.2f}')
+        resumen_pago = resumen_por_pago.get(pago.id, {
+            'saldo_anterior': Decimal('0.00'),
+            'saldo_actual': Decimal('0.00'),
+        })
+        saldo_anterior = resumen_pago['saldo_anterior']
+        saldo_actual = resumen_pago['saldo_actual']
+        tipo_comprobante = 'Factura saldada' if saldo_actual <= Decimal('0.00') else 'Abono'
+
+        numero_comprobante = pago.numero_comprobante or f'CP-{pago.id}'
+        numero_factura = pago.factura.numero_factura or f'FACT-{pago.factura_id}'
+        cliente_nombre = (pago.factura.nombre_cliente or 'Cliente general')[:34]
+        metodo = pago.get_metodo_pago_display() if hasattr(pago, 'get_metodo_pago_display') else (pago.metodo_pago or 'N/A')
+        referencia = (pago.referencia or 'N/A')[:34]
+
+        if pago.registrado_por:
+            nombre_usuario = (pago.registrado_por.get_full_name() or pago.registrado_por.username or 'N/A').strip()
+        else:
+            nombre_usuario = 'N/A'
+
+        c.line(5 * mm, y, ancho_ticket - 5 * mm, y)
+        y -= alto_linea
+        _draw_label_value(y, 'Comprobante', numero_comprobante[:28])
         y -= alto_linea
 
-    c.line(5 * mm, y + 2 * mm, ancho_ticket - 5 * mm, y + 2 * mm)
+        _draw_label_value(y, 'Fecha pago', pago.fecha_pago.strftime('%d/%m/%Y'))
+        y -= alto_linea
+        _draw_label_value(y, 'Tipo', tipo_comprobante)
+        y -= alto_linea
+        _draw_label_value(y, 'Cliente', cliente_nombre)
+        y -= alto_linea
+        _draw_label_value(y, 'Factura', numero_factura[:30])
+        y -= alto_linea
+        _draw_label_value(y, 'Monto pagado', _format_money(pago.monto))
+        y -= alto_linea
+        _draw_label_value(y, 'Balance anterior', _format_money(saldo_anterior))
+        y -= alto_linea
+        _draw_label_value(y, 'Balance actual', _format_money(saldo_actual))
+        y -= alto_linea
+        _draw_label_value(y, 'Metodo pago', metodo[:28])
+        y -= alto_linea
+        _draw_label_value(y, 'Referencia', referencia)
+        y -= alto_linea
+        _draw_label_value(y, 'Despachado por', nombre_usuario[:28])
+        y -= (alto_linea + 1 * mm)
+
+    c.line(5 * mm, y, ancho_ticket - 5 * mm, y)
+    y -= alto_linea
     c.setFont('Helvetica-Bold', 9)
-    c.drawString(5 * mm, y - 2 * mm, 'TOTAL PAGADO:')
-    c.drawRightString(ancho_ticket - 5 * mm, y - 2 * mm, f'RD$ {total_pagado:.2f}')
-    y -= 8 * mm
-
-    metodo = pagos[-1].get_metodo_pago_display() if hasattr(pagos[-1], 'get_metodo_pago_display') else pagos[-1].metodo_pago
-    referencia = pagos[-1].referencia or 'N/A'
-
-    c.setFont('Helvetica', 8)
-    c.drawString(5 * mm, y, f'Metodo: {metodo}')
-    y -= 4 * mm
-    c.drawString(5 * mm, y, f'Referencia: {referencia[:30]}')
-    y -= 6 * mm
+    c.drawString(5 * mm, y, 'TOTAL PAGADO')
+    c.drawRightString(ancho_ticket - 5 * mm, y, _format_money(total_pagado))
+    y -= (alto_linea + 1 * mm)
 
     c.setFont('Helvetica-Oblique', 7)
     c.drawCentredString(ancho_ticket / 2, y, 'Gracias por su pago')
