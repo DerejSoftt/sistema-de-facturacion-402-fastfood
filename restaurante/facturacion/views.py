@@ -236,6 +236,54 @@ def entradadeproductos(request):
 
 
 @csrf_exempt
+def api_tragos(request):
+    """API para registrar tragos. Guarda solo nombre, categoria, precio_compra y cantidad (total_tragos)."""
+    import json
+    from decimal import Decimal
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+        nombre = data.get('nombre', '').strip()
+        categoria = data.get('categoria', '').strip() or 'trago'
+        precio_compra = data.get('precio_compra')
+        botellas = int(data.get('botellas', 0))
+        ml_botella = int(data.get('ml_botella', 0))
+        ml_trago = int(data.get('ml_trago', 0))
+        # Validaciones
+        if not nombre or not categoria or not precio_compra:
+            return JsonResponse({'success': False, 'message': 'Faltan campos obligatorios.'}, status=400)
+        if botellas <= 0 or ml_botella <= 0 or ml_trago <= 0:
+            return JsonResponse({'success': False, 'message': 'Datos de trago inválidos.'}, status=400)
+        # Calcular total de tragos
+        total_tragos = (botellas * ml_botella) // ml_trago
+        if total_tragos <= 0:
+            return JsonResponse({'success': False, 'message': 'El total de tragos debe ser mayor a 0.'}, status=400)
+        # Guardar producto
+        producto = Producto.objects.create(
+            nombre=nombre,
+            categoria=categoria,
+            cantidad=total_tragos,
+            precio_compra=precio_compra
+        )
+        producto.subtotal = Decimal(str(producto.cantidad)) * Decimal(str(producto.precio_compra))
+        producto.save()
+        return JsonResponse({
+            'success': True,
+            'message': 'Trago registrado correctamente',
+            'producto': {
+                'nombre': producto.nombre,
+                'categoria': producto.categoria,
+                'cantidad': float(producto.cantidad),
+                'precio_compra': float(producto.precio_compra),
+                'total_tragos': int(producto.cantidad)
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error: {str(e)}'}, status=500)
+
+
+@csrf_exempt
 def inventario(request):
     """Vista principal del inventario con filtros - versión simple"""
     # Obtener parámetros de filtrado

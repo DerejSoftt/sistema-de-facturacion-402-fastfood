@@ -77,4 +77,5 @@ path('gestiondepedidos/verificar-stock-multiples/', views.verificar_stock_multip
   path('gestiondeclientes/eliminar/<int:cliente_id>/', views.eliminar_cliente, name='eliminar_cliente'),
   path('registrodeclientes/', views.registrodeclientes, name='registrodeclientes'),  # URL para registro   
   path('historial_pagos/', views.historial_pagos, name='historial_pagos'),
+  path('api/tragos/', views.api_tragos, name='api_tragos'),
 ]
