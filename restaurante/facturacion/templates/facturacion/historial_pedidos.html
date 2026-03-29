@@ -892,12 +892,12 @@
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-chart-line"></i></span>
-                            <div class="stat-value">$<span id="ingresosTotalesValor">{{ estadisticas.ingresos_totales|default:0 }}</span></div>
+                            <div class="stat-value">RD$<span id="ingresosTotalesValor">{{ estadisticas.ingresos_totales|default:0 }}</span></div>
                             <div class="stat-label">Ingresos Totales</div>
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-calendar-alt"></i></span>
-                            <div class="stat-value">$<span id="ingresosMesValor">{{ estadisticas.ingresos_mes_actual|default:0 }}</span></div>
+                            <div class="stat-value">RD$<span id="ingresosMesValor">{{ estadisticas.ingresos_mes_actual|default:0 }}</span></div>
                             <div class="stat-label">Ingresos Este Mes</div>
                         </div>
                     </div>
@@ -1166,7 +1166,7 @@
                     maximumFractionDigits: 2
                 });
             }
-            
+
             // Formatear ingresos del mes
             const ingresosMesElement = document.getElementById('ingresosMesValor');
             if (ingresosMesElement) {
@@ -1176,12 +1176,12 @@
                     maximumFractionDigits: 2
                 });
             }
-            
+
             // Formatear totales de pedidos en la tabla
             document.querySelectorAll('.order-total').forEach(element => {
                 const texto = element.textContent.trim();
-                const valor = parseFloat(texto.replace('$', '').replace(/,/g, '')) || 0;
-                element.textContent = '$' + valor.toLocaleString('es-DO', {
+                const valor = parseFloat(texto.replace('RD$', '').replace('$', '').replace(/,/g, '')) || 0;
+                element.textContent = 'RD$' + valor.toLocaleString('es-DO', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                 });
