@@ -5391,9 +5391,12 @@ def generar_pdf_ticket_dia(request):
                 num_factura = "..." + num_factura[-8:]
             c.drawString(5 * mm, y, f"#{num_factura}")
 
-            # Hora
-            hora_factura = factura.fecha_factura.astimezone(tz_rd)
-            c.drawString(30 * mm, y, hora_factura.strftime('%I:%M'))
+            # Hora (siempre convertir igual que pagos)
+            hora_factura = factura.fecha_factura
+            if timezone.is_naive(hora_factura):
+                hora_factura = timezone.make_aware(hora_factura, timezone.utc)
+            hora_factura = hora_factura.astimezone(tz_rd)
+            c.drawString(30 * mm, y, hora_factura.strftime('%I:%M %p'))
 
             # Cliente (truncar si es muy largo)
             cliente = factura.nombre_cliente or "CLIENTE"
@@ -5410,11 +5413,86 @@ def generar_pdf_ticket_dia(request):
         c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
         y -= 8 * mm
 
-    # 6. TOTAL DEL DÍA
+
+    # 6. PAGOS DE CUENTAS POR COBRAR (CXC)
+    from .models import PagoCuentaCobrar
+    pagos_cxc = PagoCuentaCobrar.objects.filter(
+        fecha_pago__gte=inicio_dia,
+        fecha_pago__lte=fin_dia
+    ).order_by('fecha_pago')
+    total_cxc = pagos_cxc.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+
+    # Mostrar sección de pagos CXC si existen
+    if pagos_cxc.exists():
+        c.setFont("Helvetica-Bold", 9)
+        c.drawCentredString(ancho_pagina / 2, y, "PAGOS DE CUENTAS POR COBRAR")
+        y -= 5 * mm
+
+        # Encabezado de tabla
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(5 * mm, y, "COMP.")
+        c.drawString(22 * mm, y, "HORA")
+        c.drawString(32 * mm, y, "CLIENTE")
+        c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
+        y -= 4 * mm
+
+        c.setFont("Helvetica", 7)
+        for pago in pagos_cxc:
+            if y < 25 * mm:
+                c.showPage()
+                c.setFont("Helvetica", 8)
+                y = alto_pagina - 10 * mm
+                c.setFont("Helvetica-Bold", 8)
+                c.drawString(5 * mm, y, "COMP.")
+                c.drawString(22 * mm, y, "HORA")
+                c.drawString(32 * mm, y, "CLIENTE")
+                c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
+                y -= 4 * mm
+                c.setFont("Helvetica", 7)
+
+            # Comprobante (últimos 8 dígitos)
+            comp = pago.numero_comprobante or "-"
+            if len(comp) > 8:
+                comp = "..." + comp[-8:]
+            c.drawString(5 * mm, y, f"#{comp}")
+
+            # Hora (idéntico a facturas)
+            fecha_pago = pago.fecha_pago
+            hora_str = '--:--'
+            if isinstance(fecha_pago, datetime):
+                import pytz
+                tz_rd = pytz.timezone('America/Santo_Domingo')
+                if timezone.is_naive(fecha_pago):
+                    fecha_pago = timezone.make_aware(fecha_pago, pytz.UTC)
+                fecha_pago = fecha_pago.astimezone(tz_rd)
+                hora_str = fecha_pago.strftime('%I:%M')
+            c.drawString(22 * mm, y, hora_str)
+
+            # Cliente (truncar si es muy largo)
+            cliente_obj = pago.cuenta_por_cobrar.cliente if pago.cuenta_por_cobrar and hasattr(pago.cuenta_por_cobrar, 'cliente') else None
+            if cliente_obj:
+                # Buscar campo de nombre más representativo
+                nombre_cliente = getattr(cliente_obj, 'razon_social', None) or getattr(cliente_obj, 'nombre_completo', None) or str(cliente_obj)
+            else:
+                nombre_cliente = "CLIENTE"
+            if len(nombre_cliente) > 10:
+                nombre_cliente = nombre_cliente[:10] + "."
+            c.drawString(32 * mm, y, nombre_cliente)
+
+            # Monto
+            c.drawRightString(ancho_pagina - 5 * mm, y, f"${pago.monto:,.2f}")
+            y -= 3.5 * mm
+
+        # Línea separadora después de la lista
+        c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+        y -= 8 * mm
+
+    # 7. TOTAL EN CAJA (Facturas + CXC)
+    total_en_caja = venta_dia + total_cxc
     c.setFont("Helvetica-Bold", 11)
-    c.drawString(5 * mm, y, "TOTAL DEL DÍA:")
+    c.drawString(5 * mm, y, "TOTAL EN CAJA:")
     c.setFont("Helvetica-Bold", 14)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"${venta_dia:,.2f}")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"${total_en_caja:,.2f}")
     y -= 8 * mm
 
     # Línea doble para énfasis
@@ -8136,11 +8214,19 @@ def cuentaporcobrar_registrar_pago(request):
     fecha_pago_raw = str(payload.get('fecha_pago') or '').strip()
     if fecha_pago_raw:
         try:
-            fecha_pago = datetime.strptime(fecha_pago_raw, '%Y-%m-%d').date()
+            # Si solo viene la fecha, combinar con hora actual
+            fecha_sola = datetime.strptime(fecha_pago_raw, '%Y-%m-%d').date()
+            ahora = timezone.now()
+            fecha_pago = datetime.combine(fecha_sola, ahora.time())
+            # Asegurar que sea aware en UTC
+            if timezone.is_naive(fecha_pago):
+                fecha_pago = timezone.make_aware(fecha_pago, pytz.UTC)
+            else:
+                fecha_pago = fecha_pago.astimezone(pytz.UTC)
         except Exception:
             return JsonResponse({'success': False, 'error': 'Fecha de pago inválida.'}, status=400)
     else:
-        fecha_pago = timezone.localdate()
+        fecha_pago = timezone.now().astimezone(pytz.UTC)
 
     metodo_pago = (payload.get('metodo_pago') or 'efectivo').strip()
     metodos_validos = {item[0] for item in PagoCuentaCobrar.METODO_PAGO_CHOICES}

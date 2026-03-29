@@ -1377,9 +1377,9 @@ class PagoCuentaCobrar(models.Model):
         validators=[MinValueValidator(Decimal('0.01'))],
         verbose_name='Monto pagado'
     )
-    fecha_pago = models.DateField(
-        default=timezone.localdate,
-        verbose_name='Fecha de pago'
+    fecha_pago = models.DateTimeField(
+        default=timezone.now,
+        verbose_name='Fecha y hora de pago'
     )
     metodo_pago = models.CharField(
         max_length=20,
