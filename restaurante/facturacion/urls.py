@@ -1,3 +1,4 @@
+
 from django.urls import path
 from . import views
 from django.conf import settings
@@ -35,6 +36,10 @@ urlpatterns = [
 path('gestiondepedidos/verificar-stock-multiples/', views.verificar_stock_multiples, name='verificar_stock_multiples_gestion'),
 
     path('facturacion/', views.facturacion, name='facturacion'),
+    path('cuentaporcobrar/', views.cuentaporcobrar, name='cuentaporcobrar'),
+    path('cuentaporcobrar/datos/', views.cuentaporcobrar_datos, name='cuentaporcobrar_datos'),
+    path('cuentaporcobrar/registrar-pago/', views.cuentaporcobrar_registrar_pago, name='cuentaporcobrar_registrar_pago'),
+    path('cuentaporcobrar/comprobante-pdf/', views.cuentaporcobrar_comprobante_pdf, name='cuentaporcobrar_comprobante_pdf'),
     path('crear/', views.crear_factura, name='crear_factura'),
     path('marcar-pagada/<int:factura_id>/', views.marcar_factura_pagada, name='marcar_factura_pagada'),
     path('eliminar/<int:factura_id>/', views.eliminar_factura, name='eliminar_factura'),
@@ -61,8 +66,15 @@ path('gestiondepedidos/verificar-stock-multiples/', views.verificar_stock_multip
     path('procesar-anulacion-factura/', views.procesar_anulacion_factura, name='procesar_anulacion_factura'),
     
      
-    path('productos-vendidos-dia/', views.productos_vendidos_dia, name='productos_vendidos_dia'),    # URL para productos vendidos del día
-    path('generar-pdf-productos-dia-a4/', views.generar_pdf_productos_dia_a4, name='generar_pdf_a4_dia'), # URL para generar PDF de productos vendidos en A4
-    path('registrodeclientes/', views.registrodeclientes, name='registrodeclientes'),  # URL para registro de clientes
-    path('registro-clientes/', views.registrodeclientes, name='registro_clientes'),
+  path('productos-vendidos-dia/', views.productos_vendidos_dia, name='productos_vendidos_dia'),    # URL para productos vendidos del día
+  path('generar-pdf-productos-dia-a4/', views.generar_pdf_productos_dia_a4, name='generar_pdf_a4_dia'), # URL para generar PDF de productos vendidos en A4
+
+    
+  path('gestiondeclientes/', views.gestiondeclientes, name='gestiondeclientes'),
+  path('gestiondeclientes/detalle/<int:cliente_id>/', views.detalle_cliente, name='detalle_cliente'),
+  path('gestiondeclientes/historial/<int:cliente_id>/', views.historial_cliente, name='historial_cliente'),
+  path('gestiondeclientes/editar/<int:cliente_id>/', views.editar_cliente, name='editar_cliente'),
+  path('gestiondeclientes/eliminar/<int:cliente_id>/', views.eliminar_cliente, name='eliminar_cliente'),
+  path('registrodeclientes/', views.registrodeclientes, name='registrodeclientes'),  # URL para registro   
+  path('historial_pagos/', views.historial_pagos, name='historial_pagos'),
 ]

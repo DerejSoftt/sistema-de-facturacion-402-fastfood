@@ -878,8 +878,8 @@
         <div class="main-content">
             <div class="container">
                 <div class="header">
-                    <h1><i class="fas fa-file-invoice"></i> Historial de Facturas</h1>
-                    <p>Consulta todas las facturas emitidas con paginación de 50 registros por página</p>
+                    <h1><i class="fas fa-file-invoice"></i> Historial de Pagos</h1>
+                    <p>Consulta todos los pagos realizados a cuentas por cobrar, con paginación de 50 registros por página</p>
                 </div>
                 
                 <div class="content">
@@ -887,8 +887,8 @@
                     <div class="stats-container">
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
-                            <div class="stat-value">{{ estadisticas.total_pedidos }}</div>
-                            <div class="stat-label">Total Facturas</div>
+                            <div class="stat-value">{{ estadisticas.total_pagos }}</div>
+                            <div class="stat-label">Total Pagos</div>
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-chart-line"></i></span>
@@ -905,14 +905,14 @@
                     <!-- Controls Section -->
                     <div class="controls-section">
                         <div class="controls-header">
-                            <h3>Buscar Facturas</h3>
+                            <h3>Buscar Pagos</h3>
                             <div style="display: flex; gap: 1rem;">
                                 <button class="btn btn-warning btn-sm" 
                                         type="button"
-                                        data-url="{% url 'gestiondepedidos' %}" 
+                                        data-url="{% url 'cuentaporcobrar' %}" 
                                         onclick="window.location.href=this.dataset.url">
                                     <span><i class="fas fa-arrow-left"></i></span>
-                                    <span>Volver a Activos</span>
+                                    <span>Volver a Cuentas por Cobrar</span>
                                 </button>
                                 <button class="btn btn-primary btn-sm" onclick="exportHistorial()" type="button">
                                     <span><i class="fas fa-file-export"></i></span>
@@ -923,40 +923,32 @@
                         
                         <form method="get" id="filterForm">
                             <div class="form-group">
-                                <label for="searchInput"><i class="fas fa-search"></i> Buscar Factura</label>
+                                <label for="searchInput"><i class="fas fa-search"></i> Buscar Pago</label>
                                 <div class="search-box">
                                     <span class="search-icon"><i class="fas fa-search"></i></span>
                                     <input type="text" id="searchInput" name="search" 
                                            value="{{ filtros.search }}"
-                                           placeholder="Buscar por cliente, número de pedido o factura...">
+                                           placeholder="Buscar por cliente, número de factura o comprobante...">
                                 </div>
                             </div>
-                            
                             <div class="filter-row">
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="typeFilter"><i class="fas fa-truck"></i> Tipo de Pedido</label>
-                                    <select class="filter-select" id="typeFilter" name="tipo_pedido">
-                                        <option value="">Todos los tipos</option>
-                                        <option value="mesa" {% if filtros.tipo_pedido == 'mesa' %}selected{% endif %}>Comer en Restaurante</option>
-                                        <option value="delivery" {% if filtros.tipo_pedido == 'delivery' %}selected{% endif %}>Domicilio</option>
-                                        <option value="llevar" {% if filtros.tipo_pedido == 'llevar' %}selected{% endif %}>Recoger en Local</option>
+                                    <label for="metodoPagoFilter"><i class="fas fa-credit-card"></i> Método de Pago</label>
+                                    <select class="filter-select" id="metodoPagoFilter" name="metodo_pago">
+                                        <option value="">Todos</option>
+                                        <option value="efectivo" {% if filtros.metodo_pago == 'efectivo' %}selected{% endif %}>Efectivo</option>
+                                        <option value="tarjeta" {% if filtros.metodo_pago == 'tarjeta' %}selected{% endif %}>Tarjeta</option>
+                                        <option value="transferencia" {% if filtros.metodo_pago == 'transferencia' %}selected{% endif %}>Transferencia</option>
                                     </select>
                                 </div>
-                                
                                 <div class="form-group" style="flex: 1;">
                                     <label for="dateFilter"><i class="fas fa-calendar-alt"></i> Periodo</label>
                                     <select class="filter-select" id="dateFilter" name="fecha">
                                         <option value="">Todos los periodos</option>
                                         <option value="hoy" {% if filtros.fecha == 'hoy' %}selected{% endif %}>Hoy</option>
-                                        <option value="ayer" {% if filtros.fecha == 'ayer' %}selected{% endif %}>Ayer</option>
-                                        <option value="ultimos_7_dias" {% if filtros.fecha == 'ultimos_7_dias' %}selected{% endif %}>Ultimos 7 dias</option>
-                                        <option value="ultimos_30_dias" {% if filtros.fecha == 'ultimos_30_dias' %}selected{% endif %}>Ultimos 30 dias</option>
                                         <option value="este_mes" {% if filtros.fecha == 'este_mes' %}selected{% endif %}>Este mes</option>
-                                        <option value="mes_pasado" {% if filtros.fecha == 'mes_pasado' %}selected{% endif %}>Mes pasado</option>
-                                        <option value="este_anio" {% if filtros.fecha == 'este_anio' %}selected{% endif %}>Este ano</option>
                                     </select>
                                 </div>
-                                
                                 <div class="form-group" style="flex: 0 0 auto;">
                                     <label style="opacity: 0; pointer-events: none;">Acción</label>
                                     <button type="submit" class="btn btn-primary">
@@ -968,83 +960,51 @@
                         </form>
                     </div>
                     
-                    <!-- Pedidos Table -->
+                    <!-- Pagos Table -->
                     <div class="table-container">
-                        <table id="pedidosTable">
+                        <table id="pagosTable">
                             <thead>
                                 <tr>
-                                    <th>Pedido #</th>
-                                    <th>Factura #</th>
+                                    <th>Comprobante</th>
+                                    <th>Factura</th>
                                     <th>Cliente</th>
-                                    <th>Fecha</th>
-                                    <th>Tipo</th>
-                                    <th>Total</th>
-                                    <th>Estado</th>
+                                    <th>Fecha Pago</th>
                                     <th>Método Pago</th>
+                                    <th>Monto</th>
+                                    <th>Registrado por</th>
                                 </tr>
                             </thead>
-                            <tbody id="pedidosBody">
-                                {% if pedidos %}
-                                    {% for pedido in pedidos %}
-                                    <tr data-order-id="{{ pedido.id }}">
-                                        <td style="font-weight: 700; color: #2c3e50;">{{ pedido.codigo_pedido }}</td>
+                            <tbody id="pagosBody">
+                                {% if pagos %}
+                                    {% for pago in pagos %}
+                                    <tr>
                                         <td>
                                             <div class="factura-badge">
                                                 <i class="fas fa-receipt"></i>
-                                                <span>{{ pedido.factura_numero|default:"Sin factura" }}</span>
+                                                <span>{{ pago.numero_comprobante|default:"Sin comprobante" }}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="factura-badge">
+                                                <i class="fas fa-file-invoice"></i>
+                                                <span>{{ pago.factura.numero_factura|default:"Sin factura" }}</span>
                                             </div>
                                         </td>
                                         <td>
                                             <div class="customer-info">
                                                 <div class="customer-name">
-                                                    {{ pedido.nombre_cliente|default:"Cliente no registrado" }}
-                                                    {% if pedido.mesa_numero %}
-                                                        <div style="font-size: 0.85rem; color: #718096;">Mesa {{ pedido.mesa_numero }}</div>
-                                                    {% endif %}
+                                                    {{ pago.factura.nombre_cliente|default:"Cliente no registrado" }}
                                                 </div>
-                                                {% if pedido.telefono_cliente %}
-                                                    <div class="customer-phone"><i class="fas fa-phone"></i> {{ pedido.telefono_cliente }}</div>
-                                                {% endif %}
-                                                {% if pedido.direccion_entrega %}
-                                                    <div class="customer-phone"><i class="fas fa-map-marker-alt"></i> {{ pedido.direccion_entrega|truncatechars:30 }}</div>
-                                                {% endif %}
                                             </div>
                                         </td>
                                         <td>
                                             <div class="date-badge">
                                                 <i class="fas fa-calendar-alt"></i>
-                                                <span>{{ pedido.fecha_formateada }}</span>
+                                                <span>{{ pago.fecha_pago|date:"d/m/Y H:i" }}</span>
                                             </div>
                                         </td>
                                         <td>
-                                            {% if pedido.tipo_pedido == 'mesa' %}
-                                                <span class="order-type-badge type-restaurante">
-                                                    <i class="fas fa-utensils"></i>
-                                                    {{ pedido.tipo_pedido_display }}
-                                                </span>
-                                            {% elif pedido.tipo_pedido == 'delivery' %}
-                                                <span class="order-type-badge type-domicilio">
-                                                    <i class="fas fa-truck"></i>
-                                                    {{ pedido.tipo_pedido_display }}
-                                                </span>
-                                            {% else %}
-                                                <span class="order-type-badge type-recoger">
-                                                    <i class="fas fa-walking"></i>
-                                                    {{ pedido.tipo_pedido_display }}
-                                                </span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <div class="order-total">RD${{ pedido.total|floatformat:2 }}</div>
-                                        </td>
-                                        <td>
-                                            <span class="status-pagado">
-                                                <span class="status-icon"><i class="fas fa-check-circle"></i></span>
-                                                {{ pedido.estado_display }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            {% with metodo=pedido.metodo_pago|default:''|lower %}
+                                            {% with metodo=pago.metodo_pago|default:''|lower %}
                                                 {% if metodo == 'efectivo' %}
                                                     <span class="payment-badge payment-efectivo">
                                                         <i class="fas fa-money-bill-wave"></i>
@@ -1063,7 +1023,7 @@
                                                 {% elif metodo %}
                                                     <span class="payment-badge payment-otro">
                                                         <i class="fas fa-wallet"></i>
-                                                        {{ pedido.metodo_pago }}
+                                                        {{ pago.metodo_pago }}
                                                     </span>
                                                 {% else %}
                                                     <span class="payment-badge payment-otro">
@@ -1073,16 +1033,22 @@
                                                 {% endif %}
                                             {% endwith %}
                                         </td>
+                                        <td>
+                                            <div class="order-total">RD${{ pago.monto|floatformat:2 }}</div>
+                                        </td>
+                                        <td>
+                                            {{ pago.registrado_por.username|default:"-" }}
+                                        </td>
                                     </tr>
                                     {% endfor %}
                                 {% else %}
                                     <tr class="empty-state">
-                                        <td colspan="8">
+                                        <td colspan="7">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                                             </svg>
-                                            <h3>No se encontraron facturas</h3>
-                                            <p>No hay facturas para los filtros aplicados</p>
+                                            <h3>No se encontraron pagos</h3>
+                                            <p>No hay pagos para los filtros aplicados</p>
                                             <div style="margin-top: 1rem;">
                                                 <a href="{% url 'gestiondepedidos' %}" class="btn btn-primary" style="text-decoration: none;">
                                                     <span>↩️</span>

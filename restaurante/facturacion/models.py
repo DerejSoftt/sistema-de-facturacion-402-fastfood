@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.conf import settings
 import random
 import string
 from decimal import Decimal
@@ -600,11 +601,22 @@ class HistorialEstadoPedido(models.Model):
 
 
 from django.db import models
+from django.db import IntegrityError, transaction
 from django.contrib.auth.models import User
 from django.utils import timezone
 from decimal import Decimal
 import json
 from django.core.serializers.json import DjangoJSONEncoder
+
+
+# Contador atómico por mes para generación segura de `numero_factura`
+class FacturaSequence(models.Model):
+    month = models.CharField(max_length=6, unique=True)  # YYYYMM
+    last_number = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "Secuencia de Factura"
+        verbose_name_plural = "Secuencias de Factura"
 
 
 class Factura(models.Model):
@@ -767,73 +779,106 @@ class Factura(models.Model):
         return f"Factura {self.numero_factura} - Pedido: {self.pedido.codigo_pedido}"
     
     def save(self, *args, **kwargs):
-        # Generar número de factura automático si no existe
+        # Generar número de factura automático si no existe, usando
+        # una secuencia atómica por mes para evitar race conditions.
         if not self.numero_factura:
-            from datetime import datetime
-            timestamp = datetime.now().strftime('%Y%m')
-            last_factura = Factura.objects.filter(
-                numero_factura__startswith=f'FAC-{timestamp}'
-            ).order_by('-numero_factura').first()
-            
-            if last_factura:
+            timestamp = timezone.now().strftime('%Y%m')
+
+            # Reintenta si existe una colision residual por desalineacion historica
+            # entre FacturaSequence y facturas ya persistidas.
+            for _ in range(5):
+                with transaction.atomic():
+                    seq, _ = FacturaSequence.objects.select_for_update().get_or_create(month=timestamp)
+
+                    existentes_mes = Factura.objects.filter(
+                        numero_factura__startswith=f'FAC-{timestamp}-'
+                    ).values_list('numero_factura', flat=True)
+
+                    max_existente = 0
+                    for numero in existentes_mes:
+                        try:
+                            correlativo = int(str(numero).rsplit('-', 1)[-1])
+                            if correlativo > max_existente:
+                                max_existente = correlativo
+                        except (ValueError, TypeError):
+                            continue
+
+                    if seq.last_number < max_existente:
+                        seq.last_number = max_existente
+
+                    seq.last_number += 1
+                    next_num = seq.last_number
+                    seq.save(update_fields=['last_number'])
+                    self.numero_factura = f'FAC-{timestamp}-{next_num:06d}'
+
                 try:
-                    last_num = int(last_factura.numero_factura.split('-')[-1])
-                    new_num = last_num + 1
-                except:
-                    new_num = 1
-            else:
-                new_num = 1
-            
-            self.numero_factura = f'FAC-{timestamp}-{new_num:06d}'
-        
+                    return super().save(*args, **kwargs)
+                except IntegrityError:
+                    # Fuerza regeneracion en el siguiente intento.
+                    self.numero_factura = ''
+
+            raise IntegrityError('No se pudo generar un numero_factura unico tras varios intentos')
+
         super().save(*args, **kwargs)
     
-    def get_items_detalle(self):
-        """Obtener los items de la factura como lista normalizada"""
+    def get_items_detalle(self, enrich_from_db=True, debug=False):
+        """Obtener los items de la factura como lista normalizada."""
         try:
+            debug_enabled = bool(debug and settings.DEBUG)
+
             # Obtener items como JSON
             items_raw = self.items
             
-            print(f"\n🔍 GET_ITEMS_DETALLE - Factura: {self.numero_factura}")
-            print(f"   Tipo de items_raw: {type(items_raw)}")
+            if debug_enabled:
+                print(f"\n🔍 GET_ITEMS_DETALLE - Factura: {self.numero_factura}")
+                print(f"   Tipo de items_raw: {type(items_raw)}")
             
             # Si items_raw es None o vacío
             if not items_raw:
-                print(f"   ❌ Campo 'items' está vacío o es None")
+                if debug_enabled:
+                    print("   ❌ Campo 'items' está vacío o es None")
                 return []
             
             # Si es una cadena, intentar convertir a JSON
             if isinstance(items_raw, str):
-                print(f"   📝 Es una cadena, intentando parsear JSON...")
-                print(f"   📝 Longitud: {len(items_raw)}")
+                if debug_enabled:
+                    print("   📝 Es una cadena, intentando parsear JSON...")
+                    print(f"   📝 Longitud: {len(items_raw)}")
                 
                 items_raw = items_raw.strip()
                 
                 if not items_raw:
-                    print(f"   ❌ Cadena vacía después de strip()")
+                    if debug_enabled:
+                        print("   ❌ Cadena vacía después de strip()")
                     return []
                 
                 try:
                     items = json.loads(items_raw)
-                    print(f"   ✅ JSON parseado exitosamente")
+                    if debug_enabled:
+                        print("   ✅ JSON parseado exitosamente")
                 except json.JSONDecodeError as e:
-                    print(f"   ❌ Error de decodificación JSON: {e}")
+                    if debug_enabled:
+                        print(f"   ❌ Error de decodificación JSON: {e}")
                     try:
                         if items_raw.startswith("'") and items_raw.endswith("'"):
                             items_raw = items_raw[1:-1].replace("'", '"')
                         items_raw = items_raw.replace("'", '"')
                         items = json.loads(items_raw)
-                        print(f"   ✅ JSON reparado y parseado")
+                        if debug_enabled:
+                            print("   ✅ JSON reparado y parseado")
                     except Exception as e2:
-                        print(f"   ❌ No se pudo reparar el JSON: {e2}")
+                        if debug_enabled:
+                            print(f"   ❌ No se pudo reparar el JSON: {e2}")
                         return []
             else:
                 items = items_raw
-                print(f"   ✅ Ya es de tipo: {type(items)}")
+                if debug_enabled:
+                    print(f"   ✅ Ya es de tipo: {type(items)}")
             
             # Si items es un diccionario, convertirlo a lista
             if isinstance(items, dict):
-                print(f"   🔄 Convirtiendo diccionario a lista...")
+                if debug_enabled:
+                    print("   🔄 Convirtiendo diccionario a lista...")
                 if 'items' in items:
                     items = items['items']
                 elif 'productos' in items:
@@ -843,20 +888,24 @@ class Factura(models.Model):
             
             # Asegurarse de que items es una lista
             if not isinstance(items, list):
-                print(f"   ⚠️  Items no es una lista, es: {type(items)}. Convirtiendo...")
+                if debug_enabled:
+                    print(f"   ⚠️  Items no es una lista, es: {type(items)}. Convirtiendo...")
                 items = [items] if items else []
             
-            print(f"   📋 Total de items encontrados: {len(items)}")
+            if debug_enabled:
+                print(f"   📋 Total de items encontrados: {len(items)}")
             
             if not items:
-                print(f"   ⚠️  Lista de items vacía")
+                if debug_enabled:
+                    print("   ⚠️  Lista de items vacía")
                 return []
             
             # Normalizar estructura
             items_normalizados = []
             
             for i, item in enumerate(items):
-                print(f"\n   🔍 Procesando item {i+1}:")
+                if debug_enabled:
+                    print(f"\n   🔍 Procesando item {i+1}:")
                 
                 nombre = (
                     item.get('nombre') or 
@@ -866,7 +915,8 @@ class Factura(models.Model):
                     f'Producto {i+1}'
                 )
                 
-                print(f"      Nombre: {nombre}")
+                if debug_enabled:
+                    print(f"      Nombre: {nombre}")
                 
                 # Asegurar que cantidad sea numérico
                 cantidad_str = str(item.get('cantidad') or item.get('quantity') or item.get('qty') or '1')
@@ -874,9 +924,11 @@ class Factura(models.Model):
                     cantidad = float(cantidad_str)
                 except (ValueError, TypeError):
                     cantidad = 1.0
-                    print(f"      ⚠️  Cantidad inválida '{cantidad_str}', usando 1.0")
+                    if debug_enabled:
+                        print(f"      ⚠️  Cantidad inválida '{cantidad_str}', usando 1.0")
                 
-                print(f"      Cantidad: {cantidad}")
+                if debug_enabled:
+                    print(f"      Cantidad: {cantidad}")
                 
                 # Asegurar que precio sea numérico
                 precio_str = str(item.get('precio') or item.get('price') or item.get('unit_price') or '0')
@@ -884,9 +936,11 @@ class Factura(models.Model):
                     precio = float(precio_str)
                 except (ValueError, TypeError):
                     precio = 0.0
-                    print(f"      ⚠️  Precio inválido '{precio_str}', usando 0.0")
+                    if debug_enabled:
+                        print(f"      ⚠️  Precio inválido '{precio_str}', usando 0.0")
                 
-                print(f"      Precio: {precio}")
+                if debug_enabled:
+                    print(f"      Precio: {precio}")
                 
                 # Calcular subtotal
                 subtotal = cantidad * precio
@@ -899,7 +953,8 @@ class Factura(models.Model):
                     'otro'
                 ).lower()
                 
-                print(f"      Categoría: {categoria}")
+                if debug_enabled:
+                    print(f"      Categoría: {categoria}")
                 
                 # Obtener IDs
                 producto_id = item.get('producto_id') or item.get('product_id') or item.get('id')
@@ -907,39 +962,95 @@ class Factura(models.Model):
                 # Obtener código
                 codigo = item.get('codigo') or item.get('code') or ''
                 
-                # Buscar producto en la base de datos para completar información faltante
-                if not codigo or categoria == 'otro':
-                    from .models import Producto  # Import local para evitar circular
+                # Buscar item en base de datos para completar información faltante
+                if enrich_from_db and (not codigo or categoria == 'otro'):
+                    from .models import Producto, Plato  # Import local para evitar circular
                     producto_db = None
+                    plato_db = None
                     
-                    # Buscar por ID primero
+                    # Buscar en Producto por ID primero
                     if producto_id:
                         try:
                             producto_db = Producto.objects.filter(id=producto_id).first()
-                            if producto_db:
+                            if producto_db and debug_enabled:
                                 print(f"      ✅ Producto encontrado por ID: {producto_db.nombre}")
                         except Exception as e:
-                            print(f"      ❌ Error al buscar producto por ID: {e}")
+                            if debug_enabled:
+                                print(f"      ❌ Error al buscar producto por ID: {e}")
                     
-                    # Si no se encontró por ID, buscar por nombre
+                    # Si no se encontró por ID, buscar en Producto por nombre
                     if not producto_db and nombre:
                         try:
                             producto_db = Producto.objects.filter(
                                 nombre__iexact=nombre.strip()
                             ).first()
-                            if producto_db:
+                            if producto_db and debug_enabled:
                                 print(f"      ✅ Producto encontrado por nombre: {producto_db.nombre}")
                         except Exception as e:
-                            print(f"      ❌ Error al buscar producto por nombre: {e}")
+                            if debug_enabled:
+                                print(f"      ❌ Error al buscar producto por nombre: {e}")
+
+                    if not producto_db and nombre:
+                        try:
+                            producto_db = Producto.objects.filter(
+                                nombre__icontains=nombre.strip()
+                            ).first()
+                            if producto_db and debug_enabled:
+                                print(f"      ✅ Producto encontrado por coincidencia parcial: {producto_db.nombre}")
+                        except Exception as e:
+                            if debug_enabled:
+                                print(f"      ❌ Error al buscar producto por coincidencia parcial: {e}")
+
+                    # Si no se encontró en Producto, buscar en Plato
+                    if not producto_db:
+                        if producto_id:
+                            try:
+                                plato_db = Plato.objects.filter(id=producto_id).first()
+                                if plato_db and debug_enabled:
+                                    print(f"      ✅ Plato encontrado por ID: {plato_db.nombre}")
+                            except Exception as e:
+                                if debug_enabled:
+                                    print(f"      ❌ Error al buscar plato por ID: {e}")
+
+                        if not plato_db and nombre:
+                            try:
+                                plato_db = Plato.objects.filter(nombre__iexact=nombre.strip()).first()
+                                if plato_db and debug_enabled:
+                                    print(f"      ✅ Plato encontrado por nombre: {plato_db.nombre}")
+                            except Exception as e:
+                                if debug_enabled:
+                                    print(f"      ❌ Error al buscar plato por nombre: {e}")
+
+                        if not plato_db and nombre:
+                            try:
+                                plato_db = Plato.objects.filter(
+                                    nombre__icontains=nombre.strip()
+                                ).first()
+                                if plato_db and debug_enabled:
+                                    print(f"      ✅ Plato encontrado por coincidencia parcial: {plato_db.nombre}")
+                            except Exception as e:
+                                if debug_enabled:
+                                    print(f"      ❌ Error al buscar plato por coincidencia parcial: {e}")
                     
                     # Completar información con datos de la base de datos
                     if producto_db:
                         if not codigo:
                             codigo = producto_db.codigo
-                            print(f"      ✅ Código actualizado: {codigo}")
+                            if debug_enabled:
+                                print(f"      ✅ Código actualizado: {codigo}")
                         if categoria == 'otro':
                             categoria = producto_db.categoria.lower()
-                            print(f"      ✅ Categoría actualizada: {categoria}")
+                            if debug_enabled:
+                                print(f"      ✅ Categoría actualizada: {categoria}")
+                    elif plato_db:
+                        if not codigo:
+                            codigo = plato_db.codigo
+                            if debug_enabled:
+                                print(f"      ✅ Código actualizado (plato): {codigo}")
+                        if categoria == 'otro':
+                            categoria = plato_db.categoria.lower()
+                            if debug_enabled:
+                                print(f"      ✅ Categoría actualizada (plato): {categoria}")
                 
                 items_normalizados.append({
                     'producto_id': producto_id,
@@ -951,13 +1062,15 @@ class Factura(models.Model):
                     'categoria': categoria
                 })
             
-            print(f"\n   ✅ Items normalizados: {len(items_normalizados)}")
+            if debug_enabled:
+                print(f"\n   ✅ Items normalizados: {len(items_normalizados)}")
             return items_normalizados
             
         except Exception as e:
-            print(f"\n❌ ERROR en get_items_detalle para factura {self.numero_factura}: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            if debug_enabled:
+                print(f"\n❌ ERROR en get_items_detalle para factura {self.numero_factura}: {str(e)}")
+                import traceback
+                traceback.print_exc()
             return []
     
     def get_cantidad_ya_devuelta(self, producto_nombre):
@@ -1190,12 +1303,158 @@ class Devolucion(models.Model):
         verbose_name = "Devolución"
         verbose_name_plural = "Devoluciones"
         ordering = ['-fecha_devolucion']
-        
-        
-        
-        
-        
-        
+
+
+class CuentaPorCobrar(models.Model):
+    """Cuenta por cobrar asociada a una factura de crédito."""
+
+    ESTADO_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('parcial', 'Parcialmente Pagada'),
+        ('pagada', 'Pagada'),
+        ('vencida', 'Vencida'),
+    ]
+
+    factura = models.OneToOneField(
+        Factura,
+        on_delete=models.CASCADE,
+        related_name='cuenta_por_cobrar',
+        verbose_name='Factura'
+    )
+    cliente = models.ForeignKey(
+        'Cliente',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cuentas_por_cobrar',
+        verbose_name='Cliente'
+    )
+    fecha_emision = models.DateField(verbose_name='Fecha de emision')
+    fecha_vencimiento = models.DateField(verbose_name='Fecha de vencimiento')
+    monto_original = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Monto original')
+    saldo_pendiente = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Saldo pendiente')
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente', verbose_name='Estado')
+    notas = models.TextField(blank=True, verbose_name='Notas')
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Cuenta por Cobrar'
+        verbose_name_plural = 'Cuentas por Cobrar'
+        ordering = ['-fecha_vencimiento']
+        db_table = 'cuentaporcobrar'
+
+    def __str__(self):
+        return f"CxC {self.factura.numero_factura} - Saldo {self.saldo_pendiente}"
+
+
+class PagoCuentaCobrar(models.Model):
+    """Pagos aplicados a facturas pendientes para cuentas por cobrar."""
+
+    METODO_PAGO_CHOICES = [
+        ('efectivo', 'Efectivo'),
+        ('tarjeta', 'Tarjeta de Crédito/Débito'),
+        ('transferencia', 'Transferencia Bancaria'),
+    ]
+
+    cuenta_por_cobrar = models.ForeignKey(
+        CuentaPorCobrar,
+        on_delete=models.CASCADE,
+        related_name='pagos',
+        null=True,
+        blank=True,
+        verbose_name='Cuenta por cobrar'
+    )
+    factura = models.ForeignKey(
+        Factura,
+        on_delete=models.CASCADE,
+        related_name='pagos_cxc',
+        verbose_name='Factura'
+    )
+    monto = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+        verbose_name='Monto pagado'
+    )
+    fecha_pago = models.DateTimeField(
+        default=timezone.now,
+        verbose_name='Fecha y hora de pago'
+    )
+    metodo_pago = models.CharField(
+        max_length=20,
+        choices=METODO_PAGO_CHOICES,
+        default='efectivo',
+        verbose_name='Metodo de pago'
+    )
+    referencia = models.CharField(
+        max_length=120,
+        blank=True,
+        verbose_name='Referencia'
+    )
+    numero_comprobante = models.CharField(
+        max_length=40,
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name='Numero de comprobante'
+    )
+    notas = models.TextField(
+        blank=True,
+        verbose_name='Notas'
+    )
+    registrado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pagos_cuentas_cobrar',
+        verbose_name='Registrado por'
+    )
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Pago de Cuenta por Cobrar'
+        verbose_name_plural = 'Pagos de Cuentas por Cobrar'
+        ordering = ['-fecha_pago', '-id']
+        db_table = 'pagocuentacobrar'
+
+    def _generar_numero_comprobante(self):
+        fecha_ref = self.fecha_pago or timezone.localdate()
+        numero_factura = (self.factura.numero_factura or '').strip()
+
+        # Reutiliza la misma secuencia de la factura: FAC-YYYYMM-###### -> CP-YYYYMM-######
+        match = re.match(r'^[A-Z]+-(\d{6})-(\d+)$', numero_factura)
+        if match:
+            periodo = match.group(1)
+            secuencia = match.group(2)
+            pagos_previos = type(self).objects.filter(factura=self.factura).exclude(pk=self.pk).count()
+            indice_pago = pagos_previos + 1
+
+            if indice_pago == 1:
+                return f"CP-{periodo}-{secuencia}"
+            return f"CP-{periodo}-{secuencia}-{indice_pago:02d}"
+
+        # Fallback defensivo si la factura no sigue el formato esperado.
+        return f"CP-{fecha_ref.strftime('%Y%m')}-{self.pk:06d}"
+
+    def save(self, *args, **kwargs):
+        if self.pk is None and not self.numero_comprobante:
+            super().save(*args, **kwargs)
+            self.numero_comprobante = self._generar_numero_comprobante()
+            type(self).objects.filter(pk=self.pk).update(numero_comprobante=self.numero_comprobante)
+            return
+
+        if not self.numero_comprobante and self.pk is not None:
+            self.numero_comprobante = self._generar_numero_comprobante()
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        comprobante = self.numero_comprobante or f"CP-{self.id}"
+        return f"{comprobante} - {self.factura.numero_factura} - {self.monto}"
+
+
 class Cliente(models.Model):
     cedula = models.CharField(
         max_length=11,
@@ -1236,6 +1495,14 @@ class Cliente(models.Model):
         blank=True,
         null=True,
         verbose_name="Notas sobre Crédito"
+    )
+    registrado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='clientes_registrados',
+        verbose_name='Registrado por'
     )
     fecha_registro = models.DateTimeField(
         auto_now_add=True,

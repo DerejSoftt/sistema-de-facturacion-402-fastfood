@@ -922,137 +922,141 @@
         <!-- Sidebar navigation -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <i class="fas fa-utensils"></i> Mi Restaurante
+                <i class="fas fa-utensils"></i> 402 FASTFOOD
             </div>
             <nav class="sidebar-nav">
+                <!-- Verificar grupos sin template tag -->
                 {% with user_groups=user.groups.all|join:"," %}
-                
-                <!-- Menú para Usuario Normal -->
-                {% if "Usuario Normal" in user_groups and not user.is_superuser %}
-                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
-                </a>
-                <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
-                    <span>Inventario</span>
-                </a>
-                <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
-                    <span>Gestión de Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
-                    <span>Facturación</span>
-                </a>
-                <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
-                    <span>Salida de Productos</span>
-                </a>
-                {% endif %}
-                
-                <!-- Menú para Administrador -->
-                {% if "Administrador" in user_groups and not user.is_superuser %}
-                <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
+                {% if user.is_superuser or "Administrador" in user_groups %}
+                <a href="{% url 'entradadeproductos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-box"></i></span>
                     <span>Entrada de Productos</span>
                 </a>
-                <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                     <span>Inventario</span>
                 </a>
-                <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                <a href="{% url 'entradadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-utensils"></i></span>
                     <span>Entrada de Platos</span>
                 </a>
-                <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
                     <span>Gestión de Platos</span>
                 </a>
-                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                     <span>Pedidos</span>
                 </a>
-                <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                <a href="{% url 'gestiondepedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
                     <span>Gestión de Pedidos</span>
                 </a>
-                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                     <span>Facturación</span>
                 </a>
-                <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                <a href="{% url 'cuentaporcobrar' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'cuentaporcobrar' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span>
+                    <span>Cuentas por Cobrar</span>
+                </a>
+                <a href="{% url 'salida' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
                     <span>Salida de Productos</span>
                 </a>
-                <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
+                <a href="{% url 'gestiondeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondeclientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-address-book"></i></span>
+                    <span>Gestión de Clientes</span>
+                </a>
+                <a href="{% url 'registrodeclientes' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'registrodeclientes' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-user-plus"></i></span>
+                    <span>Registro de Clientes</span>
+                </a>
+                <a href="{% url 'roles' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>Gestión de Usuarios</span>
                 </a>
-                {% endif %}
-                
-                <!-- Menú para otros grupos... -->
-                {% if "Gerente" in user_groups and not user.is_superuser %}
-                <!-- Mismo contenido que Administrador pero sin Gestión de Usuarios -->
-                {% endif %}
-                
-                {% if "Cajero" in user_groups and not user.is_superuser %}
-                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
+                <a href="{% url 'anulacionydevolucion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'anulacionydevolucion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-undo"></i></span>
+                    <span>Devolución</span>
+                </a>
+                <a href="{% url 'dashbort' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'dashbort' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Dashboard</span>
+                </a>
+                {% elif "Cajero" in user_groups %}
+                <a href="{% url 'pedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
                     <span>Pedidos</span>
                 </a>
-                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
+                <a href="{% url 'gestiondepedidos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-check"></i></span>
+                    <span>Gestión de Pedidos</span>
+                </a>
+                <a href="{% url 'facturacion' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
                     <span>Facturación</span>
                 </a>
-                {% endif %}
-                
-                <!-- Menú EXCLUSIVO para superusuarios -->
-                {% if user.is_superuser %}
-                <a href="{% url 'entradadeproductos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeproductos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-box"></i></span>
-                    <span>Entrada de Productos</span>
+                <a href="{% url 'cuentaporcobrar' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'cuentaporcobrar' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span>
+                    <span>Cuentas por Cobrar</span>
                 </a>
-                <a href="{% url 'inventario' %}" class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                     <span>Inventario</span>
                 </a>
-                <a href="{% url 'entradadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
-                    <span>Entrada de Platos</span>
-                </a>
-                <a href="{% url 'listadeplatillos' %}" class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
                     <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                    <span>Lista de Platillos</span>
+                </a>
+                {% elif "Usuario Normal" in user_groups %}
+                <a href="{% url 'entradadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'entradadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
                     <span>Gestión de Platos</span>
                 </a>
-                <a href="{% url 'pedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'pedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
-                    <span>Pedidos</span>
+                <a href="{% url 'inventario' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'inventario' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Inventario</span>
                 </a>
-                <a href="{% url 'gestiondepedidos' %}" class="nav-item {% if request.resolver_match.url_name == 'gestiondepedidos' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-tasks"></i></span>
-                    <span>Gestión de Pedidos</span>
-                </a>
-                <a href="{% url 'facturacion' %}" class="nav-item {% if request.resolver_match.url_name == 'facturacion' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-receipt"></i></span>
-                    <span>Facturación</span>
-                </a>
-                <a href="{% url 'salida' %}" class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-box-open"></i></span>
+                <a href="{% url 'salida' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'salida' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-shipping-fast"></i></span>
                     <span>Salida de Productos</span>
                 </a>
-                <a href="{% url 'roles' %}" class="nav-item {% if request.resolver_match.url_name == 'roles' %}active{% endif %}">
-                    <span class="nav-icon"><i class="fas fa-users"></i></span>
-                    <span>Gestión de Usuarios</span>
+                <a href="{% url 'listadeplatillos' %}"
+                    class="nav-item {% if request.resolver_match.url_name == 'listadeplatillos' %}active{% endif %}">
+                    <span class="nav-icon"><i class="fas fa-utensils"></i></span>
+                    <span>Lista de Platillos</span>
                 </a>
                 {% endif %}
-                
-                <!-- Cerrar sesión para todos -->
+
                 <a href="{% url 'logout' %}" class="nav-item">
-                    <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
+                    <span class="nav-icon"><i class="fas fa-door-open"></i></span>
                     <span>Cerrar Sesión</span>
                 </a>
-                
+
                 {% endwith %}
             </nav>
         </div>
@@ -1077,7 +1081,7 @@
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
-                            <div class="stat-value" id="precioPromedio">$0</div>
+                            <div class="stat-value" id="precioPromedio">RD$0</div>
                             <div class="stat-label">Precio Promedio</div>
                         </div>
                         <div class="stat-card">
@@ -1164,7 +1168,7 @@
                                             {{ plato.get_categoria_display }}
                                         </span>
                                     </td>
-                                    <td style="font-weight: 700; color: #ff7e5f;" data-precio="{{ plato.precio }}">${{ plato.precio }}</td>
+                                    <td style="font-weight: 700; color: #ff7e5f;" data-precio="{{ plato.precio }}">RD${{ plato.precio }}</td>
                                     <td>{{ plato.fecha_creacion|date:"d/m/Y" }}</td>
                                     <td>
                                         {% if plato.activo %}
@@ -1175,10 +1179,10 @@
                                     </td>
                                     <td>
                                         <div class="action-buttons">
-                                            <button class="btn-icon btn-edit" onclick="editarPlato({{ plato.id }})" title="Editar plato">
+                                            <button class="btn-icon btn-edit" data-plato-id="{{ plato.id }}" onclick="editarPlatoDesdeBoton(this)" title="Editar plato">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <button class="btn-icon btn-delete" onclick="eliminarPlato({{ plato.id }})" title="Eliminar plato">
+                                            <button class="btn-icon btn-delete" data-plato-id="{{ plato.id }}" onclick="eliminarPlatoDesdeBoton(this)" title="Eliminar plato">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
@@ -1253,7 +1257,7 @@
                     
                     <div class="modal-form-group">
                         <label for="editPrecio">
-                            <i class="fas fa-dollar-sign"></i> Precio ($)
+                            <i class="fas fa-dollar-sign"></i> Precio (RD$)
                         </label>
                         <input type="text" id="editPrecio" required placeholder="0.00">
                     </div>
@@ -1271,12 +1275,16 @@
     </div>
 
    <script>
-    // Función para formatear moneda con comas para miles
+    // Funciones de moneda para mostrar y parsear valores en RD$
     function formatearMoneda(numero) {
         return parseFloat(numero).toLocaleString('en-US', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });
+    }
+
+    function parsearMoneda(valor) {
+        return parseFloat(String(valor || '').replace(/[^\d.-]/g, ''));
     }
     
     // Inicializar la aplicación
@@ -1285,7 +1293,7 @@
         document.querySelectorAll('td[data-precio]').forEach(cell => {
             const precio = cell.getAttribute('data-precio');
             if (precio) {
-                cell.textContent = '$' + formatearMoneda(precio);
+                cell.textContent = 'RD$' + formatearMoneda(precio);
             }
         });
         
@@ -1322,7 +1330,7 @@
                     // Precio - usar data-precio para cálculos
                     const precioCell = row.cells[3];
                     const precioData = precioCell.getAttribute('data-precio');
-                    const precio = parseFloat(precioData || precioCell.textContent.replace('$', '').replace(/,/g, ''));
+                    const precio = parsearMoneda(precioData || precioCell.textContent);
                     if (!isNaN(precio)) {
                         totalPrecio += precio;
                     }
@@ -1342,7 +1350,7 @@
             const precioPromedio = totalPlatos > 0 ? totalPrecio / totalPlatos : 0;
             
             document.getElementById('totalPlatos').textContent = totalPlatos;
-            document.getElementById('precioPromedio').textContent = '$' + formatearMoneda(precioPromedio);
+            document.getElementById('precioPromedio').textContent = 'RD$' + formatearMoneda(precioPromedio);
             document.getElementById('totalCategorias').textContent = categorias.size;
             document.getElementById('platosHoy').textContent = platosHoy;
         }
@@ -1412,12 +1420,12 @@
                 case 'nombre_desc':
                     return b.cells[1].textContent.localeCompare(a.cells[1].textContent);
                 case 'precio_asc':
-                    const precioA = parseFloat(a.cells[3].textContent.replace('$', ''));
-                    const precioB = parseFloat(b.cells[3].textContent.replace('$', ''));
+                    const precioA = parsearMoneda(a.cells[3].textContent);
+                    const precioB = parsearMoneda(b.cells[3].textContent);
                     return precioA - precioB;
                 case 'precio_desc':
-                    const precioA2 = parseFloat(a.cells[3].textContent.replace('$', ''));
-                    const precioB2 = parseFloat(b.cells[3].textContent.replace('$', ''));
+                    const precioA2 = parsearMoneda(a.cells[3].textContent);
+                    const precioB2 = parsearMoneda(b.cells[3].textContent);
                     return precioB2 - precioA2;
                 default:
                     return 0;
@@ -1427,11 +1435,26 @@
         // Reordenar las filas en el DOM
         filasDatos.forEach(row => tbody.appendChild(row));
     }
+
+    function editarPlatoDesdeBoton(button) {
+        const platoId = parseInt(button.dataset.platoId || '0', 10);
+        if (platoId > 0) editarPlato(platoId);
+    }
+
+    function eliminarPlatoDesdeBoton(button) {
+        const platoId = parseInt(button.dataset.platoId || '0', 10);
+        if (platoId > 0) eliminarPlato(platoId);
+    }
     
     // Editar plato usando modal
     function editarPlato(platoId) {
         // Obtener datos de la fila directamente del DOM
-        const row = document.querySelector(`button[onclick="editarPlato(${platoId})"]`).closest('tr');
+        const button = document.querySelector(`button.btn-edit[data-plato-id="${platoId}"]`);
+        if (!button) {
+            showNotification('No se encontro el plato seleccionado', 'error');
+            return;
+        }
+        const row = button.closest('tr');
         
         const codigo = row.cells[0].textContent;
         const nombreActual = row.cells[1].textContent;
@@ -1446,7 +1469,7 @@
         else if (badgeElement.className.includes('especial')) categoriaActual = 'especial';
         
         const precioCell = row.cells[3];
-        const precioActual = precioCell.getAttribute('data-precio') || precioCell.textContent.replace('$', '').replace(/,/g, '');
+        const precioActual = precioCell.getAttribute('data-precio') || parsearMoneda(precioCell.textContent);
         
         // Llenar el modal con los datos actuales
         document.getElementById('editPlatoId').value = platoId;
@@ -1566,7 +1589,12 @@
     
     // Eliminar plato
     function eliminarPlato(platoId) {
-        const row = document.querySelector(`button[onclick="eliminarPlato(${platoId})"]`).closest('tr');
+        const button = document.querySelector(`button.btn-delete[data-plato-id="${platoId}"]`);
+        if (!button) {
+            showNotification('No se encontro el plato seleccionado', 'error');
+            return;
+        }
+        const row = button.closest('tr');
         const nombrePlato = row.cells[1].textContent;
         
         if (confirm(`¿Estás seguro de eliminar "${nombrePlato}" del menú?`)) {
