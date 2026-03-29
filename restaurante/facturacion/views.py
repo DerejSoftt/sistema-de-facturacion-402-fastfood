@@ -8153,6 +8153,12 @@ def historial_pagos(request):
     for pago in page_obj:
         fecha_base = pago.fecha_pago or timezone.now()
         fecha_local = timezone.localtime(fecha_base, tz_rd)
+        if pago.registrado_por:
+            nombre = pago.registrado_por.get_full_name()
+            if not nombre:
+                nombre = pago.registrado_por.username
+        else:
+            nombre = ''
         pagos_procesados.append({
             'id': pago.id,
             'numero_comprobante': pago.numero_comprobante or 'Sin comprobante',
@@ -8161,7 +8167,7 @@ def historial_pagos(request):
             'monto': float(pago.monto or 0),
             'metodo_pago': pago.metodo_pago or '',
             'fecha_formateada': fecha_local.strftime('%d/%m/%Y %I:%M %p'),
-            'registrado_por': pago.registrado_por.get_full_name() if pago.registrado_por else '',
+            'registrado_por': nombre,
         })
 
     # Estadísticas
