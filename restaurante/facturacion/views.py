@@ -8071,8 +8071,10 @@ def historial_pagos(request):
     ingresos_totales = pagos.aggregate(total=models.Sum('monto'))['total'] or 0
     from django.utils import timezone
     hoy = timezone.localdate()
-    ingresos_mes_actual = pagos.filter(fecha_pago__year=hoy.year, fecha_pago__month=hoy.month).aggregate(total=models.Sum('monto'))['total'] or 0
+    # Calcular ingresos del mes actual sobre TODOS los pagos, no solo los filtrados
+    ingresos_mes_actual = PagoCuentaCobrar.objects.filter(fecha_pago__year=hoy.year, fecha_pago__month=hoy.month).aggregate(total=models.Sum('monto'))['total'] or 0
 
+    total_pagos_mes = PagoCuentaCobrar.objects.filter(fecha_pago__year=hoy.year, fecha_pago__month=hoy.month).count()
     context = {
         'pagos': page_obj,
         'paginator': paginator,
@@ -8086,6 +8088,7 @@ def historial_pagos(request):
             'total_pagos': total_pagos,
             'ingresos_totales': ingresos_totales,
             'ingresos_mes_actual': ingresos_mes_actual,
+            'total_pagos_mes': total_pagos_mes,
         }
     }
     return render(request, 'facturacion/historial_pagos.html', context)

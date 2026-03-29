@@ -887,8 +887,8 @@
                     <div class="stats-container">
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-dollar-sign"></i></span>
-                            <div class="stat-value">{{ estadisticas.total_pagos }}</div>
-                            <div class="stat-label">Total Pagos</div>
+                            <div class="stat-value">{{ estadisticas.total_pagos_mes }}</div>
+                            <div class="stat-label">Pagos Este Mes</div>
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-chart-line"></i></span>
@@ -1000,7 +1000,7 @@
                                         <td>
                                             <div class="date-badge">
                                                 <i class="fas fa-calendar-alt"></i>
-                                                <span>{{ pago.fecha_pago|date:"d/m/Y H:i" }}</span>
+                                                <span>{{ pago.fecha_pago|date:"d/m/Y h:i A" }}</span>
                                             </div>
                                         </td>
                                         <td>
