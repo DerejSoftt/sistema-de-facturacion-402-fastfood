@@ -1600,7 +1600,8 @@
 
                                 <div class="form-group" style="flex: 1;">
                                     
-                                    <div style="display: flex; gap: 0.5rem; align-items: flex-start; margin-top: 1.7rem;">
+                                    <div style="display: flex; gap: 0.5rem; align-items: flex-start; margin-top: 1.7rem;
+                                    ">
                                         <div style="display: flex; flex-direction: column; flex: 1;">
                                             <label style="font-size: 0.8rem; margin-bottom: 0.2rem;">Desde</label>
                                             <input type="date" class="filter-select" id="fechaDesde" name="fecha_desde">
@@ -2164,10 +2165,6 @@
                     </div>
                     
                     <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
-                        <button class="btn btn-warning" onclick="enviarRecordatorio(${cliente.id})">
-                            <span><i class="fas fa-envelope"></i></span>
-                            <span>Enviar Recordatorio</span>
-                        </button>
                         <button class="btn btn-info" onclick="generarEstadoCuenta(${cliente.id})">
                             <span><i class="fas fa-file-pdf"></i></span>
                             <span>Generar Estado de Cuenta</span>
