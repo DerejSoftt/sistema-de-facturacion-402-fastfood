@@ -14,6 +14,7 @@ class Producto(models.Model):
     # Opciones de categoría
     CATEGORIAS = [
         ('bebida', 'Bebida'),
+        ('trago', 'Trago'),
         ('postre', 'Postre'),
         ('carne', 'Carne'),
         ('verdura', 'Verdura'),
