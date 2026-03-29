@@ -1,4 +1,3 @@
-
 from django.core.paginator import Paginator
 
 
@@ -3910,8 +3909,8 @@ def dashbort(request):
         'total_mes'] or Decimal('0.00')
 
     pagos_credito_mes_qs = PagoCuentaCobrar.objects.filter(
-        fecha_pago__gte=primer_dia_mes,
-        fecha_pago__lte=ultimo_dia_mes
+        fecha_pago__gte=inicio_mes,
+        fecha_pago__lte=fin_mes
     )
     pagos_credito_mes = pagos_credito_mes_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     total_pagos_mes = pagos_credito_mes_qs.count()
@@ -3928,7 +3927,8 @@ def dashbort(request):
     ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
     pagos_credito_dia_anterior = PagoCuentaCobrar.objects.filter(
-        fecha_pago=inicio_dia_anterior.date()
+        fecha_pago__gte=inicio_dia_anterior,
+        fecha_pago__lte=fin_dia_anterior
     ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
     venta_dia_anterior = venta_dia_anterior_contado + pagos_credito_dia_anterior
@@ -3952,8 +3952,8 @@ def dashbort(request):
     ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
     pagos_credito_mes_pasado = PagoCuentaCobrar.objects.filter(
-        fecha_pago__gte=inicio_mes_pasado,
-        fecha_pago__lte=fin_mes_pasado
+        fecha_pago__gte=inicio_mes_pasado_time,
+        fecha_pago__lte=fin_mes_pasado_time
     ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
     venta_mes_pasado = venta_mes_pasado_contado + pagos_credito_mes_pasado
@@ -4118,7 +4118,8 @@ def dashbort(request):
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
         pagos_credito_dia_grafico = PagoCuentaCobrar.objects.filter(
-            fecha_pago=dia_inicio.date()
+            fecha_pago__gte=dia_inicio,
+            fecha_pago__lte=dia_fin
         ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
         venta_dia_grafico += pagos_credito_dia_grafico
@@ -4315,7 +4316,8 @@ def dashbort(request):
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
         pagos_credito_dia_mes = PagoCuentaCobrar.objects.filter(
-            fecha_pago=fecha_dia
+            fecha_pago__gte=inicio_dia_cal,
+            fecha_pago__lte=fin_dia_cal
         ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
         venta_dia_mes += pagos_credito_dia_mes
@@ -4356,8 +4358,8 @@ def dashbort(request):
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
         pagos_credito_mes_grafico = PagoCuentaCobrar.objects.filter(
-            fecha_pago__gte=fecha_mes,
-            fecha_pago__lte=ultimo_dia
+            fecha_pago__gte=inicio_mes_grafico,
+            fecha_pago__lte=fin_mes_grafico
         ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
         venta_mes_grafico += pagos_credito_mes_grafico
@@ -4673,8 +4675,8 @@ def dashboard_stats(request):
             'total_mes'] or Decimal('0.00')
 
         pagos_credito_mes_qs = PagoCuentaCobrar.objects.filter(
-            fecha_pago__gte=primer_dia_mes,
-            fecha_pago__lte=ultimo_dia_mes
+            fecha_pago__gte=inicio_mes,
+            fecha_pago__lte=fin_mes
         )
         pagos_credito_mes = pagos_credito_mes_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
         total_pagos_mes = pagos_credito_mes_qs.count()
@@ -4691,7 +4693,8 @@ def dashboard_stats(request):
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
         pagos_credito_dia_anterior = PagoCuentaCobrar.objects.filter(
-            fecha_pago=inicio_dia_anterior.date()
+            fecha_pago__gte=inicio_dia_anterior,
+            fecha_pago__lte=fin_dia_anterior
         ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
         venta_dia_anterior = venta_dia_anterior_contado + pagos_credito_dia_anterior
@@ -4717,8 +4720,8 @@ def dashboard_stats(request):
         venta_mes_pasado_contado = facturas_mes_pasado_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
         pagos_credito_mes_pasado = PagoCuentaCobrar.objects.filter(
-            fecha_pago__gte=inicio_mes_pasado,
-            fecha_pago__lte=fin_mes_pasado
+            fecha_pago__gte=inicio_mes_pasado_time,
+            fecha_pago__lte=fin_mes_pasado_time
         ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
         venta_mes_pasado = venta_mes_pasado_contado + pagos_credito_mes_pasado
@@ -4873,7 +4876,8 @@ def dashboard_stats(request):
                 ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
                 pagos_credito_dia_grafico = PagoCuentaCobrar.objects.filter(
-                    fecha_pago=dia_inicio.date()
+                    fecha_pago__gte=dia_inicio,
+                    fecha_pago__lte=dia_fin
                 ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
                 venta_dia_grafico += pagos_credito_dia_grafico
@@ -5049,7 +5053,8 @@ def dashboard_stats(request):
                 ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
                 pagos_credito_dia_mes = PagoCuentaCobrar.objects.filter(
-                    fecha_pago=fecha_dia
+                    fecha_pago__gte=inicio_dia_cal,
+                    fecha_pago__lte=fin_dia_cal
                 ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
                 venta_dia_mes += pagos_credito_dia_mes
@@ -5079,8 +5084,8 @@ def dashboard_stats(request):
                 ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
                 pagos_credito_mes_grafico = PagoCuentaCobrar.objects.filter(
-                    fecha_pago__gte=fecha_mes,
-                    fecha_pago__lte=ultimo_dia
+                    fecha_pago__gte=inicio_mes_grafico,
+                    fecha_pago__lte=fin_mes_grafico
                 ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
                 venta_mes_grafico += pagos_credito_mes_grafico
@@ -8344,21 +8349,22 @@ def cuentaporcobrar_registrar_pago(request):
         return JsonResponse({'success': False, 'error': 'El monto debe ser mayor que 0.'}, status=400)
 
     fecha_pago_raw = str(payload.get('fecha_pago') or '').strip()
+    fecha_pago = None
     if fecha_pago_raw:
         try:
             # Si solo viene la fecha, combinar con hora actual
             fecha_sola = datetime.strptime(fecha_pago_raw, '%Y-%m-%d').date()
-            ahora = timezone.now()
+            ahora = timezone.localtime(timezone.now())
             fecha_pago = datetime.combine(fecha_sola, ahora.time())
-            # Asegurar que sea aware en UTC
-            if timezone.is_naive(fecha_pago):
-                fecha_pago = timezone.make_aware(fecha_pago, pytz.UTC)
-            else:
-                fecha_pago = fecha_pago.astimezone(pytz.UTC)
         except Exception:
             return JsonResponse({'success': False, 'error': 'Fecha de pago inválida.'}, status=400)
+    if not fecha_pago:
+        fecha_pago = timezone.localtime(timezone.now())
+    # Forzar que fecha_pago sea always aware
+    if timezone.is_naive(fecha_pago):
+        fecha_pago = timezone.make_aware(fecha_pago)
     else:
-        fecha_pago = timezone.now().astimezone(pytz.UTC)
+        fecha_pago = timezone.localtime(fecha_pago)
 
     metodo_pago = (payload.get('metodo_pago') or 'efectivo').strip()
     metodos_validos = {item[0] for item in PagoCuentaCobrar.METODO_PAGO_CHOICES}
