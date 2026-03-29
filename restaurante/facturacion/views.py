@@ -8766,8 +8766,10 @@ def estado_cuenta_cliente_pdf(request):
  
     # ── Notas ──────────────────────────────────────────────────────────────────
     story.append(Paragraph("<b>NOTAS / OBSERVACIONES</b>", bold_sty))
+    # Fecha límite dinámica: 15 días después de hoy
+    fecha_limite = (timezone.localdate() + timedelta(days=15)).strftime('%d/%m/%Y')
     story.append(Paragraph(
-        "Por favor realizar los pagos pendientes antes del 15/04/2026. Gracias por su preferencia.",
+        f"Por favor realizar los pagos pendientes antes del {fecha_limite}. Gracias por su preferencia.",
         small_sty,
     ))
  
@@ -8776,8 +8778,12 @@ def estado_cuenta_cliente_pdf(request):
     pdf = buffer.getvalue()
     buffer.close()
     response = HttpResponse(content_type='application/pdf')
+    # Usar nombre del cliente en el nombre del archivo, quitando espacios y caracteres problemáticos
+    nombre_archivo = cliente.nombre_completo.strip().replace(' ', '_').replace('ñ', 'n')
+    import re
+    nombre_archivo = re.sub(r'[^A-Za-z0-9_\-]', '', nombre_archivo)
     response['Content-Disposition'] = (
-        f'inline; filename="estado_cuenta_cliente_{cliente.id}.pdf"'
+        f'attachment; filename="estado_cuenta_cliente___{nombre_archivo}.pdf"'
     )
     response.write(pdf)
     return response
