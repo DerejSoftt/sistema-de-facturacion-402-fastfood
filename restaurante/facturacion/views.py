@@ -5510,34 +5510,63 @@ def generar_pdf_ticket_dia(request):
     c.setLineWidth(1)
     y -= 6 * mm
 
-    # 7. ESTADÍSTICAS ADICIONALES
+
+
+    # 7. RESUMEN DE TOTALES (nuevo orden y negrita)
     c.setFont("Helvetica", 8)
-    c.drawCentredString(ancho_pagina / 2, y, "ESTADÍSTICAS")
+    c.drawCentredString(ancho_pagina / 2, y, "RESUMEN DE TOTALES")
     y -= 4 * mm
 
-    # Promedio por factura
-    promedio = venta_dia / \
-        facturas_hoy.count() if facturas_hoy.count() > 0 else Decimal('0.00')
-    c.drawString(5 * mm, y, f"Promedio por factura:")
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"${promedio:,.2f}")
+    # Calcular total vendido a crédito y cantidad de facturas a crédito (cuentas por cobrar pendientes creadas ese día)
+    from .models import CuentaPorCobrar
+    cuentas_credito = CuentaPorCobrar.objects.filter(
+        fecha_creacion__gte=inicio_dia,
+        fecha_creacion__lte=fin_dia,
+        estado='pendiente'
+    )
+    total_credito = cuentas_credito.aggregate(total=Sum('monto_original'))['total'] or Decimal('0.00')
+    cantidad_credito = cuentas_credito.count()
+
+    # Cantidad de Facturas
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "Cantidad de Facturas:")
+    c.setFont("Helvetica", 8)
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"{facturas_hoy.count()}")
     y -= 3.5 * mm
 
-    # Factura más alta
-    if facturas_hoy.exists():
-        max_factura = facturas_hoy.aggregate(max_total=Max('total'))[
-            'max_total'] or Decimal('0.00')
-        c.drawString(5 * mm, y, f"Factura más alta:")
-        c.drawRightString(ancho_pagina - 5 * mm, y, f"${max_factura:,.2f}")
-        y -= 3.5 * mm
+    # Total de Facturas
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "Total de Facturas:")
+    c.setFont("Helvetica", 8)
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${venta_dia:,.2f}")
+    y -= 3.5 * mm
 
-    # Factura más baja
-    if facturas_hoy.exists():
-        min_factura = facturas_hoy.aggregate(min_total=Min('total'))[
-            'min_total'] or Decimal('0.00')
-        c.drawString(5 * mm, y, f"Factura más baja:")
-        c.drawRightString(ancho_pagina - 5 * mm, y, f"${min_factura:,.2f}")
-        y -= 3.5 * mm
+    # Cantidad de Factura a Crédito
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "Cantidad de Factura a Crédito:")
+    c.setFont("Helvetica", 8)
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"{cantidad_credito}")
+    y -= 3.5 * mm
 
+    # Total vendido a crédito
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "Total vendido a crédito:")
+    c.setFont("Helvetica", 8)
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_credito:,.2f}")
+    y -= 3.5 * mm
+
+    # Cantidad de Pagos
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "Cantidad de Pagos:")
+    c.setFont("Helvetica", 8)
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"{pagos_cxc.count()}")
+    y -= 3.5 * mm
+
+    # Total de Pagos
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "Total de Pagos:")
+    c.setFont("Helvetica", 8)
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_cxc:,.2f}")
     y -= 4 * mm
 
     # 8. PIE DE PÁGINA
@@ -5552,27 +5581,6 @@ def generar_pdf_ticket_dia(request):
 
     c.drawCentredString(ancho_pagina / 2, y, "www.mirestaurante.com")
     y -= 5 * mm
-
-    # 9. CÓDIGO DE BARRAS (simulado para referencia)
-    c.setFont("Helvetica", 6)
-    c.drawCentredString(ancho_pagina / 2, y, "| | | | | | | | | | | | | | | |")
-    y -= 2 * mm
-    c.drawCentredString(ancho_pagina / 2, y,
-                        f"REF: {ahora_local.strftime('%Y%m%d%H%M')}")
-    y -= 3 * mm
-
-    # 10. NOTA IMPORTANTE
-    c.setFont("Helvetica", 6)
-    nota_texto = "Nota: Este reporte incluye ventas desde las 6:00 AM hasta las 5:59 AM del día siguiente."
-    # Dividir texto largo en líneas
-    max_chars_per_line = 45
-    lines = []
-    for i in range(0, len(nota_texto), max_chars_per_line):
-        lines.append(nota_texto[i:i+max_chars_per_line])
-
-    for line in lines:
-        c.drawCentredString(ancho_pagina / 2, y, line)
-        y -= 2.5 * mm
 
     # Guardar el PDF
     c.save()
