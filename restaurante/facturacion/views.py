@@ -8037,12 +8037,20 @@ def cuentaporcobrar_datos(request):
 
 @login_required
 def historial_pagos(request):
+    import pytz
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    ahora_local = timezone.now().astimezone(tz_rd)
+    fecha_reporte = ahora_local.strftime('%d/%m/%Y %I:%M %p')
+
+    # Parámetros de filtrado
     search = request.GET.get('search', '').strip()
     metodo_pago = request.GET.get('metodo_pago', '')
     fecha = request.GET.get('fecha', '')
     page = int(request.GET.get('page', 1))
 
-    pagos = PagoCuentaCobrar.objects.select_related('factura', 'cuenta_por_cobrar', 'registrado_por')
+    # Consulta base: TODOS los pagos
+    pagos_base = PagoCuentaCobrar.objects.select_related('factura', 'cuenta_por_cobrar', 'registrado_por')
+    pagos = pagos_base.order_by('-fecha_pago')
 
     # Filtros
     if search:
@@ -8053,28 +8061,70 @@ def historial_pagos(request):
         )
     if metodo_pago:
         pagos = pagos.filter(metodo_pago=metodo_pago)
-    if fecha == 'hoy':
-        from django.utils import timezone
-        hoy = timezone.localdate()
-        pagos = pagos.filter(fecha_pago__date=hoy)
-    elif fecha == 'este_mes':
-        from django.utils import timezone
-        hoy = timezone.localdate()
-        pagos = pagos.filter(fecha_pago__year=hoy.year, fecha_pago__month=hoy.month)
+    if fecha:
+        inicio_hoy = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        fin_hoy = inicio_hoy + timedelta(days=1)
+        inicio_mes_actual = inicio_hoy.replace(day=1)
 
-    pagos = pagos.order_by('-fecha_pago')
+        if fecha == 'hoy':
+            pagos = pagos.filter(fecha_pago__gte=inicio_hoy, fecha_pago__lt=fin_hoy)
+        elif fecha == 'ayer':
+            inicio_ayer = inicio_hoy - timedelta(days=1)
+            pagos = pagos.filter(fecha_pago__gte=inicio_ayer, fecha_pago__lt=inicio_hoy)
+        elif fecha in ['ultimos_7_dias', 'semana']:
+            inicio_7_dias = inicio_hoy - timedelta(days=6)
+            pagos = pagos.filter(fecha_pago__gte=inicio_7_dias, fecha_pago__lt=fin_hoy)
+        elif fecha == 'ultimos_30_dias':
+            inicio_30_dias = inicio_hoy - timedelta(days=29)
+            pagos = pagos.filter(fecha_pago__gte=inicio_30_dias, fecha_pago__lt=fin_hoy)
+        elif fecha in ['este_mes', 'mes']:
+            pagos = pagos.filter(fecha_pago__gte=inicio_mes_actual, fecha_pago__lt=fin_hoy)
+        elif fecha == 'mes_pasado':
+            fin_mes_pasado = inicio_mes_actual
+            ultimo_dia_mes_pasado = inicio_mes_actual - timedelta(days=1)
+            inicio_mes_pasado = ultimo_dia_mes_pasado.replace(day=1)
+            pagos = pagos.filter(fecha_pago__gte=inicio_mes_pasado, fecha_pago__lt=fin_mes_pasado)
+        elif fecha == 'este_anio':
+            inicio_anio = inicio_hoy.replace(month=1, day=1)
+            pagos = pagos.filter(fecha_pago__gte=inicio_anio, fecha_pago__lt=fin_hoy)
+        elif fecha == 'semana_actual':
+            inicio_semana = (inicio_hoy - timedelta(days=ahora_local.weekday()))
+            pagos = pagos.filter(fecha_pago__gte=inicio_semana, fecha_pago__lt=fin_hoy)
+
+    # Paginación de 50 pagos por página
     paginator = Paginator(pagos, 50)
     page_obj = paginator.get_page(page)
 
+    # Procesar pagos para template
+    pagos_procesados = []
+    for pago in page_obj:
+        fecha_base = pago.fecha_pago or timezone.now()
+        fecha_local = timezone.localtime(fecha_base, tz_rd)
+        pagos_procesados.append({
+            'id': pago.id,
+            'numero_comprobante': pago.numero_comprobante or 'Sin comprobante',
+            'factura_numero': pago.factura.numero_factura if pago.factura else 'Sin factura',
+            'nombre_cliente': pago.factura.nombre_cliente if pago.factura else 'Cliente no registrado',
+            'monto': float(pago.monto or 0),
+            'metodo_pago': pago.metodo_pago or '',
+            'fecha_formateada': fecha_local.strftime('%d/%m/%Y %I:%M %p'),
+            'registrado_por': pago.registrado_por.get_full_name() if pago.registrado_por else '',
+        })
+
     # Estadísticas
     total_pagos = pagos.count()
-    ingresos_totales = pagos.aggregate(total=models.Sum('monto'))['total'] or 0
-    from django.utils import timezone
-    hoy = timezone.localdate()
-    ingresos_mes_actual = pagos.filter(fecha_pago__year=hoy.year, fecha_pago__month=hoy.month).aggregate(total=models.Sum('monto'))['total'] or 0
+    ingresos_totales = pagos.filter().aggregate(total=models.Sum('monto'))['total'] or 0
+
+    # Estadísticas mensuales y anuales (sobre TODOS los pagos, no solo filtrados)
+    inicio_mes_rd = ahora_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    inicio_hoy_rd = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    fin_hoy_rd = inicio_hoy_rd + timedelta(days=1)
+    pagos_mes_actual = pagos_base.filter(fecha_pago__gte=inicio_mes_rd, fecha_pago__lt=fin_hoy_rd)
+    ingresos_mes_actual = pagos_mes_actual.aggregate(total=models.Sum('monto'))['total'] or 0
+    total_pagos_mes = pagos_mes_actual.count()
 
     context = {
-        'pagos': page_obj,
+        'pagos': pagos_procesados,
         'paginator': paginator,
         'page_obj': page_obj,
         'filtros': {
@@ -8086,7 +8136,9 @@ def historial_pagos(request):
             'total_pagos': total_pagos,
             'ingresos_totales': ingresos_totales,
             'ingresos_mes_actual': ingresos_mes_actual,
-        }
+            'total_pagos_mes': total_pagos_mes,
+        },
+        'fecha_reporte': fecha_reporte,
     }
     return render(request, 'facturacion/historial_pagos.html', context)
 
