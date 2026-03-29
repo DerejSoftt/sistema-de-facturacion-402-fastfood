@@ -426,9 +426,36 @@
 
         .filter-row {
             display: flex;
-            gap: 1rem;
-            align-items: flex-end;
+            gap: 1.5rem;
+            align-items: center;
             flex-wrap: wrap;
+        }
+
+        .filter-row .form-group,
+        .filter-row .filter-select,
+        .filter-row input[type="date"],
+        .filter-row input[type="text"],
+        .filter-row select,
+        .filter-row button {
+            margin-bottom: 0;
+        }
+
+        .filter-row .form-group,
+        .filter-row .filter-select,
+        .filter-row input[type="date"],
+        .filter-row input[type="text"],
+        .filter-row select {
+            height: 44px;
+            display: flex;
+            align-items: center;
+        }
+
+        .filter-row button {
+            height: 44px;
+            display: flex;
+            align-items: center;
+            padding-top: 0;
+            padding-bottom: 0;
         }
 
         /* ===== TABLAS ===== */
@@ -1583,7 +1610,6 @@
                                 </div>
 
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="dateFilter"><i class="fas fa-calendar"></i> Rango de Fechas</label>
                                     <div class="rango-fechas">
                                         <div>
                                             <label style="font-size: 0.8rem;">Desde</label>
