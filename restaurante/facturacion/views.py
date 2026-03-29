@@ -1,9 +1,12 @@
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.lib import colors
+from decimal import Decimal
+from django.db.models import Sum
+from .models import Cliente, CuentaPorCobrar, PagoCuentaCobrar
 from django.core.paginator import Paginator
-
-
-
-
-
 from django.shortcuts import render, get_object_or_404
 from django.core.serializers.json import DjangoJSONEncoder
 from django.urls import reverse
@@ -8560,3 +8563,221 @@ def cuentaporcobrar_registrar_pago(request):
             'comprobante_url': f"{reverse('cuentaporcobrar_comprobante_pdf')}?pagos={','.join(pagos_creados_ids)}" if pagos_creados_ids else '',
             'numeros_comprobante': [pago.numero_comprobante for pago in pagos_creados if pago.numero_comprobante],
         })
+    
+def estado_cuenta_cliente_pdf(request):
+    """Genera un PDF A4 de estado de cuenta de un cliente."""
+    cliente_id = request.GET.get('cliente_id')
+    if not cliente_id:
+        return HttpResponse('Debe indicar cliente_id.', status=400)
+    try:
+        cliente = Cliente.objects.get(pk=cliente_id)
+    except Cliente.DoesNotExist:
+        return HttpResponse('Cliente no encontrado.', status=404)
+ 
+    cuentas = CuentaPorCobrar.objects.filter(cliente=cliente).select_related('factura').order_by('fecha_emision')
+    facturas = [c.factura for c in cuentas if c.factura]
+    pagos_qs = PagoCuentaCobrar.objects.filter(factura__in=facturas).select_related('factura').order_by('fecha_pago')
+ 
+    total_facturado  = sum([f.total or 0 for f in facturas])
+    total_pagado     = pagos_qs.aggregate(total=Sum('monto'))['total'] or 0
+    saldo_pendiente  = total_facturado - total_pagado
+ 
+    # ── Estilos ────────────────────────────────────────────────────────────────
+    buffer = io.BytesIO()
+    doc    = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        rightMargin=20*mm, leftMargin=20*mm,
+        topMargin=20*mm,   bottomMargin=20*mm,
+    )
+    styles     = getSampleStyleSheet()
+    title_sty  = ParagraphStyle('TitleEC',  parent=styles['Heading1'],  fontSize=18, alignment=1, spaceAfter=4)
+    small_sty  = ParagraphStyle('SmallEC',  parent=styles['Normal'],    fontSize=9)
+    bold_sty   = ParagraphStyle('BoldEC',   parent=styles['Normal'],    fontName='Helvetica-Bold')
+    # Estilo para celdas de tabla (evita overflow, hace word-wrap automático)
+    cell_sty   = ParagraphStyle('CellEC',   parent=styles['Normal'],    fontSize=9,  leading=11)
+    cell_b_sty = ParagraphStyle('CellBEC',  parent=styles['Normal'],    fontSize=9,  leading=11, fontName='Helvetica-Bold')
+    cell_i_sty = ParagraphStyle('CellIEC',  parent=styles['Normal'],    fontSize=8,  leading=10,
+                                fontName='Helvetica-Oblique', textColor=colors.HexColor('#555555'))
+    hdr_sty    = ParagraphStyle('HdrEC',    parent=styles['Normal'],    fontSize=9,  leading=11,
+                                fontName='Helvetica-Bold',   alignment=1)
+ 
+    story = []
+ 
+    # ── Logo + datos empresa ───────────────────────────────────────────────────
+    try:
+        logo_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        if os.path.exists(logo_path):
+            logo       = Image(logo_path, width=30*mm, height=30*mm)
+            logo_table = Table([[logo]], colWidths=[doc.width])
+            logo_table.setStyle(TableStyle([('ALIGN', (0,0), (0,0), 'CENTER')]))
+            story.append(logo_table)
+            story.append(Spacer(1, 4))
+    except Exception:
+        pass
+ 
+    story.append(Paragraph("402 FASTFOOD",                                title_sty))
+    story.append(Paragraph("RNC: 00000000",                               small_sty))
+    story.append(Paragraph("Dirección: Castanuelas, calle 30 de mayo",    small_sty))
+    story.append(Paragraph("Teléfono: 876-987-9876",                      small_sty))
+    story.append(Spacer(1, 8))
+ 
+    # ── Info cliente ───────────────────────────────────────────────────────────
+    story.append(Paragraph("<b>INFORMACIÓN DEL CLIENTE</b>", bold_sty))
+    tcli = Table([
+        ["Nombre:",    cliente.nombre_completo],
+        ["Teléfono:",  cliente.telefono_principal],
+        ["Dirección:", cliente.direccion],
+        ["Email:",     getattr(cliente, 'email', '-')],
+    ], colWidths=[60*mm, doc.width - 60*mm])
+    tcli.setStyle(TableStyle([
+        ('FONTNAME',      (0,0), (-1,-1), 'Helvetica'),
+        ('FONTSIZE',      (0,0), (-1,-1), 10),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ('ALIGN',         (0,0), (0,-1),  'RIGHT'),
+        ('ALIGN',         (1,0), (1,-1),  'LEFT'),
+    ]))
+    story.append(tcli)
+    story.append(Spacer(1, 8))
+ 
+    # ── Tarjetas de totales ────────────────────────────────────────────────────
+    val_sty = {
+        'total':    ParagraphStyle('v1', parent=bold_sty, textColor=colors.HexColor('#222222'), fontSize=14, alignment=1),
+        'pagado':   ParagraphStyle('v2', parent=bold_sty, textColor=colors.HexColor('#1ca64c'), fontSize=14, alignment=1),
+        'pendiente':ParagraphStyle('v3', parent=bold_sty, textColor=colors.HexColor('#d32f2f'), fontSize=14, alignment=1),
+    }
+    tcard = Table([
+        [Paragraph('<b>TOTAL FACTURADO</b>', bold_sty),
+         Paragraph('<b>TOTAL PAGADO</b>',    bold_sty),
+         Paragraph('<b>SALDO PENDIENTE</b>', bold_sty)],
+        [Paragraph(f"RD$ {total_facturado:,.2f}",  val_sty['total']),
+         Paragraph(f"RD$ {total_pagado:,.2f}",     val_sty['pagado']),
+         Paragraph(f"RD$ {saldo_pendiente:,.2f}",  val_sty['pendiente'])],
+    ], colWidths=[doc.width/3]*3)
+    tcard.setStyle(TableStyle([
+        ('ALIGN',         (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('TOPPADDING',    (0,0), (-1,-1), 6),
+        ('LINEBELOW',     (0,1), (2,1),   1, colors.HexColor('#888888')),
+    ]))
+    story.append(tcard)
+    story.append(Spacer(1, 20))
+ 
+    # ── Tabla de detalle ───────────────────────────────────────────────────────
+    # Anchos de columna  (suman doc.width = 170mm aprox en A4 con márgenes 20mm)
+    #   col0 N°Factura  : 38mm   ← más ancho para evitar corte
+    #   col1 Fecha      : 22mm
+    #   col2 Descripción: resto
+    #   col3 Total      : 24mm
+    #   col4 Pagado     : 24mm
+    #   col5 Saldo      : 24mm
+    C0 = 38*mm
+    C1 = 22*mm
+    C3 = 24*mm
+    C4 = 24*mm
+    C5 = 24*mm
+    C2 = doc.width - C0 - C1 - C3 - C4 - C5   # ~38mm
+ 
+    col_widths = [C0, C1, C2, C3, C4, C5]
+ 
+    COLOR_HDR  = colors.HexColor('#e3e3e3')
+    COLOR_PAGO = colors.HexColor('#f5f9f5')   # fondo verde muy suave para filas de pago
+ 
+    # Cabecera
+    data = [[
+        Paragraph('N° Factura',   hdr_sty),
+        Paragraph('Fecha',        hdr_sty),
+        Paragraph('Descripción',  hdr_sty),
+        Paragraph('Total',        hdr_sty),
+        Paragraph('Pagado',       hdr_sty),
+        Paragraph('Saldo',        hdr_sty),
+    ]]
+ 
+    row_styles = []
+    row_idx    = 1
+ 
+    for cxc in cuentas:
+        f          = cxc.factura
+        pagos_fact = [p for p in pagos_qs if p.factura_id == f.id]
+        pagado     = sum([p.monto for p in pagos_fact])
+        saldo      = (f.total or 0) - pagado
+ 
+        # ── Fila de factura ────────────────────────────────────────────────────
+        descripcion = getattr(f, 'descripcion', None) or '-'
+        data.append([
+            Paragraph(f.numero_factura or '-',             cell_b_sty),
+            Paragraph(f.fecha_factura.strftime('%d/%m/%Y'), cell_sty),
+            Paragraph(descripcion,                          cell_sty),
+            Paragraph(f"RD$ {f.total:,.2f}",               cell_sty),
+            Paragraph(f"RD$ {pagado:,.2f}",                cell_sty),
+            Paragraph(f"RD$ {saldo:,.2f}",                 cell_sty),
+        ])
+        row_styles += [
+            ('ALIGN',       (3, row_idx), (5, row_idx), 'RIGHT'),
+            ('LINEBELOW',   (0, row_idx), (-1, row_idx), 0.25, colors.HexColor('#bbbbbb')),
+        ]
+        row_idx += 1
+ 
+        # ── Filas de pago (una por pago) ───────────────────────────────────────
+        for p in pagos_fact:
+            metodo_str = p.get_metodo_pago_display()
+            comp_str   = p.numero_comprobante or '-'
+            # col2: método + comprobante en una sola celda, bien legible
+            desc_pago  = f"\u21b3 {metodo_str}   Comp.: {comp_str}"
+ 
+            data.append([
+                Paragraph('', cell_i_sty),                           # col0: vacío
+                Paragraph(p.fecha_pago.strftime('%d/%m/%Y'), cell_i_sty),  # col1: fecha pago
+                Paragraph(desc_pago,                          cell_i_sty),  # col2: descripción pago
+                Paragraph('', cell_i_sty),                           # col3: vacío
+                Paragraph('', cell_i_sty),                           # col4: vacío
+                Paragraph(f"RD$ {p.monto:,.2f}",             cell_i_sty),  # col5: monto pago
+            ])
+            row_styles += [
+                ('BACKGROUND', (0, row_idx), (-1, row_idx), COLOR_PAGO),
+                ('ALIGN',      (5, row_idx), (5, row_idx),  'RIGHT'),
+                ('LINEBELOW',  (0, row_idx), (-1, row_idx), 0.15, colors.HexColor('#d0d0d0')),
+            ]
+            row_idx += 1
+ 
+    tdet = Table(data, colWidths=col_widths, repeatRows=1)
+    tdet.setStyle(TableStyle([
+        # Cabecera
+        ('BACKGROUND',    (0,0), (-1,0), COLOR_HDR),
+        ('FONTNAME',      (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE',      (0,0), (-1,0), 9),
+        ('ALIGN',         (0,0), (-1,0), 'CENTER'),
+        ('LINEBELOW',     (0,0), (-1,0), 1, colors.HexColor('#888888')),
+        # General
+        ('VALIGN',        (0,0), (-1,-1), 'TOP'),
+        ('TOPPADDING',    (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING',   (0,0), (-1,-1), 4),
+        ('RIGHTPADDING',  (0,0), (-1,-1), 4),
+        # Columnas numéricas alineadas a la derecha (filas de factura – base)
+        ('ALIGN',         (3,1), (5,-1), 'RIGHT'),
+    ] + row_styles))
+    story.append(Paragraph("<b>DETALLE DE FACTURAS</b>", bold_sty))
+    story.append(Spacer(1, 6))
+    story.append(tdet)
+    story.append(Spacer(1, 10))
+ 
+    # ── Notas ──────────────────────────────────────────────────────────────────
+    story.append(Paragraph("<b>NOTAS / OBSERVACIONES</b>", bold_sty))
+    story.append(Paragraph(
+        "Por favor realizar los pagos pendientes antes del 15/04/2026. Gracias por su preferencia.",
+        small_sty,
+    ))
+ 
+    # ── Build ──────────────────────────────────────────────────────────────────
+    doc.build(story)
+    pdf = buffer.getvalue()
+    buffer.close()
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = (
+        f'inline; filename="estado_cuenta_cliente_{cliente.id}.pdf"'
+    )
+    response.write(pdf)
+    return response
