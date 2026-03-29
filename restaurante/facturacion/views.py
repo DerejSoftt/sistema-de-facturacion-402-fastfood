@@ -7911,6 +7911,7 @@ def _armar_clientes_cuentas_por_cobrar():
 
         _sincronizar_cuenta_por_cobrar(factura, cliente_match)
 
+    # Para la tabla: todas las cuentas
     cuentas = CuentaPorCobrar.objects.select_related('factura', 'cliente').prefetch_related('factura__pagos_cxc').order_by('fecha_emision', 'id')
 
     agrupados = {}
@@ -8023,7 +8024,9 @@ def _armar_clientes_cuentas_por_cobrar():
 def cuentaporcobrar_datos(request):
     """Retorna datos reales para la tabla de cuentas por cobrar."""
     clientes = _armar_clientes_cuentas_por_cobrar()
-    return JsonResponse({'success': True, 'clientes': clientes})
+    # Card: solo pendientes
+    facturas_pendientes = CuentaPorCobrar.objects.filter(estado__in=['pendiente', 'parcial']).count()
+    return JsonResponse({'success': True, 'clientes': clientes, 'facturas_pendientes': facturas_pendientes})
 
 
 @login_required

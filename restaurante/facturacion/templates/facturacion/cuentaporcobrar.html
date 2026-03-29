@@ -1707,6 +1707,7 @@
 
                 clientesData.splice(0, clientesData.length, ...(data.clientes || []));
                 filteredClientes = [...clientesData];
+                window.facturasPendientesCard = data.facturas_pendientes || 0;
                 applyFilters();
             } catch (error) {
                 console.error('Error cargando cuentas por cobrar:', error);
@@ -2001,12 +2002,12 @@
 
         function updateStats() {
             const totalClientes = filteredClientes.length;
-            const totalFacturas = filteredClientes.reduce((sum, c) => sum + c.cantidad_facturas, 0);
+            const totalFacturasPendientes = window.facturasPendientesCard || 0;
             const totalDeuda = filteredClientes.reduce((sum, c) => sum + c.total_adeudado, 0);
             const facturasVencidas = filteredClientes.reduce((sum, c) => sum + c.facturas_vencidas, 0);
 
             document.getElementById('totalClientes').textContent = totalClientes;
-            document.getElementById('facturasPendientes').textContent = totalFacturas;
+            document.getElementById('facturasPendientes').textContent = totalFacturasPendientes;
             document.getElementById('totalDeudaValor').textContent = formatCurrency(totalDeuda);
             document.getElementById('facturasVencidas').textContent = facturasVencidas;
         }
