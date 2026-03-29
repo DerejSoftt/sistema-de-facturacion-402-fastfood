@@ -8024,9 +8024,10 @@ def _armar_clientes_cuentas_por_cobrar():
 def cuentaporcobrar_datos(request):
     """Retorna datos reales para la tabla de cuentas por cobrar."""
     clientes = _armar_clientes_cuentas_por_cobrar()
-    # Card: solo pendientes
+    # Card: solo pendientes y parciales
     facturas_pendientes = CuentaPorCobrar.objects.filter(estado__in=['pendiente', 'parcial']).count()
-    return JsonResponse({'success': True, 'clientes': clientes, 'facturas_pendientes': facturas_pendientes})
+    clientes_con_deuda = CuentaPorCobrar.objects.filter(estado__in=['pendiente', 'parcial']).values('cliente_id').distinct().count()
+    return JsonResponse({'success': True, 'clientes': clientes, 'facturas_pendientes': facturas_pendientes, 'clientes_con_deuda': clientes_con_deuda})
 
 
 @login_required
