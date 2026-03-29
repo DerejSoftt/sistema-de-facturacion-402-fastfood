@@ -1871,7 +1871,7 @@
         // ===== FUNCIONES DE BOTONES =====
         function initButtons() {
             document.getElementById('btnHistorial').addEventListener('click', function () {
-                showNotification('Funcionalidad de historial en desarrollo', 'info');
+                window.location.href = "{% url 'historial_pagos' %}";
             });
 
             document.getElementById('btnExportar').addEventListener('click', function () {

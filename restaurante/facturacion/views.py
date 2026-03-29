@@ -1,4 +1,9 @@
 
+from django.core.paginator import Paginator
+
+
+
+
 
 from django.shortcuts import render, get_object_or_404
 from django.core.serializers.json import DjangoJSONEncoder
@@ -8028,6 +8033,62 @@ def cuentaporcobrar_datos(request):
     facturas_pendientes = CuentaPorCobrar.objects.filter(estado__in=['pendiente', 'parcial']).count()
     clientes_con_deuda = CuentaPorCobrar.objects.filter(estado__in=['pendiente', 'parcial']).values('cliente_id').distinct().count()
     return JsonResponse({'success': True, 'clientes': clientes, 'facturas_pendientes': facturas_pendientes, 'clientes_con_deuda': clientes_con_deuda})
+
+
+@login_required
+def historial_pagos(request):
+    search = request.GET.get('search', '').strip()
+    metodo_pago = request.GET.get('metodo_pago', '')
+    fecha = request.GET.get('fecha', '')
+    page = int(request.GET.get('page', 1))
+
+    pagos = PagoCuentaCobrar.objects.select_related('factura', 'cuenta_por_cobrar', 'registrado_por')
+
+    # Filtros
+    if search:
+        pagos = pagos.filter(
+            Q(factura__numero_factura__icontains=search) |
+            Q(factura__nombre_cliente__icontains=search) |
+            Q(numero_comprobante__icontains=search)
+        )
+    if metodo_pago:
+        pagos = pagos.filter(metodo_pago=metodo_pago)
+    if fecha == 'hoy':
+        from django.utils import timezone
+        hoy = timezone.localdate()
+        pagos = pagos.filter(fecha_pago__date=hoy)
+    elif fecha == 'este_mes':
+        from django.utils import timezone
+        hoy = timezone.localdate()
+        pagos = pagos.filter(fecha_pago__year=hoy.year, fecha_pago__month=hoy.month)
+
+    pagos = pagos.order_by('-fecha_pago')
+    paginator = Paginator(pagos, 50)
+    page_obj = paginator.get_page(page)
+
+    # Estadísticas
+    total_pagos = pagos.count()
+    ingresos_totales = pagos.aggregate(total=models.Sum('monto'))['total'] or 0
+    from django.utils import timezone
+    hoy = timezone.localdate()
+    ingresos_mes_actual = pagos.filter(fecha_pago__year=hoy.year, fecha_pago__month=hoy.month).aggregate(total=models.Sum('monto'))['total'] or 0
+
+    context = {
+        'pagos': page_obj,
+        'paginator': paginator,
+        'page_obj': page_obj,
+        'filtros': {
+            'search': search,
+            'metodo_pago': metodo_pago,
+            'fecha': fecha,
+        },
+        'estadisticas': {
+            'total_pagos': total_pagos,
+            'ingresos_totales': ingresos_totales,
+            'ingresos_mes_actual': ingresos_mes_actual,
+        }
+    }
+    return render(request, 'facturacion/historial_pagos.html', context)
 
 
 @login_required
