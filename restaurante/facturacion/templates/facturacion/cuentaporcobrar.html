@@ -2072,7 +2072,8 @@
                     factura.dias_vencimiento === 0 ?
                         'Vence hoy' :
                         `Vencida hace ${Math.abs(factura.dias_vencimiento)} días`;
-
+                const saldo = parseFloat(factura.saldo_pendiente || 0);
+                const saldoCero = saldo === 0;
                 return `
                     <div class="factura-item ${claseVencida}" data-factura-id="${factura.id}">
                         <div style="flex: 2;">
@@ -2086,10 +2087,10 @@
                             </div>
                         </div>
                         <div style="text-align: right;">
-                            <div style="font-size: 1.1rem; font-weight: 700; color: #2c3e50;">
+                            <div class="${saldoCero ? 'deuda-opaca' : ''}" style="font-size: 1.1rem; font-weight: 700; color: #2c3e50; transition: opacity 0.2s;">
                                 $${formatCurrency(factura.monto_total)}
                             </div>
-                            <div style="font-size: 0.9rem; color: #ff7e5f;">
+                            <div class="saldo-relevante" style="font-size: 1.2rem; margin-top: 0.1rem;">
                                 Saldo: $${formatCurrency(factura.saldo_pendiente)}
                             </div>
                         </div>
