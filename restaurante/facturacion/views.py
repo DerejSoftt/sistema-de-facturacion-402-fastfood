@@ -3865,10 +3865,13 @@ def dashbort(request):
     venta_dia_contado = facturas_hoy.aggregate(total_dia=Sum('total'))[
         'total_dia'] or Decimal('0.00')
 
-    # Los pagos CxC no tienen hora (DateField), por eso se asignan al dia de negocio actual.
-    dia_negocio_actual = inicio_dia.date()
+    # Filtrar pagos CxC usando el mismo rango UTC que el PDF
+    import pytz
+    inicio_dia_utc = inicio_dia.astimezone(pytz.UTC)
+    fin_dia_utc = fin_dia.astimezone(pytz.UTC)
     pagos_credito_dia_qs = PagoCuentaCobrar.objects.filter(
-        fecha_pago=dia_negocio_actual
+        fecha_pago__gte=inicio_dia_utc,
+        fecha_pago__lte=fin_dia_utc
     )
     pagos_credito_dia = pagos_credito_dia_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     total_pagos_hoy = pagos_credito_dia_qs.count()
@@ -4629,8 +4632,12 @@ def dashboard_stats(request):
             'total_dia'] or Decimal('0.00')
 
         dia_negocio_actual = inicio_dia.date()
+        # Usar el mismo rango UTC que el PDF para pagos hoy
+        inicio_dia_utc = inicio_dia.astimezone(pytz.UTC)
+        fin_dia_utc = fin_dia.astimezone(pytz.UTC)
         pagos_credito_dia_qs = PagoCuentaCobrar.objects.filter(
-            fecha_pago=dia_negocio_actual
+            fecha_pago__gte=inicio_dia_utc,
+            fecha_pago__lte=fin_dia_utc
         )
         pagos_credito_dia = pagos_credito_dia_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
         total_pagos_hoy = pagos_credito_dia_qs.count()
