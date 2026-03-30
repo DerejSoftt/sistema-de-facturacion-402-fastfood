@@ -18,7 +18,6 @@ from django.db.models import Sum, Count, F, Q
 from django.http import HttpResponse, JsonResponse
 from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.units import mm
-from reportlab.lib.pagesizes import A4
 from django.conf import settings
 from django.db.models import Sum, Max, Min
 from reportlab.lib.utils import ImageReader
@@ -32,14 +31,10 @@ import os
 import textwrap
 import io
 import re
-from django.shortcuts import render
 from django.db.models import Sum
 from django.contrib.auth.models import User
 from .models import Pedido, Factura, Mesa, DeliveryConfig, Producto
-from datetime import datetime
 from django.shortcuts import render, redirect, get_object_or_404
-from django.shortcuts import render, redirect,  get_object_or_404
-from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 import json
@@ -67,7 +62,14 @@ from django.http import HttpResponse
 from django.db.models import F
 from django.core.cache import cache
 import pytz
-
+from reportlab.pdfgen import canvas as rl_canvas
+from reportlab.lib import colors
+from reportlab.lib.units import mm
+from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image,)
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from django.db.models import Sum, Count, Q
+import io, os
+from datetime import date
 
 @csrf_exempt
 def index(request):
@@ -7649,9 +7651,300 @@ def historial_cliente(request, cliente_id):
     })
 
 
+@login_required
+def reporte_clientes_pdf(request):
+    """
+    Genera PDF A4 con reporte de clientes.
+    URL: path('gestiondeclientes/exportar-pdf/', views.reporte_clientes_pdf, name='reporte_clientes_pdf'),
+    Botón HTML: window.open('/gestiondeclientes/exportar-pdf/', '_blank');
+    Acepta filtros: ?search= ?estado=activo|inactivo ?credito=con|sin
+    """
+
+    # ── Paleta ────────────────────────────────────────────────────────────────
+    GRIS_OSCURO  = colors.HexColor('#2C3E50')
+    GRIS_MEDIO   = colors.HexColor('#5D6D7E')
+    GRIS_CLARO   = colors.HexColor('#ECF0F1')
+    GRIS_BORDE   = colors.HexColor('#BDC3C7')
+    ACENTO       = colors.HexColor('#4A90A4')
+    ACENTO_CLARO = colors.HexColor('#EAF4F7')
+    VERDE        = colors.HexColor('#27AE60')
+    VERDE_CLR    = colors.HexColor('#EAFAF1')
+    ROJO         = colors.HexColor('#C0392B')
+    ROJO_CLR     = colors.HexColor('#FDEDEC')
+    AMARILLO     = colors.HexColor('#D4A017')
+    AMARILLO_CLR = colors.HexColor('#FEF9E7')
+    BLANCO       = colors.white
+
+    # ── Filtros ───────────────────────────────────────────────────────────────
+    search  = request.GET.get('search',  '').strip()
+    estado  = request.GET.get('estado',  '')
+    credito = request.GET.get('credito', '')
+
+    qs = Cliente.objects.all().order_by('nombre_completo')
+    if search:
+        qs = qs.filter(
+            Q(nombre_completo__icontains=search) |
+            Q(cedula__icontains=search)           |
+            Q(telefono_principal__icontains=search)
+        )
+    if estado == 'activo':
+        qs = qs.filter(activo=True)
+    elif estado == 'inactivo':
+        qs = qs.filter(activo=False)
+    if credito == 'con':
+        qs = qs.filter(limite_credito__gt=0)
+    elif credito == 'sin':
+        qs = qs.filter(limite_credito=0)
+
+    clientes = list(qs)
+
+    # ── Estadísticas ──────────────────────────────────────────────────────────
+    total_clientes = len(clientes)
+    activos        = sum(1 for c in clientes if c.activo)
+    inactivos      = total_clientes - activos
+    con_credito    = sum(1 for c in clientes if float(c.limite_credito or 0) > 0)
+    credito_total  = sum(float(c.limite_credito or 0) for c in clientes)
+
+    # ── Buffer y documento ────────────────────────────────────────────────────
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        rightMargin=20*mm, leftMargin=20*mm,
+        topMargin=15*mm,   bottomMargin=18*mm,
+    )
+    ancho = doc.width  # ~170mm
+
+    styles = getSampleStyleSheet()
+
+    def sty(name, **kw):
+        base = kw.pop('parent', styles['Normal'])
+        return ParagraphStyle(name, parent=base, **kw)
+
+    bold_sty   = sty('ecB',  fontName='Helvetica-Bold', fontSize=9)
+    cell_sty   = sty('ecC',  fontSize=8,  leading=11)
+    cell_b_sty = sty('ecCB', fontSize=8,  leading=11, fontName='Helvetica-Bold', textColor=GRIS_OSCURO)
+    cell_d_sty = sty('ecCD', fontSize=8,  leading=11, textColor=GRIS_OSCURO)
+    hdr_sty    = sty('ecH',  fontSize=8,  leading=10, fontName='Helvetica-Bold', alignment=1, textColor=BLANCO)
+    small_sty  = sty('ecSM', fontSize=8)
+
+    story = []
+
+    # ── Logo ──────────────────────────────────────────────────────────────────
+    try:
+        logo_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        if os.path.exists(logo_path):
+            logo = Image(logo_path, width=30*mm, height=30*mm)
+            logo_table = Table([[logo]], colWidths=[doc.width])
+            logo_table.setStyle(TableStyle([('ALIGN', (0,0), (0,0), 'CENTER')]))
+            story.append(logo_table)
+            story.append(Spacer(1, 4))
+    except Exception:
+        pass
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # HEADER
+    # ══════════════════════════════════════════════════════════════════════════
+    hdr_data = [[
+        Paragraph('402 FASTFOOD',
+                  sty('ecEMP', fontSize=12, fontName='Helvetica-Bold', textColor=BLANCO)),
+        Paragraph('REPORTE DE CLIENTES',
+                  sty('ecTIT', fontSize=13, fontName='Helvetica-Bold', textColor=BLANCO, alignment=1)),
+        Paragraph(
+            f'Emitido el {date.today().strftime("%d/%m/%Y")}<br/>'
+            f'<font size="7.5">Castanuelas, calle 30 de mayo</font>',
+            sty('ecFEC', fontSize=8.5, textColor=GRIS_CLARO, alignment=2)
+        ),
+    ]]
+    thdr = Table(hdr_data, colWidths=[ancho*0.27, ancho*0.46, ancho*0.27])
+    thdr.setStyle(TableStyle([
+        ('BACKGROUND',    (0,0), (-1,0), GRIS_OSCURO),
+        ('VALIGN',        (0,0), (-1,0), 'MIDDLE'),
+        ('TOPPADDING',    (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 12),
+        ('LEFTPADDING',   (0,0), (0,0),  10),
+        ('RIGHTPADDING',  (-1,0),(-1,0), 10),
+        ('LINEAFTER',     (0,0), (0,0),  4, ACENTO),
+    ]))
+    story.append(thdr)
+    story.append(Spacer(1, 7))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TARJETAS DE RESUMEN
+    # ══════════════════════════════════════════════════════════════════════════
+    card_defs = [
+        ('TOTAL\nCLIENTES',    str(total_clientes),          GRIS_OSCURO, GRIS_CLARO),
+        ('ACTIVOS',            str(activos),                  VERDE,       VERDE_CLR),
+        ('INACTIVOS',          str(inactivos),                ROJO,        ROJO_CLR),
+        ('CON\nCRÉDITO',      str(con_credito),              ACENTO,      ACENTO_CLARO),
+        ('CRÉDITO\nOTORGADO', f'RD$ {credito_total:,.0f}',  AMARILLO,    AMARILLO_CLR),
+    ]
+    card_w = ancho / 5
+    card_cells = []
+    card_bgs   = []
+    for lbl, val, vc, bg in card_defs:
+        inner = Table(
+            [[Paragraph(lbl, sty(f'ecCL{lbl[:3]}', fontSize=7, fontName='Helvetica-Bold',
+                                  textColor=GRIS_MEDIO, alignment=1, leading=9))],
+             [Paragraph(val, sty(f'ecCV{lbl[:3]}', fontSize=15, fontName='Helvetica-Bold',
+                                  textColor=vc, alignment=1))]],
+            colWidths=[card_w - 4*mm],
+        )
+        inner.setStyle(TableStyle([
+            ('TOPPADDING',    (0,0), (-1,-1), 7),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 7),
+        ]))
+        card_cells.append(inner)
+        card_bgs.append(bg)
+
+    tcards = Table([card_cells], colWidths=[card_w]*5)
+    card_ts = [
+        ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING',    (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ('LEFTPADDING',   (0,0), (-1,-1), 2),
+        ('RIGHTPADDING',  (0,0), (-1,-1), 2),
+    ]
+    for i, bg in enumerate(card_bgs):
+        card_ts += [('BACKGROUND', (i,0),(i,0), bg), ('BOX', (i,0),(i,0), 0.5, GRIS_BORDE)]
+    tcards.setStyle(TableStyle(card_ts))
+    story.append(tcards)
+    story.append(Spacer(1, 11))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TABLA DE CLIENTES
+    # Anchos: 24+37+20+33+22+11+14+9 = 170mm
+    CW = [24*mm, 37*mm, 20*mm, 33*mm, 22*mm, 11*mm, 14*mm, 9*mm]
+
+    hdrs = ['Cédula', 'Nombre Completo', 'Teléfono(s)', 'Dirección',
+            'Límite Crédito', 'Días', 'Estado', 'Registro']
+    data = [[Paragraph(h, hdr_sty) for h in hdrs]]
+
+    row_styles = []
+    for idx, c in enumerate(clientes):
+        ri = idx + 1
+
+        # Límite crédito (sin redundar días plazo)
+        if float(c.limite_credito or 0) > 0:
+            cred_txt   = f'RD$ {float(c.limite_credito):,.2f}'
+            cred_color = ACENTO
+        else:
+            cred_txt   = 'Sin crédito'
+            cred_color = GRIS_MEDIO
+
+        # Días
+        if int(c.dias_credito or 0) > 0:
+            dias_txt   = f'{c.dias_credito}d.'
+            dias_color = ACENTO
+        else:
+            dias_txt   = 'Cont.'
+            dias_color = GRIS_MEDIO
+
+        # Estado
+        est_txt   = 'Activo'  if c.activo else 'Inactivo'
+        est_color = VERDE     if c.activo else ROJO
+
+        # Teléfono(s)
+        tel_txt = c.telefono_principal or '-'
+        if c.telefono_alternativo:
+            tel_txt += f'<br/><font size="7" color="#718096">Alt: {c.telefono_alternativo}</font>'
+
+        # Dirección — legible, truncada
+        dir_raw = c.direccion or '-'
+        dir_txt = dir_raw[:45] + ('…' if len(dir_raw) > 45 else '')
+
+        fila = [
+            Paragraph(c.cedula or '-',          cell_b_sty),
+            Paragraph(c.nombre_completo or '-', cell_b_sty),
+            Paragraph(tel_txt,                  cell_sty),
+            Paragraph(dir_txt,                  cell_d_sty),
+            Paragraph(cred_txt, sty(f'ecCR{ri}', fontSize=8, fontName='Helvetica-Bold',
+                                    textColor=cred_color, alignment=1)),
+            Paragraph(dias_txt, sty(f'ecD{ri}',  fontSize=8, fontName='Helvetica-Bold',
+                                    textColor=dias_color, alignment=1)),
+            Paragraph(est_txt,  sty(f'ecE{ri}',  fontSize=8, fontName='Helvetica-Bold',
+                                    textColor=est_color,  alignment=1)),
+            Paragraph(
+                c.fecha_registro.strftime('%d/%m/%Y') if c.fecha_registro else '-',
+                sty(f'ecR{ri}', fontSize=6.5, alignment=1, textColor=GRIS_MEDIO)
+            ),
+        ]
+        data.append(fila)
+
+        if c.activo:
+            bg_row = ACENTO_CLARO if idx % 2 == 0 else BLANCO
+        else:
+            bg_row = ROJO_CLR if idx % 2 == 0 else colors.HexColor('#FDF2F0')
+
+        row_styles += [
+            ('BACKGROUND', (0,ri), (-1,ri), bg_row),
+            ('LINEBELOW',  (0,ri), (-1,ri), 0.3, GRIS_BORDE),
+        ]
+
+    tclientes = Table(data, colWidths=CW, repeatRows=1)
+    tclientes.setStyle(TableStyle([
+        ('BACKGROUND',    (0,0), (-1,0), GRIS_OSCURO),
+        ('ALIGN',         (0,0), (-1,0), 'CENTER'),
+        ('VALIGN',        (0,0), (-1,-1),'MIDDLE'),
+        ('TOPPADDING',    (0,0), (-1,-1), 5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('LEFTPADDING',   (0,0), (-1,-1), 3),
+        ('RIGHTPADDING',  (0,0), (-1,-1), 3),
+    ] + row_styles))
+
+    story.append(Paragraph('<b>LISTADO DE CLIENTES</b>', bold_sty))
+    story.append(Spacer(1, 5))
+    story.append(tclientes)
+    story.append(Spacer(1, 9))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # PIE DEL REPORTE
+    # ══════════════════════════════════════════════════════════════════════════
+    usuario = request.user.get_full_name() or request.user.username
+    pie_data = [[
+        Paragraph(f'Total registros: <b>{total_clientes}</b>', small_sty),
+        Paragraph(
+            f'Activos: <b><font color="#27AE60">{activos}</font></b>   '
+            f'Inactivos: <b><font color="#C0392B">{inactivos}</font></b>   '
+            f'Con crédito: <b><font color="#4A90A4">{con_credito}</font></b>',
+            sty('ecP2', fontSize=8, alignment=1)
+        ),
+        Paragraph(f'Generado por: {usuario}',
+                  sty('ecP3', fontSize=8, alignment=2, textColor=GRIS_MEDIO)),
+    ]]
+    tpie = Table(pie_data, colWidths=[ancho*0.33]*3)
+    tpie.setStyle(TableStyle([
+        ('LINEABOVE',     (0,0), (-1,0), 0.5, GRIS_BORDE),
+        ('TOPPADDING',    (0,0), (-1,0), 6),
+        ('VALIGN',        (0,0), (-1,0), 'MIDDLE'),
+    ]))
+    story.append(tpie)
+    story.append(Spacer(1, 5))
+    story.append(Paragraph(
+        '<b>NOTAS:</b>  Este reporte refleja el estado actual de los clientes registrados '
+        'en el sistema al momento de su generación. La columna "Límite Crédito" muestra '
+        'el crédito autorizado. Clientes inactivos aparecen resaltados en rojo.',
+        sty('ecN', fontSize=7, textColor=GRIS_MEDIO)
+    ))
+
+    # ── Build ─────────────────────────────────────────────────────────────────
+    doc.build(story)
+    pdf = buffer.getvalue()
+    buffer.close()
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = (
+        f'inline; filename="reporte_clientes_{date.today().strftime("%Y%m%d")}.pdf"'
+    )
+    response.write(pdf)
+    return responseresponse
+
+
+
+
 def registrodeclientes(request):
     """Vista para el registro de clientes"""
-    
     # Si es POST y es AJAX
     if request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         try:
@@ -8441,6 +8734,12 @@ def cuentaporcobrar_registrar_pago(request):
     cliente_nombre = (payload.get('cliente_nombre') or '').strip()
     cliente_telefono = _telefono_solo_digitos(payload.get('cliente_telefono'))
 
+    # --- IDEMPOTENCIA: UUID de pago ---
+    uuid_pago = (payload.get('uuid_pago') or '').strip()
+    if not uuid_pago:
+        import uuid
+        uuid_pago = str(uuid.uuid4())
+
     with transaction.atomic():
         if factura_id:
             factura = get_object_or_404(Factura.objects.exclude(estado='pagada').prefetch_related('pagos_cxc'), id=factura_id)
@@ -8452,6 +8751,20 @@ def cuentaporcobrar_registrar_pago(request):
             if monto > saldo_actual:
                 return JsonResponse({'success': False, 'error': f'El monto excede el saldo pendiente (RD$ {saldo_actual}).'}, status=400)
 
+            # Buscar si ya existe un pago con este uuid_pago
+            pago_registrado = PagoCuentaCobrar.objects.filter(uuid_pago=uuid_pago).first()
+            if pago_registrado:
+                # Ya existe, devolver info para reimpresión o confirmación
+                comprobante_url = ''
+                return JsonResponse({
+                    'success': True,
+                    'mensaje': 'Pago ya registrado previamente.',
+                    'pago_id': pago_registrado.id,
+                    'uuid_pago': pago_registrado.uuid_pago,
+                    'comprobante_url': comprobante_url,
+                    'reimpresion': True,
+                })
+
             pago_registrado = PagoCuentaCobrar.objects.create(
                 cuenta_por_cobrar=cuenta,
                 factura=factura,
@@ -8461,6 +8774,7 @@ def cuentaporcobrar_registrar_pago(request):
                 referencia=referencia,
                 notas=notas,
                 registrado_por=request.user if request.user.is_authenticated else None,
+                uuid_pago=uuid_pago,
             )
 
             comprobante_url = ''
@@ -8530,6 +8844,16 @@ def cuentaporcobrar_registrar_pago(request):
                 continue
 
             monto_aplicar = saldo_actual if saldo_actual <= restante else restante
+
+            # Idempotencia para pagos distribuidos: usar uuid_pago + id de factura
+            uuid_pago_factura = f"{uuid_pago}-{factura.id}"
+            pago_obj = PagoCuentaCobrar.objects.filter(uuid_pago=uuid_pago_factura).first()
+            if pago_obj:
+                pagos_creados_ids.append(str(pago_obj.id))
+                pagos_creados.append(pago_obj)
+                restante -= monto_aplicar
+                continue
+
             pago_obj = PagoCuentaCobrar.objects.create(
                 cuenta_por_cobrar=cuenta,
                 factura=factura,
@@ -8539,6 +8863,7 @@ def cuentaporcobrar_registrar_pago(request):
                 referencia=referencia,
                 notas=notas,
                 registrado_por=request.user if request.user.is_authenticated else None,
+                uuid_pago=uuid_pago_factura,
             )
             if pago_obj:
                 pagos_creados_ids.append(str(pago_obj.id))
@@ -8563,7 +8888,9 @@ def cuentaporcobrar_registrar_pago(request):
             'comprobante_url': f"{reverse('cuentaporcobrar_comprobante_pdf')}?pagos={','.join(pagos_creados_ids)}" if pagos_creados_ids else '',
             'numeros_comprobante': [pago.numero_comprobante for pago in pagos_creados if pago.numero_comprobante],
         })
-    
+
+
+@login_required   
 def estado_cuenta_cliente_pdf(request):
     """Genera un PDF A4 de estado de cuenta de un cliente."""
     cliente_id = request.GET.get('cliente_id')

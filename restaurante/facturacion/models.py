@@ -1414,6 +1414,14 @@ class PagoCuentaCobrar(models.Model):
     )
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
+    uuid_pago = models.CharField(
+        max_length=64,
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name='UUID de pago (idempotencia)'
+    )
+
     class Meta:
         verbose_name = 'Pago de Cuenta por Cobrar'
         verbose_name_plural = 'Pagos de Cuentas por Cobrar'
