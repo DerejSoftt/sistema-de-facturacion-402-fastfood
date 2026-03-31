@@ -3012,8 +3012,8 @@
         function generarEstadoCuenta(clienteId) {
             const cliente = clientesData.find(c => c.id === clienteId);
             if (cliente) {
-                showNotification(`Generando estado de cuenta para ${cliente.nombre_completo}...`, 'info');
-                // En una implementación real, aquí se generaría el PDF
+                const url = `/estado-cuenta-cliente-pdf/?cliente_id=${clienteId}`;
+                window.open(url, '_blank');
             }
         }
 

@@ -909,7 +909,7 @@
                             <div style="display: flex; gap: 1rem;">
                                 <button class="btn btn-warning btn-sm" 
                                         type="button"
-                                        data-url="{% url 'cuentaporcobrar' %}" 
+                                        data-url="{% url 'cuentaporcobrar' %}"
                                         onclick="window.location.href=this.dataset.url">
                                     <span><i class="fas fa-arrow-left"></i></span>
                                     <span>Volver a Cuentas por Cobrar</span>
@@ -987,57 +987,57 @@
                                         <td>
                                             <div class="factura-badge">
                                                 <i class="fas fa-file-invoice"></i>
-                                                <span>{{ pago.factura.numero_factura|default:"Sin factura" }}</span>
+                                                <span>{{ pago.factura_numero|default:"Sin factura" }}</span>
                                             </div>
                                         </td>
                                         <td>
                                             <div class="customer-info">
                                                 <div class="customer-name">
-                                                    {{ pago.factura.nombre_cliente|default:"Cliente no registrado" }}
+                                                    {{ pago.nombre_cliente|default:"Cliente no registrado" }}
                                                 </div>
                                             </div>
                                         </td>
                                         <td>
                                             <div class="date-badge">
                                                 <i class="fas fa-calendar-alt"></i>
-                                                <span>{{ pago.fecha_pago|date:"d/m/Y h:i A" }}</span>
+                                                <span>{{ pago.fecha_formateada }}</span>
                                             </div>
                                         </td>
                                         <td>
                                             {% with metodo=pago.metodo_pago|default:''|lower %}
-                                                {% if metodo == 'efectivo' %}
-                                                    <span class="payment-badge payment-efectivo">
-                                                        <i class="fas fa-money-bill-wave"></i>
-                                                        Efectivo
-                                                    </span>
-                                                {% elif metodo == 'tarjeta' %}
-                                                    <span class="payment-badge payment-tarjeta">
-                                                        <i class="fas fa-credit-card"></i>
-                                                        Tarjeta
-                                                    </span>
-                                                {% elif metodo == 'transferencia' %}
-                                                    <span class="payment-badge payment-transferencia">
-                                                        <i class="fas fa-building-columns"></i>
-                                                        Transferencia
-                                                    </span>
-                                                {% elif metodo %}
-                                                    <span class="payment-badge payment-otro">
-                                                        <i class="fas fa-wallet"></i>
-                                                        {{ pago.metodo_pago }}
-                                                    </span>
-                                                {% else %}
-                                                    <span class="payment-badge payment-otro">
-                                                        <i class="fas fa-circle-question"></i>
-                                                        No especificado
-                                                    </span>
-                                                {% endif %}
+                                            {% if metodo == 'efectivo' %}
+                                                <span class="payment-badge payment-efectivo">
+                                                    <i class="fas fa-money-bill-wave"></i>
+                                                    Efectivo
+                                                </span>
+                                            {% elif metodo == 'tarjeta' %}
+                                                <span class="payment-badge payment-tarjeta">
+                                                    <i class="fas fa-credit-card"></i>
+                                                    Tarjeta
+                                                </span>
+                                            {% elif metodo == 'transferencia' %}
+                                                <span class="payment-badge payment-transferencia">
+                                                    <i class="fas fa-building-columns"></i>
+                                                    Transferencia
+                                                </span>
+                                            {% elif metodo %}
+                                                <span class="payment-badge payment-otro">
+                                                    <i class="fas fa-wallet"></i>
+                                                    {{ pago.metodo_pago }}
+                                                </span>
+                                            {% else %}
+                                                <span class="payment-badge payment-otro">
+                                                    <i class="fas fa-circle-question"></i>
+                                                    No especificado
+                                                </span>
+                                            {% endif %}
                                             {% endwith %}
                                         </td>
                                         <td>
                                             <div class="order-total">RD${{ pago.monto|floatformat:2 }}</div>
                                         </td>
                                         <td>
-                                            {{ pago.registrado_por.username|default:"-" }}
+                                            {{ pago.registrado_por|default:"-" }}
                                         </td>
                                     </tr>
                                     {% endfor %}
