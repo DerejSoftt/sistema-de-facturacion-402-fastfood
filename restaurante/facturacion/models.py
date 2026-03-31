@@ -6,6 +6,7 @@ import string
 from decimal import Decimal
 from django.db.models import Max
 import re
+import uuid
 from django.contrib.auth.models import User
 import json
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -1414,11 +1415,10 @@ class PagoCuentaCobrar(models.Model):
     )
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
-    uuid_pago = models.CharField(
-        max_length=64,
+    uuid_pago = models.UUIDField(
         unique=True,
-        null=True,
-        blank=True,
+        editable=False,
+        default=uuid.uuid4,        # Django genera el UUID automáticamente al crear
         verbose_name='UUID de pago (idempotencia)'
     )
 
