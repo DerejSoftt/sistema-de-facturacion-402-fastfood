@@ -8944,8 +8944,8 @@ def cuentaporcobrar_registrar_pago(request):
             monto_aplicar = saldo_actual if saldo_actual <= restante else restante
 
             # UUID único por factura dentro del pago distribuido
-            uuid_pago_factura = f"{uuid_pago}-{factura.id}"
-
+            # uuid_pago_factura = f"{uuid_pago}-{factura.id}"
+            uuid_pago_factura = str(uuid.uuid5(uuid.UUID(uuid_pago), str(factura.id)))
             # ── Idempotencia con get_or_create ───────────────────────────
             try:
                 pago_obj, creado = PagoCuentaCobrar.objects.get_or_create(
