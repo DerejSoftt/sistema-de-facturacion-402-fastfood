@@ -2883,6 +2883,7 @@
                 return;
             }
 
+            const uuid_pago = crypto.randomUUID();
             try {
                 const response = await fetch(CXC_REGISTRAR_PAGO_URL, {
                     method: 'POST',
@@ -2900,6 +2901,7 @@
                         metodo_pago: metodo,
                         referencia: referencia,
                         notas: notas,
+                        uuid_pago: uuid_pago,
                     })
                 });
 
@@ -2953,6 +2955,7 @@
                 return;
             }
 
+            const uuid_pago = crypto.randomUUID();
             try {
                 const response = await fetch(CXC_REGISTRAR_PAGO_URL, {
                     method: 'POST',
@@ -2967,6 +2970,7 @@
                         metodo_pago: metodo,
                         referencia: referencia,
                         notas: notas,
+                        uuid_pago: uuid_pago,
                     })
                 });
 
