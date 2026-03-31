@@ -49,7 +49,8 @@ from datetime import date
 from datetime import datetime, timedelta
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-
+from django.db.models import Sum, DecimalField
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.models import User, Group, Permission
@@ -7484,7 +7485,7 @@ def _estadisticas_clientes():
     return {
         'total_clientes': Cliente.objects.count(),
         'clientes_activos': Cliente.objects.filter(activo=True).count(),
-        'credito_total': float(Cliente.objects.aggregate(total=Sum('limite_credito')).get('total') or Decimal('0.00')),
+       'credito_total': Cliente.objects.aggregate(total=Coalesce(Sum('limite_credito'), Decimal('0.00'), output_field=DecimalField()))['total'],
         'clientes_hoy': Cliente.objects.filter(fecha_registro__gte=inicio_hoy, fecha_registro__lt=fin_hoy).count(),
     }
 
@@ -7938,7 +7939,7 @@ def reporte_clientes_pdf(request):
         f'inline; filename="reporte_clientes_{date.today().strftime("%Y%m%d")}.pdf"'
     )
     response.write(pdf)
-    return responseresponse
+    return response
 
 
 
