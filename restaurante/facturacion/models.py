@@ -14,6 +14,7 @@ class Producto(models.Model):
     # Opciones de categoría
     CATEGORIAS = [
         ('bebida', 'Bebida'),
+        ('trago', 'Trago'),
         ('postre', 'Postre'),
         ('carne', 'Carne'),
         ('verdura', 'Verdura'),
@@ -1377,9 +1378,9 @@ class PagoCuentaCobrar(models.Model):
         validators=[MinValueValidator(Decimal('0.01'))],
         verbose_name='Monto pagado'
     )
-    fecha_pago = models.DateField(
-        default=timezone.localdate,
-        verbose_name='Fecha de pago'
+    fecha_pago = models.DateTimeField(
+        default=timezone.now,
+        verbose_name='Fecha y hora de pago'
     )
     metodo_pago = models.CharField(
         max_length=20,
@@ -1412,6 +1413,14 @@ class PagoCuentaCobrar(models.Model):
         verbose_name='Registrado por'
     )
     fecha_registro = models.DateTimeField(auto_now_add=True)
+
+    uuid_pago = models.CharField(
+        max_length=64,
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name='UUID de pago (idempotencia)'
+    )
 
     class Meta:
         verbose_name = 'Pago de Cuenta por Cobrar'

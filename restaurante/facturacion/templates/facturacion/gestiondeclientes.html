@@ -1192,8 +1192,7 @@
                         </div>
                         <div class="stat-card">
                             <span class="stat-icon"><i class="fas fa-credit-card"></i></span>
-                                <div class="stat-value" id="clientesCredito">RD$ <span id="creditoTotal">{{
-                                    estadisticas.credito_total|default:"0"|intcomma }}</span></div>
+                                <div class="stat-value" id="clientesCredito">RD$ <span id="creditoTotal">{{ estadisticas.credito_total|default:"0"|floatformat:2|intcomma }}</span></div>
                             <div class="stat-label">Crédito Otorgado</div>
                         </div>
                         <div class="stat-card">
@@ -1213,10 +1212,10 @@
                                     <span><i class="fas fa-user-plus"></i></span>
                                     <span>Nuevo Cliente</span>
                                 </a>
-                                <button class="btn btn-info" onclick="exportarClientes()" type="button">
+                                <a class="btn btn-info" href="{% url 'reporte_clientes_pdf' %}" target="_blank" style="text-decoration: none;">
                                     <span><i class="fas fa-file-export"></i></span>
                                     <span>Exportar Clientes</span>
-                                </button>
+                                </a>
                             </div>
                         </div>
 
@@ -1478,15 +1477,7 @@
             setupEventListeners();
             setupFormValidation();
 
-            // Formatear crédito total con formato RD
-            const creditoElement = document.getElementById('creditoTotal');
-            if (creditoElement) {
-                const valor = parseFloat(creditoElement.textContent.replace(/,/g, '')) || 0;
-                creditoElement.textContent = valor.toLocaleString('es-DO', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                });
-            }
+            // El formateo de crédito total se realiza directamente en el template con Django
         });
 
         // Configurar event listeners
@@ -2373,13 +2364,7 @@
             }
 
             // Actualizar crédito total
-            const creditoElement = document.getElementById('creditoTotal');
-            if (creditoElement && estadisticas.credito_total !== undefined) {
-                creditoElement.textContent = estadisticas.credito_total.toLocaleString('es-DO', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                });
-            }
+            // Eliminado: el formateo de crédito total se realiza en el template
         }
 
         // Función para ver historial del cliente

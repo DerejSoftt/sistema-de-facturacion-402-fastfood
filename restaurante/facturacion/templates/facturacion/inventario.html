@@ -470,28 +470,32 @@
         }
         
         .category-bebida { 
-            background: linear-gradient(135deg, #bee3f8 0%, #90cdf4 100%); 
-            color: #2c5282; 
+            background: linear-gradient(135deg, #bee3f8 0%, #4299e1 100%); 
+            color: #1a365d; 
         }
         .category-postre { 
             background: linear-gradient(135deg, #fbd38d 0%, #f6ad55 100%); 
             color: #7c2d12; 
         }
         .category-carne { 
-            background: linear-gradient(135deg, #fbb6ce 0%, #f687b3 100%); 
-            color: #702459; 
+            background: linear-gradient(135deg, #fbb6ce 0%, #e53e3e 100%); 
+            color: #742a2a; 
         }
         .category-verdura { 
-            background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%); 
+            background: linear-gradient(135deg, #c6f6d5 0%, #38a169 100%); 
             color: #22543d; 
         }
         .category-lacteo { 
-            background: linear-gradient(135deg, #e9d8fd 0%, #d6bcfa 100%); 
-            color: #44337a; 
+            background: linear-gradient(135deg, #e9d8fd 0%, #805ad5 100%); 
+            color: #322659; 
         }
         .category-otro { 
-            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e0 100%); 
+            background: linear-gradient(135deg, #e2e8f0 0%, #718096 100%); 
             color: #2d3748; 
+        }
+        .category-trago { 
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e42 100%); 
+            color: #7c4700; 
         }
         
         /* Stock indicators */
@@ -1105,6 +1109,7 @@
                                     <option value="verdura" {% if categoria_filtro == 'verdura' %}selected{% endif %}>Verdura</option>
                                     <option value="lacteo" {% if categoria_filtro == 'lacteo' %}selected{% endif %}>Lácteo</option>
                                     <option value="otro" {% if categoria_filtro == 'otro' %}selected{% endif %}>Otro</option>
+                                    <option value="trago" {% if categoria_filtro == 'trago' %}selected{% endif %}>Trago</option>
                                 </select>
                             </div>
                             
@@ -1306,8 +1311,14 @@
             if (normalizado.includes(',') && normalizado.includes('.')) {
                 normalizado = normalizado.replace(/,/g, '');
             } else if (normalizado.includes(',') && !normalizado.includes('.')) {
-                // Si solo hay comas, tratarlas como separador decimal.
-                normalizado = normalizado.replace(',', '.');
+                // Si hay múltiples comas, tratarlas como separador de miles.
+                // Si hay una sola coma, tratarla como separador decimal.
+                const commaCount = (normalizado.match(/,/g) || []).length;
+                if (commaCount > 1) {
+                    normalizado = normalizado.replace(/,/g, '');
+                } else {
+                    normalizado = normalizado.replace(',', '.');
+                }
             }
 
             const numero = parseFloat(normalizado);

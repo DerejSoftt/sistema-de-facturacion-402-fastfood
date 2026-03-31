@@ -1,3 +1,4 @@
+
 {% load static %}
 {% load humanize %}
 <!DOCTYPE html>
@@ -275,17 +276,20 @@
 
         /* ===== BOTONES ===== */
         .btn {
-            padding: 1rem 2.5rem;
-            border: none;
-            border-radius: 12px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-size: 1.1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
+              padding: 0.85rem 2.2rem;
+              border: none;
+              border-radius: 16px;
+              font-weight: 700;
+              cursor: pointer;
+              transition: all 0.3s;
+              font-size: 1.15rem;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 10px;
+              box-shadow: 0 4px 16px 0 rgba(0,0,0,0.07);
+            min-height: 48px;
+            height: 48px;
         }
 
         .btn-primary {
@@ -427,9 +431,24 @@
         .filter-row {
             display: flex;
             gap: 1rem;
-            align-items: flex-end;
+            align-items: center;
             flex-wrap: wrap;
         }
+
+
+
+        .filter-row button {
+            height: auto;
+            padding: 1rem 2.5rem;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-top: 0;
+        }
+        
 
         /* ===== TABLAS ===== */
         .table-container {
@@ -1583,14 +1602,15 @@
                                 </div>
 
                                 <div class="form-group" style="flex: 1;">
-                                    <label for="dateFilter"><i class="fas fa-calendar"></i> Rango de Fechas</label>
-                                    <div class="rango-fechas">
-                                        <div>
-                                            <label style="font-size: 0.8rem;">Desde</label>
+                                    
+                                    <div style="display: flex; gap: 0.5rem; align-items: flex-start; margin-top: 1.7rem;
+                                    ">
+                                        <div style="display: flex; flex-direction: column; flex: 1;">
+                                            <label style="font-size: 0.8rem; margin-bottom: 0.2rem;">Desde</label>
                                             <input type="date" class="filter-select" id="fechaDesde" name="fecha_desde">
                                         </div>
-                                        <div>
-                                            <label style="font-size: 0.8rem;">Hasta</label>
+                                        <div style="display: flex; flex-direction: column; flex: 1;">
+                                            <label style="font-size: 0.8rem; margin-bottom: 0.2rem;">Hasta</label>
                                             <input type="date" class="filter-select" id="fechaHasta" name="fecha_hasta">
                                         </div>
                                     </div>
@@ -1707,6 +1727,8 @@
 
                 clientesData.splice(0, clientesData.length, ...(data.clientes || []));
                 filteredClientes = [...clientesData];
+                window.facturasPendientesCard = data.facturas_pendientes || 0;
+                window.clientesConDeudaCard = data.clientes_con_deuda || 0;
                 applyFilters();
             } catch (error) {
                 console.error('Error cargando cuentas por cobrar:', error);
@@ -1849,7 +1871,7 @@
         // ===== FUNCIONES DE BOTONES =====
         function initButtons() {
             document.getElementById('btnHistorial').addEventListener('click', function () {
-                showNotification('Funcionalidad de historial en desarrollo', 'info');
+                window.location.href = "{% url 'historial_pagos' %}";
             });
 
             document.getElementById('btnExportar').addEventListener('click', function () {
@@ -2000,13 +2022,13 @@
         }
 
         function updateStats() {
-            const totalClientes = filteredClientes.length;
-            const totalFacturas = filteredClientes.reduce((sum, c) => sum + c.cantidad_facturas, 0);
+            const totalClientes = window.clientesConDeudaCard || 0;
+            const totalFacturasPendientes = window.facturasPendientesCard || 0;
             const totalDeuda = filteredClientes.reduce((sum, c) => sum + c.total_adeudado, 0);
             const facturasVencidas = filteredClientes.reduce((sum, c) => sum + c.facturas_vencidas, 0);
 
             document.getElementById('totalClientes').textContent = totalClientes;
-            document.getElementById('facturasPendientes').textContent = totalFacturas;
+            document.getElementById('facturasPendientes').textContent = totalFacturasPendientes;
             document.getElementById('totalDeudaValor').textContent = formatCurrency(totalDeuda);
             document.getElementById('facturasVencidas').textContent = facturasVencidas;
         }
@@ -2050,7 +2072,8 @@
                     factura.dias_vencimiento === 0 ?
                         'Vence hoy' :
                         `Vencida hace ${Math.abs(factura.dias_vencimiento)} días`;
-
+                const saldo = parseFloat(factura.saldo_pendiente || 0);
+                const saldoCero = saldo === 0;
                 return `
                     <div class="factura-item ${claseVencida}" data-factura-id="${factura.id}">
                         <div style="flex: 2;">
@@ -2064,10 +2087,10 @@
                             </div>
                         </div>
                         <div style="text-align: right;">
-                            <div style="font-size: 1.1rem; font-weight: 700; color: #2c3e50;">
+                            <div class="${saldoCero ? 'deuda-opaca' : ''}" style="font-size: 1.1rem; font-weight: 700; color: #2c3e50; transition: opacity 0.2s;">
                                 $${formatCurrency(factura.monto_total)}
                             </div>
-                            <div style="font-size: 0.9rem; color: #ff7e5f;">
+                            <div class="saldo-relevante" style="font-size: 1.2rem; margin-top: 0.1rem;">
                                 Saldo: $${formatCurrency(factura.saldo_pendiente)}
                             </div>
                         </div>
@@ -2146,10 +2169,6 @@
                     </div>
                     
                     <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
-                        <button class="btn btn-warning" onclick="enviarRecordatorio(${cliente.id})">
-                            <span><i class="fas fa-envelope"></i></span>
-                            <span>Enviar Recordatorio</span>
-                        </button>
                         <button class="btn btn-info" onclick="generarEstadoCuenta(${cliente.id})">
                             <span><i class="fas fa-file-pdf"></i></span>
                             <span>Generar Estado de Cuenta</span>
@@ -2412,7 +2431,7 @@
                             <label><i class="fas fa-sliders-h"></i> Modo de Cobro</label>
                             <div class="pago-global-modo">
                                 <label class="pago-global-switch">
-                                    <input type="checkbox" id="pagoCompletoToggle" checked onchange="togglePagoCompletoGlobal()">
+                                    <input type="checkbox" id="pagoCompletoToggle" onchange="togglePagoCompletoGlobal()">
                                     <span class="pago-global-switch-track"></span>
                                     <span class="pago-global-switch-text">
                                         <strong>Pagar deuda completa</strong>
@@ -2682,7 +2701,7 @@
             const facturaGroup = document.getElementById('facturaObjetivoGroup');
             const ayuda = document.getElementById('pagoGlobalHelpText');
             const estadoToggle = document.getElementById('pagoCompletoEstado');
-            const pagoCompleto = pagoCompletoToggle ? pagoCompletoToggle.checked : true;
+            const pagoCompleto = pagoCompletoToggle ? pagoCompletoToggle.checked : false;
 
             if (facturaGroup) {
                 facturaGroup.style.display = pagoCompleto ? 'none' : 'block';
@@ -2993,8 +3012,8 @@
         function generarEstadoCuenta(clienteId) {
             const cliente = clientesData.find(c => c.id === clienteId);
             if (cliente) {
-                showNotification(`Generando estado de cuenta para ${cliente.nombre_completo}...`, 'info');
-                // En una implementación real, aquí se generaría el PDF
+                const url = `/estado-cuenta-cliente-pdf/?cliente_id=${clienteId}`;
+                window.open(url, '_blank');
             }
         }
 

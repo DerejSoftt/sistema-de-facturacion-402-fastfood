@@ -1,5 +1,12 @@
-
-
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.lib import colors
+from decimal import Decimal
+from django.db.models import Sum
+from .models import Cliente, CuentaPorCobrar, PagoCuentaCobrar
+from django.core.paginator import Paginator
 from django.shortcuts import render, get_object_or_404
 from django.core.serializers.json import DjangoJSONEncoder
 from django.urls import reverse
@@ -11,7 +18,6 @@ from django.db.models import Sum, Count, F, Q
 from django.http import HttpResponse, JsonResponse
 from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.units import mm
-from reportlab.lib.pagesizes import A4
 from django.conf import settings
 from django.db.models import Sum, Max, Min
 from reportlab.lib.utils import ImageReader
@@ -25,14 +31,10 @@ import os
 import textwrap
 import io
 import re
-from django.shortcuts import render
 from django.db.models import Sum
 from django.contrib.auth.models import User
 from .models import Pedido, Factura, Mesa, DeliveryConfig, Producto
-from datetime import datetime
 from django.shortcuts import render, redirect, get_object_or_404
-from django.shortcuts import render, redirect,  get_object_or_404
-from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 import json
@@ -47,7 +49,8 @@ from datetime import date
 from datetime import datetime, timedelta
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-
+from django.db.models import Sum, DecimalField
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.models import User, Group, Permission
@@ -60,15 +63,50 @@ from django.http import HttpResponse
 from django.db.models import F
 from django.core.cache import cache
 import pytz
-
+from reportlab.pdfgen import canvas as rl_canvas
+from reportlab.lib import colors
+from reportlab.lib.units import mm
+from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image,)
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from django.db.models import Sum, Count, Q
+import io, os
+from datetime import date
 
 @csrf_exempt
 def index(request):
     """
     Vista principal que maneja tanto el login como el dashboard
     """
+    def obtener_redireccion_por_rol(usuario):
+        if usuario.is_superuser:
+            return 'dashbort'
+
+        grupos = set()
+        for nombre_grupo in usuario.groups.values_list('name', flat=True):
+            nombre = (nombre_grupo or '').strip().lower()
+            nombre = (
+                nombre
+                .replace('á', 'a')
+                .replace('é', 'e')
+                .replace('í', 'i')
+                .replace('ó', 'o')
+                .replace('ú', 'u')
+            )
+            grupos.add(nombre)
+
+        if 'admin' in grupos or 'administrador' in grupos:
+            return 'dashbort'
+
+        if 'usuario normal' in grupos or 'usuarionormal' in grupos:
+            return 'inventario'
+
+        if 'cajero' in grupos:
+            return 'pedidos'
+
+        return 'dashbort'
+
     if request.user.is_authenticated:
-        return render(request, 'facturacion/index.html')
+        return redirect(obtener_redireccion_por_rol(request.user))
 
     if request.method == 'POST':
         username = request.POST.get('username')
@@ -86,7 +124,7 @@ def index(request):
                 request.session.set_expiry(1209600)
 
             messages.success(request, f'¡Bienvenido {user.username}!')
-            return redirect('index')
+            return redirect(obtener_redireccion_por_rol(user))
         else:
             messages.error(request, 'Usuario o contraseña incorrectos')
 
@@ -201,6 +239,54 @@ def guardar_producto(request):
 def entradadeproductos(request):
     """Vista principal para la entrada de productos"""
     return render(request, 'facturacion/entradadeproductos.html')
+
+
+@csrf_exempt
+def api_tragos(request):
+    """API para registrar tragos. Guarda solo nombre, categoria, precio_compra y cantidad (total_tragos)."""
+    import json
+    from decimal import Decimal
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Método no permitido'}, status=405)
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+        nombre = data.get('nombre', '').strip()
+        categoria = data.get('categoria', '').strip() or 'trago'
+        precio_compra = data.get('precio_compra')
+        botellas = int(data.get('botellas', 0))
+        ml_botella = int(data.get('ml_botella', 0))
+        ml_trago = int(data.get('ml_trago', 0))
+        # Validaciones
+        if not nombre or not categoria or not precio_compra:
+            return JsonResponse({'success': False, 'message': 'Faltan campos obligatorios.'}, status=400)
+        if botellas <= 0 or ml_botella <= 0 or ml_trago <= 0:
+            return JsonResponse({'success': False, 'message': 'Datos de trago inválidos.'}, status=400)
+        # Calcular total de tragos
+        total_tragos = (botellas * ml_botella) // ml_trago
+        if total_tragos <= 0:
+            return JsonResponse({'success': False, 'message': 'El total de tragos debe ser mayor a 0.'}, status=400)
+        # Guardar producto
+        producto = Producto.objects.create(
+            nombre=nombre,
+            categoria=categoria,
+            cantidad=total_tragos,
+            precio_compra=precio_compra
+        )
+        producto.subtotal = Decimal(str(producto.cantidad)) * Decimal(str(producto.precio_compra))
+        producto.save()
+        return JsonResponse({
+            'success': True,
+            'message': 'Trago registrado correctamente',
+            'producto': {
+                'nombre': producto.nombre,
+                'categoria': producto.categoria,
+                'cantidad': float(producto.cantidad),
+                'precio_compra': float(producto.precio_compra),
+                'total_tragos': int(producto.cantidad)
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error: {str(e)}'}, status=500)
 
 
 @csrf_exempt
@@ -762,9 +848,9 @@ def pedidos(request):
         return render(request, 'facturacion/pedidos.html', context)
 
 
-@csrf_exempt
+
 def crear_pedido(request):
-    """Vista para crear un nuevo pedido - funciona sin login"""
+    """Vista para crear un nuevo pedido. Solo staff autenticado puede crear pedidos a crédito."""
     if request.method == 'POST':
         try:
             # Obtener datos del formulario con valores por defecto
@@ -777,7 +863,11 @@ def crear_pedido(request):
             if tipo_pago not in ['contado', 'credito']:
                 tipo_pago = 'contado'
 
+            # RESTRICCIÓN DE SEGURIDAD: Solo staff autenticado puede crear pedidos a crédito
             if tipo_pago == 'credito':
+                if not request.user.is_authenticated or not request.user.is_staff:
+                    messages.error(request, 'Solo personal autorizado puede crear pedidos a crédito. Inicie sesión como staff.')
+                    return redirect('pedidos')
                 if not cliente_credito_id:
                     messages.error(request, 'Para venta a crédito debes seleccionar un cliente')
                     return redirect('pedidos')
@@ -1859,14 +1949,17 @@ def historial_pedidos_pagados(request):
         pedidos_procesados.append(pedido_procesado)
 
     # Estadísticas
-    total_facturas_emitidas = facturas.count()
-    ingresos_totales = facturas.aggregate(total=Sum('total'))['total'] or 0
 
-    # Ingresos del mes actual en zona horaria RD (independiente de filtros de tabla)
+    facturas_pagadas = facturas.filter(estado='pagada')
+    total_facturas_emitidas = facturas.count()
+    ingresos_totales = facturas_pagadas.aggregate(total=Sum('total'))['total'] or 0
+
+    # Ingresos del mes actual en zona horaria RD (solo facturas pagadas)
     inicio_mes_rd = ahora_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     inicio_hoy_rd = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
     fin_hoy_rd = inicio_hoy_rd + timedelta(days=1)
     ingresos_mes_actual = facturas_base.filter(
+        estado='pagada',
         fecha_factura__gte=inicio_mes_rd,
         fecha_factura__lt=fin_hoy_rd
     ).aggregate(total=Sum('total'))['total'] or 0
@@ -2767,11 +2860,17 @@ def crear_factura(request):
                     return Decimal(default)
 
             subtotal = _to_decimal(request.POST.get('subtotal', pedido.subtotal), '0.00')
-            envio = Decimal('0.00')  # Establecer envío a 0 ya que no lo estamos usando
+            # Obtener el valor real de envío si es delivery, si no, dejar en 0
+            if pedido.tipo_pedido == 'delivery':
+                envio = _to_decimal(request.POST.get('envio', pedido.envio), '0.00')
+            else:
+                envio = Decimal('0.00')
             iva = Decimal('0.00')  # Establecer IVA a 0 ya que no lo estamos usando
 
-            # TOTAL sin IVA ni envío - usar el total del pedido directamente
-            total = _to_decimal(request.POST.get('total', pedido.total), '0.00')
+            # Calcular el total correctamente
+            # Si hay descuento, tomarlo en cuenta (si no existe, usar 0)
+            descuento = _to_decimal(request.POST.get('descuento', 0), '0.00')
+            total = subtotal - descuento + envio
 
             # Obtener items del pedido
             items_json = request.POST.get('items', '[]')
@@ -3824,10 +3923,13 @@ def dashbort(request):
     venta_dia_contado = facturas_hoy.aggregate(total_dia=Sum('total'))[
         'total_dia'] or Decimal('0.00')
 
-    # Los pagos CxC no tienen hora (DateField), por eso se asignan al dia de negocio actual.
-    dia_negocio_actual = inicio_dia.date()
+    # Filtrar pagos CxC usando el mismo rango UTC que el PDF
+    import pytz
+    inicio_dia_utc = inicio_dia.astimezone(pytz.UTC)
+    fin_dia_utc = fin_dia.astimezone(pytz.UTC)
     pagos_credito_dia_qs = PagoCuentaCobrar.objects.filter(
-        fecha_pago=dia_negocio_actual
+        fecha_pago__gte=inicio_dia_utc,
+        fecha_pago__lte=fin_dia_utc
     )
     pagos_credito_dia = pagos_credito_dia_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     total_pagos_hoy = pagos_credito_dia_qs.count()
@@ -3861,8 +3963,8 @@ def dashbort(request):
         'total_mes'] or Decimal('0.00')
 
     pagos_credito_mes_qs = PagoCuentaCobrar.objects.filter(
-        fecha_pago__gte=primer_dia_mes,
-        fecha_pago__lte=ultimo_dia_mes
+        fecha_pago__gte=inicio_mes,
+        fecha_pago__lte=fin_mes
     )
     pagos_credito_mes = pagos_credito_mes_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     total_pagos_mes = pagos_credito_mes_qs.count()
@@ -3879,7 +3981,8 @@ def dashbort(request):
     ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
     pagos_credito_dia_anterior = PagoCuentaCobrar.objects.filter(
-        fecha_pago=inicio_dia_anterior.date()
+        fecha_pago__gte=inicio_dia_anterior,
+        fecha_pago__lte=fin_dia_anterior
     ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
     venta_dia_anterior = venta_dia_anterior_contado + pagos_credito_dia_anterior
@@ -3903,8 +4006,8 @@ def dashbort(request):
     ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
     pagos_credito_mes_pasado = PagoCuentaCobrar.objects.filter(
-        fecha_pago__gte=inicio_mes_pasado,
-        fecha_pago__lte=fin_mes_pasado
+        fecha_pago__gte=inicio_mes_pasado_time,
+        fecha_pago__lte=fin_mes_pasado_time
     ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
     venta_mes_pasado = venta_mes_pasado_contado + pagos_credito_mes_pasado
@@ -4069,7 +4172,8 @@ def dashbort(request):
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
         pagos_credito_dia_grafico = PagoCuentaCobrar.objects.filter(
-            fecha_pago=dia_inicio.date()
+            fecha_pago__gte=dia_inicio,
+            fecha_pago__lte=dia_fin
         ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
         venta_dia_grafico += pagos_credito_dia_grafico
@@ -4266,7 +4370,8 @@ def dashbort(request):
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
         pagos_credito_dia_mes = PagoCuentaCobrar.objects.filter(
-            fecha_pago=fecha_dia
+            fecha_pago__gte=inicio_dia_cal,
+            fecha_pago__lte=fin_dia_cal
         ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
         venta_dia_mes += pagos_credito_dia_mes
@@ -4307,8 +4412,8 @@ def dashbort(request):
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
         pagos_credito_mes_grafico = PagoCuentaCobrar.objects.filter(
-            fecha_pago__gte=fecha_mes,
-            fecha_pago__lte=ultimo_dia
+            fecha_pago__gte=inicio_mes_grafico,
+            fecha_pago__lte=fin_mes_grafico
         ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
         venta_mes_grafico += pagos_credito_mes_grafico
@@ -4588,8 +4693,12 @@ def dashboard_stats(request):
             'total_dia'] or Decimal('0.00')
 
         dia_negocio_actual = inicio_dia.date()
+        # Usar el mismo rango UTC que el PDF para pagos hoy
+        inicio_dia_utc = inicio_dia.astimezone(pytz.UTC)
+        fin_dia_utc = fin_dia.astimezone(pytz.UTC)
         pagos_credito_dia_qs = PagoCuentaCobrar.objects.filter(
-            fecha_pago=dia_negocio_actual
+            fecha_pago__gte=inicio_dia_utc,
+            fecha_pago__lte=fin_dia_utc
         )
         pagos_credito_dia = pagos_credito_dia_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
         total_pagos_hoy = pagos_credito_dia_qs.count()
@@ -4620,8 +4729,8 @@ def dashboard_stats(request):
             'total_mes'] or Decimal('0.00')
 
         pagos_credito_mes_qs = PagoCuentaCobrar.objects.filter(
-            fecha_pago__gte=primer_dia_mes,
-            fecha_pago__lte=ultimo_dia_mes
+            fecha_pago__gte=inicio_mes,
+            fecha_pago__lte=fin_mes
         )
         pagos_credito_mes = pagos_credito_mes_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
         total_pagos_mes = pagos_credito_mes_qs.count()
@@ -4638,7 +4747,8 @@ def dashboard_stats(request):
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
         pagos_credito_dia_anterior = PagoCuentaCobrar.objects.filter(
-            fecha_pago=inicio_dia_anterior.date()
+            fecha_pago__gte=inicio_dia_anterior,
+            fecha_pago__lte=fin_dia_anterior
         ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
         venta_dia_anterior = venta_dia_anterior_contado + pagos_credito_dia_anterior
@@ -4664,8 +4774,8 @@ def dashboard_stats(request):
         venta_mes_pasado_contado = facturas_mes_pasado_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
         pagos_credito_mes_pasado = PagoCuentaCobrar.objects.filter(
-            fecha_pago__gte=inicio_mes_pasado,
-            fecha_pago__lte=fin_mes_pasado
+            fecha_pago__gte=inicio_mes_pasado_time,
+            fecha_pago__lte=fin_mes_pasado_time
         ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
         venta_mes_pasado = venta_mes_pasado_contado + pagos_credito_mes_pasado
@@ -4820,7 +4930,8 @@ def dashboard_stats(request):
                 ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
                 pagos_credito_dia_grafico = PagoCuentaCobrar.objects.filter(
-                    fecha_pago=dia_inicio.date()
+                    fecha_pago__gte=dia_inicio,
+                    fecha_pago__lte=dia_fin
                 ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
                 venta_dia_grafico += pagos_credito_dia_grafico
@@ -4996,7 +5107,8 @@ def dashboard_stats(request):
                 ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
                 pagos_credito_dia_mes = PagoCuentaCobrar.objects.filter(
-                    fecha_pago=fecha_dia
+                    fecha_pago__gte=inicio_dia_cal,
+                    fecha_pago__lte=fin_dia_cal
                 ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
                 venta_dia_mes += pagos_credito_dia_mes
@@ -5026,8 +5138,8 @@ def dashboard_stats(request):
                 ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
                 pagos_credito_mes_grafico = PagoCuentaCobrar.objects.filter(
-                    fecha_pago__gte=fecha_mes,
-                    fecha_pago__lte=ultimo_dia
+                    fecha_pago__gte=inicio_mes_grafico,
+                    fecha_pago__lte=fin_mes_grafico
                 ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
                 venta_mes_grafico += pagos_credito_mes_grafico
@@ -5350,9 +5462,12 @@ def generar_pdf_ticket_dia(request):
                 num_factura = "..." + num_factura[-8:]
             c.drawString(5 * mm, y, f"#{num_factura}")
 
-            # Hora
-            hora_factura = factura.fecha_factura.astimezone(tz_rd)
-            c.drawString(30 * mm, y, hora_factura.strftime('%I:%M'))
+            # Hora (siempre convertir igual que pagos)
+            hora_factura = factura.fecha_factura
+            if timezone.is_naive(hora_factura):
+                hora_factura = timezone.make_aware(hora_factura, timezone.utc)
+            hora_factura = hora_factura.astimezone(tz_rd)
+            c.drawString(30 * mm, y, hora_factura.strftime('%I:%M %p'))
 
             # Cliente (truncar si es muy largo)
             cliente = factura.nombre_cliente or "CLIENTE"
@@ -5369,11 +5484,86 @@ def generar_pdf_ticket_dia(request):
         c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
         y -= 8 * mm
 
-    # 6. TOTAL DEL DÍA
+
+    # 6. PAGOS DE CUENTAS POR COBRAR (CXC)
+    from .models import PagoCuentaCobrar
+    pagos_cxc = PagoCuentaCobrar.objects.filter(
+        fecha_pago__gte=inicio_dia,
+        fecha_pago__lte=fin_dia
+    ).order_by('fecha_pago')
+    total_cxc = pagos_cxc.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+
+    # Mostrar sección de pagos CXC si existen
+    if pagos_cxc.exists():
+        c.setFont("Helvetica-Bold", 9)
+        c.drawCentredString(ancho_pagina / 2, y, "PAGOS DE CUENTAS POR COBRAR")
+        y -= 5 * mm
+
+        # Encabezado de tabla
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(5 * mm, y, "COMP.")
+        c.drawString(22 * mm, y, "HORA")
+        c.drawString(32 * mm, y, "CLIENTE")
+        c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
+        y -= 4 * mm
+
+        c.setFont("Helvetica", 7)
+        for pago in pagos_cxc:
+            if y < 25 * mm:
+                c.showPage()
+                c.setFont("Helvetica", 8)
+                y = alto_pagina - 10 * mm
+                c.setFont("Helvetica-Bold", 8)
+                c.drawString(5 * mm, y, "COMP.")
+                c.drawString(22 * mm, y, "HORA")
+                c.drawString(32 * mm, y, "CLIENTE")
+                c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
+                y -= 4 * mm
+                c.setFont("Helvetica", 7)
+
+            # Comprobante (últimos 8 dígitos)
+            comp = pago.numero_comprobante or "-"
+            if len(comp) > 8:
+                comp = "..." + comp[-8:]
+            c.drawString(5 * mm, y, f"#{comp}")
+
+            # Hora (idéntico a facturas)
+            fecha_pago = pago.fecha_pago
+            hora_str = '--:--'
+            if isinstance(fecha_pago, datetime):
+                import pytz
+                tz_rd = pytz.timezone('America/Santo_Domingo')
+                if timezone.is_naive(fecha_pago):
+                    fecha_pago = timezone.make_aware(fecha_pago, pytz.UTC)
+                fecha_pago = fecha_pago.astimezone(tz_rd)
+                hora_str = fecha_pago.strftime('%I:%M')
+            c.drawString(22 * mm, y, hora_str)
+
+            # Cliente (truncar si es muy largo)
+            cliente_obj = pago.cuenta_por_cobrar.cliente if pago.cuenta_por_cobrar and hasattr(pago.cuenta_por_cobrar, 'cliente') else None
+            if cliente_obj:
+                # Buscar campo de nombre más representativo
+                nombre_cliente = getattr(cliente_obj, 'razon_social', None) or getattr(cliente_obj, 'nombre_completo', None) or str(cliente_obj)
+            else:
+                nombre_cliente = "CLIENTE"
+            if len(nombre_cliente) > 10:
+                nombre_cliente = nombre_cliente[:10] + "."
+            c.drawString(32 * mm, y, nombre_cliente)
+
+            # Monto
+            c.drawRightString(ancho_pagina - 5 * mm, y, f"${pago.monto:,.2f}")
+            y -= 3.5 * mm
+
+        # Línea separadora después de la lista
+        c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+        y -= 8 * mm
+
+    # 7. TOTAL EN CAJA (Facturas + CXC)
+    total_en_caja = venta_dia + total_cxc
     c.setFont("Helvetica-Bold", 11)
-    c.drawString(5 * mm, y, "TOTAL DEL DÍA:")
+    c.drawString(5 * mm, y, "TOTAL EN CAJA:")
     c.setFont("Helvetica-Bold", 14)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"${venta_dia:,.2f}")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"${total_en_caja:,.2f}")
     y -= 8 * mm
 
     # Línea doble para énfasis
@@ -5384,34 +5574,63 @@ def generar_pdf_ticket_dia(request):
     c.setLineWidth(1)
     y -= 6 * mm
 
-    # 7. ESTADÍSTICAS ADICIONALES
+
+
+    # 7. RESUMEN DE TOTALES (nuevo orden y negrita)
     c.setFont("Helvetica", 8)
-    c.drawCentredString(ancho_pagina / 2, y, "ESTADÍSTICAS")
+    c.drawCentredString(ancho_pagina / 2, y, "RESUMEN DE TOTALES")
     y -= 4 * mm
 
-    # Promedio por factura
-    promedio = venta_dia / \
-        facturas_hoy.count() if facturas_hoy.count() > 0 else Decimal('0.00')
-    c.drawString(5 * mm, y, f"Promedio por factura:")
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"${promedio:,.2f}")
+    # Calcular total vendido a crédito y cantidad de facturas a crédito (cuentas por cobrar pendientes creadas ese día)
+    from .models import CuentaPorCobrar
+    cuentas_credito = CuentaPorCobrar.objects.filter(
+        fecha_creacion__gte=inicio_dia,
+        fecha_creacion__lte=fin_dia,
+        estado='pendiente'
+    )
+    total_credito = cuentas_credito.aggregate(total=Sum('monto_original'))['total'] or Decimal('0.00')
+    cantidad_credito = cuentas_credito.count()
+
+    # Cantidad de Facturas
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "Cantidad de Facturas:")
+    c.setFont("Helvetica", 8)
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"{facturas_hoy.count()}")
     y -= 3.5 * mm
 
-    # Factura más alta
-    if facturas_hoy.exists():
-        max_factura = facturas_hoy.aggregate(max_total=Max('total'))[
-            'max_total'] or Decimal('0.00')
-        c.drawString(5 * mm, y, f"Factura más alta:")
-        c.drawRightString(ancho_pagina - 5 * mm, y, f"${max_factura:,.2f}")
-        y -= 3.5 * mm
+    # Total de Facturas
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "Total de Facturas:")
+    c.setFont("Helvetica", 8)
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${venta_dia:,.2f}")
+    y -= 3.5 * mm
 
-    # Factura más baja
-    if facturas_hoy.exists():
-        min_factura = facturas_hoy.aggregate(min_total=Min('total'))[
-            'min_total'] or Decimal('0.00')
-        c.drawString(5 * mm, y, f"Factura más baja:")
-        c.drawRightString(ancho_pagina - 5 * mm, y, f"${min_factura:,.2f}")
-        y -= 3.5 * mm
+    # Cantidad de Factura a Crédito
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "Cantidad de Factura a Crédito:")
+    c.setFont("Helvetica", 8)
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"{cantidad_credito}")
+    y -= 3.5 * mm
 
+    # Total vendido a crédito
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "Total vendido a crédito:")
+    c.setFont("Helvetica", 8)
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_credito:,.2f}")
+    y -= 3.5 * mm
+
+    # Cantidad de Pagos
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "Cantidad de Pagos:")
+    c.setFont("Helvetica", 8)
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"{pagos_cxc.count()}")
+    y -= 3.5 * mm
+
+    # Total de Pagos
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "Total de Pagos:")
+    c.setFont("Helvetica", 8)
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_cxc:,.2f}")
     y -= 4 * mm
 
     # 8. PIE DE PÁGINA
@@ -5426,27 +5645,6 @@ def generar_pdf_ticket_dia(request):
 
     c.drawCentredString(ancho_pagina / 2, y, "www.mirestaurante.com")
     y -= 5 * mm
-
-    # 9. CÓDIGO DE BARRAS (simulado para referencia)
-    c.setFont("Helvetica", 6)
-    c.drawCentredString(ancho_pagina / 2, y, "| | | | | | | | | | | | | | | |")
-    y -= 2 * mm
-    c.drawCentredString(ancho_pagina / 2, y,
-                        f"REF: {ahora_local.strftime('%Y%m%d%H%M')}")
-    y -= 3 * mm
-
-    # 10. NOTA IMPORTANTE
-    c.setFont("Helvetica", 6)
-    nota_texto = "Nota: Este reporte incluye ventas desde las 6:00 AM hasta las 5:59 AM del día siguiente."
-    # Dividir texto largo en líneas
-    max_chars_per_line = 45
-    lines = []
-    for i in range(0, len(nota_texto), max_chars_per_line):
-        lines.append(nota_texto[i:i+max_chars_per_line])
-
-    for line in lines:
-        c.drawCentredString(ancho_pagina / 2, y, line)
-        y -= 2.5 * mm
 
     # Guardar el PDF
     c.save()
@@ -7287,7 +7485,7 @@ def _estadisticas_clientes():
     return {
         'total_clientes': Cliente.objects.count(),
         'clientes_activos': Cliente.objects.filter(activo=True).count(),
-        'credito_total': float(Cliente.objects.aggregate(total=Sum('limite_credito')).get('total') or Decimal('0.00')),
+       'credito_total': Cliente.objects.aggregate(total=Coalesce(Sum('limite_credito'), Decimal('0.00'), output_field=DecimalField()))['total'],
         'clientes_hoy': Cliente.objects.filter(fecha_registro__gte=inicio_hoy, fecha_registro__lt=fin_hoy).count(),
     }
 
@@ -7454,9 +7652,300 @@ def historial_cliente(request, cliente_id):
     })
 
 
+@login_required
+def reporte_clientes_pdf(request):
+    """
+    Genera PDF A4 con reporte de clientes.
+    URL: path('gestiondeclientes/exportar-pdf/', views.reporte_clientes_pdf, name='reporte_clientes_pdf'),
+    Botón HTML: window.open('/gestiondeclientes/exportar-pdf/', '_blank');
+    Acepta filtros: ?search= ?estado=activo|inactivo ?credito=con|sin
+    """
+
+    # ── Paleta ────────────────────────────────────────────────────────────────
+    GRIS_OSCURO  = colors.HexColor('#2C3E50')
+    GRIS_MEDIO   = colors.HexColor('#5D6D7E')
+    GRIS_CLARO   = colors.HexColor('#ECF0F1')
+    GRIS_BORDE   = colors.HexColor('#BDC3C7')
+    ACENTO       = colors.HexColor('#4A90A4')
+    ACENTO_CLARO = colors.HexColor('#EAF4F7')
+    VERDE        = colors.HexColor('#27AE60')
+    VERDE_CLR    = colors.HexColor('#EAFAF1')
+    ROJO         = colors.HexColor('#C0392B')
+    ROJO_CLR     = colors.HexColor('#FDEDEC')
+    AMARILLO     = colors.HexColor('#D4A017')
+    AMARILLO_CLR = colors.HexColor('#FEF9E7')
+    BLANCO       = colors.white
+
+    # ── Filtros ───────────────────────────────────────────────────────────────
+    search  = request.GET.get('search',  '').strip()
+    estado  = request.GET.get('estado',  '')
+    credito = request.GET.get('credito', '')
+
+    qs = Cliente.objects.all().order_by('nombre_completo')
+    if search:
+        qs = qs.filter(
+            Q(nombre_completo__icontains=search) |
+            Q(cedula__icontains=search)           |
+            Q(telefono_principal__icontains=search)
+        )
+    if estado == 'activo':
+        qs = qs.filter(activo=True)
+    elif estado == 'inactivo':
+        qs = qs.filter(activo=False)
+    if credito == 'con':
+        qs = qs.filter(limite_credito__gt=0)
+    elif credito == 'sin':
+        qs = qs.filter(limite_credito=0)
+
+    clientes = list(qs)
+
+    # ── Estadísticas ──────────────────────────────────────────────────────────
+    total_clientes = len(clientes)
+    activos        = sum(1 for c in clientes if c.activo)
+    inactivos      = total_clientes - activos
+    con_credito    = sum(1 for c in clientes if float(c.limite_credito or 0) > 0)
+    credito_total  = sum(float(c.limite_credito or 0) for c in clientes)
+
+    # ── Buffer y documento ────────────────────────────────────────────────────
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        rightMargin=20*mm, leftMargin=20*mm,
+        topMargin=15*mm,   bottomMargin=18*mm,
+    )
+    ancho = doc.width  # ~170mm
+
+    styles = getSampleStyleSheet()
+
+    def sty(name, **kw):
+        base = kw.pop('parent', styles['Normal'])
+        return ParagraphStyle(name, parent=base, **kw)
+
+    bold_sty   = sty('ecB',  fontName='Helvetica-Bold', fontSize=9)
+    cell_sty   = sty('ecC',  fontSize=8,  leading=11)
+    cell_b_sty = sty('ecCB', fontSize=8,  leading=11, fontName='Helvetica-Bold', textColor=GRIS_OSCURO)
+    cell_d_sty = sty('ecCD', fontSize=8,  leading=11, textColor=GRIS_OSCURO)
+    hdr_sty    = sty('ecH',  fontSize=8,  leading=10, fontName='Helvetica-Bold', alignment=1, textColor=BLANCO)
+    small_sty  = sty('ecSM', fontSize=8)
+
+    story = []
+
+    # ── Logo ──────────────────────────────────────────────────────────────────
+    try:
+        logo_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        if os.path.exists(logo_path):
+            logo = Image(logo_path, width=30*mm, height=30*mm)
+            logo_table = Table([[logo]], colWidths=[doc.width])
+            logo_table.setStyle(TableStyle([('ALIGN', (0,0), (0,0), 'CENTER')]))
+            story.append(logo_table)
+            story.append(Spacer(1, 4))
+    except Exception:
+        pass
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # HEADER
+    # ══════════════════════════════════════════════════════════════════════════
+    hdr_data = [[
+        Paragraph('402 FASTFOOD',
+                  sty('ecEMP', fontSize=12, fontName='Helvetica-Bold', textColor=BLANCO)),
+        Paragraph('REPORTE DE CLIENTES',
+                  sty('ecTIT', fontSize=13, fontName='Helvetica-Bold', textColor=BLANCO, alignment=1)),
+        Paragraph(
+            f'Emitido el {date.today().strftime("%d/%m/%Y")}<br/>'
+            f'<font size="7.5">Castanuelas, calle 30 de mayo</font>',
+            sty('ecFEC', fontSize=8.5, textColor=GRIS_CLARO, alignment=2)
+        ),
+    ]]
+    thdr = Table(hdr_data, colWidths=[ancho*0.27, ancho*0.46, ancho*0.27])
+    thdr.setStyle(TableStyle([
+        ('BACKGROUND',    (0,0), (-1,0), GRIS_OSCURO),
+        ('VALIGN',        (0,0), (-1,0), 'MIDDLE'),
+        ('TOPPADDING',    (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 12),
+        ('LEFTPADDING',   (0,0), (0,0),  10),
+        ('RIGHTPADDING',  (-1,0),(-1,0), 10),
+        ('LINEAFTER',     (0,0), (0,0),  4, ACENTO),
+    ]))
+    story.append(thdr)
+    story.append(Spacer(1, 7))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TARJETAS DE RESUMEN
+    # ══════════════════════════════════════════════════════════════════════════
+    card_defs = [
+        ('TOTAL\nCLIENTES',    str(total_clientes),          GRIS_OSCURO, GRIS_CLARO),
+        ('ACTIVOS',            str(activos),                  VERDE,       VERDE_CLR),
+        ('INACTIVOS',          str(inactivos),                ROJO,        ROJO_CLR),
+        ('CON\nCRÉDITO',      str(con_credito),              ACENTO,      ACENTO_CLARO),
+        ('CRÉDITO\nOTORGADO', f'RD$ {credito_total:,.0f}',  AMARILLO,    AMARILLO_CLR),
+    ]
+    card_w = ancho / 5
+    card_cells = []
+    card_bgs   = []
+    for lbl, val, vc, bg in card_defs:
+        inner = Table(
+            [[Paragraph(lbl, sty(f'ecCL{lbl[:3]}', fontSize=7, fontName='Helvetica-Bold',
+                                  textColor=GRIS_MEDIO, alignment=1, leading=9))],
+             [Paragraph(val, sty(f'ecCV{lbl[:3]}', fontSize=15, fontName='Helvetica-Bold',
+                                  textColor=vc, alignment=1))]],
+            colWidths=[card_w - 4*mm],
+        )
+        inner.setStyle(TableStyle([
+            ('TOPPADDING',    (0,0), (-1,-1), 7),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 7),
+        ]))
+        card_cells.append(inner)
+        card_bgs.append(bg)
+
+    tcards = Table([card_cells], colWidths=[card_w]*5)
+    card_ts = [
+        ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING',    (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ('LEFTPADDING',   (0,0), (-1,-1), 2),
+        ('RIGHTPADDING',  (0,0), (-1,-1), 2),
+    ]
+    for i, bg in enumerate(card_bgs):
+        card_ts += [('BACKGROUND', (i,0),(i,0), bg), ('BOX', (i,0),(i,0), 0.5, GRIS_BORDE)]
+    tcards.setStyle(TableStyle(card_ts))
+    story.append(tcards)
+    story.append(Spacer(1, 11))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TABLA DE CLIENTES
+    # Anchos: 24+37+20+33+22+11+14+9 = 170mm
+    CW = [24*mm, 37*mm, 20*mm, 33*mm, 22*mm, 11*mm, 14*mm, 9*mm]
+
+    hdrs = ['Cédula', 'Nombre Completo', 'Teléfono(s)', 'Dirección',
+            'Límite Crédito', 'Días', 'Estado', 'Registro']
+    data = [[Paragraph(h, hdr_sty) for h in hdrs]]
+
+    row_styles = []
+    for idx, c in enumerate(clientes):
+        ri = idx + 1
+
+        # Límite crédito (sin redundar días plazo)
+        if float(c.limite_credito or 0) > 0:
+            cred_txt   = f'RD$ {float(c.limite_credito):,.2f}'
+            cred_color = ACENTO
+        else:
+            cred_txt   = 'Sin crédito'
+            cred_color = GRIS_MEDIO
+
+        # Días
+        if int(c.dias_credito or 0) > 0:
+            dias_txt   = f'{c.dias_credito}d.'
+            dias_color = ACENTO
+        else:
+            dias_txt   = 'Cont.'
+            dias_color = GRIS_MEDIO
+
+        # Estado
+        est_txt   = 'Activo'  if c.activo else 'Inactivo'
+        est_color = VERDE     if c.activo else ROJO
+
+        # Teléfono(s)
+        tel_txt = c.telefono_principal or '-'
+        if c.telefono_alternativo:
+            tel_txt += f'<br/><font size="7" color="#718096">Alt: {c.telefono_alternativo}</font>'
+
+        # Dirección — legible, truncada
+        dir_raw = c.direccion or '-'
+        dir_txt = dir_raw[:45] + ('…' if len(dir_raw) > 45 else '')
+
+        fila = [
+            Paragraph(c.cedula or '-',          cell_b_sty),
+            Paragraph(c.nombre_completo or '-', cell_b_sty),
+            Paragraph(tel_txt,                  cell_sty),
+            Paragraph(dir_txt,                  cell_d_sty),
+            Paragraph(cred_txt, sty(f'ecCR{ri}', fontSize=8, fontName='Helvetica-Bold',
+                                    textColor=cred_color, alignment=1)),
+            Paragraph(dias_txt, sty(f'ecD{ri}',  fontSize=8, fontName='Helvetica-Bold',
+                                    textColor=dias_color, alignment=1)),
+            Paragraph(est_txt,  sty(f'ecE{ri}',  fontSize=8, fontName='Helvetica-Bold',
+                                    textColor=est_color,  alignment=1)),
+            Paragraph(
+                c.fecha_registro.strftime('%d/%m/%Y') if c.fecha_registro else '-',
+                sty(f'ecR{ri}', fontSize=6.5, alignment=1, textColor=GRIS_MEDIO)
+            ),
+        ]
+        data.append(fila)
+
+        if c.activo:
+            bg_row = ACENTO_CLARO if idx % 2 == 0 else BLANCO
+        else:
+            bg_row = ROJO_CLR if idx % 2 == 0 else colors.HexColor('#FDF2F0')
+
+        row_styles += [
+            ('BACKGROUND', (0,ri), (-1,ri), bg_row),
+            ('LINEBELOW',  (0,ri), (-1,ri), 0.3, GRIS_BORDE),
+        ]
+
+    tclientes = Table(data, colWidths=CW, repeatRows=1)
+    tclientes.setStyle(TableStyle([
+        ('BACKGROUND',    (0,0), (-1,0), GRIS_OSCURO),
+        ('ALIGN',         (0,0), (-1,0), 'CENTER'),
+        ('VALIGN',        (0,0), (-1,-1),'MIDDLE'),
+        ('TOPPADDING',    (0,0), (-1,-1), 5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('LEFTPADDING',   (0,0), (-1,-1), 3),
+        ('RIGHTPADDING',  (0,0), (-1,-1), 3),
+    ] + row_styles))
+
+    story.append(Paragraph('<b>LISTADO DE CLIENTES</b>', bold_sty))
+    story.append(Spacer(1, 5))
+    story.append(tclientes)
+    story.append(Spacer(1, 9))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # PIE DEL REPORTE
+    # ══════════════════════════════════════════════════════════════════════════
+    usuario = request.user.get_full_name() or request.user.username
+    pie_data = [[
+        Paragraph(f'Total registros: <b>{total_clientes}</b>', small_sty),
+        Paragraph(
+            f'Activos: <b><font color="#27AE60">{activos}</font></b>   '
+            f'Inactivos: <b><font color="#C0392B">{inactivos}</font></b>   '
+            f'Con crédito: <b><font color="#4A90A4">{con_credito}</font></b>',
+            sty('ecP2', fontSize=8, alignment=1)
+        ),
+        Paragraph(f'Generado por: {usuario}',
+                  sty('ecP3', fontSize=8, alignment=2, textColor=GRIS_MEDIO)),
+    ]]
+    tpie = Table(pie_data, colWidths=[ancho*0.33]*3)
+    tpie.setStyle(TableStyle([
+        ('LINEABOVE',     (0,0), (-1,0), 0.5, GRIS_BORDE),
+        ('TOPPADDING',    (0,0), (-1,0), 6),
+        ('VALIGN',        (0,0), (-1,0), 'MIDDLE'),
+    ]))
+    story.append(tpie)
+    story.append(Spacer(1, 5))
+    story.append(Paragraph(
+        '<b>NOTAS:</b>  Este reporte refleja el estado actual de los clientes registrados '
+        'en el sistema al momento de su generación. La columna "Límite Crédito" muestra '
+        'el crédito autorizado. Clientes inactivos aparecen resaltados en rojo.',
+        sty('ecN', fontSize=7, textColor=GRIS_MEDIO)
+    ))
+
+    # ── Build ─────────────────────────────────────────────────────────────────
+    doc.build(story)
+    pdf = buffer.getvalue()
+    buffer.close()
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = (
+        f'inline; filename="reporte_clientes_{date.today().strftime("%Y%m%d")}.pdf"'
+    )
+    response.write(pdf)
+    return response
+
+
+
+
 def registrodeclientes(request):
     """Vista para el registro de clientes"""
-    
     # Si es POST y es AJAX
     if request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         try:
@@ -7714,7 +8203,7 @@ def _sincronizar_cuenta_por_cobrar(factura, cliente_match=None):
         estado = 'vencida' if cuenta.fecha_vencimiento < hoy else 'pendiente'
 
     cambios = []
-    if cuenta.cliente_id != (cliente_match.id if cliente_match else None):
+    if cliente_match is not None and cuenta.cliente_id != cliente_match.id:
         cuenta.cliente = cliente_match
         cambios.append('cliente')
     if cuenta.fecha_emision != fecha_emision:
@@ -7777,6 +8266,7 @@ def _armar_clientes_cuentas_por_cobrar():
 
         _sincronizar_cuenta_por_cobrar(factura, cliente_match)
 
+    # Para la tabla: todas las cuentas
     cuentas = CuentaPorCobrar.objects.select_related('factura', 'cliente').prefetch_related('factura__pagos_cxc').order_by('fecha_emision', 'id')
 
     agrupados = {}
@@ -7889,7 +8379,124 @@ def _armar_clientes_cuentas_por_cobrar():
 def cuentaporcobrar_datos(request):
     """Retorna datos reales para la tabla de cuentas por cobrar."""
     clientes = _armar_clientes_cuentas_por_cobrar()
-    return JsonResponse({'success': True, 'clientes': clientes})
+    # Card: solo pendientes y parciales
+    facturas_pendientes = CuentaPorCobrar.objects.filter(estado__in=['pendiente', 'parcial']).count()
+    clientes_con_deuda = CuentaPorCobrar.objects.filter(estado__in=['pendiente', 'parcial']).values('cliente_id').distinct().count()
+    return JsonResponse({'success': True, 'clientes': clientes, 'facturas_pendientes': facturas_pendientes, 'clientes_con_deuda': clientes_con_deuda})
+
+
+@login_required
+def historial_pagos(request):
+    import pytz
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    ahora_local = timezone.now().astimezone(tz_rd)
+    fecha_reporte = ahora_local.strftime('%d/%m/%Y %I:%M %p')
+
+    # Parámetros de filtrado
+    search = request.GET.get('search', '').strip()
+    metodo_pago = request.GET.get('metodo_pago', '')
+    fecha = request.GET.get('fecha', '')
+    page = int(request.GET.get('page', 1))
+
+    # Consulta base: TODOS los pagos
+    pagos_base = PagoCuentaCobrar.objects.select_related('factura', 'cuenta_por_cobrar', 'registrado_por')
+    pagos = pagos_base.order_by('-fecha_pago')
+
+    # Filtros
+    if search:
+        pagos = pagos.filter(
+            Q(factura__numero_factura__icontains=search) |
+            Q(factura__nombre_cliente__icontains=search) |
+            Q(numero_comprobante__icontains=search)
+        )
+    if metodo_pago:
+        pagos = pagos.filter(metodo_pago=metodo_pago)
+    if fecha:
+        inicio_hoy = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        fin_hoy = inicio_hoy + timedelta(days=1)
+        inicio_mes_actual = inicio_hoy.replace(day=1)
+
+        if fecha == 'hoy':
+            pagos = pagos.filter(fecha_pago__gte=inicio_hoy, fecha_pago__lt=fin_hoy)
+        elif fecha == 'ayer':
+            inicio_ayer = inicio_hoy - timedelta(days=1)
+            pagos = pagos.filter(fecha_pago__gte=inicio_ayer, fecha_pago__lt=inicio_hoy)
+        elif fecha in ['ultimos_7_dias', 'semana']:
+            inicio_7_dias = inicio_hoy - timedelta(days=6)
+            pagos = pagos.filter(fecha_pago__gte=inicio_7_dias, fecha_pago__lt=fin_hoy)
+        elif fecha == 'ultimos_30_dias':
+            inicio_30_dias = inicio_hoy - timedelta(days=29)
+            pagos = pagos.filter(fecha_pago__gte=inicio_30_dias, fecha_pago__lt=fin_hoy)
+        elif fecha in ['este_mes', 'mes']:
+            pagos = pagos.filter(fecha_pago__gte=inicio_mes_actual, fecha_pago__lt=fin_hoy)
+        elif fecha == 'mes_pasado':
+            fin_mes_pasado = inicio_mes_actual
+            ultimo_dia_mes_pasado = inicio_mes_actual - timedelta(days=1)
+            inicio_mes_pasado = ultimo_dia_mes_pasado.replace(day=1)
+            pagos = pagos.filter(fecha_pago__gte=inicio_mes_pasado, fecha_pago__lt=fin_mes_pasado)
+        elif fecha == 'este_anio':
+            inicio_anio = inicio_hoy.replace(month=1, day=1)
+            pagos = pagos.filter(fecha_pago__gte=inicio_anio, fecha_pago__lt=fin_hoy)
+        elif fecha == 'semana_actual':
+            inicio_semana = (inicio_hoy - timedelta(days=ahora_local.weekday()))
+            pagos = pagos.filter(fecha_pago__gte=inicio_semana, fecha_pago__lt=fin_hoy)
+
+    # Paginación de 50 pagos por página
+    paginator = Paginator(pagos, 50)
+    page_obj = paginator.get_page(page)
+
+    # Procesar pagos para template
+    pagos_procesados = []
+    for pago in page_obj:
+        fecha_base = pago.fecha_pago or timezone.now()
+        fecha_local = timezone.localtime(fecha_base, tz_rd)
+        if pago.registrado_por:
+            nombre = pago.registrado_por.get_full_name()
+            if not nombre:
+                nombre = pago.registrado_por.username
+        else:
+            nombre = ''
+        pagos_procesados.append({
+            'id': pago.id,
+            'numero_comprobante': pago.numero_comprobante or 'Sin comprobante',
+            'factura_numero': pago.factura.numero_factura if pago.factura else 'Sin factura',
+            'nombre_cliente': pago.factura.nombre_cliente if pago.factura else 'Cliente no registrado',
+            'monto': float(pago.monto or 0),
+            'metodo_pago': pago.metodo_pago or '',
+            'fecha_formateada': fecha_local.strftime('%d/%m/%Y %I:%M %p'),
+            'registrado_por': nombre,
+        })
+
+    # Estadísticas
+    total_pagos = pagos.count()
+    ingresos_totales = pagos.filter().aggregate(total=models.Sum('monto'))['total'] or 0
+
+    # Estadísticas mensuales y anuales (sobre TODOS los pagos, no solo filtrados)
+    inicio_mes_rd = ahora_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    inicio_hoy_rd = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    fin_hoy_rd = inicio_hoy_rd + timedelta(days=1)
+    pagos_mes_actual = pagos_base.filter(fecha_pago__gte=inicio_mes_rd, fecha_pago__lt=fin_hoy_rd)
+    ingresos_mes_actual = pagos_mes_actual.aggregate(total=models.Sum('monto'))['total'] or 0
+    total_pagos_mes = pagos_mes_actual.count()
+
+    context = {
+        'pagos': pagos_procesados,
+        'paginator': paginator,
+        'page_obj': page_obj,
+        'filtros': {
+            'search': search,
+            'metodo_pago': metodo_pago,
+            'fecha': fecha,
+        },
+        'estadisticas': {
+            'total_pagos': total_pagos,
+            'ingresos_totales': ingresos_totales,
+            'ingresos_mes_actual': ingresos_mes_actual,
+            'total_pagos_mes': total_pagos_mes,
+        },
+        'fecha_reporte': fecha_reporte,
+    }
+    return render(request, 'facturacion/historial_pagos.html', context)
 
 
 @login_required
@@ -7904,14 +8511,52 @@ def cuentaporcobrar_comprobante_pdf(request):
     except ValueError:
         return HttpResponse('Formato de pagos invalido.', status=400)
 
-    pagos = list(PagoCuentaCobrar.objects.filter(id__in=pago_ids).select_related('factura').order_by('fecha_pago', 'id'))
+    pagos = list(
+        PagoCuentaCobrar.objects.filter(id__in=pago_ids)
+        .select_related('factura', 'registrado_por')
+        .order_by('fecha_pago', 'id')
+    )
     if not pagos:
         return HttpResponse('No se encontraron pagos para el comprobante.', status=404)
 
+    factura_ids = {p.factura_id for p in pagos}
+    pagos_facturas = list(
+        PagoCuentaCobrar.objects.filter(factura_id__in=factura_ids)
+        .only('id', 'factura_id', 'monto', 'fecha_pago')
+        .order_by('fecha_pago', 'id')
+    )
+
+    total_factura_por_id = {}
+    for pago in pagos:
+        total_factura_por_id[pago.factura_id] = Decimal(str(pago.factura.total or '0'))
+
+    acumulado_por_factura = {factura_id: Decimal('0.00') for factura_id in factura_ids}
+    resumen_por_pago = {}
+    for pago_hist in pagos_facturas:
+        total_factura = total_factura_por_id.get(pago_hist.factura_id, Decimal('0.00'))
+        acumulado_por_factura[pago_hist.factura_id] += Decimal(str(pago_hist.monto or '0'))
+
+        saldo_actual = total_factura - acumulado_por_factura[pago_hist.factura_id]
+        if saldo_actual < Decimal('0.00'):
+            saldo_actual = Decimal('0.00')
+
+        saldo_anterior = saldo_actual + Decimal(str(pago_hist.monto or '0'))
+        if saldo_anterior > total_factura:
+            saldo_anterior = total_factura
+
+        resumen_por_pago[pago_hist.id] = {
+            'saldo_anterior': saldo_anterior,
+            'saldo_actual': saldo_actual,
+        }
+
     ancho_ticket = 80 * mm
-    alto_base = 80 * mm
-    alto_linea = 6 * mm
-    alto_ticket = alto_base + (len(pagos) * alto_linea)
+    alto_linea = 4 * mm
+    lineas_encabezado = 14
+    lineas_por_pago = 13
+    lineas_pie = 6
+    alto_ticket = (lineas_encabezado + (len(pagos) * lineas_por_pago) + lineas_pie) * alto_linea
+    if alto_ticket < (120 * mm):
+        alto_ticket = 120 * mm
 
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="comprobante_cxc_{timezone.localtime().strftime("%Y%m%d_%H%M%S")}.pdf"'
@@ -7921,57 +8566,113 @@ def cuentaporcobrar_comprobante_pdf(request):
 
     tz_rd = pytz.timezone('America/Santo_Domingo')
     ahora_local = timezone.now().astimezone(tz_rd)
-    factura_ref = pagos[0].factura
-    cliente_nombre = factura_ref.nombre_cliente or 'Cliente'
-
     total_pagado = sum((p.monto for p in pagos), Decimal('0.00'))
-    comprobantes = [p.numero_comprobante or f'CP-{p.id}' for p in pagos]
-    comprobante_principal = comprobantes[0]
+
+    def _format_money(value):
+        return f'RD$ {Decimal(str(value or 0)):,.2f}'
+
+    def _draw_label_value(y_pos, label, value, label_x=5 * mm):
+        # Etiqueta en negrita y valor en regular; posicion dinamica para evitar solapes.
+        label_text = f'{label}:'
+        c.setFont('Helvetica-Bold', 8)
+        c.drawString(label_x, y_pos, label_text)
+
+        label_width = c.stringWidth(label_text, 'Helvetica-Bold', 8)
+        value_x = label_x + label_width + (2 * mm)
+        c.setFont('Helvetica', 8)
+        c.drawString(value_x, y_pos, str(value))
+
+    no_transaccion_general = pagos[0].id if pagos else 0
+    # Encabezado del negocio con logo
+    try:
+        logo_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+
+        if os.path.exists(logo_path):
+            logo_size = 14 * mm
+            logo_x = (ancho_ticket - logo_size) / 2
+            c.drawImage(logo_path, logo_x, y - logo_size, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
+            y -= (logo_size + 2 * mm)
+    except Exception:
+        pass
 
     c.setFont('Helvetica-Bold', 10)
-    c.drawCentredString(ancho_ticket / 2, y, 'COMPROBANTE DE PAGO')
-    y -= 5 * mm
-
-    c.setFont('Helvetica', 8)
-    c.drawString(5 * mm, y, f'Fecha: {ahora_local.strftime("%d/%m/%Y %I:%M %p")}')
-    y -= 4 * mm
-    c.drawString(5 * mm, y, f'Comprobante: {comprobante_principal[:28]}')
-    y -= 4 * mm
-    c.drawString(5 * mm, y, f'Cliente: {cliente_nombre[:34]}')
-    y -= 4 * mm
-    c.drawString(5 * mm, y, f'Pagos aplicados: {len(pagos)}')
-    y -= 4 * mm
+    c.drawCentredString(ancho_ticket / 2, y, '402 FASTFOOD')
+    y -= alto_linea
+    c.setFont('Helvetica', 7)
+    c.drawCentredString(ancho_ticket / 2, y, 'RNC: 00000000')
+    y -= alto_linea
+    c.drawCentredString(ancho_ticket / 2, y, 'Direccion: Castanuelas, calle 30 de mayo')
+    y -= alto_linea
+    c.drawCentredString(ancho_ticket / 2, y, 'Telefono: 876-987-9876')
+    y -= alto_linea
 
     c.line(5 * mm, y, ancho_ticket - 5 * mm, y)
-    y -= 4 * mm
+    y -= alto_linea
 
-    c.setFont('Helvetica-Bold', 8)
-    c.drawString(5 * mm, y, 'Factura')
-    c.drawRightString(ancho_ticket - 5 * mm, y, 'Monto')
-    y -= 4 * mm
+    c.setFont('Helvetica-Bold', 9)
+    c.drawCentredString(ancho_ticket / 2, y, 'COMPROBANTE DE PAGO')
+    y -= alto_linea
+    _draw_label_value(y, 'Generado', ahora_local.strftime('%d/%m/%Y %I:%M %p'))
+    y -= alto_linea
+    c.setFont('Helvetica', 7)
+    c.drawRightString(ancho_ticket - 5 * mm, y, f'Recibo: #{no_transaccion_general}')
+    y -= alto_linea
 
-    c.setFont('Helvetica', 8)
+
     for pago in pagos:
-        numero = str(pago.factura.numero_factura or f'FACT-{pago.factura_id}')
-        numero_comprobante = (pago.numero_comprobante or f'CP-{pago.id}')[:16]
-        c.drawString(5 * mm, y, f'{numero[:12]} {numero_comprobante}')
-        c.drawRightString(ancho_ticket - 5 * mm, y, f'RD$ {pago.monto:.2f}')
+        resumen_pago = resumen_por_pago.get(pago.id, {
+            'saldo_anterior': Decimal('0.00'),
+            'saldo_actual': Decimal('0.00'),
+        })
+        saldo_anterior = resumen_pago['saldo_anterior']
+        saldo_actual = resumen_pago['saldo_actual']
+        tipo_comprobante = 'Factura saldada' if saldo_actual <= Decimal('0.00') else 'Abono'
+
+        numero_comprobante = pago.numero_comprobante or f'CP-{pago.id}'
+        numero_factura = pago.factura.numero_factura or f'FACT-{pago.factura_id}'
+        cliente_nombre = (pago.factura.nombre_cliente or 'Cliente general')[:34]
+        metodo = pago.get_metodo_pago_display() if hasattr(pago, 'get_metodo_pago_display') else (pago.metodo_pago or 'N/A')
+        referencia = (pago.referencia or 'N/A')[:34]
+
+        if pago.registrado_por:
+            nombre_usuario = (pago.registrado_por.get_full_name() or pago.registrado_por.username or 'N/A').strip()
+        else:
+            nombre_usuario = 'N/A'
+
+        c.line(5 * mm, y, ancho_ticket - 5 * mm, y)
+        y -= alto_linea
+        _draw_label_value(y, 'Comprobante', numero_comprobante[:28])
         y -= alto_linea
 
-    c.line(5 * mm, y + 2 * mm, ancho_ticket - 5 * mm, y + 2 * mm)
+        _draw_label_value(y, 'Fecha pago', pago.fecha_pago.strftime('%d/%m/%Y'))
+        y -= alto_linea
+        _draw_label_value(y, 'Tipo', tipo_comprobante)
+        y -= alto_linea
+        _draw_label_value(y, 'Cliente', cliente_nombre)
+        y -= alto_linea
+        _draw_label_value(y, 'Factura', numero_factura[:30])
+        y -= alto_linea
+        _draw_label_value(y, 'Monto pagado', _format_money(pago.monto))
+        y -= alto_linea
+        _draw_label_value(y, 'Balance anterior', _format_money(saldo_anterior))
+        y -= alto_linea
+        _draw_label_value(y, 'Balance actual', _format_money(saldo_actual))
+        y -= alto_linea
+        _draw_label_value(y, 'Metodo pago', metodo[:28])
+        y -= alto_linea
+        _draw_label_value(y, 'Referencia', referencia)
+        y -= alto_linea
+        _draw_label_value(y, 'Despachado por', nombre_usuario[:28])
+        y -= (alto_linea + 1 * mm)
+
+    c.line(5 * mm, y, ancho_ticket - 5 * mm, y)
+    y -= alto_linea
     c.setFont('Helvetica-Bold', 9)
-    c.drawString(5 * mm, y - 2 * mm, 'TOTAL PAGADO:')
-    c.drawRightString(ancho_ticket - 5 * mm, y - 2 * mm, f'RD$ {total_pagado:.2f}')
-    y -= 8 * mm
-
-    metodo = pagos[-1].get_metodo_pago_display() if hasattr(pagos[-1], 'get_metodo_pago_display') else pagos[-1].metodo_pago
-    referencia = pagos[-1].referencia or 'N/A'
-
-    c.setFont('Helvetica', 8)
-    c.drawString(5 * mm, y, f'Metodo: {metodo}')
-    y -= 4 * mm
-    c.drawString(5 * mm, y, f'Referencia: {referencia[:30]}')
-    y -= 6 * mm
+    c.drawString(5 * mm, y, 'TOTAL PAGADO')
+    c.drawRightString(ancho_ticket - 5 * mm, y, _format_money(total_pagado))
+    y -= (alto_linea + 1 * mm)
 
     c.setFont('Helvetica-Oblique', 7)
     c.drawCentredString(ancho_ticket / 2, y, 'Gracias por su pago')
@@ -7999,13 +8700,22 @@ def cuentaporcobrar_registrar_pago(request):
         return JsonResponse({'success': False, 'error': 'El monto debe ser mayor que 0.'}, status=400)
 
     fecha_pago_raw = str(payload.get('fecha_pago') or '').strip()
+    fecha_pago = None
     if fecha_pago_raw:
         try:
-            fecha_pago = datetime.strptime(fecha_pago_raw, '%Y-%m-%d').date()
+            # Si solo viene la fecha, combinar con hora actual
+            fecha_sola = datetime.strptime(fecha_pago_raw, '%Y-%m-%d').date()
+            ahora = timezone.localtime(timezone.now())
+            fecha_pago = datetime.combine(fecha_sola, ahora.time())
         except Exception:
             return JsonResponse({'success': False, 'error': 'Fecha de pago inválida.'}, status=400)
+    if not fecha_pago:
+        fecha_pago = timezone.localtime(timezone.now())
+    # Forzar que fecha_pago sea always aware
+    if timezone.is_naive(fecha_pago):
+        fecha_pago = timezone.make_aware(fecha_pago)
     else:
-        fecha_pago = timezone.localdate()
+        fecha_pago = timezone.localtime(fecha_pago)
 
     metodo_pago = (payload.get('metodo_pago') or 'efectivo').strip()
     metodos_validos = {item[0] for item in PagoCuentaCobrar.METODO_PAGO_CHOICES}
@@ -8025,6 +8735,12 @@ def cuentaporcobrar_registrar_pago(request):
     cliente_nombre = (payload.get('cliente_nombre') or '').strip()
     cliente_telefono = _telefono_solo_digitos(payload.get('cliente_telefono'))
 
+    # --- IDEMPOTENCIA: UUID de pago ---
+    uuid_pago = (payload.get('uuid_pago') or '').strip()
+    if not uuid_pago:
+        import uuid
+        uuid_pago = str(uuid.uuid4())
+
     with transaction.atomic():
         if factura_id:
             factura = get_object_or_404(Factura.objects.exclude(estado='pagada').prefetch_related('pagos_cxc'), id=factura_id)
@@ -8036,6 +8752,20 @@ def cuentaporcobrar_registrar_pago(request):
             if monto > saldo_actual:
                 return JsonResponse({'success': False, 'error': f'El monto excede el saldo pendiente (RD$ {saldo_actual}).'}, status=400)
 
+            # Buscar si ya existe un pago con este uuid_pago
+            pago_registrado = PagoCuentaCobrar.objects.filter(uuid_pago=uuid_pago).first()
+            if pago_registrado:
+                # Ya existe, devolver info para reimpresión o confirmación
+                comprobante_url = ''
+                return JsonResponse({
+                    'success': True,
+                    'mensaje': 'Pago ya registrado previamente.',
+                    'pago_id': pago_registrado.id,
+                    'uuid_pago': pago_registrado.uuid_pago,
+                    'comprobante_url': comprobante_url,
+                    'reimpresion': True,
+                })
+
             pago_registrado = PagoCuentaCobrar.objects.create(
                 cuenta_por_cobrar=cuenta,
                 factura=factura,
@@ -8045,6 +8775,7 @@ def cuentaporcobrar_registrar_pago(request):
                 referencia=referencia,
                 notas=notas,
                 registrado_por=request.user if request.user.is_authenticated else None,
+                uuid_pago=uuid_pago,
             )
 
             comprobante_url = ''
@@ -8114,6 +8845,16 @@ def cuentaporcobrar_registrar_pago(request):
                 continue
 
             monto_aplicar = saldo_actual if saldo_actual <= restante else restante
+
+            # Idempotencia para pagos distribuidos: usar uuid_pago + id de factura
+            uuid_pago_factura = f"{uuid_pago}-{factura.id}"
+            pago_obj = PagoCuentaCobrar.objects.filter(uuid_pago=uuid_pago_factura).first()
+            if pago_obj:
+                pagos_creados_ids.append(str(pago_obj.id))
+                pagos_creados.append(pago_obj)
+                restante -= monto_aplicar
+                continue
+
             pago_obj = PagoCuentaCobrar.objects.create(
                 cuenta_por_cobrar=cuenta,
                 factura=factura,
@@ -8123,6 +8864,7 @@ def cuentaporcobrar_registrar_pago(request):
                 referencia=referencia,
                 notas=notas,
                 registrado_por=request.user if request.user.is_authenticated else None,
+                uuid_pago=uuid_pago_factura,
             )
             if pago_obj:
                 pagos_creados_ids.append(str(pago_obj.id))
@@ -8147,3 +8889,229 @@ def cuentaporcobrar_registrar_pago(request):
             'comprobante_url': f"{reverse('cuentaporcobrar_comprobante_pdf')}?pagos={','.join(pagos_creados_ids)}" if pagos_creados_ids else '',
             'numeros_comprobante': [pago.numero_comprobante for pago in pagos_creados if pago.numero_comprobante],
         })
+
+
+@login_required   
+def estado_cuenta_cliente_pdf(request):
+    """Genera un PDF A4 de estado de cuenta de un cliente."""
+    cliente_id = request.GET.get('cliente_id')
+    if not cliente_id:
+        return HttpResponse('Debe indicar cliente_id.', status=400)
+    try:
+        cliente = Cliente.objects.get(pk=cliente_id)
+    except Cliente.DoesNotExist:
+        return HttpResponse('Cliente no encontrado.', status=404)
+ 
+    cuentas = CuentaPorCobrar.objects.filter(cliente=cliente).select_related('factura').order_by('fecha_emision')
+    facturas = [c.factura for c in cuentas if c.factura]
+    pagos_qs = PagoCuentaCobrar.objects.filter(factura__in=facturas).select_related('factura').order_by('fecha_pago')
+ 
+    total_facturado  = sum([f.total or 0 for f in facturas])
+    total_pagado     = pagos_qs.aggregate(total=Sum('monto'))['total'] or 0
+    saldo_pendiente  = total_facturado - total_pagado
+ 
+    # ── Estilos ────────────────────────────────────────────────────────────────
+    buffer = io.BytesIO()
+    doc    = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        rightMargin=20*mm, leftMargin=20*mm,
+        topMargin=20*mm,   bottomMargin=20*mm,
+    )
+    styles     = getSampleStyleSheet()
+    title_sty  = ParagraphStyle('TitleEC',  parent=styles['Heading1'],  fontSize=18, alignment=1, spaceAfter=4)
+    small_sty  = ParagraphStyle('SmallEC',  parent=styles['Normal'],    fontSize=9)
+    bold_sty   = ParagraphStyle('BoldEC',   parent=styles['Normal'],    fontName='Helvetica-Bold')
+    # Estilo para celdas de tabla (evita overflow, hace word-wrap automático)
+    cell_sty   = ParagraphStyle('CellEC',   parent=styles['Normal'],    fontSize=9,  leading=11)
+    cell_b_sty = ParagraphStyle('CellBEC',  parent=styles['Normal'],    fontSize=9,  leading=11, fontName='Helvetica-Bold')
+    cell_i_sty = ParagraphStyle('CellIEC',  parent=styles['Normal'],    fontSize=8,  leading=10,
+                                fontName='Helvetica-Oblique', textColor=colors.HexColor('#555555'))
+    hdr_sty    = ParagraphStyle('HdrEC',    parent=styles['Normal'],    fontSize=9,  leading=11,
+                                fontName='Helvetica-Bold',   alignment=1)
+ 
+    story = []
+ 
+    # ── Logo + datos empresa ───────────────────────────────────────────────────
+    try:
+        logo_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        if os.path.exists(logo_path):
+            logo       = Image(logo_path, width=30*mm, height=30*mm)
+            logo_table = Table([[logo]], colWidths=[doc.width])
+            logo_table.setStyle(TableStyle([('ALIGN', (0,0), (0,0), 'CENTER')]))
+            story.append(logo_table)
+            story.append(Spacer(1, 4))
+    except Exception:
+        pass
+ 
+    story.append(Paragraph("402 FASTFOOD",                                title_sty))
+    story.append(Paragraph("RNC: 00000000",                               small_sty))
+    story.append(Paragraph("Dirección: Castanuelas, calle 30 de mayo",    small_sty))
+    story.append(Paragraph("Teléfono: 876-987-9876",                      small_sty))
+    story.append(Spacer(1, 8))
+ 
+    # ── Info cliente ───────────────────────────────────────────────────────────
+    story.append(Paragraph("<b>INFORMACIÓN DEL CLIENTE</b>", bold_sty))
+    tcli = Table([
+        ["Nombre:",    cliente.nombre_completo],
+        ["Teléfono:",  cliente.telefono_principal],
+        ["Dirección:", cliente.direccion],
+        ["Email:",     getattr(cliente, 'email', '-')],
+    ], colWidths=[60*mm, doc.width - 60*mm])
+    tcli.setStyle(TableStyle([
+        ('FONTNAME',      (0,0), (-1,-1), 'Helvetica'),
+        ('FONTSIZE',      (0,0), (-1,-1), 10),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ('ALIGN',         (0,0), (0,-1),  'RIGHT'),
+        ('ALIGN',         (1,0), (1,-1),  'LEFT'),
+    ]))
+    story.append(tcli)
+    story.append(Spacer(1, 8))
+ 
+    # ── Tarjetas de totales ────────────────────────────────────────────────────
+    val_sty = {
+        'total':    ParagraphStyle('v1', parent=bold_sty, textColor=colors.HexColor('#222222'), fontSize=14, alignment=1),
+        'pagado':   ParagraphStyle('v2', parent=bold_sty, textColor=colors.HexColor('#1ca64c'), fontSize=14, alignment=1),
+        'pendiente':ParagraphStyle('v3', parent=bold_sty, textColor=colors.HexColor('#d32f2f'), fontSize=14, alignment=1),
+    }
+    tcard = Table([
+        [Paragraph('<b>TOTAL FACTURADO</b>', bold_sty),
+         Paragraph('<b>TOTAL PAGADO</b>',    bold_sty),
+         Paragraph('<b>SALDO PENDIENTE</b>', bold_sty)],
+        [Paragraph(f"RD$ {total_facturado:,.2f}",  val_sty['total']),
+         Paragraph(f"RD$ {total_pagado:,.2f}",     val_sty['pagado']),
+         Paragraph(f"RD$ {saldo_pendiente:,.2f}",  val_sty['pendiente'])],
+    ], colWidths=[doc.width/3]*3)
+    tcard.setStyle(TableStyle([
+        ('ALIGN',         (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('TOPPADDING',    (0,0), (-1,-1), 6),
+        ('LINEBELOW',     (0,1), (2,1),   1, colors.HexColor('#888888')),
+    ]))
+    story.append(tcard)
+    story.append(Spacer(1, 20))
+ 
+    # ── Tabla de detalle ───────────────────────────────────────────────────────
+    # Anchos de columna  (suman doc.width = 170mm aprox en A4 con márgenes 20mm)
+    #   col0 N°Factura  : 38mm   ← más ancho para evitar corte
+    #   col1 Fecha      : 22mm
+    #   col2 Descripción: resto
+    #   col3 Total      : 24mm
+    #   col4 Pagado     : 24mm
+    #   col5 Saldo      : 24mm
+    C0 = 38*mm
+    C1 = 22*mm
+    C3 = 24*mm
+    C4 = 24*mm
+    C5 = 24*mm
+    C2 = doc.width - C0 - C1 - C3 - C4 - C5   # ~38mm
+ 
+    col_widths = [C0, C1, C2, C3, C4, C5]
+ 
+    COLOR_HDR  = colors.HexColor('#e3e3e3')
+    COLOR_PAGO = colors.HexColor('#f5f9f5')   # fondo verde muy suave para filas de pago
+ 
+    # Cabecera
+    data = [[
+        Paragraph('N° Factura',   hdr_sty),
+        Paragraph('Fecha',        hdr_sty),
+        Paragraph('Descripción',  hdr_sty),
+        Paragraph('Total',        hdr_sty),
+        Paragraph('Pagado',       hdr_sty),
+        Paragraph('Saldo',        hdr_sty),
+    ]]
+ 
+    row_styles = []
+    row_idx    = 1
+ 
+    for cxc in cuentas:
+        f          = cxc.factura
+        pagos_fact = [p for p in pagos_qs if p.factura_id == f.id]
+        pagado     = sum([p.monto for p in pagos_fact])
+        saldo      = (f.total or 0) - pagado
+ 
+        # ── Fila de factura ────────────────────────────────────────────────────
+        descripcion = getattr(f, 'descripcion', None) or '-'
+        data.append([
+            Paragraph(f.numero_factura or '-',             cell_b_sty),
+            Paragraph(f.fecha_factura.strftime('%d/%m/%Y'), cell_sty),
+            Paragraph(descripcion,                          cell_sty),
+            Paragraph(f"RD$ {f.total:,.2f}",               cell_sty),
+            Paragraph(f"RD$ {pagado:,.2f}",                cell_sty),
+            Paragraph(f"RD$ {saldo:,.2f}",                 cell_sty),
+        ])
+        row_styles += [
+            ('ALIGN',       (3, row_idx), (5, row_idx), 'RIGHT'),
+            ('LINEBELOW',   (0, row_idx), (-1, row_idx), 0.25, colors.HexColor('#bbbbbb')),
+        ]
+        row_idx += 1
+ 
+        # ── Filas de pago (una por pago) ───────────────────────────────────────
+        for p in pagos_fact:
+            metodo_str = p.get_metodo_pago_display()
+            comp_str   = p.numero_comprobante or '-'
+            # col2: método + comprobante en una sola celda, bien legible
+            desc_pago  = f"\u21b3 {metodo_str}   Comp.: {comp_str}"
+ 
+            data.append([
+                Paragraph('', cell_i_sty),                           # col0: vacío
+                Paragraph(p.fecha_pago.strftime('%d/%m/%Y'), cell_i_sty),  # col1: fecha pago
+                Paragraph(desc_pago,                          cell_i_sty),  # col2: descripción pago
+                Paragraph('', cell_i_sty),                           # col3: vacío
+                Paragraph('', cell_i_sty),                           # col4: vacío
+                Paragraph(f"RD$ {p.monto:,.2f}",             cell_i_sty),  # col5: monto pago
+            ])
+            row_styles += [
+                ('BACKGROUND', (0, row_idx), (-1, row_idx), COLOR_PAGO),
+                ('ALIGN',      (5, row_idx), (5, row_idx),  'RIGHT'),
+                ('LINEBELOW',  (0, row_idx), (-1, row_idx), 0.15, colors.HexColor('#d0d0d0')),
+            ]
+            row_idx += 1
+ 
+    tdet = Table(data, colWidths=col_widths, repeatRows=1)
+    tdet.setStyle(TableStyle([
+        # Cabecera
+        ('BACKGROUND',    (0,0), (-1,0), COLOR_HDR),
+        ('FONTNAME',      (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE',      (0,0), (-1,0), 9),
+        ('ALIGN',         (0,0), (-1,0), 'CENTER'),
+        ('LINEBELOW',     (0,0), (-1,0), 1, colors.HexColor('#888888')),
+        # General
+        ('VALIGN',        (0,0), (-1,-1), 'TOP'),
+        ('TOPPADDING',    (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING',   (0,0), (-1,-1), 4),
+        ('RIGHTPADDING',  (0,0), (-1,-1), 4),
+        # Columnas numéricas alineadas a la derecha (filas de factura – base)
+        ('ALIGN',         (3,1), (5,-1), 'RIGHT'),
+    ] + row_styles))
+    story.append(Paragraph("<b>DETALLE DE FACTURAS</b>", bold_sty))
+    story.append(Spacer(1, 6))
+    story.append(tdet)
+    story.append(Spacer(1, 10))
+ 
+    # ── Notas ──────────────────────────────────────────────────────────────────
+    story.append(Paragraph("<b>NOTAS / OBSERVACIONES</b>", bold_sty))
+    # Fecha límite dinámica: 15 días después de hoy
+    fecha_limite = (timezone.localdate() + timedelta(days=15)).strftime('%d/%m/%Y')
+    story.append(Paragraph(
+        f"Por favor realizar los pagos pendientes antes del {fecha_limite}. Gracias por su preferencia.",
+        small_sty,
+    ))
+ 
+    # ── Build ──────────────────────────────────────────────────────────────────
+    doc.build(story)
+    pdf = buffer.getvalue()
+    buffer.close()
+    response = HttpResponse(content_type='application/pdf')
+    # Usar nombre del cliente en el nombre del archivo, quitando espacios y caracteres problemáticos
+    nombre_archivo = cliente.nombre_completo.strip().replace(' ', '_').replace('ñ', 'n')
+    import re
+    nombre_archivo = re.sub(r'[^A-Za-z0-9_\-]', '', nombre_archivo)
+    response['Content-Disposition'] = (
+        f'attachment; filename="estado_cuenta_cliente___{nombre_archivo}.pdf"'
+    )
+    response.write(pdf)
+    return response

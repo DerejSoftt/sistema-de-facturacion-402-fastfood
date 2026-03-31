@@ -538,6 +538,7 @@
                                     <select id="category" required>
                                         <option value="">Seleccionar...</option>
                                         <option value="bebida">Bebida</option>
+                                        <option value="trago">Trago</option>
                                         <option value="postre">Postre</option>
                                         <option value="carne">Carne</option>
                                         <option value="verdura">Verdura</option>
@@ -548,6 +549,39 @@
                                 <div class="form-group">
                                     <label for="quantity"><i class="fas fa-sort-numeric-up"></i> Cantidad</label>
                                     <input type="text" id="quantity" placeholder="0.00" required>
+                                </div>
+
+                                <!-- Campos solo para Trago -->
+                                <div class="form-group" id="group-botellas" style="display:none;">
+                                    <label for="botellas"><i class="fas fa-wine-bottle"></i> Cantidad de botellas</label>
+                                    <input type="number" id="botellas" min="1" placeholder="0">
+                                </div>
+                                <div class="form-group" id="group-ml-botella" style="display:none;">
+                                    <label for="ml_botella"><i class="fas fa-ruler-vertical"></i> Tamaño de botella</label>
+                                    <select id="ml_botella">
+                                        <option value="">Seleccionar...</option>
+                                        <option value="375">375 ml</option>
+                                        <option value="500">500 ml</option>
+                                        <option value="700">700 ml</option>
+                                        <option value="750">750 ml</option>
+                                        <option value="900">900 ml</option>
+                                        <option value="1000">1 Litro</option>
+                                        <option value="1750">1.75 Litros</option>
+                                        <option value="2000">2 Litros</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="group-ml-trago" style="display:none;">
+                                    <label for="ml_trago"><i class="fas fa-glass-martini-alt"></i> Medida del trago</label>
+                                    <select id="ml_trago">
+                                        <option value="30">30 ml</option>
+                                        <option value="45">45 ml</option>
+                                        <option value="50" selected>50 ml</option>
+                                        <option value="60">60 ml</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="group-total-tragos" style="display:none;">
+                                    <label for="total_tragos"><i class="fas fa-cocktail"></i> Total de tragos</label>
+                                    <input type="number" id="total_tragos" readonly>
                                 </div>
                                 <div class="form-group">
                                     <label for="price"><i class="fas fa-dollar-sign"></i> Precio de Compra ($)</label>
@@ -571,6 +605,68 @@
     </div>
 
 <script>
+    // Limpiar el formulario al recargar la página
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted || performance.getEntriesByType('navigation')[0].type === 'reload') {
+            document.getElementById('productForm').reset();
+            // Limpiar campos personalizados que no se resetean con reset()
+            document.getElementById('total_tragos').value = '';
+            document.getElementById('ml_botella').selectedIndex = 0;
+            document.getElementById('ml_trago').selectedIndex = 2; // 50ml por defecto
+            document.getElementById('category').selectedIndex = 0;
+            document.getElementById('group-botellas').style.display = 'none';
+            document.getElementById('group-ml-botella').style.display = 'none';
+            document.getElementById('group-ml-trago').style.display = 'none';
+            document.getElementById('group-total-tragos').style.display = 'none';
+            document.getElementById('quantity').parentElement.style.display = '';
+        }
+    });
+        // Mostrar/ocultar campos según categoría
+        const categorySelect = document.getElementById('category');
+        const groupBotellas = document.getElementById('group-botellas');
+        const groupMlBotella = document.getElementById('group-ml-botella');
+        const groupMlTrago = document.getElementById('group-ml-trago');
+        const groupTotalTragos = document.getElementById('group-total-tragos');
+        const botellasInput = document.getElementById('botellas');
+        const mlBotellaSelect = document.getElementById('ml_botella');
+        const mlTragoSelect = document.getElementById('ml_trago');
+        const totalTragosInput = document.getElementById('total_tragos');
+
+        function actualizarCamposTrago() {
+            const isTrago = categorySelect.value === 'trago';
+            groupBotellas.style.display = isTrago ? '' : 'none';
+            groupMlBotella.style.display = isTrago ? '' : 'none';
+            groupMlTrago.style.display = isTrago ? '' : 'none';
+            groupTotalTragos.style.display = isTrago ? '' : 'none';
+            // Ocultar cantidad si es trago y quitar required
+            const quantityInput = document.getElementById('quantity');
+            if (isTrago) {
+                quantityInput.parentElement.style.display = 'none';
+                quantityInput.removeAttribute('required');
+            } else {
+                quantityInput.parentElement.style.display = '';
+                quantityInput.setAttribute('required', 'required');
+            }
+        }
+        categorySelect.addEventListener('change', actualizarCamposTrago);
+        botellasInput.addEventListener('input', calcularTotalTragos);
+        mlBotellaSelect.addEventListener('change', calcularTotalTragos);
+        mlTragoSelect.addEventListener('change', calcularTotalTragos);
+
+        function calcularTotalTragos() {
+            if (categorySelect.value !== 'trago') {
+                totalTragosInput.value = '';
+                return;
+            }
+            const botellas = parseInt(botellasInput.value) || 0;
+            const mlBotella = parseInt(mlBotellaSelect.value) || 0;
+            const mlTrago = parseInt(mlTragoSelect.value) || 1;
+            if (botellas > 0 && mlBotella > 0 && mlTrago > 0) {
+                totalTragosInput.value = Math.floor((botellas * mlBotella) / mlTrago);
+            } else {
+                totalTragosInput.value = '';
+            }
+        }
     const form = document.getElementById('productForm');
     const confirmationMessage = document.getElementById('confirmationMessage');
     const quantityInput = document.getElementById('quantity');
@@ -636,95 +732,133 @@
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
         
-        console.log("=== ENVIANDO FORMULARIO ===");
-        
         const productName = document.getElementById('productName').value.trim();
         const category = document.getElementById('category').value;
-        const quantity = desformatearNumero(quantityInput.value);
         const price = desformatearNumero(priceInput.value);
         
-        console.log("Datos del formulario:", {
-            productName, category, quantity, price
-        });
-        
-        // Validaciones básicas
-        if (!productName || !category || !quantity || !price) {
-            alert('Por favor complete todos los campos');
-            return;
-        }
-        
-        // Preparar datos
-        const data = {
-            productName: productName,
-            category: category,
-            quantity: parseFloat(quantity),
-            price: parseFloat(price)
-        };
-        
-        console.log("Datos a enviar:", data);
-        
-        try {
-            // Obtener token CSRF
-            function getCookie(name) {
-                let cookieValue = null;
-                if (document.cookie && document.cookie !== '') {
-                    const cookies = document.cookie.split(';');
-                    for (let i = 0; i < cookies.length; i++) {
-                        const cookie = cookies[i].trim();
-                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                            break;
+        if (category === 'trago') {
+            // Solo para trago
+            const botellas = parseInt(botellasInput.value) || 0;
+            const ml_botella = parseInt(mlBotellaSelect.value) || 0;
+            const ml_trago = parseInt(mlTragoSelect.value) || 0;
+            const total_tragos = Math.floor((botellas * ml_botella) / (ml_trago > 0 ? ml_trago : 1));
+
+            // Validaciones
+            if (!productName || !price || botellas <= 0 || ml_botella <= 0 || ml_trago <= 0) {
+                alert('Por favor complete todos los campos de trago correctamente.');
+                return;
+            }
+
+            const data = {
+                nombre: productName,
+                categoria: category,
+                precio_compra: parseFloat(price),
+                botellas: botellas,
+                ml_botella: ml_botella,
+                ml_trago: ml_trago,
+                total_tragos: total_tragos
+            };
+            console.log("Payload trago:", data);
+
+            try {
+                function getCookie(name) {
+                    let cookieValue = null;
+                    if (document.cookie && document.cookie !== '') {
+                        const cookies = document.cookie.split(';');
+                        for (let i = 0; i < cookies.length; i++) {
+                            const cookie = cookies[i].trim();
+                            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                break;
+                            }
                         }
                     }
+                    return cookieValue;
                 }
-                return cookieValue;
+                const csrfToken = getCookie('csrftoken');
+                const response = await fetch('/api/tragos/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken || ''
+                    },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    confirmationMessage.innerHTML = `
+                        <h3><i class="fas fa-check-circle"></i> ${result.message}</h3>
+                        <p><strong>Producto:</strong> ${result.producto.nombre}</p>
+                        <p><strong>Total tragos:</strong> ${result.producto.total_tragos}</p>
+                        <p><strong>Precio:</strong> RD$${result.producto.precio_compra}</p>
+                    `;
+                    confirmationMessage.style.display = 'block';
+                    form.reset();
+                    setTimeout(() => { confirmationMessage.style.display = 'none'; }, 5000);
+                } else {
+                    alert(`Error: ${result.message}`);
+                }
+            } catch (error) {
+                console.error("Error completo:", error);
+                alert('Error de conexión. Revisa la consola para más detalles.');
             }
-            
-            const csrfToken = getCookie('csrftoken');
-            console.log("CSRF Token:", csrfToken);
-            
-            // Enviar datos
-            const response = await fetch('/guardar-producto/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken || ''
-                },
-                body: JSON.stringify(data)
-            });
-            
-            console.log("Respuesta HTTP:", response.status, response.statusText);
-            
-            const result = await response.json();
-            console.log("Resultado JSON:", result);
-            
-            if (result.success) {
-                // Mostrar confirmación
-                confirmationMessage.innerHTML = `
-                    <h3><i class="fas fa-check-circle"></i> ${result.message}</h3>
-                    <p><strong>Código:</strong> ${result.producto.codigo}</p>
-                    <p><strong>Producto:</strong> ${result.producto.nombre}</p>
-                    <p><strong>Cantidad:</strong> ${result.producto.cantidad}</p>
-                    <p><strong>Precio:</strong> RD$${result.producto.precio_compra}</p>
-                    <p><strong>Total:</strong> RD$${result.producto.subtotal}</p>
-                `;
-                confirmationMessage.style.display = 'block';
-                
-                // Resetear formulario
-                form.reset();
-                
-                // Ocultar mensaje después de 5 segundos
-                setTimeout(() => {
-                    confirmationMessage.style.display = 'none';
-                }, 5000);
-                
-            } else {
-                alert(`Error: ${result.message}`);
+        } else {
+            // Flujo normal para otras categorías (no se toca)
+            const quantity = desformatearNumero(quantityInput.value);
+            if (!productName || !category || !quantity || !price) {
+                alert('Por favor complete todos los campos');
+                return;
             }
-            
-        } catch (error) {
-            console.error("Error completo:", error);
-            alert('Error de conexión. Revisa la consola para más detalles.');
+            const data = {
+                productName: productName,
+                category: category,
+                quantity: parseFloat(quantity),
+                price: parseFloat(price)
+            };
+            try {
+                function getCookie(name) {
+                    let cookieValue = null;
+                    if (document.cookie && document.cookie !== '') {
+                        const cookies = document.cookie.split(';');
+                        for (let i = 0; i < cookies.length; i++) {
+                            const cookie = cookies[i].trim();
+                            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                break;
+                            }
+                        }
+                    }
+                    return cookieValue;
+                }
+                const csrfToken = getCookie('csrftoken');
+                const response = await fetch('/guardar-producto/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken || ''
+                    },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    confirmationMessage.innerHTML = `
+                        <h3><i class="fas fa-check-circle"></i> ${result.message}</h3>
+                        <p><strong>Código:</strong> ${result.producto.codigo}</p>
+                        <p><strong>Producto:</strong> ${result.producto.nombre}</p>
+                        <p><strong>Cantidad:</strong> ${result.producto.cantidad}</p>
+                        <p><strong>Precio:</strong> RD$${result.producto.precio_compra}</p>
+                        <p><strong>Total:</strong> RD$${result.producto.subtotal}</p>
+                    `;
+                    confirmationMessage.style.display = 'block';
+                    form.reset();
+                    setTimeout(() => { confirmationMessage.style.display = 'none'; }, 5000);
+                } else {
+                    alert(`Error: ${result.message}`);
+                }
+            } catch (error) {
+                console.error("Error completo:", error);
+                alert('Error de conexión. Revisa la consola para más detalles.');
+            }
         }
     });
 
