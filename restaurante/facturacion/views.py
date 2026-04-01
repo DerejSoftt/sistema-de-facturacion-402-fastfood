@@ -7091,16 +7091,19 @@ def procesar_devolucion_total(request):
         try:
             factura = get_object_or_404(Factura, numero_factura=numero_factura)
 
-            if factura.estado != 'pagada':
+            if factura.estado not in ['pagada', 'pendiente', 'parcialmente_devuelta']:
                 messages.error(
                     request,
-                    f'La factura debe estar pagada para procesar devolución. Estado actual: {factura.get_estado_display()}'
+                    f'La factura debe estar pagada, pendiente o parcialmente devuelta para procesar devolución. Estado actual: {factura.get_estado_display()}'
                 )
                 return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
 
             with transaction.atomic():
-                # Usar el método del modelo para obtener items
-                items = factura.get_items_detalle()
+                # Si hubo devoluciones previas, solo devolver lo pendiente.
+                items = factura.get_productos_disponibles_devolucion()
+                if not items:
+                    messages.warning(request, 'No hay productos pendientes por devolver en esta factura.')
+                    return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
                 productos_devueltos = []
                 monto_total_devuelto = 0
                 bebidas_repuestas = 0
@@ -7198,7 +7201,7 @@ def procesar_devolucion_parcial(request):
         try:
             factura = get_object_or_404(Factura, numero_factura=numero_factura)
 
-            if factura.estado not in ['pagada', 'parcialmente_devuelta']:
+            if factura.estado not in ['pagada', 'pendiente', 'parcialmente_devuelta']:
                 messages.error(
                     request,
                     f'Estado inválido para devolución: {factura.get_estado_display()}'
@@ -7291,7 +7294,7 @@ def procesar_devolucion_parcial(request):
                 )
 
                 # Actualizar estado de factura
-                if factura.estado == 'pagada':
+                if factura.estado in ['pagada', 'pendiente']:
                     factura.estado = 'parcialmente_devuelta'
 
                 # Verificar si ya se devolvió todo
@@ -7395,7 +7398,7 @@ def procesar_anulacion_factura(request):
 
                     if hasattr(factura, 'cuenta_por_cobrar'):
                         cuenta = factura.cuenta_por_cobrar
-                        cuenta.estado = 'cancelada'
+                        cuenta.estado = 'anulada'
                         cuenta.saldo_pendiente = Decimal('0.00')
                         cuenta.save(update_fields=['estado', 'saldo_pendiente'])
                 else:

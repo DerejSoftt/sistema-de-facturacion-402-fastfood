@@ -1495,9 +1495,14 @@
                         </div>
                         
                         <!-- Sección de Acciones de Devolución -->
-                        {% if factura.estado == 'pagada' or factura.estado == 'pendiente' %}
+                        {% if factura.estado != 'anulada' and factura.estado != 'totalmente_devuelta' %}
                         <div class="return-actions">
                             <h3><i class="fas fa-undo"></i> Acciones de Factura</h3>
+                            {% if factura.estado == 'parcialmente_devuelta' %}
+                            <p style="text-align: center; color: #667eea; margin-bottom: 1rem;">
+                                <i class="fas fa-exclamation-triangle"></i> Esta factura ya tiene devoluciones procesadas. Puedes devolver el resto, anular o devolver todo lo pendiente.
+                            </p>
+                            {% endif %}
                             <div class="action-buttons">
                                 <form method="POST" action="{% url 'procesar_devolucion_total' %}" style="display: inline;">
                                     {% csrf_token %}
@@ -1505,8 +1510,7 @@
                                     <button
                                         type="submit"
                                         class="btn-return full"
-                                        {% if factura.estado != 'pagada' %}disabled style="opacity: 0.6; cursor: not-allowed;" title="Para devolver, la factura debe estar pagada"{% endif %}
-                                        onclick="{% if factura.estado == 'pagada' %}return confirmDevolucionTotal(){% else %}return false{% endif %}">
+                                        onclick="return confirmDevolucionTotal()">
                                         <i class="fas fa-undo"></i>
                                         <span>Devolver Todo</span>
                                     </button>
@@ -1515,8 +1519,7 @@
                                 <button
                                     type="button"
                                     class="btn-return partial"
-                                    {% if factura.estado != 'pagada' %}disabled style="opacity: 0.6; cursor: not-allowed;" title="Para devolver, la factura debe estar pagada"{% endif %}
-                                    onclick="{% if factura.estado == 'pagada' %}abrirModalDevolucionParcial(){% else %}return false{% endif %}">
+                                    onclick="abrirModalDevolucionParcial()">
                                     <i class="fas fa-list-check"></i>
                                     <span>Devolver Items</span>
                                 </button>
@@ -1529,20 +1532,6 @@
                             <p style="color: #718096; margin-top: 1rem; font-size: 0.9rem;">
                                 <i class="fas fa-info-circle"></i> La anulación repone automáticamente las bebidas en inventario y no requiere que una venta a crédito esté saldada.
                             </p>
-                        </div>
-                        
-                        {% elif factura.estado == 'parcialmente_devuelta' %}
-                        <div class="return-actions">
-                            <h3><i class="fas fa-info-circle"></i> Factura Parcialmente Devuelta</h3>
-                            <p style="text-align: center; color: #667eea; margin-bottom: 1rem;">
-                                <i class="fas fa-exclamation-triangle"></i> Esta factura ya tiene devoluciones procesadas.
-                            </p>
-                            <div class="action-buttons">
-                                <button type="button" class="btn-return partial" onclick="abrirModalDevolucionParcial()">
-                                    <i class="fas fa-list-check"></i>
-                                    <span>Devolver Más Items</span>
-                                </button>
-                            </div>
                         </div>
                         {% elif factura.estado == 'totalmente_devuelta' %}
                         <div class="return-actions">
@@ -1562,13 +1551,6 @@
                                 <strong>Motivo de anulación:</strong> {{ factura.motivo_anulacion }}
                             </div>
                             {% endif %}
-                        </div>
-                        {% else %}
-                        <div class="return-actions">
-                            <h3><i class="fas fa-clock"></i> Factura Pendiente</h3>
-                            <p style="text-align: center; color: #ffd700; margin-bottom: 1rem;">
-                                <i class="fas fa-exclamation-triangle"></i> Solo se pueden devolver facturas que estén en estado "Pagada".
-                            </p>
                         </div>
                         {% endif %}
                         
@@ -2054,9 +2036,9 @@
             return;
         }
         
-        if (facturaActual.estado !== 'pagada' && facturaActual.estado !== 'parcialmente_devuelta') {
+        if (facturaActual.estado !== 'pagada' && facturaActual.estado !== 'pendiente' && facturaActual.estado !== 'parcialmente_devuelta') {
             console.warn('Estado de factura no válido para devolución:', facturaActual.estado);
-            mostrarAlerta('Solo se pueden devolver facturas pagadas o parcialmente devueltas', 'warning');
+            mostrarAlerta('Solo se pueden devolver facturas pagadas, pendientes o parcialmente devueltas', 'warning');
             return;
         }
         
