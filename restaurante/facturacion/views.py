@@ -38,7 +38,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 import json
-from .models import Producto, Plato, Pedido, Mesa, DeliveryConfig, HistorialEstadoPedido, DetalleItemPedido, Factura, Devolucion, Cliente, PagoCuentaCobrar, CuentaPorCobrar
+from .models import Producto, Plato, Pedido, Mesa, DeliveryConfig, HistorialEstadoPedido, DetalleItemPedido, Factura, Devolucion, Cliente, PagoCuentaCobrar, CuentaPorCobrar,  FacturaDetalle 
 from django.core.paginator import Paginator
 from django.db.models import Sum, Count, Q, Exists, OuterRef
 from django.db.models.functions import Coalesce
@@ -2918,8 +2918,44 @@ def crear_factura(request):
             if pedido.tipo_pedido == 'delivery':
                 factura.direccion_entrega = pedido.direccion_entrega
 
-            # Guardar la factura
-            factura.save()
+            # Guardar la factura y crear FacturaDetalle en la misma transacción
+            with transaction.atomic():
+                factura.save()
+
+                # Crear detalles relacionales para cada item
+                detalles = []
+                for item in items:
+                    nombre = (
+                        item.get('name') or item.get('nombre') or
+                        item.get('product') or item.get('producto') or 'Sin nombre'
+                    )
+                    try:
+                        cantidad = Decimal(str(item.get('quantity') or item.get('cantidad') or 1))
+                    except Exception:
+                        cantidad = Decimal('1')
+
+                    try:
+                        precio = Decimal(str(item.get('price') or item.get('precio') or 0))
+                    except Exception:
+                        precio = Decimal('0')
+
+                    try:
+                        subtotal_item = Decimal(str(item.get('total') or item.get('subtotal') or 0))
+                        if subtotal_item == 0:
+                            subtotal_item = cantidad * precio
+                    except Exception:
+                        subtotal_item = cantidad * precio
+
+                    detalles.append(FacturaDetalle(
+                        factura=factura,
+                        nombre_producto=nombre,
+                        cantidad=cantidad,
+                        precio_unitario=precio,
+                        subtotal=subtotal_item,
+                    ))
+
+                if detalles:
+                    FacturaDetalle.objects.bulk_create(detalles)
 
             if pedido_es_credito:
                 _sincronizar_cuenta_por_cobrar(factura, cliente_credito)
@@ -3022,7 +3058,7 @@ def descontar_bebidas_inventario(pedido):
             print(
                 f"✅ Total bebidas descontadas del inventario: {', '.join(bebidas_descontadas)}")
         else:
-            print("ℹ️ No se encontraron bebidas para descontar en este pedido")
+            print("ℹ️ No se descontaron bebidas en este paso (posiblemente ya descontadas al crear el pedido)")
 
     except Exception as e:
         print(f"❌ Error al descontar bebidas del inventario: {e}")
@@ -7292,7 +7328,7 @@ def procesar_devolucion_parcial(request):
 
 @login_required
 def procesar_anulacion_factura(request):
-    """Procesar anulación de una factura (disminuir stock de bebidas)"""
+    """Procesar anulación de una factura con reposición de inventario y ajuste de pagos."""
     if request.method == 'POST':
         numero_factura = request.POST.get('numero_factura')
         motivo = request.POST.get('motivo', '')
@@ -7314,11 +7350,21 @@ def procesar_anulacion_factura(request):
             with transaction.atomic():
                 # Usar el método del modelo para obtener items
                 items = factura.get_items_detalle()
-                bebidas_disminuidas = 0
+                bebidas_repuestas = 0
+
+                notas_pedido = (factura.pedido.notas or '') if factura.pedido else ''
+                es_credito = (
+                    ('TIPO_PAGO_PEDIDO=credito' in notas_pedido)
+                    or hasattr(factura, 'cuenta_por_cobrar')
+                    or factura.pagos_cxc.exists()
+                )
+
+                monto_devuelto = Decimal('0.00')
+                pagos_eliminados = 0
 
                 print(f"\n❌ PROCESANDO ANULACIÓN DE FACTURA")
 
-                # DISMINUIR stock para productos bebida
+                # REPONER stock para productos bebida
                 for item in items:
                     nombre = item.get('nombre', '')
                     codigo = item.get('codigo', '')
@@ -7333,23 +7379,74 @@ def procesar_anulacion_factura(request):
                         # Usar código si está disponible, sino usar nombre
                         identificador = codigo if codigo and codigo.strip() else nombre
                         print(
-                            f"   🍺 ES BEBIDA - Disminuyendo stock con: '{identificador}'")
+                            f"   🍺 ES BEBIDA - Reponiendo stock con: '{identificador}'")
 
-                        if disminuir_stock_producto(identificador, cantidad):
-                            bebidas_disminuidas += 1
-                            print(f"   ✅ Stock disminuido exitosamente")
+                        if reponer_stock_producto(identificador, cantidad):
+                            bebidas_repuestas += 1
+                            print(f"   ✅ Stock repuesto exitosamente")
+
+                # Ajustes financieros según tipo de venta
+                if es_credito:
+                    pagos_qs = factura.pagos_cxc.all()
+                    monto_devuelto = pagos_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+                    pagos_eliminados = pagos_qs.count()
+                    if pagos_eliminados:
+                        pagos_qs.delete()
+
+                    if hasattr(factura, 'cuenta_por_cobrar'):
+                        cuenta = factura.cuenta_por_cobrar
+                        cuenta.estado = 'cancelada'
+                        cuenta.saldo_pendiente = Decimal('0.00')
+                        cuenta.save(update_fields=['estado', 'saldo_pendiente'])
+                else:
+                    # En contado se devuelve el total de la factura
+                    monto_devuelto = Decimal(str(factura.total or 0))
+
+                # Registrar devolución total por anulación para trazabilidad
+                Devolucion.objects.create(
+                    factura=factura,
+                    tipo_devolucion='total',
+                    productos_devueltos=items,
+                    monto_devuelto=monto_devuelto,
+                    motivo=motivo or 'Anulación de factura',
+                    procesado_por=request.user
+                )
 
                 factura.estado = 'anulada'
                 factura.motivo_anulacion = motivo
+                factura.fecha_anulacion = timezone.now()
+                factura.usuario_anulacion = request.user
                 factura.fecha_devolucion = timezone.now()
-                factura.save()
+                factura.save(update_fields=[
+                    'estado',
+                    'motivo_anulacion',
+                    'fecha_anulacion',
+                    'usuario_anulacion',
+                    'fecha_devolucion',
+                ])
+
+                # Cerrar el ciclo en este mismo flujo: evitar que reaparezca en gestión/facturación.
+                if factura.pedido:
+                    factura.pedido.estado = 'cancelado'
+                    factura.pedido.save(update_fields=['estado'])
+                    if factura.pedido.mesa:
+                        factura.pedido.mesa.estado = 'disponible'
+                        factura.pedido.mesa.save(update_fields=['estado'])
 
                 print(f"\n✅ ANULACIÓN COMPLETADA")
-                print(f"   Bebidas ajustadas: {bebidas_disminuidas}")
+                print(f"   Bebidas repuestas: {bebidas_repuestas}")
+                print(f"   Monto devuelto: {monto_devuelto}")
+                if es_credito:
+                    print(f"   Pagos CxC eliminados: {pagos_eliminados}")
 
                 messages.success(
                     request,
-                    f'✅ Factura {factura.numero_factura} anulada. Bebidas ajustadas: {bebidas_disminuidas}'
+                    (
+                        f'✅ Factura {factura.numero_factura} anulada. '
+                        f'Bebidas repuestas: {bebidas_repuestas}. '
+                        f'Monto devuelto: ${monto_devuelto:.2f}.'
+                        + (f' Pagos eliminados: {pagos_eliminados}.' if es_credito else '')
+                    )
                 )
 
                 return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
@@ -8646,7 +8743,11 @@ def cuentaporcobrar_comprobante_pdf(request):
         _draw_label_value(y, 'Comprobante', numero_comprobante[:28])
         y -= alto_linea
 
-        _draw_label_value(y, 'Fecha pago', pago.fecha_pago.strftime('%d/%m/%Y'))
+        fecha_pago_local = pago.fecha_pago
+        if timezone.is_naive(fecha_pago_local):
+            fecha_pago_local = timezone.make_aware(fecha_pago_local, timezone.get_current_timezone())
+        fecha_pago_local = timezone.localtime(fecha_pago_local, tz_rd)
+        _draw_label_value(y, 'Fecha pago', fecha_pago_local.strftime('%d/%m/%Y'))
         y -= alto_linea
         _draw_label_value(y, 'Tipo', tipo_comprobante)
         y -= alto_linea
@@ -8738,11 +8839,12 @@ def cuentaporcobrar_registrar_pago(request):
     # ── Fecha de pago ─────────────────────────────────────────────────────────
     fecha_pago_raw = str(payload.get('fecha_pago') or '').strip()
     fecha_pago = None
+    tz_actual = timezone.get_current_timezone()
+    ahora_local = timezone.localtime(timezone.now(), tz_actual)
     if fecha_pago_raw:
         try:
             fecha_sola = datetime.strptime(fecha_pago_raw, '%Y-%m-%d').date()
-            ahora = timezone.localtime(timezone.now())
-            fecha_pago = datetime.combine(fecha_sola, ahora.time())
+            fecha_pago = datetime.combine(fecha_sola, ahora_local.time())
         except Exception:
             return JsonResponse(
                 {'success': False, 'error': 'Fecha de pago inválida.'},
@@ -8750,12 +8852,12 @@ def cuentaporcobrar_registrar_pago(request):
             )
 
     if not fecha_pago:
-        fecha_pago = timezone.localtime(timezone.now())
+        fecha_pago = ahora_local
 
     if timezone.is_naive(fecha_pago):
-        fecha_pago = timezone.make_aware(fecha_pago)
+        fecha_pago = timezone.make_aware(fecha_pago, tz_actual)
     else:
-        fecha_pago = timezone.localtime(fecha_pago)
+        fecha_pago = timezone.localtime(fecha_pago, tz_actual)
 
     # ── Método de pago ────────────────────────────────────────────────────────
     metodo_pago = (payload.get('metodo_pago') or 'efectivo').strip()
