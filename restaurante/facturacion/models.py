@@ -565,7 +565,7 @@ class Factura(models.Model):
 
             if hasattr(self, 'cuenta_por_cobrar'):
                 cxc = self.cuenta_por_cobrar
-                cxc.estado = 'cancelada'
+                cxc.estado = 'anulada'
                 cxc.saldo_pendiente = Decimal('0.00')
                 cxc.save(update_fields=['estado', 'saldo_pendiente'])
 
@@ -1026,7 +1026,7 @@ class CuentaPorCobrar(models.Model):
         ('parcial',    'Parcialmente Pagada'),
         ('pagada',     'Pagada'),
         ('vencida',    'Vencida'),
-        ('cancelada',  'Cancelada'),   # ← necesario para el flujo de anulación
+        ('anulada',    'Anulada'),
     ]
 
     factura = models.OneToOneField(
