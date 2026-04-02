@@ -60,7 +60,6 @@ path('gestiondepedidos/verificar-stock-multiples/', views.verificar_stock_multip
      
    
    path('anulacionydevolucion', views.anulacionydevolucion, name='anulacionydevolucion'),
-   path('procesar-devolucion-total/', views.procesar_devolucion_total, name='procesar_devolucion_total'),
    path('procesar-devolucion-parcial/', views.procesar_devolucion_parcial, name='procesar_devolucion_parcial'),
     path('procesar-anulacion-factura/', views.procesar_anulacion_factura, name='procesar_anulacion_factura'),
     

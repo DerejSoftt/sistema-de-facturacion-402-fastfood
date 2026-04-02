@@ -1500,22 +1500,10 @@
                             <h3><i class="fas fa-undo"></i> Acciones de Factura</h3>
                             {% if factura.estado == 'parcialmente_devuelta' %}
                             <p style="text-align: center; color: #667eea; margin-bottom: 1rem;">
-                                <i class="fas fa-exclamation-triangle"></i> Esta factura ya tiene devoluciones procesadas. Puedes devolver el resto, anular o devolver todo lo pendiente.
+                                <i class="fas fa-exclamation-triangle"></i> Esta factura ya tiene devoluciones procesadas. Puedes devolver el resto por items o anular la factura.
                             </p>
                             {% endif %}
                             <div class="action-buttons">
-                                <form method="POST" action="{% url 'procesar_devolucion_total' %}" style="display: inline;">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="numero_factura" value="{{ factura.numero_factura }}">
-                                    <button
-                                        type="submit"
-                                        class="btn-return full"
-                                        onclick="return confirmDevolucionTotal()">
-                                        <i class="fas fa-undo"></i>
-                                        <span>Devolver Todo</span>
-                                    </button>
-                                </form>
-                                
                                 <button
                                     type="button"
                                     class="btn-return partial"
@@ -1844,32 +1832,6 @@
         }
     }
     
-    // Confirmación personalizada para devolución total
-    function confirmDevolucionTotal() {
-        if (!facturaActual) return false;
-        
-        const bebidas = facturaActual.items.filter(item => 
-            item.categoria && item.categoria.toLowerCase() === 'bebida'
-        );
-        
-        let mensaje = '¿Estás seguro de devolver TODOS los productos de esta factura?\n\n';
-        
-        if (bebidas.length > 0) {
-            mensaje += `Se repondrá el stock de ${bebidas.length} producto(s) bebida:\n`;
-            bebidas.forEach((bebida, index) => {
-                mensaje += `  • ${bebida.nombre} (${bebida.cantidad} unidad(es))\n`;
-            });
-        } else {
-            mensaje += 'No hay productos bebida para reponer stock.\n';
-        }
-        
-        const totalDevolucion = facturaActual.items.reduce((sum, item) =>
-            sum + (item.cantidad * item.precio), 0);
-        mensaje += `\nMonto total a devolver: ${formatCurrency(totalDevolucion)}`;
-        
-        return confirm(mensaje);
-    }
-    
     // Cargar historial de devoluciones
     function cargarHistorialDevoluciones() {
         if (!facturaActual || !facturaActual.productosDevueltos) {
@@ -2163,6 +2125,7 @@
                 <label class="product-item">
                     <input type="checkbox" class="product-checkbox" 
                            data-index="${index}"
+                              data-producto-id="${item.producto_id || ''}"
                            data-nombre="${productoNombre}" 
                            data-codigo="${codigoProducto}"
                            data-price="${item.precio || 0}" 
@@ -2314,6 +2277,7 @@
             }
             
             productosSeleccionados.push({
+                producto_id: checkbox.dataset.productoId || null,
                 nombre: checkbox.dataset.nombre,
                 codigo: checkbox.dataset.codigo || '',
                 cantidad: cantidad,
@@ -2357,6 +2321,7 @@
             const cantidad = parseInt(document.querySelector(`.product-qty-${index}`).value) || 1;
             
             productos.push({
+                producto_id: checkbox.dataset.productoId || null,
                 nombre: checkbox.dataset.nombre,
                 codigo: checkbox.dataset.codigo || '',
                 cantidad: cantidad,

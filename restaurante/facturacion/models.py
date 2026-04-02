@@ -593,6 +593,16 @@ class Factura(models.Model):
         self.estado = nuevo_estado
         self.save(update_fields=['estado'])
 
+    def get_total_devuelto(self):
+        total = self.devoluciones.aggregate(
+            total=models.Sum('monto_devuelto')
+        )['total'] or Decimal('0.00')
+        return total
+
+    def get_total_neto(self):
+        neto = Decimal(str(self.total or 0)) - self.get_total_devuelto()
+        return neto if neto > Decimal('0.00') else Decimal('0.00')
+
     # ── FASE 6: marcar_como_pagada con transaction ─────────────────────────────
     def marcar_como_pagada(self):
         """Marca la factura como pagada y actualiza el estado del pedido."""
@@ -704,11 +714,13 @@ class Factura(models.Model):
                 producto_id = item.get('producto_id') or item.get('product_id') or item.get('id')
                 codigo = item.get('codigo') or item.get('code') or ''
 
-                if enrich_from_db and (not codigo or categoria == 'otro'):
+                if enrich_from_db and (not codigo or categoria == 'otro' or not producto_id):
                     producto_db = None
                     plato_db = None
                     if producto_id:
                         producto_db = Producto.objects.filter(id=producto_id).first()
+                    if not producto_db and codigo:
+                        producto_db = Producto.objects.filter(codigo__iexact=str(codigo).strip()).first()
                     if not producto_db and nombre:
                         producto_db = Producto.objects.filter(nombre__iexact=nombre.strip()).first()
                     if not producto_db and nombre:
@@ -716,16 +728,22 @@ class Factura(models.Model):
                     if not producto_db:
                         if producto_id:
                             plato_db = Plato.objects.filter(id=producto_id).first()
+                        if not plato_db and codigo:
+                            plato_db = Plato.objects.filter(codigo__iexact=str(codigo).strip()).first()
                         if not plato_db and nombre:
                             plato_db = Plato.objects.filter(nombre__iexact=nombre.strip()).first()
                         if not plato_db and nombre:
                             plato_db = Plato.objects.filter(nombre__icontains=nombre.strip()).first()
                     if producto_db:
+                        if not producto_id:
+                            producto_id = producto_db.id
                         if not codigo:
                             codigo = producto_db.codigo
                         if categoria == 'otro':
                             categoria = producto_db.categoria.lower()
                     elif plato_db:
+                        if not producto_id:
+                            producto_id = plato_db.id
                         if not codigo:
                             codigo = plato_db.codigo
                         if categoria == 'otro':

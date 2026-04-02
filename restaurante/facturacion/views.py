@@ -7080,106 +7080,8 @@ def buscar_item_por_nombre(items, nombre_buscar):
 
 @login_required
 def procesar_devolucion_total(request):
-    """Procesar devolución total de una factura"""
-    if request.method == 'POST':
-        numero_factura = request.POST.get('numero_factura')
-
-        if not numero_factura:
-            messages.error(request, 'Número de factura requerido')
-            return redirect('anulacionydevolucion')
-
-        try:
-            factura = get_object_or_404(Factura, numero_factura=numero_factura)
-
-            if factura.estado not in ['pagada', 'pendiente', 'parcialmente_devuelta']:
-                messages.error(
-                    request,
-                    f'La factura debe estar pagada, pendiente o parcialmente devuelta para procesar devolución. Estado actual: {factura.get_estado_display()}'
-                )
-                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
-
-            with transaction.atomic():
-                # Si hubo devoluciones previas, solo devolver lo pendiente.
-                items = factura.get_productos_disponibles_devolucion()
-                if not items:
-                    messages.warning(request, 'No hay productos pendientes por devolver en esta factura.')
-                    return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
-                productos_devueltos = []
-                monto_total_devuelto = 0
-                bebidas_repuestas = 0
-
-                print(f"\n🔄 PROCESANDO DEVOLUCIÓN TOTAL")
-
-                for item in items:
-                    codigo = item.get('codigo', '')
-                    nombre = item.get('nombre', '')
-                    cantidad = item.get('cantidad', 0)
-                    precio = item.get('precio', 0)
-                    categoria = item.get('categoria', '')
-
-                    print(f"\n📦 Procesando item: {nombre}")
-                    print(f"   Código: '{codigo}'")
-                    print(f"   Categoría: '{categoria}'")
-                    print(f"   Cantidad: {cantidad}")
-
-                    # REPONER stock para bebidas
-                    if categoria.lower() == 'bebida':
-                        # Usar código si está disponible, sino usar nombre
-                        identificador = codigo if codigo and codigo.strip() else nombre
-                        print(
-                            f"   🍺 ES BEBIDA - Reponiendo stock con identificador: '{identificador}'")
-
-                        if reponer_stock_producto(identificador, cantidad):
-                            bebidas_repuestas += 1
-                            print(f"   ✅ Stock repuesto exitosamente")
-                        else:
-                            print(f"   ⚠️  No se pudo reponer stock")
-                    else:
-                        print(f"   ℹ️  No es bebida - no se repone stock")
-
-                    monto_total_devuelto += precio * cantidad
-                    productos_devueltos.append({
-                        'producto_id': item.get('producto_id'),
-                        'codigo': codigo,
-                        'nombre': nombre,
-                        'cantidad': cantidad,
-                        'precio_unitario': precio,
-                        'subtotal': precio * cantidad,
-                        'categoria': categoria
-                    })
-
-                # Crear registro de devolución
-                Devolucion.objects.create(
-                    factura=factura,
-                    tipo_devolucion='total',
-                    productos_devueltos=productos_devueltos,
-                    monto_devuelto=monto_total_devuelto,
-                    motivo='Devolución total procesada desde el sistema',
-                    procesado_por=request.user
-                )
-
-                factura.estado = 'totalmente_devuelta'
-                factura.fecha_devolucion = timezone.now()
-                factura.save()
-
-                print(f"\n✅ DEVOLUCIÓN TOTAL COMPLETADA")
-                print(f"   Bebidas repuestas: {bebidas_repuestas}")
-                print(f"   Monto devuelto: ${monto_total_devuelto:.2f}")
-
-                messages.success(
-                    request,
-                    f'✅ Devolución total procesada. Monto: ${monto_total_devuelto:.2f}. Bebidas repuestas: {bebidas_repuestas}'
-                )
-
-                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
-
-        except Exception as e:
-            messages.error(
-                request, f'❌ Error al procesar devolución: {str(e)}')
-            import traceback
-            traceback.print_exc()
-            return redirect('anulacionydevolucion')
-
+    """Funcionalidad deshabilitada: la devolución total fue eliminada."""
+    messages.warning(request, 'La opción de devolución total fue eliminada. Usa devolución parcial o anulación de factura.')
     return redirect('anulacionydevolucion')
 
 # ============================================================
@@ -7228,12 +7130,26 @@ def procesar_devolucion_parcial(request):
 
                 for producto_data in productos_devueltos:
                     producto_nombre = producto_data.get('nombre', '')
+                    producto_id = producto_data.get('producto_id')
+                    producto_codigo = str(producto_data.get('codigo', '')).strip()
                     cantidad_devolver = float(producto_data.get('cantidad', 0))
                     categoria = producto_data.get('categoria', '')
 
-                    # Buscar en items de factura
-                    item_factura = buscar_item_por_nombre(
-                        items_factura, producto_nombre)
+                    # Buscar en items de factura priorizando id/codigo para evitar ambiguedad por nombre.
+                    item_factura = None
+                    if producto_id not in (None, '', 'null'):
+                        item_factura = next(
+                            (item for item in items_factura if str(item.get('producto_id', '')) == str(producto_id)),
+                            None
+                        )
+                    if not item_factura and producto_codigo:
+                        item_factura = next(
+                            (item for item in items_factura if str(item.get('codigo', '')).strip().lower() == producto_codigo.lower()),
+                            None
+                        )
+                    if not item_factura:
+                        item_factura = buscar_item_por_nombre(items_factura, producto_nombre)
+
                     if not item_factura:
                         messages.error(
                             request, f'Producto {producto_nombre} no encontrado')
@@ -7255,6 +7171,17 @@ def procesar_devolucion_parcial(request):
                     precio = Decimal(str(item_factura.get('precio', 0)))
                     subtotal = precio * Decimal(str(cantidad_devolver))
                     codigo = item_factura.get('codigo', '')
+                    producto_id_resuelto = item_factura.get('producto_id')
+
+                    if not producto_id_resuelto:
+                        if codigo:
+                            producto_match = Producto.objects.filter(codigo__iexact=str(codigo).strip()).first()
+                            if producto_match:
+                                producto_id_resuelto = producto_match.id
+                        if not producto_id_resuelto and producto_nombre:
+                            producto_match = Producto.objects.filter(nombre__iexact=str(producto_nombre).strip()).first()
+                            if producto_match:
+                                producto_id_resuelto = producto_match.id
 
                     print(f"\n📦 {producto_nombre}")
                     print(
@@ -7274,10 +7201,11 @@ def procesar_devolucion_parcial(request):
 
                     monto_total_devuelto += subtotal
                     productos_procesados.append({
-                        'producto_id': item_factura.get('producto_id'),
+                        'producto_id': producto_id_resuelto,
                         'codigo': codigo,
                         'nombre': producto_nombre,
                         'cantidad': cantidad_devolver,
+                        'precio': float(precio),
                         'precio_unitario': float(precio),
                         'subtotal': float(subtotal),
                         'categoria': categoria
@@ -8238,7 +8166,11 @@ def _calcular_saldo_credito_cliente(cliente, facturas_pendientes=None):
         saldo += _saldo_factura_pendiente(factura)
 
     if facturas_pendientes is None:
-        facturas_pendientes = list(Factura.objects.filter(estado='pendiente').prefetch_related('pagos_cxc'))
+        facturas_pendientes = list(
+            Factura.objects.filter(
+                estado__in=['pendiente', 'parcialmente_devuelta']
+            ).prefetch_related('pagos_cxc', 'devoluciones')
+        )
 
     for factura in facturas_pendientes:
         if factura.id in facturas_contabilizadas:
@@ -8252,11 +8184,14 @@ def _calcular_saldo_credito_cliente(cliente, facturas_pendientes=None):
 
 def _saldo_factura_pendiente(factura):
     # Calcular desde DB para evitar datos stale cuando hay prefetch de pagos.
+    if factura.estado in ['anulada', 'totalmente_devuelta']:
+        return Decimal('0.00')
+
     total_pagado = PagoCuentaCobrar.objects.filter(
         factura=factura
     ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    total_factura = Decimal(str(factura.total or 0))
-    saldo = total_factura - total_pagado
+    total_neto = factura.get_total_neto() if hasattr(factura, 'get_total_neto') else Decimal(str(factura.total or 0))
+    saldo = total_neto - total_pagado
     return saldo if saldo > 0 else Decimal('0.00')
 
 
@@ -8275,7 +8210,7 @@ def _calcular_fechas_cxc(factura, cliente_match=None):
 
 def _sincronizar_cuenta_por_cobrar(factura, cliente_match=None):
     fecha_emision, fecha_vencimiento = _calcular_fechas_cxc(factura, cliente_match)
-    total_factura = Decimal(str(factura.total or 0))
+    total_factura = factura.get_total_neto() if hasattr(factura, 'get_total_neto') else Decimal(str(factura.total or 0))
 
     defaults = {
         'cliente': cliente_match,
@@ -8288,14 +8223,12 @@ def _sincronizar_cuenta_por_cobrar(factura, cliente_match=None):
     }
     cuenta, created = CuentaPorCobrar.objects.get_or_create(factura=factura, defaults=defaults)
 
-    total_pagado = PagoCuentaCobrar.objects.filter(
-        factura=factura
-    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    saldo = total_factura - total_pagado
-    saldo = saldo if saldo > 0 else Decimal('0.00')
+    saldo = _saldo_factura_pendiente(factura)
 
     hoy = timezone.localdate()
-    if saldo <= 0:
+    if factura.estado == 'anulada':
+        estado = 'anulada'
+    elif saldo <= 0:
         estado = 'pagada'
     elif saldo < total_factura:
         estado = 'vencida' if cuenta.fecha_vencimiento < hoy else 'parcial'
@@ -8353,8 +8286,10 @@ def _armar_clientes_cuentas_por_cobrar():
         if nombre_key and nombre_key not in cliente_por_nombre:
             cliente_por_nombre[nombre_key] = cliente
 
-    # Asegura que las facturas pendientes tengan su registro CxC sincronizado.
-    for factura in Factura.objects.filter(estado='pendiente').prefetch_related('pagos_cxc'):
+    # Asegura sincronización de facturas con deuda activa y devoluciones parciales.
+    for factura in Factura.objects.filter(
+        estado__in=['pendiente', 'parcialmente_devuelta']
+    ).prefetch_related('pagos_cxc', 'devoluciones'):
         nombre_factura = (factura.nombre_cliente or '').strip()
         telefono_factura = _telefono_solo_digitos(factura.telefono_cliente)
 
@@ -8367,12 +8302,15 @@ def _armar_clientes_cuentas_por_cobrar():
         _sincronizar_cuenta_por_cobrar(factura, cliente_match)
 
     # Para la tabla: todas las cuentas
-    cuentas = CuentaPorCobrar.objects.select_related('factura', 'cliente').prefetch_related('factura__pagos_cxc').order_by('fecha_emision', 'id')
+    cuentas = CuentaPorCobrar.objects.select_related('factura', 'cliente').prefetch_related(
+        'factura__pagos_cxc',
+        'factura__devoluciones',
+    ).order_by('fecha_emision', 'id')
 
     agrupados = {}
     for cuenta in cuentas:
         factura = cuenta.factura
-        saldo = cuenta.saldo_pendiente or Decimal('0.00')
+        saldo = _saldo_factura_pendiente(factura)
 
         nombre_factura = (factura.nombre_cliente or '').strip()
         telefono_factura = _telefono_solo_digitos(factura.telefono_cliente)
@@ -8543,9 +8481,9 @@ def _armar_clientes_cuentas_por_cobrar():
 def cuentaporcobrar_datos(request):
     """Retorna datos reales para la tabla de cuentas por cobrar."""
     clientes = _armar_clientes_cuentas_por_cobrar()
-    # Card: solo pendientes y parciales
-    facturas_pendientes = CuentaPorCobrar.objects.filter(estado__in=['pendiente', 'parcial']).count()
-    clientes_con_deuda = CuentaPorCobrar.objects.filter(estado__in=['pendiente', 'parcial']).values('cliente_id').distinct().count()
+    cuentas_con_deuda = CuentaPorCobrar.objects.filter(saldo_pendiente__gt=0).exclude(estado='anulada')
+    facturas_pendientes = cuentas_con_deuda.count()
+    clientes_con_deuda = cuentas_con_deuda.values('cliente_id').distinct().count()
     return JsonResponse({'success': True, 'clientes': clientes, 'facturas_pendientes': facturas_pendientes, 'clientes_con_deuda': clientes_con_deuda})
 
 
