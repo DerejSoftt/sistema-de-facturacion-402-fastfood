@@ -2067,6 +2067,22 @@
             // Generar HTML de facturas
             const facturasHTML = cliente.facturas.map(factura => {
                 const claseVencida = factura.vencida ? 'vencida' : '';
+                const estadoFactura = String(factura.estado_factura || '').toLowerCase();
+                const estadoFacturaTexto =
+                    estadoFactura === 'anulada' ? 'ANULADA' :
+                    estadoFactura === 'parcialmente_devuelta' ? 'DEVUELTA PARCIAL' :
+                    estadoFactura === 'totalmente_devuelta' ? 'DEVUELTA TOTAL' :
+                    estadoFactura === 'pagada' ? 'PAGADA' :
+                    estadoFactura === 'pendiente' ? 'PENDIENTE' : 'PENDIENTE';
+
+                const estadoFacturaBadge =
+                    estadoFactura === 'anulada'
+                        ? '<span class="deuda-badge deuda-alta" style="padding:0.25rem 0.6rem; font-size:0.75rem; margin-top:0.25rem;"><i class="fas fa-ban"></i> ANULADA</span>'
+                        : estadoFactura === 'parcialmente_devuelta'
+                            ? '<span class="deuda-badge deuda-media" style="padding:0.25rem 0.6rem; font-size:0.75rem; margin-top:0.25rem;"><i class="fas fa-box-open"></i> DEVUELTA PARCIAL</span>'
+                            : estadoFactura === 'totalmente_devuelta'
+                                ? '<span class="deuda-badge deuda-baja" style="padding:0.25rem 0.6rem; font-size:0.75rem; margin-top:0.25rem;"><i class="fas fa-undo-alt"></i> DEVUELTA TOTAL</span>'
+                                : '';
                 const diasTexto = factura.dias_vencimiento > 0 ?
                     `Vence en ${factura.dias_vencimiento} días` :
                     factura.dias_vencimiento === 0 ?
@@ -2081,6 +2097,7 @@
                             <div style="font-size: 0.9rem; color: #718096;">
                                 Fecha: ${formatDate(factura.fecha_emision)} | Vence: ${formatDate(factura.fecha_vencimiento)}
                             </div>
+                            ${estadoFacturaBadge}
                             <div class="dias-vencimiento ${factura.vencida ? 'vencido' : ''}">
                                 <i class="fas ${factura.vencida ? 'fa-exclamation-triangle' : 'fa-calendar-alt'}"></i>
                                 ${diasTexto}
@@ -2263,21 +2280,40 @@
             const factura = cliente.facturas.find(f => f.id === facturaId);
             const saldoPendiente = parseFloat(factura.saldo_pendiente || 0);
             const estadoCuenta = String(factura.estado_cuenta || '').toLowerCase();
+            const estadoFactura = String(factura.estado_factura || '').toLowerCase();
             const numeroFacturaActual = String(factura.numero || '').trim().toLowerCase();
             const cantidadPagosFactura = (cliente.historial_pagos || []).filter(pago =>
                 String(pago.numero_factura || '').trim().toLowerCase() === numeroFacturaActual
             ).length;
 
-            const estaPagada = saldoPendiente <= 0 || estadoCuenta === 'pagada';
-            const estaVencida = !estaPagada && (estadoCuenta === 'vencida' || factura.vencida);
-            const estaParcial = !estaPagada && estadoCuenta === 'parcial';
+            const estaAnulada = estadoFactura === 'anulada';
+            const estaDevueltaParcial = estadoFactura === 'parcialmente_devuelta';
+            const estaDevueltaTotal = estadoFactura === 'totalmente_devuelta';
+            const estaPagada = !estaAnulada && !estaDevueltaParcial && !estaDevueltaTotal && (saldoPendiente <= 0 || estadoCuenta === 'pagada');
+            const estaVencida = !estaPagada && !estaAnulada && !estaDevueltaParcial && !estaDevueltaTotal && (estadoCuenta === 'vencida' || factura.vencida);
+            const estaParcial = !estaPagada && !estaAnulada && !estaDevueltaParcial && !estaDevueltaTotal && estadoCuenta === 'parcial';
 
             let estadoLabel = 'PENDIENTE';
             let estadoBadgeHtml = '<span class="deuda-badge deuda-media"><i class="fas fa-clock"></i> PENDIENTE</span>';
             let estadoColor = '#b7791f';
             let colorSaldoPendiente = '#ff7e5f';
 
-            if (estaPagada) {
+            if (estaAnulada) {
+                estadoLabel = 'ANULADA';
+                estadoBadgeHtml = '<span class="deuda-badge deuda-alta"><i class="fas fa-ban"></i> ANULADA</span>';
+                estadoColor = '#c53030';
+                colorSaldoPendiente = '#c53030';
+            } else if (estaDevueltaParcial) {
+                estadoLabel = 'DEVUELTA PARCIAL';
+                estadoBadgeHtml = '<span class="deuda-badge deuda-media"><i class="fas fa-box-open"></i> DEVUELTA PARCIAL</span>';
+                estadoColor = '#d69e2e';
+                colorSaldoPendiente = '#d69e2e';
+            } else if (estaDevueltaTotal) {
+                estadoLabel = 'DEVUELTA TOTAL';
+                estadoBadgeHtml = '<span class="deuda-badge deuda-baja"><i class="fas fa-undo-alt"></i> DEVUELTA TOTAL</span>';
+                estadoColor = '#2f855a';
+                colorSaldoPendiente = '#2f855a';
+            } else if (estaPagada) {
                 estadoLabel = 'PAGADA';
                 estadoBadgeHtml = '<span class="deuda-badge deuda-baja"><i class="fas fa-check-circle"></i> PAGADA</span>';
                 estadoColor = '#38a169';
@@ -2291,6 +2327,40 @@
                 estadoBadgeHtml = '<span class="deuda-badge deuda-media"><i class="fas fa-hourglass-half"></i> PARCIAL</span>';
                 estadoColor = '#d69e2e';
             }
+
+            const productosOriginales = Array.isArray(factura.productos_originales) ? factura.productos_originales : [];
+            const productosDevueltos = Array.isArray(factura.productos_devueltos) ? factura.productos_devueltos : [];
+
+            const productosOriginalesHtml = productosOriginales.length
+                ? productosOriginales.map((item) => `
+                    <div style="display:flex; justify-content:space-between; gap:1rem; padding:0.45rem 0; border-bottom:1px dashed #d8def5;">
+                        <div>
+                            <div style="font-weight:700; color:#2d3748;">${item.nombre || 'Producto'}</div>
+                            <div style="font-size:0.82rem; color:#718096;">
+                                ${item.codigo ? `Codigo: ${item.codigo} | ` : ''}${item.categoria ? `Categoria: ${item.categoria}` : ''}
+                            </div>
+                        </div>
+                        <div style="text-align:right; min-width:190px;">
+                            <div style="font-size:0.9rem; color:#4a5568;">Cant: ${formatCurrency(item.cantidad || 0)}</div>
+                            <div style="font-size:0.86rem; color:#718096;">PU: RD$${formatCurrency(item.precio_unitario || 0)}</div>
+                            <div style="font-size:0.95rem; font-weight:700; color:#2c3e50;">Sub: RD$${formatCurrency(item.subtotal || 0)}</div>
+                        </div>
+                    </div>
+                `).join('')
+                : '<div style="color:#718096;">No hay productos originales registrados en la factura.</div>';
+
+            const productosDevueltosHtml = productosDevueltos.length
+                ? productosDevueltos.map((item) => `
+                    <div style="display:flex; justify-content:space-between; gap:1rem; padding:0.45rem 0; border-bottom:1px dashed #f8c8c8;">
+                        <div style="font-weight:700; color:#9b2c2c;">${item.nombre || 'Producto'}</div>
+                        <div style="text-align:right; min-width:190px;">
+                            <div style="font-size:0.9rem; color:#4a5568;">Cant devuelta: ${formatCurrency(item.cantidad || 0)}</div>
+                            <div style="font-size:0.86rem; color:#718096;">PU: RD$${formatCurrency(item.precio_unitario || 0)}</div>
+                            <div style="font-size:0.95rem; font-weight:700; color:#c53030;">Sub devuelto: RD$${formatCurrency(item.subtotal || 0)}</div>
+                        </div>
+                    </div>
+                `).join('')
+                : '<div style="color:#718096;">No hay productos devueltos para esta factura.</div>';
 
             const modalBody = document.getElementById('cuentasModalBody');
 
@@ -2318,6 +2388,9 @@
                                 </div>
                                 <div style="margin-bottom: 0.5rem; color: ${estadoColor}; font-weight: 600;">
                                     <strong>Estado:</strong> ${estadoLabel}
+                                </div>
+                                <div style="margin-bottom: 0.5rem; color: #4a5568; font-weight: 600;">
+                                    <strong>Estado de Cobro:</strong> ${String(estadoCuenta || 'pendiente').toUpperCase()}
                                 </div>
                                 ${factura.dias_vencimiento !== undefined ? `
                                     <div style="margin-bottom: 0.5rem;">
@@ -2376,16 +2449,33 @@
                             ` : ''}
                         </div>
                     </div>
+
+                    <div style="margin-bottom: 1.25rem;">
+                        <h4 style="color: #2c3e50; margin-bottom: 0.7rem;"><i class="fas fa-box"></i> Productos Originales</h4>
+                        <div style="background:#f8f9ff; padding:1rem; border-radius:10px; border:1px solid #d8def5;">
+                            <div style="font-size:0.82rem; color:#4a5568; font-weight:700; margin-bottom:0.6rem;">
+                                Solo lectura: los productos originales no se pueden modificar.
+                            </div>
+                            ${productosOriginalesHtml}
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 2rem;">
+                        <h4 style="color: #9b2c2c; margin-bottom: 0.7rem;"><i class="fas fa-undo-alt"></i> Productos Devueltos</h4>
+                        <div style="background:#fff5f5; padding:1rem; border-radius:10px; border:1px solid #feb2b2;">
+                            ${productosDevueltosHtml}
+                        </div>
+                    </div>
                     
                     <div style="display: flex; gap: 1rem; justify-content: flex-end;">
                         <button class="btn btn-warning" onclick="verDetallesCliente(${cliente.id})">
                             <span><i class="fas fa-arrow-left"></i></span>
                             <span>Volver al Cliente</span>
                         </button>
-                        ${estaPagada ?
+                        ${(estaPagada || estaAnulada || estaDevueltaTotal) ?
                 `<button class="btn btn-success" type="button" disabled style="opacity:0.9; cursor:not-allowed;">
                             <span><i class="fas fa-check-circle"></i></span>
-                            <span>Factura Pagada</span>
+                            <span>${estaAnulada ? 'Factura Anulada' : (estaDevueltaTotal ? 'Factura Devuelta Total' : 'Factura Pagada')}</span>
                         </button>` :
                 `<button class="btn btn-primary" onclick="registrarPagoFactura(${factura.id})">
                             <span><i class="fas fa-money-bill-wave"></i></span>

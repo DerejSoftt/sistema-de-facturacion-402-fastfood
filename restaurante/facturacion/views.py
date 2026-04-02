@@ -8410,6 +8410,67 @@ def _armar_clientes_cuentas_por_cobrar():
         fecha_vencimiento = cuenta.fecha_vencimiento
         dias_vencimiento = (fecha_vencimiento - hoy_local).days
 
+        productos_originales = []
+        for item in factura.get_items_detalle():
+            cantidad_item = Decimal(str(item.get('cantidad', 0)))
+            precio_item = Decimal(str(item.get('precio', 0)))
+            subtotal_item = Decimal(str(item.get('subtotal', cantidad_item * precio_item)))
+            productos_originales.append({
+                'nombre': item.get('nombre', 'Producto'),
+                'codigo': item.get('codigo', ''),
+                'categoria': item.get('categoria', ''),
+                'cantidad': float(cantidad_item),
+                'precio_unitario': float(precio_item),
+                'subtotal': float(subtotal_item),
+            })
+
+        productos_devueltos_map = {}
+        for devolucion in factura.devoluciones.prefetch_related('detalles'):
+            detalles = list(devolucion.detalles.all())
+            if detalles:
+                for detalle in detalles:
+                    nombre = (detalle.nombre_producto or '').strip() or 'Producto'
+                    key = nombre.lower()
+                    cantidad = Decimal(str(detalle.cantidad or 0))
+                    precio = Decimal(str(detalle.precio_unitario or 0))
+                    subtotal = Decimal(str(detalle.monto or (cantidad * precio)))
+                    if key not in productos_devueltos_map:
+                        productos_devueltos_map[key] = {
+                            'nombre': nombre,
+                            'cantidad': Decimal('0.00'),
+                            'precio_unitario': precio,
+                            'subtotal': Decimal('0.00'),
+                        }
+                    productos_devueltos_map[key]['cantidad'] += cantidad
+                    productos_devueltos_map[key]['subtotal'] += subtotal
+                continue
+
+            for item in (devolucion.productos_devueltos or []):
+                nombre = str(item.get('nombre') or '').strip() or 'Producto'
+                key = nombre.lower()
+                cantidad = Decimal(str(item.get('cantidad', 0)))
+                precio = Decimal(str(item.get('precio_unitario', item.get('precio', 0))))
+                subtotal = Decimal(str(item.get('subtotal', cantidad * precio)))
+                if key not in productos_devueltos_map:
+                    productos_devueltos_map[key] = {
+                        'nombre': nombre,
+                        'cantidad': Decimal('0.00'),
+                        'precio_unitario': precio,
+                        'subtotal': Decimal('0.00'),
+                    }
+                productos_devueltos_map[key]['cantidad'] += cantidad
+                productos_devueltos_map[key]['subtotal'] += subtotal
+
+        productos_devueltos = [
+            {
+                'nombre': data['nombre'],
+                'cantidad': float(data['cantidad']),
+                'precio_unitario': float(data['precio_unitario']),
+                'subtotal': float(data['subtotal']),
+            }
+            for data in productos_devueltos_map.values()
+        ]
+
         agrupados[group_key]['facturas'].append({
             'id': factura.id,
             'numero': factura.numero_factura,
@@ -8420,9 +8481,12 @@ def _armar_clientes_cuentas_por_cobrar():
             'monto_total': float(factura.total or Decimal('0.00')),
             'saldo_pendiente': float(saldo),
             'estado_cuenta': cuenta.estado,
+            'estado_factura': factura.estado,
             'concepto': factura.notas or f"Factura {factura.numero_factura}",
             'descripcion': factura.notas or '',
             'notas': factura.notas or '',
+            'productos_originales': productos_originales,
+            'productos_devueltos': productos_devueltos,
         })
 
         for pago in factura.pagos_cxc.all():
