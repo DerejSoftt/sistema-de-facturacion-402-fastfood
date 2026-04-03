@@ -3415,14 +3415,14 @@ body {
                     adjustTicketForCurrentPage();
                     */
 
-                    // Nuevo flujo: solo confirmar pedido y redirigir a gestión.
-                    // El pedido queda disponible para gestión y facturación.
+                    // Nuevo flujo: confirmar pedido y recargar página
+                    // El carrito se limpia después de confirmar
                     localStorage.removeItem('restaurantCart');
                     cart = [];
-
-                    showNotification('<i class="fas fa-check-circle"></i> Pedido confirmado. Enviando a gestión...', 'success');
+                    
+                    showNotification('<i class="fas fa-check-circle"></i> ¡Pedido confirmado!', 'success');
                     setTimeout(() => {
-                        window.location.href = "{% url 'gestiondepedidos' %}";
+                        window.location.reload();
                     }, 350);
                 })
                 .catch(error => {
