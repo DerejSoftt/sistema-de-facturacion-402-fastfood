@@ -137,35 +137,15 @@
         <div class="info-row">
             <span>TIPO:</span>
             <span>
-                {% if factura.tipo_pedido == 'mesa' %}
-                    MESA
-                {% elif factura.tipo_pedido == 'delivery' %}
-                    DELIVERY
-                {% elif factura.tipo_pedido == 'llevar' %}
-                    PARA LLEVAR
+                {% if factura.cuenta_por_cobrar %}
+                    CRÉDITO
                 {% else %}
-                    {{ factura.tipo_pedido }}
+                    CONTADO
                 {% endif %}
             </span>
         </div>
-        {% if factura.numero_mesa_codigo %}
         <div class="info-row">
-            <span>
-                {% if factura.tipo_pedido == 'mesa' %}MESA:
-                {% elif factura.tipo_pedido == 'delivery' %}CÓDIGO:
-                {% elif factura.tipo_pedido == 'llevar' %}CÓDIGO:
-                {% else %}REF:
-                {% endif %}
-            </span>
-            <span>{{ factura.numero_mesa_codigo }}</span>
-        </div>
-        {% endif %}
-        <div class="info-row">
-            <span>ESTADO:</span>
-            <span>{{ factura.estado|upper }}</span>
-        </div>
-        <div class="info-row">
-            <span>PAGO:</span>
+            <span>MÉTODO:</span>
             <span>
                 {% if factura.metodo_pago == 'efectivo' %}EFECTIVO
                 {% elif factura.metodo_pago == 'tarjeta' %}TARJETA
@@ -174,6 +154,12 @@
                 {% endif %}
             </span>
         </div>
+        {% if factura.numero_mesa_codigo %}
+        <div class="info-row">
+            <span>PEDIDO:</span>
+            <span>{{ factura.numero_mesa_codigo }}</span>
+        </div>
+        {% endif %}
         <hr>
     </div>
     
