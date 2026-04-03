@@ -38,7 +38,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 import json
-from .models import Producto, Plato, Pedido, Mesa, DeliveryConfig, HistorialEstadoPedido, DetalleItemPedido, Factura, Devolucion, Cliente, PagoCuentaCobrar, CuentaPorCobrar,  FacturaDetalle 
+from .models import Producto, Plato, Pedido, Mesa, DeliveryConfig, HistorialEstadoPedido, DetalleItemPedido, Factura, Devolucion, DetalleDevolucion, Cliente, PagoCuentaCobrar, CuentaPorCobrar,  FacturaDetalle 
 from django.core.paginator import Paginator
 from django.db.models import Sum, Count, Q, Exists, OuterRef
 from django.db.models.functions import Coalesce
@@ -7211,8 +7211,8 @@ def procesar_devolucion_parcial(request):
                         'categoria': categoria
                     })
 
-                # Crear registro de devolución
-                Devolucion.objects.create(
+                # Crear cabecera de devolución y su detalle relacional.
+                devolucion = Devolucion.objects.create(
                     factura=factura,
                     tipo_devolucion='parcial',
                     productos_devueltos=productos_procesados,
@@ -7220,6 +7220,19 @@ def procesar_devolucion_parcial(request):
                     motivo='Devolución parcial procesada',
                     procesado_por=request.user
                 )
+
+                for producto in productos_procesados:
+                    cantidad = Decimal(str(producto.get('cantidad', 0) or 0))
+                    precio_unitario = Decimal(str(producto.get('precio_unitario', producto.get('precio', 0)) or 0))
+                    monto = Decimal(str(producto.get('subtotal', 0) or 0))
+
+                    DetalleDevolucion.objects.create(
+                        devolucion=devolucion,
+                        nombre_producto=str(producto.get('nombre') or 'Producto'),
+                        cantidad=cantidad,
+                        precio_unitario=precio_unitario,
+                        monto=monto,
+                    )
 
                 # Actualizar estado de factura
                 if factura.estado in ['pagada', 'pendiente']:
@@ -7333,8 +7346,8 @@ def procesar_anulacion_factura(request):
                     # En contado se devuelve el total de la factura
                     monto_devuelto = Decimal(str(factura.total or 0))
 
-                # Registrar devolución total por anulación para trazabilidad
-                Devolucion.objects.create(
+                # Registrar devolución total por anulación y guardar detalle por renglón.
+                devolucion = Devolucion.objects.create(
                     factura=factura,
                     tipo_devolucion='total',
                     productos_devueltos=items,
@@ -7342,6 +7355,19 @@ def procesar_anulacion_factura(request):
                     motivo=motivo or 'Anulación de factura',
                     procesado_por=request.user
                 )
+
+                for item in items:
+                    cantidad = Decimal(str(item.get('cantidad', 0) or 0))
+                    precio_unitario = Decimal(str(item.get('precio', 0) or 0))
+                    monto = cantidad * precio_unitario
+
+                    DetalleDevolucion.objects.create(
+                        devolucion=devolucion,
+                        nombre_producto=str(item.get('nombre') or 'Producto'),
+                        cantidad=cantidad,
+                        precio_unitario=precio_unitario,
+                        monto=monto,
+                    )
 
                 factura.estado = 'anulada'
                 factura.motivo_anulacion = motivo
@@ -8440,7 +8466,10 @@ def _armar_clientes_cuentas_por_cobrar():
 
     clientes_payload = []
     for idx, data in enumerate(agrupados.values(), start=1):
-        data['facturas'].sort(key=lambda x: x['fecha_emision'])
+        # Orden requerido en CxC: primero facturas con saldo pendiente, luego pagadas;
+        # dentro de cada grupo, las más nuevas arriba.
+        data['facturas'].sort(key=lambda x: x.get('fecha_emision') or '', reverse=True)
+        data['facturas'].sort(key=lambda x: float(x.get('saldo_pendiente') or 0) <= 0)
         data['historial_pagos'].sort(key=lambda x: x['fecha'], reverse=True)
 
         total_adeudado = sum(item['saldo_pendiente'] for item in data['facturas'])

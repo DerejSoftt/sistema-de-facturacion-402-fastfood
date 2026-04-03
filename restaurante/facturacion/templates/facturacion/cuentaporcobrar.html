@@ -1844,9 +1844,13 @@
                 let matchesFecha = true;
                 if (fechaDesde || fechaHasta) {
                     const clienteTieneFacturasEnRango = cliente.facturas.some(factura => {
-                        const fechaFactura = new Date(factura.fecha_emision);
+                        const fechaFactura = parseLocalDateString(factura.fecha_emision);
                         const desde = fechaDesde ? new Date(fechaDesde) : null;
                         const hasta = fechaHasta ? new Date(fechaHasta) : null;
+
+                        if (!fechaFactura) {
+                            return false;
+                        }
 
                         if (desde && hasta) {
                             return fechaFactura >= desde && fechaFactura <= hasta;
@@ -3165,6 +3169,19 @@
             return Number.isFinite(parsed) ? parsed : 0;
         }
 
+        function parseLocalDateString(dateString) {
+            const raw = String(dateString || '').trim();
+            if (!raw) return null;
+
+            const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (match) {
+                return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+            }
+
+            const date = new Date(raw);
+            return Number.isNaN(date.getTime()) ? null : date;
+        }
+
         function formatearMontoEnVivo(input, callbackFn) {
             const raw = String(input.value || '');
             const tieneValor = raw.trim() !== '';
@@ -3238,7 +3255,9 @@
         }
 
         function formatDate(dateString) {
-            const date = new Date(dateString);
+            const date = parseLocalDateString(dateString);
+            if (!date) return '';
+
             return date.toLocaleDateString('es-DO', {
                 year: 'numeric',
                 month: 'long',
