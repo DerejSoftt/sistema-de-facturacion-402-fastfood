@@ -2128,7 +2128,7 @@
                     <div class="pago-item">
                         <div class="pago-item-info">
                             <div class="pago-item-comprobante">${pago.numero_comprobante ? `Comprobante #${pago.numero_comprobante}` : (pago.referencia ? `Referencia: ${pago.referencia}` : 'Comprobante no disponible')}</div>
-                            <div class="pago-item-meta">${formatDate(pago.fecha)} | ${pago.metodo}</div>
+                            <div class="pago-item-meta">${formatDominicanDateTime(pago.fecha)} | ${pago.metodo}</div>
                             <div class="pago-item-factura">${pago.numero_factura ? `Factura #${pago.numero_factura}` : 'Factura no disponible'}</div>
                         </div>
                         <div class="pago-item-monto">
@@ -2562,7 +2562,7 @@
 
                         <div class="form-group">
                             <label for="fechaPago"><i class="fas fa-calendar"></i> Fecha de Pago *</label>
-                            <input type="date" id="fechaPago" value="${new Date().toISOString().split('T')[0]}">
+                            <input type="date" id="fechaPago" value="${getDominicanDateInputValue()}">
                         </div>
 
                         <div class="form-group form-span-2">
@@ -2678,7 +2678,7 @@
 
                         <div class="form-group">
                             <label for="fechaPago"><i class="fas fa-calendar"></i> Fecha de Pago *</label>
-                            <input type="date" id="fechaPago" value="${new Date().toISOString().split('T')[0]}">
+                            <input type="date" id="fechaPago" value="${getDominicanDateInputValue()}">
                         </div>
 
                         <div class="form-group form-span-2">
@@ -3180,6 +3180,45 @@
 
             const date = new Date(raw);
             return Number.isNaN(date.getTime()) ? null : date;
+        }
+
+        function getDominicanDateInputValue() {
+            const formatter = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'America/Santo_Domingo',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+            const parts = formatter.formatToParts(new Date());
+            const dateParts = {};
+
+            parts.forEach(part => {
+                if (part.type !== 'literal') {
+                    dateParts[part.type] = part.value;
+                }
+            });
+
+            return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+        }
+
+        function formatDominicanDateTime(dateString) {
+            const raw = String(dateString || '').trim();
+            if (!raw) return '';
+
+            const date = new Date(raw);
+            if (Number.isNaN(date.getTime())) {
+                return '';
+            }
+
+            return new Intl.DateTimeFormat('es-DO', {
+                timeZone: 'America/Santo_Domingo',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+            }).format(date);
         }
 
         function formatearMontoEnVivo(input, callbackFn) {

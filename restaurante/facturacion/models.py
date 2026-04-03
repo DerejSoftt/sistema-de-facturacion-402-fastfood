@@ -1,3 +1,4 @@
+
 # =============================================================================
 # models.py — 402 FastFood
 # Versión consolidada con todas las mejoras de seguridad e integridad
@@ -602,6 +603,38 @@ class Factura(models.Model):
     def get_total_neto(self):
         neto = Decimal(str(self.total or 0)) - self.get_total_devuelto()
         return neto if neto > Decimal('0.00') else Decimal('0.00')
+
+    # ── Cálculo de pagos recibidos ─────────────────────────────────────────────
+    def get_total_pagado(self):
+        """
+        Retorna el total efectivamente cobrado al cliente para esta factura.
+        - Facturas de crédito: suma los PagoCuentaCobrar registrados.
+        - Facturas de contado pagadas: el total completo ya fue cobrado.
+        - Facturas pendientes sin pagos CxC: no se ha cobrado nada.
+        """
+        total_cxc = self.pagos_cxc.aggregate(
+            total=models.Sum('monto')
+        )['total'] or Decimal('0.00')
+
+        if total_cxc > Decimal('0.00'):
+            return total_cxc
+
+        if self.estado == 'pagada':
+            return Decimal(str(self.total or 0))
+
+        return Decimal('0.00')
+
+    def get_monto_maximo_devolucion(self):
+        """
+        Regla de negocio: solo se puede devolver hasta lo que el cliente ha
+        pagado, descontando lo ya devuelto en devoluciones anteriores.
+        Fórmula: min(pagado, devolución_solicitada) aplicada en la view.
+        Este método devuelve el tope disponible.
+        """
+        total_pagado  = self.get_total_pagado()
+        ya_devuelto   = self.get_total_devuelto()
+        disponible    = total_pagado - ya_devuelto
+        return max(disponible, Decimal('0.00'))
 
     # ── FASE 6: marcar_como_pagada con transaction ─────────────────────────────
     def marcar_como_pagada(self):

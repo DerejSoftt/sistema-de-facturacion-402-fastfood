@@ -7211,6 +7211,47 @@ def procesar_devolucion_parcial(request):
                         'categoria': categoria
                     })
 
+                # ── Detectar si la factura es de crédito ──────────────────────
+                notas_pedido = (factura.pedido.notas or '') if factura.pedido else ''
+                es_credito = (
+                    ('TIPO_PAGO_PEDIDO=credito' in notas_pedido)
+                    or hasattr(factura, 'cuenta_por_cobrar')
+                    or factura.pagos_cxc.exists()
+                )
+
+                # ── REGLA: min(pagado, devolución) — SOLO para contado ────────
+                # En CRÉDITO: la devolución reduce la deuda del cliente.
+                #   No importa cuánto ha pagado — puede devolver libremente.
+                #   El saldo de CuentaPorCobrar se ajusta más abajo.
+                # En CONTADO: el negocio ya cobró. Solo se puede devolver
+                #   dinero hasta lo efectivamente recibido.
+                if not es_credito:
+                    total_pagado = factura.get_total_pagado()
+                    ya_devuelto  = factura.get_total_devuelto()
+                    monto_maximo = max(total_pagado - ya_devuelto, Decimal('0.00'))
+
+                    if monto_maximo <= Decimal('0.00'):
+                        messages.error(
+                            request,
+                            '❌ No hay monto disponible para devolver en efectivo. '
+                            'El total ya fue devuelto en operaciones anteriores.'
+                        )
+                        return redirect(
+                            f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}'
+                        )
+
+                    if monto_total_devuelto > monto_maximo:
+                        messages.warning(
+                            request,
+                            f'⚠️ Monto ajustado de ${monto_total_devuelto:.2f} a '
+                            f'${monto_maximo:.2f}. Política: solo se devuelve hasta '
+                            f'lo efectivamente cobrado (${total_pagado:.2f}).'
+                        )
+                        monto_total_devuelto = monto_maximo
+
+                print(f"   🏷  Tipo de venta: {'crédito' if es_credito else 'contado'}")
+                print(f"   💰 Monto a registrar en devolución: ${monto_total_devuelto}")
+
                 # Crear cabecera de devolución y su detalle relacional.
                 devolucion = Devolucion.objects.create(
                     factura=factura,
@@ -7233,6 +7274,21 @@ def procesar_devolucion_parcial(request):
                         precio_unitario=precio_unitario,
                         monto=monto,
                     )
+
+                # ── Ajustar CuentaPorCobrar si es crédito ─────────────────────
+                # La devolución reduce la deuda del cliente.
+                # Si el saldo pendiente queda en 0 → marcar como pagada.
+                if es_credito and hasattr(factura, 'cuenta_por_cobrar'):
+                    cxc = factura.cuenta_por_cobrar
+                    if cxc.estado not in ('pagada', 'anulada'):
+                        nuevo_saldo = max(
+                            cxc.saldo_pendiente - monto_total_devuelto,
+                            Decimal('0.00')
+                        )
+                        cxc.saldo_pendiente = nuevo_saldo
+                        cxc.estado = 'pagada' if nuevo_saldo <= Decimal('0.00') else 'parcial'
+                        cxc.save(update_fields=['saldo_pendiente', 'estado'])
+                        print(f"   📋 CxC ajustada: saldo pendiente → ${nuevo_saldo}")
 
                 # Actualizar estado de factura
                 if factura.estado in ['pagada', 'pendiente']:
