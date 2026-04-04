@@ -3106,6 +3106,9 @@ def marcar_factura_pagada(request, factura_id):
         # Marcar como pagada
         factura.estado = 'pagada'
         factura.save()
+        
+        # Sincronizar movimientos financieros
+        _sincronizar_movimientos_factura(factura)
 
         # Registrar ingreso financiero — esta factura era de crédito (estado pendiente → pagada)
         MovimientoFinanciero.objects.create(
@@ -4597,22 +4600,22 @@ def dashbort(request):
         'datos_categorias_raw': list(zip(categorias_data, ventas_categorias_data)),
         'datos_mensual_raw': list(zip(labels_mensuales, proyeccion_mensual)),
         'datos_anual_raw': list(zip(labels_anuales, proyeccion_anual)),
-        'trend_venta_dia': round(abs(trend_venta_dia), 1),
+        'trend_venta_dia': round(trend_venta_dia, 1),
         'trend_venta_dia_icon': 'up' if trend_venta_dia > 0 else 'down' if trend_venta_dia < 0 else 'neutral',
         'trend_venta_dia_class': 'trend-up' if trend_venta_dia > 0 else 'trend-down' if trend_venta_dia < 0 else 'trend-neutral',
-        'trend_venta_mes': round(abs(trend_venta_mes), 1),
+        'trend_venta_mes': round(trend_venta_mes, 1),
         'trend_venta_mes_icon': 'up' if trend_venta_mes > 0 else 'down' if trend_venta_mes < 0 else 'neutral',
         'trend_venta_mes_class': 'trend-up' if trend_venta_mes > 0 else 'trend-down' if trend_venta_mes < 0 else 'trend-neutral',
-        'trend_gastos': round(abs(trend_gastos), 1),
+        'trend_gastos': round(trend_gastos, 1),
         'trend_gastos_icon': 'up' if trend_gastos > 0 else 'down' if trend_gastos < 0 else 'neutral',
-        'trend_gastos_class': 'trend-down' if trend_gastos > 0 else 'trend-up' if trend_gastos < 0 else 'trend-neutral',
-        'trend_ganancias': round(abs(trend_ganancias), 1),
+        'trend_gastos_class': 'trend-up' if trend_gastos > 0 else 'trend-down' if trend_gastos < 0 else 'trend-neutral',
+        'trend_ganancias': round(trend_ganancias, 1),
         'trend_ganancias_icon': 'up' if trend_ganancias > 0 else 'down' if trend_ganancias < 0 else 'neutral',
         'trend_ganancias_class': 'trend-up' if trend_ganancias > 0 else 'trend-down' if trend_ganancias < 0 else 'trend-neutral',
-        'trend_pedidos': round(abs(trend_pedidos), 1),
+        'trend_pedidos': round(trend_pedidos, 1),
         'trend_pedidos_icon': 'up' if trend_pedidos > 0 else 'down' if trend_pedidos < 0 else 'neutral',
         'trend_pedidos_class': 'trend-up' if trend_pedidos > 0 else 'trend-down' if trend_pedidos < 0 else 'trend-neutral',
-        'trend_clientes': round(abs(trend_clientes), 1),
+        'trend_clientes': round(trend_clientes, 1),
         'trend_clientes_icon': 'up' if trend_clientes > 0 else 'down' if trend_clientes < 0 else 'neutral',
         'trend_clientes_class': 'trend-up' if trend_clientes > 0 else 'trend-down' if trend_clientes < 0 else 'trend-neutral',
         'costos_items_validos': costo_mes_stats['items_validos'],
@@ -5211,22 +5214,22 @@ def dashboard_stats(request):
             'gastos_totales': float(gastos_totales),
             'ganancias_netas': float(ganancias_netas),
             'nuevos_clientes': nuevos_clientes,
-            'trend_venta_dia': round(abs(trend_venta_dia), 1),
+            'trend_venta_dia': round(trend_venta_dia, 1),
             'trend_venta_dia_icon': 'up' if trend_venta_dia > 0 else 'down' if trend_venta_dia < 0 else 'neutral',
             'trend_venta_dia_class': 'trend-up' if trend_venta_dia > 0 else 'trend-down' if trend_venta_dia < 0 else 'trend-neutral',
-            'trend_venta_mes': round(abs(trend_venta_mes), 1),
+            'trend_venta_mes': round(trend_venta_mes, 1),
             'trend_venta_mes_icon': 'up' if trend_venta_mes > 0 else 'down' if trend_venta_mes < 0 else 'neutral',
             'trend_venta_mes_class': 'trend-up' if trend_venta_mes > 0 else 'trend-down' if trend_venta_mes < 0 else 'trend-neutral',
-            'trend_gastos': round(abs(trend_gastos), 1),
+            'trend_gastos': round(trend_gastos, 1),
             'trend_gastos_icon': 'up' if trend_gastos > 0 else 'down' if trend_gastos < 0 else 'neutral',
-            'trend_gastos_class': 'trend-down' if trend_gastos > 0 else 'trend-up' if trend_gastos < 0 else 'trend-neutral',
-            'trend_ganancias': round(abs(trend_ganancias), 1),
+            'trend_gastos_class': 'trend-up' if trend_gastos > 0 else 'trend-down' if trend_gastos < 0 else 'trend-neutral',
+            'trend_ganancias': round(trend_ganancias, 1),
             'trend_ganancias_icon': 'up' if trend_ganancias > 0 else 'down' if trend_ganancias < 0 else 'neutral',
             'trend_ganancias_class': 'trend-up' if trend_ganancias > 0 else 'trend-down' if trend_ganancias < 0 else 'trend-neutral',
-            'trend_pedidos': round(abs(trend_pedidos), 1),
+            'trend_pedidos': round(trend_pedidos, 1),
             'trend_pedidos_icon': 'up' if trend_pedidos > 0 else 'down' if trend_pedidos < 0 else 'neutral',
             'trend_pedidos_class': 'trend-up' if trend_pedidos > 0 else 'trend-down' if trend_pedidos < 0 else 'trend-neutral',
-            'trend_clientes': round(abs(trend_clientes), 1),
+            'trend_clientes': round(trend_clientes, 1),
             'trend_clientes_icon': 'up' if trend_clientes > 0 else 'down' if trend_clientes < 0 else 'neutral',
             'trend_clientes_class': 'trend-up' if trend_clientes > 0 else 'trend-down' if trend_clientes < 0 else 'trend-neutral',
             'productos_top': productos_top_json,
@@ -6639,6 +6642,7 @@ def generar_pdf_productos_dia_a4(request):
 # ========================================================================================================
 
 @login_required
+@login_required
 def anulacionydevolucion(request):
     """Vista principal para anulación y devolución de facturas"""
     factura = None
@@ -6656,19 +6660,6 @@ def anulacionydevolucion(request):
             if factura:
                 messages.success(
                     request, f'Última factura cargada: {factura.numero_factura}')
-                # Depuración directa
-                print(f"\n{'='*60}")
-                print(f"DEBUG - Factura: {factura.numero_factura}")
-                print(f"Tipo de items: {type(factura.items)}")
-                if isinstance(factura.items, str):
-                    print(f"Es una cadena. Longitud: {len(factura.items)}")
-                    print(f"Primeros 300 caracteres: {factura.items[:300]}")
-                elif isinstance(factura.items, dict):
-                    print(
-                        f"Es un diccionario. Claves: {list(factura.items.keys())}")
-                elif isinstance(factura.items, list):
-                    print(f"Es una lista. Longitud: {len(factura.items)}")
-                print(f"{'='*60}")
             else:
                 messages.error(request, 'No hay facturas registradas')
 
@@ -6682,53 +6673,22 @@ def anulacionydevolucion(request):
             if factura:
                 messages.success(
                     request, f'Factura {factura.numero_factura} encontrada')
-                # Depuración directa
-                print(f"\n{'='*60}")
-                print(f"DEBUG - Factura: {factura.numero_factura}")
-                print(f"Tipo de items: {type(factura.items)}")
-                if isinstance(factura.items, str):
-                    print(f"Es una cadena. Longitud: {len(factura.items)}")
-                    print(f"Primeros 300 caracteres: {factura.items[:300]}")
-                elif isinstance(factura.items, dict):
-                    print(
-                        f"Es un diccionario. Claves: {list(factura.items.keys())}")
-                elif isinstance(factura.items, list):
-                    print(f"Es una lista. Longitud: {len(factura.items)}")
-                print(f"{'='*60}")
             else:
                 messages.error(
                     request, f'Factura {numero_factura} no encontrada')
 
         if factura:
-            print(f"\n📄 FACTURA ENCONTRADA: {factura.numero_factura}")
-            print(f"📦 Campo 'items' tipo: {type(factura.items)}")
-
-            # DEPURACIÓN DETALLADA
-            if isinstance(factura.items, str):
-                print(f"🔍 Contenido de items (string):")
-                print(factura.items[:500])
-            elif isinstance(factura.items, list):
-                print(
-                    f"🔍 Contenido de items (lista con {len(factura.items)} elementos):")
-                for i, item in enumerate(factura.items[:3]):  # Muestra solo 3
-                    print(f"   Item {i}: {item}")
-
             # Obtener items detallados
             items = factura.get_items_detalle()
-            print(f"\n✅ Items normalizados: {len(items)}")
-
-            # Mostrar primeros 5 items para depuración
-            for i, item in enumerate(items[:5]):
-                print(f"  {i+1}. {item.get('nombre', 'Sin nombre')} - Cant: {item.get('cantidad', 0)} - Precio: ${item.get('precio', 0)} - Cat: '{item.get('categoria', '')}'")
-
             items_json = json.dumps(items, cls=DjangoJSONEncoder)
 
             # Obtener productos disponibles para devolución
             productos_disponibles = factura.get_productos_disponibles_devolucion()
             productos_disponibles_json = json.dumps(
                 productos_disponibles, cls=DjangoJSONEncoder)
-            print(
-                f"✅ Productos disponibles para devolver: {len(productos_disponibles)}")
+
+            # Obtener resumen de devoluciones
+            resumen_devoluciones = factura.get_resumen_devoluciones()
 
             # Obtener todas las devoluciones para el historial
             devoluciones = factura.devoluciones.all()
@@ -6741,8 +6701,13 @@ def anulacionydevolucion(request):
 
             productos_devueltos_json = json.dumps(
                 todos_productos_devueltos, cls=DjangoJSONEncoder)
+
+            print(f"\n📄 FACTURA: {factura.numero_factura}")
+            print(f"📦 Items totales: {len(items)}")
             print(
-                f"✅ Productos ya devueltos: {len(todos_productos_devueltos)}")
+                f"✅ Productos disponibles para devolver: {len(productos_disponibles)}")
+            print(
+                f"💰 Total devuelto: ${resumen_devoluciones['total_devuelto']}")
 
     except Exception as e:
         messages.error(request, f'Error: {str(e)}')
@@ -6758,6 +6723,7 @@ def anulacionydevolucion(request):
     }
 
     return render(request, 'facturacion/anulacionydevolucion.html', context)
+
 
 
 def buscar_producto_por_identificador(identificador):
@@ -7172,9 +7138,12 @@ def procesar_devolucion_parcial(request):
 
             factura.fecha_devolucion = timezone.now()
             factura.save()
+            
+            # Sincronizar movimientos financieros (para marcar INACTIVO si totalmente devuelta)
+            _sincronizar_movimientos_factura(factura)
 
             # ── DECISIÓN FINANCIERA ────────────────────────────────────────
-            # CONTADO: devolver producto y dinero en una sola fase.
+            # CONTADO: sale dinero de caja y se devuelven los productos.
             if not es_credito:
                 MovimientoFinanciero.objects.create(
                     tipo='EGRESO',
@@ -7208,7 +7177,8 @@ def procesar_devolucion_parcial(request):
             balance = factura.balance()
 
             if balance < Decimal('0.00'):
-                # Determinar si existe cliente para poder registrar saldo a favor.
+                # Excedente: el cliente pagó más de lo que debe tras la devolución.
+                # El frontend pedirá la decisión (devolver dinero o saldo a favor).
                 cliente_para_saldo = None
                 if hasattr(factura, 'cuenta_por_cobrar') and factura.cuenta_por_cobrar.cliente:
                     cliente_para_saldo = factura.cuenta_por_cobrar.cliente
@@ -7218,18 +7188,36 @@ def procesar_devolucion_parcial(request):
                             cliente_para_saldo = cliente
                             break
 
-                # Excedente: el cliente pagó más de lo que debe tras la devolución
                 return JsonResponse({
                     'requiere_decision': True,
-                    'tipo':          'excedente',
-                    'excedente':     float(abs(balance)),
-                    'devolucion_id': devolucion.id,
-                    'factura_id':    factura.id,
+                    'tipo':             'excedente',
+                    'excedente':        float(abs(balance)),
+                    'devolucion_id':    devolucion.id,
+                    'factura_id':       factura.id,
                     'puede_usar_saldo': bool(cliente_para_saldo),
                     'bebidas_repuestas': bebidas_repuestas,
                 })
 
-            # Crédito sin excedente: solo bajó la deuda, sin movimiento de caja
+            # CRÉDITO SIN EXCEDENTE: la deuda bajó, no sale dinero de caja.
+            # Se registra como AJUSTE para trazabilidad pero NO afecta el flujo de caja.
+            MovimientoFinanciero.objects.create(
+                tipo='EGRESO',
+                origen='AJUSTE',
+                monto=monto_total_devuelto,
+                fecha_operacion=timezone.now(),
+                factura=factura,
+                devolucion=devolucion,
+                metodo_pago=getattr(factura, 'metodo_pago', None),
+                creado_por=request.user,
+                descripcion=(
+                    f'Devolución de productos en venta a crédito. '
+                    f'Deuda reducida en RD${monto_total_devuelto:.2f}. '
+                    f'No representa salida de caja. '
+                    f'Factura: {factura.numero_factura}.'
+                ),
+                referencia='DEVOLUCION_CREDITO_AJUSTE',
+            )
+
             return JsonResponse({
                 'ok':      True,
                 'mensaje': (
@@ -7503,6 +7491,9 @@ def procesar_anulacion_factura(request):
                     'usuario_anulacion',
                     'fecha_devolucion',
                 ])
+                
+                # Sincronizar movimientos financieros (marca INACTIVO los originales)
+                _sincronizar_movimientos_factura(factura)
 
                 # Registrar egreso financiero por anulación
                 if monto_devuelto > 0:
@@ -8432,6 +8423,30 @@ def _resumen_movimientos_caja(inicio, fin):
     }
 
 
+def _sincronizar_movimientos_factura(factura):
+    """
+    Sincroniza los MovimientoFinanciero con el estado actual de la factura.
+    
+    Reglas:
+    - Si factura es 'anulada' o 'totalmente_devuelta': marca movimientos INACTIVOS
+    - Si factura es 'pagada' o 'parcialmente_devuelta': marca movimientos ACTIVOS
+    - Si cambió el monto: actualiza cantidad en movimiento de VENTA
+    """
+    if not factura or not hasattr(factura, 'id'):
+        return
+    
+    movimientos = MovimientoFinanciero.objects.filter(factura=factura)
+    
+    if factura.estado in ['anulada', 'totalmente_devuelta']:
+        # Marcar como inactivos para excluir del dashboard
+        movimientos.update(estado='INACTIVO')
+    else:
+        # Para facturas activas (pagada, parcialmente_devuelta, pendiente):
+        # Solo reactivar los que estén INACTIVO — nunca tocar el monto,
+        # porque cada movimiento ya tiene su monto correcto (venta, pago, devolución, etc.)
+        movimientos.filter(estado='INACTIVO').update(estado='ACTIVO')
+
+
 @lru_cache(maxsize=50)
 def _resumen_movimientos_caja_cached(inicio, fin):
     return _resumen_movimientos_caja(inicio, fin)
@@ -9282,6 +9297,9 @@ def cuentaporcobrar_registrar_pago(request):
                 factura.estado      = 'pagada'
                 factura.metodo_pago = metodo_pago
                 factura.save(update_fields=['estado', 'metodo_pago'])
+                
+                # Sincronizar movimientos financieros
+                _sincronizar_movimientos_factura(factura)
 
             # Registrar ingreso financiero por pago de CxC
             MovimientoFinanciero.objects.create(
@@ -9432,6 +9450,9 @@ def cuentaporcobrar_registrar_pago(request):
                 factura.estado      = 'pagada'
                 factura.metodo_pago = metodo_pago
                 factura.save(update_fields=['estado', 'metodo_pago'])
+                
+                # Sincronizar movimientos financieros
+                _sincronizar_movimientos_factura(factura)
 
     # ── Respuesta del pago distribuido ────────────────────────────────────
     comprobante_url = (
