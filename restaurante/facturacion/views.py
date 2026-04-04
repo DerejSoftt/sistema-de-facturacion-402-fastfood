@@ -6299,8 +6299,8 @@ def generar_pdf_productos_dia_a4(request):
     facturas_hoy = Factura.objects.filter(
         fecha_factura__gte=inicio_dia,
         fecha_factura__lte=fin_dia,
-        estado='pagada'
-    )
+        estado__in=['pagada', 'parcialmente_devuelta']
+    ).prefetch_related('detalles')
 
     venta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))[
         'total_dia'] or Decimal('0.00')
@@ -6309,84 +6309,120 @@ def generar_pdf_productos_dia_a4(request):
         f"🔍 DEBUG: Encontradas {facturas_hoy.count()} facturas en el período")
     print(f"🔍 DEBUG: Venta total del día: ${venta_dia}")
 
-    # Obtener productos vendidos en el día
+    # Obtener productos vendidos en el día (neto: venta - devolución)
     productos_vendidos = {}
 
     for factura in facturas_hoy:
         try:
-            items = factura.get_items_detalle()
-            print(
-                f"🔍 DEBUG: Factura {factura.numero_factura} tiene {len(items)} items")
+            vendidos_por_producto = {}
 
-            if items and isinstance(items, list):
-                for item in items:
-                    # DEBUG: Imprimir todas las claves del item
-                    print(f"  📦 Item keys: {item.keys()}")
+            def _acumular_vendido(nombre, cantidad, ingresos):
+                nombre = str(nombre or '').strip()
+                if not nombre or nombre.lower() == 'desconocido':
+                    return
+                cantidad = float(cantidad or 0)
+                if cantidad <= 0:
+                    return
 
-                    # Obtener nombre del producto - probar todas las posibles claves
-                    nombre = item.get('nombre', '').strip()
-                    if not nombre:
-                        nombre = item.get('name', '').strip()
-                    if not nombre:
-                        nombre = item.get('producto', '').strip()
-                    if not nombre:
-                        nombre = item.get('product', '').strip()
+                key = nombre.lower()
+                ingresos = Decimal(str(ingresos or 0))
+                if key not in vendidos_por_producto:
+                    vendidos_por_producto[key] = {
+                        'nombre': nombre,
+                        'cantidad': 0.0,
+                        'ingresos': Decimal('0.00'),
+                    }
+                vendidos_por_producto[key]['cantidad'] += cantidad
+                vendidos_por_producto[key]['ingresos'] += ingresos
 
-                    print(f"  🔍 Nombre encontrado: '{nombre}'")
-
-                    if not nombre or nombre.lower() == 'desconocido':
-                        print(f"  ⚠️  Nombre vacío o 'Desconocido', saltando...")
-                        continue
-
-                    # Obtener cantidad - probar todas las posibles claves
-                    cantidad = 0
-                    cantidad_keys = ['cantidad', 'quantity', 'qty']
-                    for key in cantidad_keys:
-                        if key in item:
-                            try:
-                                cantidad = float(item[key])
-                                print(f"  🔍 Cantidad de '{key}': {cantidad}")
-                                break
-                            except (ValueError, TypeError):
-                                pass
-
-                    if cantidad <= 0:
-                        print(
-                            f"  ⚠️  Cantidad inválida ({cantidad}), saltando...")
-                        continue
-
-                    # Obtener precio - probar todas las posibles claves
-                    precio = 0
-                    precio_keys = ['precio', 'price', 'unit_price']
-                    for key in precio_keys:
-                        if key in item:
-                            try:
-                                precio = float(item[key])
-                                print(f"  🔍 Precio de '{key}': {precio}")
-                                break
-                            except (ValueError, TypeError):
-                                pass
-
-                    # Calcular ingresos
-                    ingresos = Decimal(str(cantidad * precio))
-
-                    print(f"  ✅ Procesado: {nombre} x{cantidad} = ${ingresos}")
-
-                    if nombre in productos_vendidos:
-                        productos_vendidos[nombre]['cantidad'] += cantidad
-                        productos_vendidos[nombre]['ingresos'] += ingresos
-                        productos_vendidos[nombre]['precio_unitario'] = productos_vendidos[nombre]['ingresos'] / Decimal(
-                            str(productos_vendidos[nombre]['cantidad']))
-                    else:
-                        productos_vendidos[nombre] = {
-                            'nombre': nombre,
-                            'cantidad': cantidad,
-                            'precio_unitario': Decimal(str(precio)),
-                            'ingresos': ingresos
-                        }
-            else:
+            detalles_reales = list(factura.detalles.all())
+            if detalles_reales:
                 print(
-                    f"⚠️  Factura {factura.numero_factura} no tiene items o no es una lista")
+                    f"🔍 DEBUG: Factura {factura.numero_factura} usando detalle real ({len(detalles_reales)} items)")
+                for detalle in detalles_reales:
+                    cantidad = float(detalle.cantidad or 0)
+                    precio = Decimal(str(detalle.precio_unitario or 0))
+                    subtotal_detalle = detalle.subtotal if detalle.subtotal is not None else (Decimal(str(cantidad)) * precio)
+                    _acumular_vendido(detalle.nombre_producto, cantidad, subtotal_detalle)
+            else:
+                items = factura.get_items_detalle(enrich_from_db=False)
+                print(
+                    f"🔍 DEBUG: Factura {factura.numero_factura} sin detalle real; usando JSON ({len(items)} items)")
+                if items and isinstance(items, list):
+                    for item in items:
+                        nombre = item.get('nombre', '').strip() or item.get('name', '').strip() or item.get('producto', '').strip() or item.get('product', '').strip()
+
+                        cantidad = 0
+                        for key_cantidad in ('cantidad', 'quantity', 'qty'):
+                            if key_cantidad in item:
+                                try:
+                                    cantidad = float(item[key_cantidad])
+                                    break
+                                except (ValueError, TypeError):
+                                    pass
+
+                        precio = 0
+                        for key_precio in ('precio', 'price', 'unit_price'):
+                            if key_precio in item:
+                                try:
+                                    precio = float(item[key_precio])
+                                    break
+                                except (ValueError, TypeError):
+                                    pass
+
+                        _acumular_vendido(nombre, cantidad, Decimal(str(cantidad * precio)))
+
+            # Devoluciones por producto de la misma factura
+            devueltos_por_producto = {}
+            devoluciones = factura.devoluciones.prefetch_related('detalles').all()
+            for devolucion in devoluciones:
+                detalles_dev = list(devolucion.detalles.all())
+                if detalles_dev:
+                    for det_dev in detalles_dev:
+                        nombre_dev = str(det_dev.nombre_producto or '').strip().lower()
+                        if not nombre_dev:
+                            continue
+                        devueltos_por_producto[nombre_dev] = devueltos_por_producto.get(nombre_dev, 0.0) + float(det_dev.cantidad or 0)
+                    continue
+
+                # Fallback legacy JSON de devolución
+                if devolucion.productos_devueltos:
+                    for prod_dev in devolucion.productos_devueltos:
+                        nombre_dev = str(prod_dev.get('nombre', '')).strip().lower()
+                        if not nombre_dev:
+                            continue
+                        devueltos_por_producto[nombre_dev] = devueltos_por_producto.get(nombre_dev, 0.0) + float(prod_dev.get('cantidad', 0) or 0)
+
+            # Aplicar deducción neta por producto
+            for key_prod, data_vendida in vendidos_por_producto.items():
+                cantidad_vendida = float(data_vendida['cantidad'] or 0)
+                if cantidad_vendida <= 0:
+                    continue
+
+                cantidad_devuelta = float(devueltos_por_producto.get(key_prod, 0) or 0)
+                cantidad_neta = max(cantidad_vendida - cantidad_devuelta, 0.0)
+                if cantidad_neta <= 0:
+                    continue
+
+                ingresos_vendidos = Decimal(str(data_vendida['ingresos'] or 0))
+                precio_promedio = (ingresos_vendidos / Decimal(str(cantidad_vendida))) if cantidad_vendida > 0 else Decimal('0.00')
+                ingresos_netos = precio_promedio * Decimal(str(cantidad_neta))
+
+                nombre_mostrar = data_vendida['nombre']
+                if nombre_mostrar in productos_vendidos:
+                    productos_vendidos[nombre_mostrar]['cantidad'] += cantidad_neta
+                    productos_vendidos[nombre_mostrar]['ingresos'] += ingresos_netos
+                    productos_vendidos[nombre_mostrar]['precio_unitario'] = (
+                        productos_vendidos[nombre_mostrar]['ingresos'] /
+                        Decimal(str(productos_vendidos[nombre_mostrar]['cantidad']))
+                    )
+                else:
+                    productos_vendidos[nombre_mostrar] = {
+                        'nombre': nombre_mostrar,
+                        'cantidad': cantidad_neta,
+                        'precio_unitario': precio_promedio,
+                        'ingresos': ingresos_netos,
+                    }
 
         except Exception as e:
             print(
