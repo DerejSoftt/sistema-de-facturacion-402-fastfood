@@ -38,7 +38,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 import json
-from .models import Producto, Plato, Pedido, Mesa, DeliveryConfig, HistorialEstadoPedido, DetalleItemPedido, Factura, Devolucion, DetalleDevolucion, Cliente, PagoCuentaCobrar, CuentaPorCobrar,  FacturaDetalle 
+from .models import Producto, Plato, Pedido, Mesa, DeliveryConfig, HistorialEstadoPedido, DetalleItemPedido, Factura, Devolucion, DetalleDevolucion, Cliente, PagoCuentaCobrar, CuentaPorCobrar, FacturaDetalle, MovimientoFinanciero, SaldoAFavor
 from django.core.paginator import Paginator
 from django.db.models import Sum, Count, Q, Exists, OuterRef
 from django.db.models.functions import Coalesce
@@ -2959,6 +2959,18 @@ def crear_factura(request):
 
             if pedido_es_credito:
                 _sincronizar_cuenta_por_cobrar(factura, cliente_credito)
+            else:
+                # Factura de contado: el dinero entra en este momento
+                MovimientoFinanciero.objects.create(
+                    tipo="INGRESO",
+                    origen="VENTA",
+                    monto=factura.total,
+                    fecha_operacion=factura.fecha_factura,
+                    factura=factura,
+                    metodo_pago=factura.metodo_pago,
+                    creado_por=request.user,
+                    descripcion=f"Venta factura {factura.numero_factura}",
+                )
 
             # IMPORTANTE: Actualizar estado del pedido a 'completado'
             pedido.estado = 'completado'
@@ -3083,6 +3095,18 @@ def marcar_factura_pagada(request, factura_id):
         # Marcar como pagada
         factura.estado = 'pagada'
         factura.save()
+
+        # Registrar ingreso financiero — esta factura era de crédito (estado pendiente → pagada)
+        MovimientoFinanciero.objects.create(
+            tipo="INGRESO",
+            origen="VENTA",
+            monto=factura.total,
+            fecha_operacion=timezone.now(),
+            factura=factura,
+            metodo_pago=factura.metodo_pago,
+            creado_por=request.user,
+            descripcion=f"Pago de factura {factura.numero_factura}",
+        )
 
         # Actualizar estado del pedido a completado
         if factura.pedido:
@@ -3949,17 +3973,23 @@ def dashbort(request):
     rango_dia_inicio = timezone.localtime(inicio_dia)
     rango_dia_fin = timezone.localtime(fin_dia)
 
-    # 1. VENTA DEL DÍA - Facturas del "día" según nueva definición (6 AM a 5:59 AM)
+    # 1. CAJA DEL DÍA - Ingresos menos egresos en el rango del negocio (6 AM a 5:59 AM)
     facturas_hoy = Factura.objects.filter(
         fecha_factura__gte=inicio_dia,
         fecha_factura__lte=fin_dia,
         estado='pagada'
     )
+    facturas_hoy_card = _facturas_que_cuentan_en_cards(
+        Factura.objects.filter(
+            fecha_factura__gte=inicio_dia,
+            fecha_factura__lte=fin_dia,
+        )
+    )
 
-    venta_dia_contado = facturas_hoy.aggregate(total_dia=Sum('total'))[
-        'total_dia'] or Decimal('0.00')
+    resumen_dia = _resumen_movimientos_caja(inicio_dia, fin_dia)
+    venta_dia = resumen_dia['caja_neta']
 
-    # Filtrar pagos CxC usando el mismo rango UTC que el PDF
+    # Base de pagos del día para el detalle y compatibilidad con reportes
     import pytz
     inicio_dia_utc = inicio_dia.astimezone(pytz.UTC)
     fin_dia_utc = fin_dia.astimezone(pytz.UTC)
@@ -3967,12 +3997,10 @@ def dashbort(request):
         fecha_pago__gte=inicio_dia_utc,
         fecha_pago__lte=fin_dia_utc
     )
-    pagos_credito_dia = pagos_credito_dia_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    total_pagos_hoy = pagos_credito_dia_qs.count()
+    total_pagos_hoy = resumen_dia['ingreso_pagos_count']
+    total_egresos_hoy = resumen_dia['egreso_devoluciones_count'] + resumen_dia['egreso_anulaciones_count']
 
-    venta_dia = venta_dia_contado + pagos_credito_dia
-
-    # 2. VENTA DEL MES - Esto se mantiene igual (mes calendario)
+    # 2. INGRESOS DEL MES - flujo bruto de caja del mes calendario
     primer_dia_mes = hoy_local.replace(day=1)
     inicio_mes = timezone.make_aware(
         datetime.combine(primer_dia_mes, datetime.min.time())
@@ -3994,18 +4022,21 @@ def dashbort(request):
         fecha_factura__lte=fin_mes,
         estado='pagada'
     )
+    facturas_mes_card = _facturas_que_cuentan_en_cards(
+        Factura.objects.filter(
+            fecha_factura__gte=inicio_mes,
+            fecha_factura__lte=fin_mes,
+        )
+    )
 
-    venta_mes_contado = facturas_mes.aggregate(total_mes=Sum('total'))[
-        'total_mes'] or Decimal('0.00')
-
+    resumen_mes = _resumen_movimientos_caja(inicio_mes, fin_mes)
+    venta_mes = resumen_mes['ingresos_total']
     pagos_credito_mes_qs = PagoCuentaCobrar.objects.filter(
         fecha_pago__gte=inicio_mes,
         fecha_pago__lte=fin_mes
     )
-    pagos_credito_mes = pagos_credito_mes_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    total_pagos_mes = pagos_credito_mes_qs.count()
-
-    venta_mes = venta_mes_contado + pagos_credito_mes
+    total_pagos_mes = resumen_mes['ingreso_pagos_count']
+    total_egresos_mes = resumen_mes['egreso_devoluciones_count'] + resumen_mes['egreso_anulaciones_count']
 
     # Ventas del día anterior (mismo rango 6 AM - 5:59 AM)
     inicio_dia_anterior = inicio_dia - timedelta(days=1)
@@ -4016,12 +4047,8 @@ def dashbort(request):
         estado='pagada'
     ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
-    pagos_credito_dia_anterior = PagoCuentaCobrar.objects.filter(
-        fecha_pago__gte=inicio_dia_anterior,
-        fecha_pago__lte=fin_dia_anterior
-    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-
-    venta_dia_anterior = venta_dia_anterior_contado + pagos_credito_dia_anterior
+    resumen_dia_anterior = _resumen_movimientos_caja(inicio_dia_anterior, fin_dia_anterior)
+    venta_dia_anterior = resumen_dia_anterior['caja_neta']
 
     # Ventas del mes anterior
     mes_pasado = hoy_local.replace(day=1) - timedelta(days=1)
@@ -4041,12 +4068,8 @@ def dashbort(request):
         estado='pagada'
     ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
-    pagos_credito_mes_pasado = PagoCuentaCobrar.objects.filter(
-        fecha_pago__gte=inicio_mes_pasado_time,
-        fecha_pago__lte=fin_mes_pasado_time
-    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-
-    venta_mes_pasado = venta_mes_pasado_contado + pagos_credito_mes_pasado
+    resumen_mes_pasado = _resumen_movimientos_caja(inicio_mes_pasado_time, fin_mes_pasado_time)
+    venta_mes_pasado = resumen_mes_pasado['ingresos_total']
 
     # 3. PEDIDOS HOY - Usar misma definición de "día" (6 AM a 5:59 AM)
     total_pedidos = Pedido.objects.filter(
@@ -4059,8 +4082,10 @@ def dashbort(request):
         fecha_pedido__lte=fin_dia_anterior
     ).count()
 
-    # 4. GASTOS TOTALES - Costos reales según items facturados
-    gastos_totales, costo_mes_stats = calcular_costo_real_facturas(
+    # 4. EGRESOS TOTALES - devoluciones, excedentes y anulaciones
+    gastos_totales = resumen_mes['egresos_total']
+    gastos_totales_mes_pasado = resumen_mes_pasado['egresos_total']
+    _, costo_mes_stats = calcular_costo_real_facturas(
         facturas_mes,
         include_stats=True
     )
@@ -4069,11 +4094,11 @@ def dashbort(request):
         fecha_factura__lte=fin_mes_pasado_time,
         estado='pagada'
     )
-    gastos_totales_mes_pasado = calcular_costo_real_facturas(facturas_mes_pasado_qs)
+    calcular_costo_real_facturas(facturas_mes_pasado_qs)
 
     # 5. GANANCIAS NETAS
-    ganancias_netas = venta_mes - gastos_totales
-    ganancias_netas_mes_pasado = venta_mes_pasado - gastos_totales_mes_pasado
+    ganancias_netas = resumen_mes['caja_neta']
+    ganancias_netas_mes_pasado = resumen_mes_pasado['caja_neta']
 
     # 6. NUEVOS CLIENTES - Mes actual vs mes anterior
     nuevos_clientes = Factura.objects.filter(
@@ -4201,18 +4226,7 @@ def dashbort(request):
             )
             dia_str = dia_anterior.strftime('%a')
 
-        venta_dia_grafico = Factura.objects.filter(
-            fecha_factura__gte=dia_inicio,
-            fecha_factura__lte=dia_fin,
-            estado='pagada'
-        ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-
-        pagos_credito_dia_grafico = PagoCuentaCobrar.objects.filter(
-            fecha_pago__gte=dia_inicio,
-            fecha_pago__lte=dia_fin
-        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-
-        venta_dia_grafico += pagos_credito_dia_grafico
+        venta_dia_grafico = _resumen_movimientos_caja(dia_inicio, dia_fin)['caja_neta']
 
         ultimos_7_dias.append(dia_str)
         ventas_7_dias.append(float(venta_dia_grafico))
@@ -4399,18 +4413,7 @@ def dashbort(request):
             datetime.combine(fecha_dia, datetime.max.time())
         )
 
-        venta_dia_mes = Factura.objects.filter(
-            fecha_factura__gte=inicio_dia_cal,
-            fecha_factura__lte=fin_dia_cal,
-            estado='pagada'
-        ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-
-        pagos_credito_dia_mes = PagoCuentaCobrar.objects.filter(
-            fecha_pago__gte=inicio_dia_cal,
-            fecha_pago__lte=fin_dia_cal
-        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-
-        venta_dia_mes += pagos_credito_dia_mes
+        venta_dia_mes = _resumen_movimientos_caja(inicio_dia_cal, fin_dia_cal)['caja_neta']
 
         labels_mensuales.append(fecha_dia.strftime('%d %b'))
         proyeccion_mensual.append(float(venta_dia_mes))
@@ -4441,18 +4444,7 @@ def dashbort(request):
         )
         
         # Obtener ventas de este mes
-        venta_mes_grafico = Factura.objects.filter(
-            fecha_factura__gte=inicio_mes_grafico,
-            fecha_factura__lte=fin_mes_grafico,
-            estado='pagada'
-        ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-
-        pagos_credito_mes_grafico = PagoCuentaCobrar.objects.filter(
-            fecha_pago__gte=inicio_mes_grafico,
-            fecha_pago__lte=fin_mes_grafico
-        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-
-        venta_mes_grafico += pagos_credito_mes_grafico
+        venta_mes_grafico = _resumen_movimientos_caja(inicio_mes_grafico, fin_mes_grafico)['caja_neta']
         
         # Nombre del mes en español
         meses_esp = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
@@ -4531,11 +4523,13 @@ def dashbort(request):
         ).order_by('-fecha_factura')
 
         todas_facturas = Factura.objects.filter(
-            estado='pagada'
+            estado__in=['pagada', 'parcialmente_devuelta']
         ).order_by('-fecha_factura')[:10]
 
         total_facturas_db = Factura.objects.count()
-        total_facturas_pagadas_db = Factura.objects.filter(estado='pagada').count()
+        total_facturas_pagadas_db = _facturas_que_cuentan_en_cards(
+            Factura.objects.all()
+        ).count()
 
         primera_factura = Factura.objects.order_by('fecha_factura').first()
         ultima_factura = Factura.objects.order_by('-fecha_factura').first()
@@ -4543,7 +4537,9 @@ def dashbort(request):
         facturas_mes_pasado = Factura.objects.filter(
             fecha_factura__gte=inicio_mes_pasado_time,
             fecha_factura__lte=fin_mes_pasado_time,
-            estado='pagada'
+        )
+        facturas_mes_pasado = _facturas_que_cuentan_en_cards(
+            facturas_mes_pasado
         ).count()
     else:
         facturas_hoy_todas = Factura.objects.none()
@@ -4588,10 +4584,12 @@ def dashbort(request):
         'hora_actual': ahora_local.strftime('%I:%M:%S'),
         'hoy': hoy_local,
         'now_utc': timezone.now(),
-        'total_facturas_hoy': facturas_hoy.count(),
-        'total_facturas_mes': facturas_mes.count(),
+        'total_facturas_hoy': facturas_hoy_card.count(),
+        'total_facturas_mes': facturas_mes_card.count(),
         'total_pagos_hoy': total_pagos_hoy,
         'total_pagos_mes': total_pagos_mes,
+        'total_egresos_hoy': total_egresos_hoy,
+        'total_egresos_mes': total_egresos_mes,
         'facturas_hoy_todas': facturas_hoy_todas,
         'todas_facturas': todas_facturas,
         
@@ -4724,11 +4722,16 @@ def dashboard_stats(request):
             fecha_factura__lte=fin_dia,
             estado='pagada'
         )
+        facturas_hoy_card = _facturas_que_cuentan_en_cards(
+            Factura.objects.filter(
+                fecha_factura__gte=inicio_dia,
+                fecha_factura__lte=fin_dia,
+            )
+        )
 
-        venta_dia_contado = facturas_hoy.aggregate(total_dia=Sum('total'))[
-            'total_dia'] or Decimal('0.00')
+        resumen_dia = _resumen_movimientos_caja(inicio_dia, fin_dia)
+        venta_dia = resumen_dia['caja_neta']
 
-        dia_negocio_actual = inicio_dia.date()
         # Usar el mismo rango UTC que el PDF para pagos hoy
         inicio_dia_utc = inicio_dia.astimezone(pytz.UTC)
         fin_dia_utc = fin_dia.astimezone(pytz.UTC)
@@ -4736,10 +4739,8 @@ def dashboard_stats(request):
             fecha_pago__gte=inicio_dia_utc,
             fecha_pago__lte=fin_dia_utc
         )
-        pagos_credito_dia = pagos_credito_dia_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-        total_pagos_hoy = pagos_credito_dia_qs.count()
-
-        venta_dia = venta_dia_contado + pagos_credito_dia
+        total_pagos_hoy = resumen_dia['ingreso_pagos_count']
+        total_egresos_hoy = resumen_dia['egreso_devoluciones_count'] + resumen_dia['egreso_anulaciones_count']
 
         # 2. VENTA DEL MES
         primer_dia_mes = hoy_local.replace(day=1)
@@ -4760,18 +4761,22 @@ def dashboard_stats(request):
             fecha_factura__lte=fin_mes,
             estado='pagada'
         )
+        facturas_mes_card = _facturas_que_cuentan_en_cards(
+            Factura.objects.filter(
+                fecha_factura__gte=inicio_mes,
+                fecha_factura__lte=fin_mes,
+            )
+        )
 
-        venta_mes_contado = facturas_mes.aggregate(total_mes=Sum('total'))[
-            'total_mes'] or Decimal('0.00')
+        resumen_mes = _resumen_movimientos_caja(inicio_mes, fin_mes)
+        venta_mes = resumen_mes['ingresos_total']
 
         pagos_credito_mes_qs = PagoCuentaCobrar.objects.filter(
             fecha_pago__gte=inicio_mes,
             fecha_pago__lte=fin_mes
         )
-        pagos_credito_mes = pagos_credito_mes_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-        total_pagos_mes = pagos_credito_mes_qs.count()
-
-        venta_mes = venta_mes_contado + pagos_credito_mes
+        total_pagos_mes = resumen_mes['ingreso_pagos_count']
+        total_egresos_mes = resumen_mes['egreso_devoluciones_count'] + resumen_mes['egreso_anulaciones_count']
 
         # Ventas del día anterior
         inicio_dia_anterior = inicio_dia - timedelta(days=1)
@@ -4782,12 +4787,8 @@ def dashboard_stats(request):
             estado='pagada'
         ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
-        pagos_credito_dia_anterior = PagoCuentaCobrar.objects.filter(
-            fecha_pago__gte=inicio_dia_anterior,
-            fecha_pago__lte=fin_dia_anterior
-        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-
-        venta_dia_anterior = venta_dia_anterior_contado + pagos_credito_dia_anterior
+        resumen_dia_anterior = _resumen_movimientos_caja(inicio_dia_anterior, fin_dia_anterior)
+        venta_dia_anterior = resumen_dia_anterior['caja_neta']
 
         # Ventas del mes anterior
         mes_pasado = hoy_local.replace(day=1) - timedelta(days=1)
@@ -4807,14 +4808,8 @@ def dashboard_stats(request):
             estado='pagada'
         )
 
-        venta_mes_pasado_contado = facturas_mes_pasado_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-
-        pagos_credito_mes_pasado = PagoCuentaCobrar.objects.filter(
-            fecha_pago__gte=inicio_mes_pasado_time,
-            fecha_pago__lte=fin_mes_pasado_time
-        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-
-        venta_mes_pasado = venta_mes_pasado_contado + pagos_credito_mes_pasado
+        resumen_mes_pasado = _resumen_movimientos_caja(inicio_mes_pasado_time, fin_mes_pasado_time)
+        venta_mes_pasado = resumen_mes_pasado['ingresos_total']
 
         # 3. PEDIDOS HOY
         total_pedidos = Pedido.objects.filter(
@@ -4828,11 +4823,12 @@ def dashboard_stats(request):
         ).count()
 
         # 4. GASTOS TOTALES (costos reales)
-        gastos_totales, costo_mes_stats = calcular_costo_real_facturas(
+        gastos_totales = resumen_mes['egresos_total']
+        gastos_totales_mes_pasado = resumen_mes_pasado['egresos_total']
+        _, costo_mes_stats = calcular_costo_real_facturas(
             facturas_mes,
             include_stats=True
         )
-        gastos_totales_mes_pasado = calcular_costo_real_facturas(facturas_mes_pasado_qs)
 
         # 5. GANANCIAS NETAS
         ganancias_netas = venta_mes - gastos_totales
@@ -4959,18 +4955,7 @@ def dashboard_stats(request):
                     )
                     dia_str = dia_referencia.strftime('%a')
 
-                venta_dia_grafico = Factura.objects.filter(
-                    fecha_factura__gte=dia_inicio,
-                    fecha_factura__lte=dia_fin,
-                    estado='pagada'
-                ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-
-                pagos_credito_dia_grafico = PagoCuentaCobrar.objects.filter(
-                    fecha_pago__gte=dia_inicio,
-                    fecha_pago__lte=dia_fin
-                ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-
-                venta_dia_grafico += pagos_credito_dia_grafico
+                venta_dia_grafico = _resumen_movimientos_caja(dia_inicio, dia_fin)['caja_neta']
 
                 ultimos_7_dias.append(dia_str)
                 ventas_7_dias.append(float(venta_dia_grafico))
@@ -5136,18 +5121,7 @@ def dashboard_stats(request):
                     datetime.combine(fecha_dia, datetime.max.time())
                 )
 
-                venta_dia_mes = Factura.objects.filter(
-                    fecha_factura__gte=inicio_dia_cal,
-                    fecha_factura__lte=fin_dia_cal,
-                    estado='pagada'
-                ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-
-                pagos_credito_dia_mes = PagoCuentaCobrar.objects.filter(
-                    fecha_pago__gte=inicio_dia_cal,
-                    fecha_pago__lte=fin_dia_cal
-                ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-
-                venta_dia_mes += pagos_credito_dia_mes
+                venta_dia_mes = _resumen_movimientos_caja(inicio_dia_cal, fin_dia_cal)['caja_neta']
 
                 labels_mensuales.append(fecha_dia.strftime('%d %b'))
                 proyeccion_mensual.append(float(venta_dia_mes))
@@ -5167,18 +5141,7 @@ def dashboard_stats(request):
                 inicio_mes_grafico = timezone.make_aware(datetime.combine(fecha_mes, datetime.min.time()))
                 fin_mes_grafico = timezone.make_aware(datetime.combine(ultimo_dia, datetime.max.time()))
 
-                venta_mes_grafico = Factura.objects.filter(
-                    fecha_factura__gte=inicio_mes_grafico,
-                    fecha_factura__lte=fin_mes_grafico,
-                    estado='pagada'
-                ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-
-                pagos_credito_mes_grafico = PagoCuentaCobrar.objects.filter(
-                    fecha_pago__gte=inicio_mes_grafico,
-                    fecha_pago__lte=fin_mes_grafico
-                ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-
-                venta_mes_grafico += pagos_credito_mes_grafico
+                venta_mes_grafico = _resumen_movimientos_caja(inicio_mes_grafico, fin_mes_grafico)['caja_neta']
 
                 labels_anuales.append(meses_esp[fecha_mes.month - 1])
                 proyeccion_anual.append(float(venta_mes_grafico))
@@ -5308,10 +5271,12 @@ def dashboard_stats(request):
             'ventas_tipos_pedido_grafico': ventas_tipos_pedido_data,
             'fecha_actual': ahora_local.strftime('%A, %d de %B de %Y'),
             'hora_actual': ahora_local.strftime('%H:%M:%S'),
-            'total_facturas_hoy': facturas_hoy.count(),
-            'total_facturas_mes': facturas_mes.count(),
+            'total_facturas_hoy': facturas_hoy_card.count(),
+            'total_facturas_mes': facturas_mes_card.count(),
             'total_pagos_hoy': total_pagos_hoy,
             'total_pagos_mes': total_pagos_mes,
+            'total_egresos_hoy': total_egresos_hoy,
+            'total_egresos_mes': total_egresos_mes,
             'costos_items_validos': costo_mes_stats['items_validos'],
             'costos_items_mapeados': costo_mes_stats['items_mapeados'],
             'costos_items_no_mapeados': costo_mes_stats['items_no_mapeados'],
@@ -7091,235 +7056,433 @@ def procesar_devolucion_total(request):
 
 @login_required
 def procesar_devolucion_parcial(request):
-    """Procesar devolución parcial con validación mejorada"""
-    if request.method == 'POST':
-        numero_factura = request.POST.get('numero_factura')
-        productos_json = request.POST.get('productos_devueltos', '[]')
+    """
+    Procesa la devolución parcial de productos de una factura.
 
-        if not numero_factura:
-            messages.error(request, 'Número de factura requerido')
-            return redirect('anulacionydevolucion')
+    Devuelve JSON en todos los casos (el frontend usa fetch).
 
+    Flujo:
+      1. Valida productos y cantidades.
+      2. Repone stock de bebidas.
+      3. Crea Devolucion + DetalleDevolucion.
+      4. Ajusta CxC si es crédito.
+      5. Actualiza estado de la factura.
+
+        Casos de respuesta:
+            - Contado              → {"ok": true, "mensaje": "..."} y registra EGRESO automático
+            - Crédito con excedente→ {"requiere_decision": true, "tipo": "excedente", "excedente": X,       "devolucion_id": N}
+            - Crédito sin excedente→ {"ok": true, "mensaje": "..."}
+      - Error                → {"error": "..."}  (status 400)
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        # Compatibilidad: si el frontend envió form-encoded en lugar de JSON
+        body = request.POST
+
+    numero_factura  = body.get('numero_factura', '')
+    productos_json  = body.get('productos_devueltos', '[]')
+
+    if not numero_factura:
+        return JsonResponse({'error': 'Número de factura requerido'}, status=400)
+
+    try:
+        factura = get_object_or_404(Factura, numero_factura=numero_factura)
+    except Exception:
+        return JsonResponse({'error': f'Factura {numero_factura} no encontrada'}, status=400)
+
+    if factura.estado not in ['pagada', 'pendiente', 'parcialmente_devuelta']:
+        return JsonResponse(
+            {'error': f'Estado inválido para devolución: {factura.get_estado_display()}'},
+            status=400
+        )
+
+    # Parsear productos si llegaron como string
+    if isinstance(productos_json, str):
         try:
-            factura = get_object_or_404(Factura, numero_factura=numero_factura)
+            productos_devueltos = json.loads(productos_json)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Formato inválido de productos'}, status=400)
+    else:
+        productos_devueltos = productos_json
 
-            if factura.estado not in ['pagada', 'pendiente', 'parcialmente_devuelta']:
-                messages.error(
-                    request,
-                    f'Estado inválido para devolución: {factura.get_estado_display()}'
-                )
-                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+    if not isinstance(productos_devueltos, list) or not productos_devueltos:
+        return JsonResponse({'error': 'Debes seleccionar al menos un producto'}, status=400)
 
-            try:
-                productos_devueltos = json.loads(productos_json)
-            except json.JSONDecodeError:
-                messages.error(request, 'Formato inválido de productos devueltos')
-                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+    try:
+        with transaction.atomic():
+            factura = Factura.objects.select_for_update().get(numero_factura=numero_factura)
 
-            if not isinstance(productos_devueltos, list) or not productos_devueltos:
-                messages.error(request, 'Debes seleccionar productos')
-                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+            items_factura        = factura.get_items_detalle()
+            productos_procesados = []
+            monto_total_devuelto = Decimal('0.00')
+            bebidas_repuestas    = 0
 
-            with transaction.atomic():
-                items_factura = factura.get_items_detalle()
-                productos_procesados = []
-                monto_total_devuelto = Decimal('0.00')
-                bebidas_repuestas = 0
+            # ── Validar y calcular cada producto devuelto ──────────────────
+            for producto_data in productos_devueltos:
+                producto_nombre  = producto_data.get('nombre', '')
+                producto_id      = producto_data.get('producto_id')
+                producto_codigo  = str(producto_data.get('codigo', '')).strip()
+                cantidad_devolver = float(producto_data.get('cantidad', 0))
+                categoria        = producto_data.get('categoria', '')
 
-                print(f"\n🔄 PROCESANDO DEVOLUCIÓN PARCIAL")
+                # Buscar item en factura: id > codigo > nombre
+                item_factura = None
+                if producto_id not in (None, '', 'null'):
+                    item_factura = next(
+                        (i for i in items_factura
+                         if str(i.get('producto_id', '')) == str(producto_id)),
+                        None
+                    )
+                if not item_factura and producto_codigo:
+                    item_factura = next(
+                        (i for i in items_factura
+                         if str(i.get('codigo', '')).strip().lower() == producto_codigo.lower()),
+                        None
+                    )
+                if not item_factura:
+                    item_factura = buscar_item_por_nombre(items_factura, producto_nombre)
 
-                for producto_data in productos_devueltos:
-                    producto_nombre = producto_data.get('nombre', '')
-                    producto_id = producto_data.get('producto_id')
-                    producto_codigo = str(producto_data.get('codigo', '')).strip()
-                    cantidad_devolver = float(producto_data.get('cantidad', 0))
-                    categoria = producto_data.get('categoria', '')
-
-                    # Buscar en items de factura priorizando id/codigo para evitar ambiguedad por nombre.
-                    item_factura = None
-                    if producto_id not in (None, '', 'null'):
-                        item_factura = next(
-                            (item for item in items_factura if str(item.get('producto_id', '')) == str(producto_id)),
-                            None
-                        )
-                    if not item_factura and producto_codigo:
-                        item_factura = next(
-                            (item for item in items_factura if str(item.get('codigo', '')).strip().lower() == producto_codigo.lower()),
-                            None
-                        )
-                    if not item_factura:
-                        item_factura = buscar_item_por_nombre(items_factura, producto_nombre)
-
-                    if not item_factura:
-                        messages.error(
-                            request, f'Producto {producto_nombre} no encontrado')
-                        return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
-
-                    cantidad_original = float(item_factura.get('cantidad', 0))
-                    cantidad_ya_devuelta = factura.get_cantidad_ya_devuelta(
-                        producto_nombre)
-                    cantidad_disponible = cantidad_original - cantidad_ya_devuelta
-
-                    # VALIDACIÓN CRÍTICA
-                    if cantidad_devolver > cantidad_disponible:
-                        messages.error(
-                            request,
-                            f'❌ {producto_nombre}: Intentas devolver {cantidad_devolver} pero solo hay {cantidad_disponible} disponible (ya devuelto: {cantidad_ya_devuelta})'
-                        )
-                        return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
-
-                    precio = Decimal(str(item_factura.get('precio', 0)))
-                    subtotal = precio * Decimal(str(cantidad_devolver))
-                    codigo = item_factura.get('codigo', '')
-                    producto_id_resuelto = item_factura.get('producto_id')
-
-                    if not producto_id_resuelto:
-                        if codigo:
-                            producto_match = Producto.objects.filter(codigo__iexact=str(codigo).strip()).first()
-                            if producto_match:
-                                producto_id_resuelto = producto_match.id
-                        if not producto_id_resuelto and producto_nombre:
-                            producto_match = Producto.objects.filter(nombre__iexact=str(producto_nombre).strip()).first()
-                            if producto_match:
-                                producto_id_resuelto = producto_match.id
-
-                    print(f"\n📦 {producto_nombre}")
-                    print(
-                        f"   Devolver: {cantidad_devolver} de {cantidad_disponible} disponibles")
-                    print(f"   Código: '{codigo}', Categoría: '{categoria}'")
-
-                    # Reponer stock para bebidas
-                    if categoria.lower() == 'bebida':
-                        identificador = codigo if codigo and codigo.strip() else producto_nombre
-                        print(f"   🍺 Reponiendo con: '{identificador}'")
-
-                        if reponer_stock_producto(identificador, cantidad_devolver):
-                            bebidas_repuestas += 1
-                            print(f"   ✅ Stock repuesto")
-                        else:
-                            print(f"   ⚠️  Advertencia: No se pudo reponer stock")
-
-                    monto_total_devuelto += subtotal
-                    productos_procesados.append({
-                        'producto_id': producto_id_resuelto,
-                        'codigo': codigo,
-                        'nombre': producto_nombre,
-                        'cantidad': cantidad_devolver,
-                        'precio': float(precio),
-                        'precio_unitario': float(precio),
-                        'subtotal': float(subtotal),
-                        'categoria': categoria
-                    })
-
-                # ── Detectar si la factura es de crédito ──────────────────────
-                notas_pedido = (factura.pedido.notas or '') if factura.pedido else ''
-                es_credito = (
-                    ('TIPO_PAGO_PEDIDO=credito' in notas_pedido)
-                    or hasattr(factura, 'cuenta_por_cobrar')
-                    or factura.pagos_cxc.exists()
-                )
-
-                # ── REGLA: min(pagado, devolución) — SOLO para contado ────────
-                # En CRÉDITO: la devolución reduce la deuda del cliente.
-                #   No importa cuánto ha pagado — puede devolver libremente.
-                #   El saldo de CuentaPorCobrar se ajusta más abajo.
-                # En CONTADO: el negocio ya cobró. Solo se puede devolver
-                #   dinero hasta lo efectivamente recibido.
-                if not es_credito:
-                    total_pagado = factura.get_total_pagado()
-                    ya_devuelto  = factura.get_total_devuelto()
-                    monto_maximo = max(total_pagado - ya_devuelto, Decimal('0.00'))
-
-                    if monto_maximo <= Decimal('0.00'):
-                        messages.error(
-                            request,
-                            '❌ No hay monto disponible para devolver en efectivo. '
-                            'El total ya fue devuelto en operaciones anteriores.'
-                        )
-                        return redirect(
-                            f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}'
-                        )
-
-                    if monto_total_devuelto > monto_maximo:
-                        messages.warning(
-                            request,
-                            f'⚠️ Monto ajustado de ${monto_total_devuelto:.2f} a '
-                            f'${monto_maximo:.2f}. Política: solo se devuelve hasta '
-                            f'lo efectivamente cobrado (${total_pagado:.2f}).'
-                        )
-                        monto_total_devuelto = monto_maximo
-
-                print(f"   🏷  Tipo de venta: {'crédito' if es_credito else 'contado'}")
-                print(f"   💰 Monto a registrar en devolución: ${monto_total_devuelto}")
-
-                # Crear cabecera de devolución y su detalle relacional.
-                devolucion = Devolucion.objects.create(
-                    factura=factura,
-                    tipo_devolucion='parcial',
-                    productos_devueltos=productos_procesados,
-                    monto_devuelto=monto_total_devuelto,
-                    motivo='Devolución parcial procesada',
-                    procesado_por=request.user
-                )
-
-                for producto in productos_procesados:
-                    cantidad = Decimal(str(producto.get('cantidad', 0) or 0))
-                    precio_unitario = Decimal(str(producto.get('precio_unitario', producto.get('precio', 0)) or 0))
-                    monto = Decimal(str(producto.get('subtotal', 0) or 0))
-
-                    DetalleDevolucion.objects.create(
-                        devolucion=devolucion,
-                        nombre_producto=str(producto.get('nombre') or 'Producto'),
-                        cantidad=cantidad,
-                        precio_unitario=precio_unitario,
-                        monto=monto,
+                if not item_factura:
+                    return JsonResponse(
+                        {'error': f'Producto "{producto_nombre}" no encontrado en la factura'},
+                        status=400
                     )
 
-                # ── Ajustar CuentaPorCobrar si es crédito ─────────────────────
-                # La devolución reduce la deuda del cliente.
-                # Si el saldo pendiente queda en 0 → marcar como pagada.
-                if es_credito and hasattr(factura, 'cuenta_por_cobrar'):
-                    cxc = factura.cuenta_por_cobrar
-                    if cxc.estado not in ('pagada', 'anulada'):
-                        nuevo_saldo = max(
-                            cxc.saldo_pendiente - monto_total_devuelto,
-                            Decimal('0.00')
-                        )
-                        cxc.saldo_pendiente = nuevo_saldo
-                        cxc.estado = 'pagada' if nuevo_saldo <= Decimal('0.00') else 'parcial'
-                        cxc.save(update_fields=['saldo_pendiente', 'estado'])
-                        print(f"   📋 CxC ajustada: saldo pendiente → ${nuevo_saldo}")
+                cantidad_original   = float(item_factura.get('cantidad', 0))
+                cantidad_ya_devuelta = factura.get_cantidad_ya_devuelta(producto_nombre)
+                cantidad_disponible  = cantidad_original - cantidad_ya_devuelta
 
-                # Actualizar estado de factura
-                if factura.estado in ['pagada', 'pendiente']:
-                    factura.estado = 'parcialmente_devuelta'
+                if cantidad_devolver > cantidad_disponible:
+                    return JsonResponse(
+                        {'error': (
+                            f'"{producto_nombre}": intentas devolver {cantidad_devolver} '
+                            f'pero solo hay {cantidad_disponible:.0f} disponible '
+                            f'(ya devuelto: {cantidad_ya_devuelta:.0f})'
+                        )},
+                        status=400
+                    )
 
-                # Verificar si ya se devolvió todo
-                productos_disponibles = factura.get_productos_disponibles_devolucion()
-                if not productos_disponibles:
-                    factura.estado = 'totalmente_devuelta'
+                precio   = Decimal(str(item_factura.get('precio', 0)))
+                subtotal = precio * Decimal(str(cantidad_devolver))
+                codigo   = item_factura.get('codigo', '')
+                producto_id_resuelto = item_factura.get('producto_id')
 
-                factura.fecha_devolucion = timezone.now()
-                factura.save()
+                if not producto_id_resuelto:
+                    if codigo:
+                        pm = Producto.objects.filter(codigo__iexact=codigo.strip()).first()
+                        if pm:
+                            producto_id_resuelto = pm.id
+                    if not producto_id_resuelto and producto_nombre:
+                        pm = Producto.objects.filter(nombre__iexact=producto_nombre.strip()).first()
+                        if pm:
+                            producto_id_resuelto = pm.id
 
-                print(f"\n✅ DEVOLUCIÓN COMPLETADA")
-                print(f"   Bebidas repuestas: {bebidas_repuestas}")
-                print(f"   Monto: ${monto_total_devuelto}")
+                # Reponer stock solo para bebidas
+                if categoria.lower() == 'bebida':
+                    identificador = codigo if codigo and codigo.strip() else producto_nombre
+                    if reponer_stock_producto(identificador, cantidad_devolver):
+                        bebidas_repuestas += 1
 
-                messages.success(
-                    request,
-                    f'✅ Devolución procesada: ${monto_total_devuelto:.2f}. Bebidas repuestas: {bebidas_repuestas}'
+                monto_total_devuelto += subtotal
+                productos_procesados.append({
+                    'producto_id':    producto_id_resuelto,
+                    'codigo':         codigo,
+                    'nombre':         producto_nombre,
+                    'cantidad':       cantidad_devolver,
+                    'precio':         float(precio),
+                    'precio_unitario': float(precio),
+                    'subtotal':       float(subtotal),
+                    'categoria':      categoria,
+                })
+
+            # ── Detectar tipo de venta ─────────────────────────────────────
+            notas_pedido = (factura.pedido.notas or '') if factura.pedido else ''
+            es_credito = (
+                ('TIPO_PAGO_PEDIDO=credito' in notas_pedido)
+                or hasattr(factura, 'cuenta_por_cobrar')
+                or factura.pagos_cxc.exists()
+            )
+
+            # ── CONTADO: límite al monto efectivamente cobrado ─────────────
+            if not es_credito:
+                # En contado normalmente no existen pagos CxC, por lo que
+                # get_total_pagado() sería 0 y bloquearía devoluciones válidas.
+                total_pagado = (
+                    factura.get_total_neto()
+                    if hasattr(factura, 'get_total_neto')
+                    else Decimal(str(factura.total or 0))
+                )
+                ya_devuelto  = factura.get_total_devuelto()
+                monto_maximo = max(total_pagado - ya_devuelto, Decimal('0.00'))
+
+                if monto_maximo <= Decimal('0.00'):
+                    return JsonResponse(
+                        {'error': 'No hay monto disponible para devolver. El total ya fue devuelto.'},
+                        status=400
+                    )
+                if monto_total_devuelto > monto_maximo:
+                    monto_total_devuelto = monto_maximo
+
+            # ── Crear Devolucion + DetalleDevolucion ───────────────────────
+            devolucion = Devolucion.objects.create(
+                factura=factura,
+                tipo_devolucion='parcial',
+                productos_devueltos=productos_procesados,
+                monto_devuelto=monto_total_devuelto,
+                motivo='Devolución parcial procesada',
+                procesado_por=request.user,
+            )
+
+            for producto in productos_procesados:
+                DetalleDevolucion.objects.create(
+                    devolucion=devolucion,
+                    nombre_producto=str(producto.get('nombre') or 'Producto'),
+                    cantidad=Decimal(str(producto.get('cantidad', 0) or 0)),
+                    precio_unitario=Decimal(str(producto.get('precio_unitario', producto.get('precio', 0)) or 0)),
+                    monto=Decimal(str(producto.get('subtotal', 0) or 0)),
                 )
 
-                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+            # ── Ajustar CxC si es crédito ──────────────────────────────────
+            if es_credito and hasattr(factura, 'cuenta_por_cobrar'):
+                cxc = factura.cuenta_por_cobrar
+                if cxc.estado not in ('pagada', 'anulada'):
+                    nuevo_saldo = max(
+                        cxc.saldo_pendiente - monto_total_devuelto,
+                        Decimal('0.00')
+                    )
+                    cxc.saldo_pendiente = nuevo_saldo
+                    cxc.estado = 'pagada' if nuevo_saldo <= Decimal('0.00') else 'parcial'
+                    cxc.save(update_fields=['saldo_pendiente', 'estado'])
 
-        except Exception as e:
-            messages.error(request, f'❌ Error: {str(e)}')
-            import traceback
-            traceback.print_exc()
-            return redirect('anulacionydevolucion')
+            # ── Actualizar estado de la factura ────────────────────────────
+            if factura.estado in ['pagada', 'pendiente']:
+                factura.estado = 'parcialmente_devuelta'
 
-    return redirect('anulacionydevolucion')
+            if not factura.get_productos_disponibles_devolucion():
+                factura.estado = 'totalmente_devuelta'
+
+            factura.fecha_devolucion = timezone.now()
+            factura.save()
+
+            # ── DECISIÓN FINANCIERA ────────────────────────────────────────
+            # CONTADO: devolver producto y dinero en una sola fase.
+            if not es_credito:
+                MovimientoFinanciero.objects.create(
+                    tipo='EGRESO',
+                    origen='DEVOLUCION',
+                    monto=monto_total_devuelto,
+                    fecha_operacion=timezone.now(),
+                    factura=factura,
+                    devolucion=devolucion,
+                    metodo_pago=factura.metodo_pago,
+                    creado_por=request.user,
+                    descripcion=(
+                        f'Devolución de contado con egreso automático. '
+                        f'Factura: {factura.numero_factura}. '
+                        f'Monto: RD${monto_total_devuelto:.2f}.'
+                    ),
+                    referencia='DEVOLUCION_CONTADO_AUTOMATICA',
+                )
+
+                return JsonResponse({
+                    'ok': True,
+                    'mensaje': (
+                        f'Devolución de contado procesada correctamente. '
+                        f'Se devolvió dinero por RD${monto_total_devuelto:.2f}. '
+                        f'Bebidas repuestas: {bebidas_repuestas}.'
+                    ),
+                    'numero_factura': factura.numero_factura,
+                    'bebidas_repuestas': bebidas_repuestas,
+                })
+
+            # CRÉDITO: calcular balance post-devolución
+            balance = factura.balance()
+
+            if balance < Decimal('0.00'):
+                # Determinar si existe cliente para poder registrar saldo a favor.
+                cliente_para_saldo = None
+                if hasattr(factura, 'cuenta_por_cobrar') and factura.cuenta_por_cobrar.cliente:
+                    cliente_para_saldo = factura.cuenta_por_cobrar.cliente
+                else:
+                    for cliente in Cliente.objects.all():
+                        if _cliente_coincide_con_factura(cliente, factura):
+                            cliente_para_saldo = cliente
+                            break
+
+                # Excedente: el cliente pagó más de lo que debe tras la devolución
+                return JsonResponse({
+                    'requiere_decision': True,
+                    'tipo':          'excedente',
+                    'excedente':     float(abs(balance)),
+                    'devolucion_id': devolucion.id,
+                    'factura_id':    factura.id,
+                    'puede_usar_saldo': bool(cliente_para_saldo),
+                    'bebidas_repuestas': bebidas_repuestas,
+                })
+
+            # Crédito sin excedente: solo bajó la deuda, sin movimiento de caja
+            return JsonResponse({
+                'ok':      True,
+                'mensaje': (
+                    f'Devolución procesada correctamente. '
+                    f'Monto ajustado en deuda: RD${monto_total_devuelto:.2f}. '
+                    f'Bebidas repuestas: {bebidas_repuestas}.'
+                ),
+                'numero_factura': factura.numero_factura,
+                'bebidas_repuestas': bebidas_repuestas,
+            })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': f'Error interno: {str(e)}'}, status=500)
+
+# ============================================================
+# RESOLVER EXCEDENTE DE DEVOLUCIÓN
+# ============================================================
+
+@login_required
+@require_POST
+def resolver_excedente_devolucion(request):
+    """
+    Segunda fase del flujo de devolución: ejecuta la decisión financiera
+    cuando la devolución generó dinero a favor del cliente.
+
+    Recibe JSON:
+        factura_id    (int)   — ID de la factura
+        devolucion_id (int)   — ID de la Devolucion ya creada
+        accion        (str)   — 'devolver' | 'saldo'
+        tipo          (str)   — 'contado'  | 'excedente'
+        monto         (float) — solo requerido cuando tipo == 'contado'
+
+    Acciones:
+        devolver → crea MovimientoFinanciero EGRESO (sale dinero de caja)
+        saldo    → crea SaldoAFavor (queda pendiente para el cliente)
+    """
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Body JSON inválido'}, status=400)
+
+    factura_id    = body.get('factura_id')
+    devolucion_id = body.get('devolucion_id')
+    accion        = body.get('accion', '')
+    tipo          = body.get('tipo', '')
+
+    # ── Validaciones básicas ───────────────────────────────────────────────
+    if not factura_id or not devolucion_id:
+        return JsonResponse({'error': 'factura_id y devolucion_id son requeridos'}, status=400)
+
+    if accion not in ('devolver', 'saldo'):
+        return JsonResponse({'error': 'Acción inválida. Usa "devolver" o "saldo"'}, status=400)
+
+    if tipo not in ('contado', 'excedente'):
+        return JsonResponse({'error': 'Tipo inválido. Usa "contado" o "excedente"'}, status=400)
+
+    try:
+        with transaction.atomic():
+            factura    = Factura.objects.select_for_update().get(id=factura_id)
+            devolucion = Devolucion.objects.get(id=devolucion_id, factura=factura)
+
+            # ── Calcular monto a mover ─────────────────────────────────────
+            if tipo == 'contado':
+                # Para contado el monto viene explícito porque balance() no aplica
+                monto_raw = body.get('monto')
+                if monto_raw is None:
+                    return JsonResponse(
+                        {'error': 'monto es requerido para tipo contado'},
+                        status=400
+                    )
+                monto = Decimal(str(monto_raw))
+                if monto <= Decimal('0.00'):
+                    return JsonResponse({'error': 'El monto debe ser mayor a cero'}, status=400)
+                referencia = 'DEVOLUCION_CONTADO'
+
+            else:  # excedente
+                balance = factura.balance()
+                if balance >= Decimal('0.00'):
+                    return JsonResponse(
+                        {'error': 'No hay excedente en esta factura'},
+                        status=400
+                    )
+                monto      = abs(balance)
+                referencia = 'EXCEDENTE_DEVOLUCION'
+
+            # ── Ejecutar acción elegida por el usuario ─────────────────────
+            if accion == 'devolver':
+                # Sale dinero de caja
+                movimiento = MovimientoFinanciero.objects.create(
+                    tipo='EGRESO',
+                    origen='DEVOLUCION',
+                    monto=monto,
+                    fecha_operacion=timezone.now(),
+                    factura=factura,
+                    devolucion=devolucion,
+                    metodo_pago=factura.metodo_pago,
+                    creado_por=request.user,
+                    descripcion=(
+                        f'Devolución de dinero al cliente. '
+                        f'Factura: {factura.numero_factura}. '
+                        f'Tipo: {tipo}. Monto: RD${monto}.'
+                    ),
+                    referencia=referencia,
+                )
+                mensaje = f'Egreso de RD${monto:.2f} registrado en caja.'
+
+            else:  # saldo
+                # El dinero queda a favor del cliente, sin salir de caja
+                cliente_saldo = None
+                if hasattr(factura, 'cuenta_por_cobrar') and factura.cuenta_por_cobrar.cliente:
+                    cliente_saldo = factura.cuenta_por_cobrar.cliente
+                else:
+                    for cliente in Cliente.objects.all():
+                        if _cliente_coincide_con_factura(cliente, factura):
+                            cliente_saldo = cliente
+                            break
+
+                if not cliente_saldo:
+                    return JsonResponse(
+                        {
+                            'error': (
+                                'No se puede registrar saldo a favor porque la factura no tiene '
+                                'cliente vinculado. Usa "devolver" o vincula un cliente primero.'
+                            )
+                        },
+                        status=400
+                    )
+
+                SaldoAFavor.objects.create(
+                    cliente=cliente_saldo,
+                    factura_origen=factura,
+                    devolucion=devolucion,
+                    monto=monto,
+                    motivo=(
+                        'Devolución en efectivo convertida en saldo a favor'
+                        if tipo == 'contado'
+                        else 'Excedente por devolución en crédito'
+                    ),
+                    creado_por=request.user,
+                )
+                mensaje = f'Saldo a favor de RD${monto:.2f} registrado para el cliente.'
+
+            return JsonResponse({
+                'ok':             True,
+                'mensaje':        mensaje,
+                'numero_factura': factura.numero_factura,
+            })
+
+    except Factura.DoesNotExist:
+        return JsonResponse({'error': 'Factura no encontrada'}, status=404)
+    except Devolucion.DoesNotExist:
+        return JsonResponse({'error': 'Devolución no encontrada o no pertenece a esta factura'}, status=404)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': f'Error interno: {str(e)}'}, status=500)
 
 # ============================================================
 # ANULACIÓN DE FACTURA
@@ -7437,6 +7600,24 @@ def procesar_anulacion_factura(request):
                     'usuario_anulacion',
                     'fecha_devolucion',
                 ])
+
+                # Registrar egreso financiero por anulación
+                if monto_devuelto > 0:
+                    MovimientoFinanciero.objects.create(
+                        tipo="EGRESO",
+                        origen="ANULACION",
+                        monto=monto_devuelto,
+                        fecha_operacion=timezone.now(),
+                        factura=factura,
+                        devolucion=devolucion,
+                        metodo_pago=factura.metodo_pago,
+                        creado_por=request.user,
+                        descripcion=(
+                            f"Anulación factura {factura.numero_factura}. "
+                            f"Motivo: {motivo or 'Sin motivo'}. "
+                            + (f"Pagos CxC eliminados: {pagos_eliminados}." if es_credito else "")
+                        ),
+                    )
 
                 # Cerrar el ciclo en este mismo flujo: evitar que reaparezca en gestión/facturación.
                 if factura.pedido:
@@ -8234,6 +8415,95 @@ def _cliente_coincide_con_factura(cliente, factura):
     return bool(nombre_cliente and nombre_factura and nombre_cliente == nombre_factura)
 
 
+def _factura_es_credito(factura):
+    """Determina si una factura pertenece al flujo de crédito."""
+    notas_pedido = (factura.pedido.notas or '') if getattr(factura, 'pedido', None) else ''
+    return (
+        ('TIPO_PAGO_PEDIDO=credito' in notas_pedido)
+        or hasattr(factura, 'cuenta_por_cobrar')
+        or factura.pagos_cxc.exists()
+    )
+
+
+def _calcular_saldo_factura_cxc(factura):
+    """Saldo real de una factura: ventas - devoluciones - pagos, con piso en cero."""
+    total_factura = factura.get_total_neto() if hasattr(factura, 'get_total_neto') else Decimal(str(factura.total or 0))
+    total_pagado = PagoCuentaCobrar.objects.filter(
+        factura=factura
+    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    total_devuelto = factura.get_total_devuelto() if hasattr(factura, 'get_total_devuelto') else Decimal('0.00')
+
+    saldo = total_factura - total_devuelto - total_pagado
+    return saldo if saldo > Decimal('0.00') else Decimal('0.00')
+
+
+def _resumen_movimientos_caja(inicio, fin):
+    """Resume movimientos reales de caja en un rango de fechas."""
+    movimientos = MovimientoFinanciero.objects.filter(
+        fecha_operacion__gte=inicio,
+        fecha_operacion__lte=fin,
+        estado='ACTIVO',
+    )
+
+    ingreso_venta = movimientos.filter(tipo='INGRESO', origen='VENTA').aggregate(total=Sum('monto'), cantidad=Count('id'))
+    ingreso_pagos = movimientos.filter(tipo='INGRESO', origen='PAGO_CXC').aggregate(total=Sum('monto'), cantidad=Count('id'))
+    egreso_devoluciones = movimientos.filter(tipo='EGRESO', origen='DEVOLUCION').aggregate(total=Sum('monto'), cantidad=Count('id'))
+    egreso_anulaciones = movimientos.filter(tipo='EGRESO', origen='ANULACION').aggregate(total=Sum('monto'), cantidad=Count('id'))
+
+    ingreso_venta_total = ingreso_venta['total'] or Decimal('0.00')
+    ingreso_pagos_total = ingreso_pagos['total'] or Decimal('0.00')
+    egreso_devoluciones_total = egreso_devoluciones['total'] or Decimal('0.00')
+    egreso_anulaciones_total = egreso_anulaciones['total'] or Decimal('0.00')
+
+    ingresos_total = ingreso_venta_total + ingreso_pagos_total
+    egresos_total = egreso_devoluciones_total + egreso_anulaciones_total
+    caja_neta = ingresos_total - egresos_total
+
+    return {
+        'ingreso_venta_total': ingreso_venta_total,
+        'ingreso_pagos_total': ingreso_pagos_total,
+        'egreso_devoluciones_total': egreso_devoluciones_total,
+        'egreso_anulaciones_total': egreso_anulaciones_total,
+        'ingresos_total': ingresos_total,
+        'egresos_total': egresos_total,
+        'caja_neta': caja_neta,
+        'ingreso_venta_count': ingreso_venta['cantidad'] or 0,
+        'ingreso_pagos_count': ingreso_pagos['cantidad'] or 0,
+        'egreso_devoluciones_count': egreso_devoluciones['cantidad'] or 0,
+        'egreso_anulaciones_count': egreso_anulaciones['cantidad'] or 0,
+    }
+
+
+def _facturas_que_cuentan_en_cards(queryset):
+    """
+    Facturas que deben contarse en las cards del dashboard.
+    
+    SOLO incluyen:
+    - Ventas a CONTADO estado 'pagada'
+    - Ventas a CONTADO estado 'parcialmente_devuelta'
+    
+    EXCLUYEN:
+    - Todas las ventas a CRÉDITO (sin importar estado)
+    - Facturas anuladas
+    - Facturas totalmente devueltas
+    """
+    from django.db.models import Q
+    
+    # Excluir anuladas y totalmente devueltas
+    qs = queryset.exclude(estado__in=['anulada', 'totalmente_devuelta'])
+    
+    # Filtrar solo pagadas o parcialmente devueltas
+    qs = qs.filter(estado__in=['pagada', 'parcialmente_devuelta'])
+    
+    # Excluir facturas de CRÉDITO (tienen CuentaPorCobrar vinculada)
+    qs = qs.exclude(cuenta_por_cobrar__isnull=False)
+    
+    # Excluir facturas donde el pedido tiene TIPO_PAGO_PEDIDO=credito en notas
+    qs = qs.exclude(pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
+    
+    return qs
+
+
 def _calcular_saldo_credito_cliente(cliente, facturas_pendientes=None):
     """Saldo usado por el cliente: CxC vinculadas + pendientes coincidentes no vinculadas."""
     saldo = Decimal('0.00')
@@ -8269,12 +8539,11 @@ def _saldo_factura_pendiente(factura):
     if factura.estado in ['anulada', 'totalmente_devuelta']:
         return Decimal('0.00')
 
-    total_pagado = PagoCuentaCobrar.objects.filter(
-        factura=factura
-    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    total_neto = factura.get_total_neto() if hasattr(factura, 'get_total_neto') else Decimal(str(factura.total or 0))
-    saldo = total_neto - total_pagado
-    return saldo if saldo > 0 else Decimal('0.00')
+    # CxC solo aplica para ventas a crédito.
+    if not _factura_es_credito(factura):
+        return Decimal('0.00')
+
+    return _calcular_saldo_factura_cxc(factura)
 
 
 def _calcular_fechas_cxc(factura, cliente_match=None):
@@ -8291,6 +8560,10 @@ def _calcular_fechas_cxc(factura, cliente_match=None):
 
 
 def _sincronizar_cuenta_por_cobrar(factura, cliente_match=None):
+    # No crear/sincronizar CxC para contado.
+    if not _factura_es_credito(factura):
+        return None
+
     fecha_emision, fecha_vencimiento = _calcular_fechas_cxc(factura, cliente_match)
     total_factura = factura.get_total_neto() if hasattr(factura, 'get_total_neto') else Decimal(str(factura.total or 0))
 
@@ -8305,7 +8578,7 @@ def _sincronizar_cuenta_por_cobrar(factura, cliente_match=None):
     }
     cuenta, created = CuentaPorCobrar.objects.get_or_create(factura=factura, defaults=defaults)
 
-    saldo = _saldo_factura_pendiente(factura)
+    saldo = _calcular_saldo_factura_cxc(factura)
 
     hoy = timezone.localdate()
     if factura.estado == 'anulada':
@@ -8372,6 +8645,9 @@ def _armar_clientes_cuentas_por_cobrar():
     for factura in Factura.objects.filter(
         estado__in=['pendiente', 'parcialmente_devuelta']
     ).prefetch_related('pagos_cxc', 'devoluciones'):
+        if not _factura_es_credito(factura):
+            continue
+
         nombre_factura = (factura.nombre_cliente or '').strip()
         telefono_factura = _telefono_solo_digitos(factura.telefono_cliente)
 
@@ -8392,6 +8668,9 @@ def _armar_clientes_cuentas_por_cobrar():
     agrupados = {}
     for cuenta in cuentas:
         factura = cuenta.factura
+        if not factura or not _factura_es_credito(factura):
+            continue
+
         saldo = _saldo_factura_pendiente(factura)
 
         nombre_factura = (factura.nombre_cliente or '').strip()
@@ -8566,9 +8845,13 @@ def _armar_clientes_cuentas_por_cobrar():
 def cuentaporcobrar_datos(request):
     """Retorna datos reales para la tabla de cuentas por cobrar."""
     clientes = _armar_clientes_cuentas_por_cobrar()
-    cuentas_con_deuda = CuentaPorCobrar.objects.filter(saldo_pendiente__gt=0).exclude(estado='anulada')
-    facturas_pendientes = cuentas_con_deuda.count()
-    clientes_con_deuda = cuentas_con_deuda.values('cliente_id').distinct().count()
+    facturas_pendientes = sum(
+        1
+        for cliente in clientes
+        for factura in cliente.get('facturas', [])
+        if float(factura.get('saldo_pendiente') or 0) > 0
+    )
+    clientes_con_deuda = sum(1 for cliente in clientes if float(cliente.get('total_adeudado') or 0) > 0)
     return JsonResponse({'success': True, 'clientes': clientes, 'facturas_pendientes': facturas_pendientes, 'clientes_con_deuda': clientes_con_deuda})
 
 
@@ -8790,9 +9073,9 @@ def cuentaporcobrar_comprobante_pdf(request):
     c.setFont('Helvetica', 7)
     c.drawCentredString(ancho_ticket / 2, y, 'RNC: 00000000')
     y -= alto_linea
-    c.drawCentredString(ancho_ticket / 2, y, 'Direccion: Castanuelas, calle 30 de mayo')
+    c.drawCentredString(ancho_ticket / 2, y, 'Direccion: Castanuelas, calle 30 de mayo frente a la bomba')
     y -= alto_linea
-    c.drawCentredString(ancho_ticket / 2, y, 'Telefono: 876-987-9876')
+    c.drawCentredString(ancho_ticket / 2, y, 'Telefono: 849-362-1791')
     y -= alto_linea
 
     c.line(5 * mm, y, ancho_ticket - 5 * mm, y)
@@ -8873,17 +9156,16 @@ def cuentaporcobrar_comprobante_pdf(request):
     c.drawCentredString(ancho_ticket / 2, y, 'Gracias por su pago')
     y -= alto_linea
 
-    # Firma UUID de pago (centrada, discreta, gris, pequeña, debajo del mensaje de gracias)
+    # Firma UUID de pago (centrada, negro para impresora térmica, pequeña, debajo del mensaje de gracias)
     uuid_firmas = [str(p.uuid_pago) for p in pagos if hasattr(p, 'uuid_pago') and p.uuid_pago]
     if uuid_firmas:
         c.setFont('Helvetica-Oblique', 6)
-        c.setFillColorRGB(0.5, 0.5, 0.5)  # Gris medio
+        c.setFillColorRGB(0, 0, 0)  # Negro para que se vea en impresora térmica
         if len(uuid_firmas) == 1:
             c.drawCentredString(ancho_ticket / 2, y, f"Firma: {uuid_firmas[0]}")
         else:
             # Si hay varios pagos, concatenar UUIDs separados por espacio
             c.drawCentredString(ancho_ticket / 2, y, "Firmas: " + " ".join(uuid_firmas))
-        c.setFillColorRGB(0, 0, 0)  # Restaurar a negro
         y -= alto_linea
 
     c.showPage()
@@ -9050,6 +9332,20 @@ def cuentaporcobrar_registrar_pago(request):
                 factura.metodo_pago = metodo_pago
                 factura.save(update_fields=['estado', 'metodo_pago'])
 
+            # Registrar ingreso financiero por pago de CxC
+            MovimientoFinanciero.objects.create(
+                tipo="INGRESO",
+                origen="PAGO_CXC",
+                monto=monto,
+                fecha_operacion=fecha_pago,
+                factura=factura,
+                pago_cxc=pago_registrado,
+                metodo_pago=metodo_pago,
+                creado_por=request.user if request.user.is_authenticated else None,
+                descripcion=f"Pago CxC factura {factura.numero_factura}. Comprobante: {pago_registrado.numero_comprobante}",
+                referencia=pago_registrado.numero_comprobante or "",
+            )
+
             return JsonResponse({
                 'success':             True,
                 'mensaje':             'Pago registrado correctamente.',
@@ -9162,6 +9458,19 @@ def cuentaporcobrar_registrar_pago(request):
 
             if creado:
                 aplicado_total += monto_aplicar
+                # Registrar ingreso financiero por este pago parcial distribuido
+                MovimientoFinanciero.objects.create(
+                    tipo="INGRESO",
+                    origen="PAGO_CXC",
+                    monto=monto_aplicar,
+                    fecha_operacion=fecha_pago,
+                    factura=factura,
+                    pago_cxc=pago_obj,
+                    metodo_pago=metodo_pago,
+                    creado_por=request.user if request.user.is_authenticated else None,
+                    descripcion=f"Pago CxC distribuido factura {factura.numero_factura}. Comprobante: {pago_obj.numero_comprobante}",
+                    referencia=pago_obj.numero_comprobante or "",
+                )
             else:
                 hubo_reimpresion = True
 
@@ -9222,9 +9531,15 @@ def estado_cuenta_cliente_pdf(request):
     facturas = [c.factura for c in cuentas if c.factura]
     pagos_qs = PagoCuentaCobrar.objects.filter(factura__in=facturas).select_related('factura').order_by('fecha_pago')
  
-    total_facturado  = sum([f.total or 0 for f in facturas])
-    total_pagado     = pagos_qs.aggregate(total=Sum('monto'))['total'] or 0
-    saldo_pendiente  = total_facturado - total_pagado
+    total_facturado = sum((Decimal(str(f.total or 0)) for f in facturas), Decimal('0.00'))
+    total_devuelto = sum(
+        (Decimal(str(getattr(f, 'get_total_devuelto', lambda: Decimal('0.00'))() or 0)) for f in facturas),
+        Decimal('0.00')
+    )
+    total_pagado = pagos_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    saldo_pendiente = total_facturado - total_devuelto - total_pagado
+    if saldo_pendiente < Decimal('0.00'):
+        saldo_pendiente = Decimal('0.00')
  
     # ── Estilos ────────────────────────────────────────────────────────────────
     buffer = io.BytesIO()
@@ -9264,7 +9579,7 @@ def estado_cuenta_cliente_pdf(request):
     story.append(Paragraph("402 FASTFOOD",                                title_sty))
     story.append(Paragraph("RNC: 00000000",                               small_sty))
     story.append(Paragraph("Dirección: Castanuelas, calle 30 de mayo",    small_sty))
-    story.append(Paragraph("Teléfono: 876-987-9876",                      small_sty))
+    story.append(Paragraph("Teléfono: 849-362-1791",                      small_sty))
     story.append(Spacer(1, 8))
  
     # ── Info cliente ───────────────────────────────────────────────────────────

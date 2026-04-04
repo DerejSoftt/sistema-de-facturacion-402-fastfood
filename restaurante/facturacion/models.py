@@ -1,4 +1,3 @@
-
 # =============================================================================
 # models.py — 402 FastFood
 # Versión consolidada con todas las mejoras de seguridad e integridad
@@ -547,28 +546,51 @@ class Factura(models.Model):
         Anula la factura registrando usuario, fecha y motivo.
         Cancela el pedido asociado y libera la mesa si aplica.
         Cancela la cuenta por cobrar si existe.
+        Si había pagos parciales aplicados, registra un MovimientoFinanciero
+        de egreso como evidencia del dinero devuelto, antes de eliminar los pagos.
         No modifica ningún dato original de la venta.
         """
         if self.estado == 'anulada':
             raise ValueError("La factura ya está anulada.")
 
         with transaction.atomic():
+            # 1. Si hay CxC con pagos, dejar huella antes de eliminarlos
+            if hasattr(self, 'cuenta_por_cobrar'):
+                cxc = self.cuenta_por_cobrar
+                pagos = list(cxc.pagos.all())
+                total_pagado = sum(p.monto for p in pagos)
+
+                if total_pagado > 0:
+                    MovimientoFinanciero.objects.create(
+                        tipo="EGRESO",
+                        origen="ANULACION",
+                        monto=total_pagado,
+                        fecha_operacion=timezone.now(),
+                        factura=self,
+                        creado_por=usuario,
+                        descripcion=(
+                            f"Devolución de pagos por anulación de factura {self.numero_factura}. "
+                            f"Pagos eliminados: {len(pagos)}. Total devuelto: RD${total_pagado}."
+                        ),
+                    )
+
+                cxc.pagos.all().delete()
+                cxc.estado = 'anulada'
+                cxc.saldo_pendiente = Decimal('0.00')
+                cxc.save(update_fields=['estado', 'saldo_pendiente'])
+
+            # 2. Anular la factura
             self.estado = 'anulada'
             self.motivo_anulacion = motivo
             self.fecha_anulacion = timezone.now()
             self.usuario_anulacion = usuario
             self.save(update_fields=['estado', 'motivo_anulacion', 'fecha_anulacion', 'usuario_anulacion'])
 
+            # 3. Cancelar pedido y liberar mesa
             if self.pedido:
                 self.pedido.estado = 'cancelado'
                 self.pedido.save(update_fields=['estado'])
                 self.pedido.liberar_mesa_si_corresponde()
-
-            if hasattr(self, 'cuenta_por_cobrar'):
-                cxc = self.cuenta_por_cobrar
-                cxc.estado = 'anulada'
-                cxc.saldo_pendiente = Decimal('0.00')
-                cxc.save(update_fields=['estado', 'saldo_pendiente'])
 
     # ── FASE 3: Actualizar estado post-devolución ──────────────────────────────
     def actualizar_estado_devolucion(self):
@@ -593,48 +615,6 @@ class Factura(models.Model):
 
         self.estado = nuevo_estado
         self.save(update_fields=['estado'])
-
-    def get_total_devuelto(self):
-        total = self.devoluciones.aggregate(
-            total=models.Sum('monto_devuelto')
-        )['total'] or Decimal('0.00')
-        return total
-
-    def get_total_neto(self):
-        neto = Decimal(str(self.total or 0)) - self.get_total_devuelto()
-        return neto if neto > Decimal('0.00') else Decimal('0.00')
-
-    # ── Cálculo de pagos recibidos ─────────────────────────────────────────────
-    def get_total_pagado(self):
-        """
-        Retorna el total efectivamente cobrado al cliente para esta factura.
-        - Facturas de crédito: suma los PagoCuentaCobrar registrados.
-        - Facturas de contado pagadas: el total completo ya fue cobrado.
-        - Facturas pendientes sin pagos CxC: no se ha cobrado nada.
-        """
-        total_cxc = self.pagos_cxc.aggregate(
-            total=models.Sum('monto')
-        )['total'] or Decimal('0.00')
-
-        if total_cxc > Decimal('0.00'):
-            return total_cxc
-
-        if self.estado == 'pagada':
-            return Decimal(str(self.total or 0))
-
-        return Decimal('0.00')
-
-    def get_monto_maximo_devolucion(self):
-        """
-        Regla de negocio: solo se puede devolver hasta lo que el cliente ha
-        pagado, descontando lo ya devuelto en devoluciones anteriores.
-        Fórmula: min(pagado, devolución_solicitada) aplicada en la view.
-        Este método devuelve el tope disponible.
-        """
-        total_pagado  = self.get_total_pagado()
-        ya_devuelto   = self.get_total_devuelto()
-        disponible    = total_pagado - ya_devuelto
-        return max(disponible, Decimal('0.00'))
 
     # ── FASE 6: marcar_como_pagada con transaction ─────────────────────────────
     def marcar_como_pagada(self):
@@ -747,13 +727,11 @@ class Factura(models.Model):
                 producto_id = item.get('producto_id') or item.get('product_id') or item.get('id')
                 codigo = item.get('codigo') or item.get('code') or ''
 
-                if enrich_from_db and (not codigo or categoria == 'otro' or not producto_id):
+                if enrich_from_db and (not codigo or categoria == 'otro'):
                     producto_db = None
                     plato_db = None
                     if producto_id:
                         producto_db = Producto.objects.filter(id=producto_id).first()
-                    if not producto_db and codigo:
-                        producto_db = Producto.objects.filter(codigo__iexact=str(codigo).strip()).first()
                     if not producto_db and nombre:
                         producto_db = Producto.objects.filter(nombre__iexact=nombre.strip()).first()
                     if not producto_db and nombre:
@@ -761,22 +739,16 @@ class Factura(models.Model):
                     if not producto_db:
                         if producto_id:
                             plato_db = Plato.objects.filter(id=producto_id).first()
-                        if not plato_db and codigo:
-                            plato_db = Plato.objects.filter(codigo__iexact=str(codigo).strip()).first()
                         if not plato_db and nombre:
                             plato_db = Plato.objects.filter(nombre__iexact=nombre.strip()).first()
                         if not plato_db and nombre:
                             plato_db = Plato.objects.filter(nombre__icontains=nombre.strip()).first()
                     if producto_db:
-                        if not producto_id:
-                            producto_id = producto_db.id
                         if not codigo:
                             codigo = producto_db.codigo
                         if categoria == 'otro':
                             categoria = producto_db.categoria.lower()
                     elif plato_db:
-                        if not producto_id:
-                            producto_id = plato_db.id
                         if not codigo:
                             codigo = plato_db.codigo
                         if categoria == 'otro':
@@ -864,6 +836,37 @@ class Factura(models.Model):
             }
             for item in self.get_items_detalle()
         ]
+
+    # ── Métodos financieros ────────────────────────────────────────────────────
+    def get_total_pagado(self):
+        """
+        Suma todos los pagos CxC aplicados a esta factura.
+        Solo cuenta pagos directos (no devoluciones).
+        """
+        return self.pagos_cxc.aggregate(
+            total=models.Sum('monto')
+        )['total'] or Decimal('0.00')
+
+    def get_total_devuelto(self):
+        """
+        Suma el monto_devuelto de todas las devoluciones de esta factura.
+        """
+        return self.devoluciones.aggregate(
+            total=models.Sum('monto_devuelto')
+        )['total'] or Decimal('0.00')
+
+    def balance(self):
+        """
+        Balance financiero real de la factura.
+
+        Resultado positivo  → cliente aún debe dinero.
+        Resultado cero      → factura saldada exactamente.
+        Resultado negativo  → hay excedente (se devolvió/pagó de más).
+
+        Solo aplica a facturas de crédito (con CxC).
+        Para contado, el total ya fue cobrado al momento de la venta.
+        """
+        return self.total - self.get_total_pagado() - self.get_total_devuelto()
 
 # =============================================================================
 # FACTURA DETALLE
@@ -1268,3 +1271,282 @@ class Cliente(models.Model):
     @property
     def venta_contado(self):
         return self.dias_credito == 0
+
+# =============================================================================
+# MOVIMIENTO FINANCIERO
+# =============================================================================
+
+class MovimientoFinanciero(models.Model):
+    """
+    Registro inmutable de cada evento que mueve dinero en el sistema.
+    Cubre ventas, pagos de CxC, devoluciones y anulaciones.
+
+    Reglas de oro:
+    - Nunca editar un movimiento existente.
+    - Nunca borrar un movimiento existente.
+    - Todo evento financiero crea exactamente un movimiento.
+    - Para corregir un error: crear un movimiento REVERTIDO que apunte
+      al original mediante movimiento_origen, y crear el correcto nuevo.
+    """
+
+    TIPO_CHOICES = [
+        ("INGRESO", "Ingreso"),
+        ("EGRESO",  "Egreso"),
+    ]
+
+    ORIGEN_CHOICES = [
+        ("VENTA",      "Venta"),
+        ("PAGO_CXC",   "Pago Cuenta por Cobrar"),
+        ("DEVOLUCION", "Devolución"),
+        ("ANULACION",  "Anulación"),
+        ("AJUSTE",     "Ajuste Manual"),
+    ]
+
+    ESTADO_CHOICES = [
+        ("ACTIVO",    "Activo"),
+        ("REVERTIDO", "Revertido"),
+    ]
+
+    tipo   = models.CharField(max_length=10, choices=TIPO_CHOICES, verbose_name="Tipo")
+    origen = models.CharField(max_length=20, choices=ORIGEN_CHOICES, verbose_name="Origen")
+    estado = models.CharField(
+        max_length=10, choices=ESTADO_CHOICES,
+        default="ACTIVO", verbose_name="Estado"
+    )
+
+    monto = models.DecimalField(
+        max_digits=12, decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+        verbose_name="Monto"
+    )
+
+    # Dos fechas: cuándo ocurrió el hecho vs cuándo entró al sistema.
+    # Crítico cuando hay caídas de red o registros retroactivos.
+    fecha_operacion = models.DateTimeField(verbose_name="Fecha de Operación")
+    fecha_registro  = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Registro")
+
+    # Trazabilidad — conecta el movimiento con su documento de origen
+    factura = models.ForeignKey(
+        "Factura", on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="movimientos", verbose_name="Factura"
+    )
+    devolucion = models.ForeignKey(
+        "Devolucion", on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="movimientos", verbose_name="Devolución"
+    )
+    pago_cxc = models.ForeignKey(
+        "PagoCuentaCobrar", on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="movimientos", verbose_name="Pago CxC"
+    )
+
+    # Método de pago heredado de la factura — evita joins en reportes de caja
+    metodo_pago = models.CharField(
+        max_length=20,
+        choices=Factura.METODO_PAGO_CHOICES,
+        null=True, blank=True,
+        verbose_name="Método de Pago"
+    )
+
+    descripcion = models.TextField(verbose_name="Descripción")
+    referencia  = models.CharField(
+        max_length=100, blank=True,
+        db_index=True, verbose_name="Referencia"
+    )
+
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, related_name="movimientos_financieros",
+        verbose_name="Creado por"
+    )
+
+    # Para reversos: apunta al movimiento que este cancela
+    movimiento_origen = models.ForeignKey(
+        "self", null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reversos",
+        verbose_name="Movimiento Original"
+    )
+
+    uuid = models.UUIDField(
+        default=uuid.uuid4, unique=True,
+        editable=False, verbose_name="UUID"
+    )
+
+    class Meta:
+        ordering = ["-fecha_operacion"]
+        indexes = [
+            models.Index(fields=["tipo", "origen", "fecha_operacion"]),
+            models.Index(fields=["fecha_operacion"]),
+            models.Index(fields=["factura"]),
+            models.Index(fields=["estado"]),
+        ]
+        verbose_name = "Movimiento Financiero"
+        verbose_name_plural = "Movimientos Financieros"
+
+    def __str__(self):
+        return (
+            f"{self.tipo} | {self.origen} | "
+            f"RD${self.monto} | {self.fecha_operacion:%Y-%m-%d}"
+        )
+
+    def delete(self, *args, **kwargs):
+        """Los movimientos financieros nunca se eliminan. Son inmutables."""
+        raise models.ProtectedError(
+            "No se permite eliminar movimientos financieros. "
+            "Cree un movimiento de reverso en su lugar.",
+            [self]
+        )
+
+
+# =============================================================================
+# SALDO A FAVOR
+# =============================================================================
+
+class SaldoAFavor(models.Model):
+    """
+    Registra el dinero que el negocio le debe al cliente.
+    Nace cuando una devolución genera un excedente y el cliente
+    elige no recibir el efectivo de inmediato.
+
+    Estados:
+        pendiente  → el saldo existe y no ha sido usado.
+        devuelto   → se entregó el efectivo (MovimientoFinanciero EGRESO).
+        anulado    → cancelado manualmente por el negocio.
+    """
+
+    ESTADO_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('devuelto',  'Devuelto'),
+        ('anulado',   'Anulado'),
+    ]
+
+    # Identificador único para auditoría y antiduplicados
+    uuid = models.UUIDField(
+        default=uuid.uuid4, unique=True,
+        editable=False, verbose_name='UUID'
+    )
+
+    # ── Quién y de dónde ──────────────────────────────────────────────────────
+    cliente = models.ForeignKey(
+        'Cliente',
+        on_delete=models.PROTECT,
+        related_name='saldos_favor',
+        verbose_name='Cliente'
+    )
+    factura_origen = models.ForeignKey(
+        'Factura',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='saldos_generados',
+        verbose_name='Factura origen'
+    )
+    devolucion = models.ForeignKey(
+        'Devolucion',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='saldos_generados',
+        verbose_name='Devolución origen'
+    )
+
+    # ── Monto ─────────────────────────────────────────────────────────────────
+    monto = models.DecimalField(
+        max_digits=12, decimal_places=2,
+        verbose_name='Monto'
+    )
+
+    # ── Estado ────────────────────────────────────────────────────────────────
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default='pendiente',
+        verbose_name='Estado'
+    )
+
+    # ── Liquidación (si se devolvió el dinero) ────────────────────────────────
+    movimiento_financiero = models.ForeignKey(
+        'MovimientoFinanciero',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='saldos_liquidados',
+        verbose_name='Movimiento de liquidación'
+    )
+
+    # ── Texto libre ───────────────────────────────────────────────────────────
+    motivo = models.CharField(
+        max_length=255, blank=True,
+        verbose_name='Motivo'
+    )
+    notas = models.TextField(blank=True, verbose_name='Notas')
+
+    # ── Auditoría ─────────────────────────────────────────────────────────────
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='saldos_creados',
+        verbose_name='Creado por'
+    )
+    actualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='saldos_actualizados',
+        verbose_name='Actualizado por'
+    )
+
+    # ── Fechas ────────────────────────────────────────────────────────────────
+    fecha_creacion     = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+    fecha_devolucion   = models.DateTimeField(null=True, blank=True)
+    fecha_anulacion    = models.DateTimeField(null=True, blank=True)
+
+    # ── Antiduplicados por operación ──────────────────────────────────────────
+    uuid_operacion = models.UUIDField(
+        null=True, blank=True, unique=True,
+        help_text='Evita duplicados por reintentos del frontend'
+    )
+
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'Saldo a Favor'
+        verbose_name_plural = 'Saldos a Favor'
+        ordering = ['-fecha_creacion']
+        indexes = [
+            models.Index(fields=['cliente']),
+            models.Index(fields=['estado']),
+            models.Index(fields=['uuid']),
+        ]
+
+    def __str__(self):
+        return f"{self.cliente} — RD${self.monto} ({self.estado})"
+
+    # ── Métodos de negocio ────────────────────────────────────────────────────
+    def devolver(self, movimiento, usuario=None):
+        """
+        Marca el saldo como devuelto vinculándolo al MovimientoFinanciero
+        que registra el egreso de caja.
+        Solo puede aplicarse a saldos en estado 'pendiente'.
+        """
+        if self.estado != 'pendiente':
+            raise ValueError("Solo saldos pendientes pueden devolverse.")
+        self.estado = 'devuelto'
+        self.movimiento_financiero = movimiento
+        self.fecha_devolucion = timezone.now()
+        self.actualizado_por = usuario
+        self.save()
+
+    def anular(self, usuario=None):
+        """
+        Cancela el saldo manualmente.
+        Solo puede aplicarse a saldos en estado 'pendiente'.
+        """
+        if self.estado != 'pendiente':
+            raise ValueError("Solo saldos pendientes pueden anularse.")
+        self.estado = 'anulado'
+        self.fecha_anulacion = timezone.now()
+        self.actualizado_por = usuario
+        self.save()
