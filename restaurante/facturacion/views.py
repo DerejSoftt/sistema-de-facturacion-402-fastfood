@@ -5294,280 +5294,320 @@ def dashboard_stats(request):
             'message': str(e)
         })
 
+#==========================================================================================================
+#                                GENERAL PDF CUADRE DE CAJA          
+#==========================================================================================================
+def _ticket_nueva_pagina(c, alto_pagina):
+    c.showPage()
+    c.setFont("Helvetica", 8)
+    return alto_pagina - 10 * mm
+
+
+def _ticket_hora_12h(fecha, tz_rd):
+    if not fecha:
+        return "--:--"
+    if timezone.is_naive(fecha):
+        fecha = timezone.make_aware(fecha, timezone.utc)
+    fecha = fecha.astimezone(tz_rd)
+    return fecha.strftime('%I:%M')
+
+
+def _ticket_ref_corta(valor):
+    valor = str(valor or "-")
+    return "..." + valor[-8:] if len(valor) > 8 else valor
+
+
+def _ticket_cliente_corto(valor):
+    texto = str(valor or "CLIENTE")
+    return texto[:10] + "." if len(texto) > 10 else texto
+
+
+def draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, titulo, rows, total):
+    if not rows:
+        return y
+
+    if y < 30 * mm:
+        y = _ticket_nueva_pagina(c, alto_pagina)
+
+    c.setFont("Helvetica-Bold", 9)
+    c.drawCentredString(ancho_pagina / 2, y, titulo)
+    y -= 5 * mm
+
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "FACTURA")
+    c.drawString(30 * mm, y, "HORA")
+    c.drawString(42 * mm, y, "CLIENTE")
+    c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
+    y -= 4 * mm
+
+    c.setFont("Helvetica", 7)
+    for row in rows:
+        if y < 25 * mm:
+            y = _ticket_nueva_pagina(c, alto_pagina)
+            c.setFont("Helvetica-Bold", 8)
+            c.drawString(5 * mm, y, "FACTURA")
+            c.drawString(30 * mm, y, "HORA")
+            c.drawString(42 * mm, y, "CLIENTE")
+            c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
+            y -= 4 * mm
+            c.setFont("Helvetica", 7)
+
+        c.drawString(5 * mm, y, f"#{_ticket_ref_corta(row['factura'])}")
+        c.drawString(30 * mm, y, row['hora'])
+        c.drawString(42 * mm, y, _ticket_cliente_corto(row['cliente']))
+        c.drawRightString(ancho_pagina - 5 * mm, y, f"{Decimal(str(row['monto'])):,.2f}")
+        y -= 3.5 * mm
+
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "TOTAL:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${Decimal(str(total or 0)):,.2f}")
+    y -= 4 * mm
+
+    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+    y -= 6 * mm
+    return y
+
+
+def draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina, titulo, rows, total):
+    if not rows:
+        return y
+
+    if y < 30 * mm:
+        y = _ticket_nueva_pagina(c, alto_pagina)
+
+    c.setFont("Helvetica-Bold", 9)
+    c.drawCentredString(ancho_pagina / 2, y, titulo)
+    y -= 5 * mm
+
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "COMP.")
+    c.drawString(22 * mm, y, "HORA")
+    c.drawString(32 * mm, y, "CLIENTE")
+    c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
+    y -= 4 * mm
+
+    c.setFont("Helvetica", 7)
+    for row in rows:
+        if y < 25 * mm:
+            y = _ticket_nueva_pagina(c, alto_pagina)
+            c.setFont("Helvetica-Bold", 8)
+            c.drawString(5 * mm, y, "COMP.")
+            c.drawString(22 * mm, y, "HORA")
+            c.drawString(32 * mm, y, "CLIENTE")
+            c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
+            y -= 4 * mm
+            c.setFont("Helvetica", 7)
+
+        c.drawString(5 * mm, y, f"#{_ticket_ref_corta(row['comp'])}")
+        c.drawString(22 * mm, y, row['hora'])
+        c.drawString(32 * mm, y, _ticket_cliente_corto(row['cliente']))
+        c.drawRightString(ancho_pagina - 5 * mm, y, f"{Decimal(str(row['monto'])):,.2f}")
+        y -= 3.5 * mm
+
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "TOTAL:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${Decimal(str(total or 0)):,.2f}")
+    y -= 4 * mm
+
+    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+    y -= 6 * mm
+    return y
+
 
 @login_required
-def generar_pdf_ticket_dia(request):
-    """Generar PDF del ticket de venta del día para impresora 80mm"""
-    # Obtener hora local actual - forzar zona horaria de República Dominicana
-    import pytz
+def generar_pdf_cuadre_caja(request):
     tz_rd = pytz.timezone('America/Santo_Domingo')
     ahora_local = timezone.now().astimezone(tz_rd)
     hoy_local = ahora_local.date()
 
-    # DEFINICIÓN DEL "DÍA": De 6:00 AM a 5:59 AM del día siguiente
     if ahora_local.hour >= 6:
-        # Si son las 6:00 AM o más tarde, el día actual comenzó hoy a las 6:00 AM
-        inicio_dia = timezone.make_aware(
-            datetime.combine(hoy_local, datetime(2000, 1, 1, 6, 0, 0).time())
-        )
-        fin_dia = timezone.make_aware(
-            datetime.combine(hoy_local + timedelta(days=1),
-                             datetime(2000, 1, 1, 5, 59, 59).time())
-        )
-        periodo_texto = f"{hoy_local.strftime('%d/%m/%Y')} 06:00 - {(hoy_local + timedelta(days=1)).strftime('%d/%m/%Y')} 05:59"
-        periodo_corto = f"{hoy_local.strftime('%d/%m')} 06:00 a {(hoy_local + timedelta(days=1)).strftime('%d/%m')} 06:00"
+        inicio_dia = timezone.make_aware(datetime.combine(hoy_local, datetime(2000, 1, 1, 6, 0, 0).time()))
+        fin_dia = timezone.make_aware(datetime.combine(hoy_local + timedelta(days=1), datetime(2000, 1, 1, 5, 59, 59).time()))
     else:
-        # Si es antes de las 6:00 AM, estamos en el día que comenzó ayer a las 6:00 AM
-        inicio_dia = timezone.make_aware(
-            datetime.combine(hoy_local - timedelta(days=1),
-                             datetime(2000, 1, 1, 6, 0, 0).time())
+        inicio_dia = timezone.make_aware(datetime.combine(hoy_local - timedelta(days=1), datetime(2000, 1, 1, 6, 0, 0).time()))
+        fin_dia = timezone.make_aware(datetime.combine(hoy_local, datetime(2000, 1, 1, 5, 59, 59).time()))
+
+    periodo_texto = f"{inicio_dia.astimezone(tz_rd).strftime('%d/%m/%Y %H:%M')} - {fin_dia.astimezone(tz_rd).strftime('%d/%m/%Y %H:%M')}"
+
+    credito_q = Q(cuenta_por_cobrar__isnull=False) | Q(pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
+    facturas_periodo = Factura.objects.filter(fecha_factura__gte=inicio_dia, fecha_factura__lte=fin_dia)
+
+    ventas_contado_qs = facturas_periodo.exclude(credito_q).filter(estado__in=['pagada', 'parcialmente_devuelta'])
+    ventas_credito_qs = facturas_periodo.filter(credito_q).filter(estado__in=['pagada', 'parcialmente_devuelta'])
+    anulaciones_qs = facturas_periodo.filter(estado='anulada')
+    devoluciones_doc_qs = facturas_periodo.filter(estado__in=['parcialmente_devuelta', 'totalmente_devuelta'])
+
+    total_ventas_contado = ventas_contado_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+    total_ventas_credito = ventas_credito_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+    total_anulaciones_doc = anulaciones_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+    total_devoluciones_doc = devoluciones_doc_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+    movimientos = MovimientoFinanciero.objects.filter(
+        fecha_operacion__gte=inicio_dia,
+        fecha_operacion__lte=fin_dia,
+        estado='ACTIVO',
+    )
+
+    ingreso_venta_contado_qs = movimientos.filter(tipo='INGRESO', origen='VENTA').exclude(
+        Q(factura__cuenta_por_cobrar__isnull=False) | Q(factura__pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
+    )
+    ingreso_pago_credito_qs = movimientos.filter(tipo='INGRESO', origen='PAGO_CXC')
+    egreso_devolucion_contado_qs = movimientos.filter(tipo='EGRESO', origen='DEVOLUCION').exclude(referencia='EXCEDENTE_DEVOLUCION')
+    egreso_excedente_qs = movimientos.filter(tipo='EGRESO', origen='DEVOLUCION', referencia='EXCEDENTE_DEVOLUCION')
+    egreso_anulacion_qs = movimientos.filter(tipo='EGRESO', origen='ANULACION')
+
+    total_ingreso_venta_contado = ingreso_venta_contado_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    total_ingreso_pago_credito = ingreso_pago_credito_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    total_egreso_devolucion_contado = egreso_devolucion_contado_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    total_egreso_excedente = egreso_excedente_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    total_egreso_anulacion = egreso_anulacion_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+
+    total_ingresos = total_ingreso_venta_contado + total_ingreso_pago_credito
+    total_egresos = total_egreso_devolucion_contado + total_egreso_excedente + total_egreso_anulacion
+    caja_neta = total_ingresos - total_egresos
+
+    rows_ventas = [
+        {
+            'factura': f.numero_factura,
+            'hora': _ticket_hora_12h(f.fecha_factura, tz_rd),
+            'cliente': f.nombre_cliente or 'CLIENTE',
+            'monto': f.total or Decimal('0.00'),
+        }
+        for f in ventas_contado_qs.order_by('fecha_factura')
+    ]
+
+    rows_devoluciones = []
+    for mov in egreso_devolucion_contado_qs.select_related('factura').order_by('fecha_operacion'):
+        factura = mov.factura
+        rows_devoluciones.append({
+            'factura': factura.numero_factura if factura else (mov.referencia or '-'),
+            'hora': _ticket_hora_12h(mov.fecha_operacion, tz_rd),
+            'cliente': (factura.nombre_cliente if factura else 'CLIENTE') or 'CLIENTE',
+            'monto': mov.monto or Decimal('0.00'),
+        })
+
+    rows_anulaciones = [
+        {
+            'factura': f.numero_factura,
+            'hora': _ticket_hora_12h(f.fecha_factura, tz_rd),
+            'cliente': f.nombre_cliente or 'CLIENTE',
+            'monto': f.total or Decimal('0.00'),
+        }
+        for f in anulaciones_qs.order_by('fecha_factura')
+    ]
+
+    rows_pagos = []
+    for pago in PagoCuentaCobrar.objects.filter(fecha_pago__gte=inicio_dia, fecha_pago__lte=fin_dia).select_related('cuenta_por_cobrar__cliente').order_by('fecha_pago'):
+        cliente_obj = pago.cuenta_por_cobrar.cliente if pago.cuenta_por_cobrar and hasattr(pago.cuenta_por_cobrar, 'cliente') else None
+        nombre_cliente = (
+            getattr(cliente_obj, 'razon_social', None)
+            or getattr(cliente_obj, 'nombre_completo', None)
+            or str(cliente_obj)
+            if cliente_obj else 'CLIENTE'
         )
-        fin_dia = timezone.make_aware(
-            datetime.combine(hoy_local, datetime(2000, 1, 1, 5, 59, 59).time())
-        )
-        periodo_texto = f"{(hoy_local - timedelta(days=1)).strftime('%d/%m/%Y')} 06:00 - {hoy_local.strftime('%d/%m/%Y')} 05:59"
-        periodo_corto = f"{(hoy_local - timedelta(days=1)).strftime('%d/%m')} 06:00 a {hoy_local.strftime('%d/%m')} 06:00"
+        rows_pagos.append({
+            'comp': pago.numero_comprobante or '-',
+            'hora': _ticket_hora_12h(pago.fecha_pago, tz_rd),
+            'cliente': nombre_cliente,
+            'monto': pago.monto or Decimal('0.00'),
+        })
 
-    # Obtener facturas del período
-    facturas_hoy = Factura.objects.filter(
-        fecha_factura__gte=inicio_dia,
-        fecha_factura__lte=fin_dia,
-        estado='pagada'
-    ).order_by('fecha_factura')
+    rows_excedentes = []
+    for mov in egreso_excedente_qs.select_related('factura').order_by('fecha_operacion'):
+        factura = mov.factura
+        rows_excedentes.append({
+            'comp': (factura.numero_factura if factura else mov.referencia or '-'),
+            'hora': _ticket_hora_12h(mov.fecha_operacion, tz_rd),
+            'cliente': (factura.nombre_cliente if factura else 'CLIENTE') or 'CLIENTE',
+            'monto': mov.monto or Decimal('0.00'),
+        })
 
-    venta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))[
-        'total_dia'] or Decimal('0.00')
-
-    # Crear un buffer para el PDF
     buffer = io.BytesIO()
-
-    # Configurar el tamaño de la página para impresora térmica 80mm
-    ancho_pagina = 80 * mm  # 226.77 puntos
-    alto_pagina = 297 * mm  # Alto estándar para ticket continuo
-
-    # Crear el documento PDF con tamaño personalizado
+    ancho_pagina = 80 * mm
+    alto_pagina = 297 * mm
     c = canvas.Canvas(buffer, pagesize=(ancho_pagina, alto_pagina))
-
-    # Configurar fuentes y estilos para impresora térmica
     c.setFont("Helvetica", 8)
-
-    # Coordenadas iniciales (de arriba hacia abajo)
-    y = alto_pagina - 10 * mm  # Comenzar 10mm desde el borde superior
-
-    # 1. ENCABEZADO DEL RESTAURANTE CON LOGO
-    # Intentar cargar el logo
-    try:
-        logo_path = os.path.join(
-            settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
-        if not os.path.exists(logo_path):
-            # Intentar ruta alternativa
-            logo_path = os.path.join(
-                settings.BASE_DIR, 'static', 'img', 'fastfood.png')
-
-        if os.path.exists(logo_path):
-            # Dibujar logo centrado (pequeño: 15mm x 15mm)
-            logo_size = 15 * mm
-            logo_x = (ancho_pagina - logo_size) / 2
-            c.drawImage(logo_path, logo_x, y - logo_size, width=logo_size,
-                        height=logo_size, preserveAspectRatio=True, mask='auto')
-            y -= (logo_size + 3 * mm)
-    except Exception as e:
-        # Si falla la carga del logo, continuar sin él
-        pass
+    y = alto_pagina - 10 * mm
 
     c.setFont("Helvetica-Bold", 12)
     c.drawCentredString(ancho_pagina / 2, y, "404 FASTFOOD")
     y -= 6 * mm
+    c.setFont("Helvetica-Bold", 10)
+    c.drawCentredString(ancho_pagina / 2, y, "CUADRE DE CAJA")
+    y -= 5 * mm
+    c.setFont("Helvetica", 8)
+    c.drawString(5 * mm, y, "Fecha/Hora:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, ahora_local.strftime('%d/%m/%Y %I:%M'))
+    y -= 4 * mm
+    c.drawString(5 * mm, y, "Periodo:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, periodo_texto)
+    y -= 5 * mm
+    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+    y -= 4 * mm
 
-    c.setFont("Helvetica", 9)
-    c.drawCentredString(ancho_pagina / 2, y, "REPORTE DE CUADRE DE VENTAS")
+    c.setFont("Helvetica-Bold", 9)
+    c.drawCentredString(ancho_pagina / 2, y, "INFORMACION")
+    y -= 5 * mm
+    c.setFont("Helvetica", 8)
+    c.drawString(5 * mm, y, "Ventas contado:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_ventas_contado:,.2f}")
+    y -= 3.5 * mm
+    c.drawString(5 * mm, y, "Ventas credito:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_ventas_credito:,.2f}")
+    y -= 3.5 * mm
+    c.drawString(5 * mm, y, "Anulaciones:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_anulaciones_doc:,.2f}")
+    y -= 3.5 * mm
+    c.drawString(5 * mm, y, "Devoluciones (visual):")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_devoluciones_doc:,.2f}")
+    y -= 5 * mm
+    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
     y -= 5 * mm
 
-    # Línea separadora
-    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-    y -= 4 * mm
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "VENTAS", rows_ventas, total_ventas_contado)
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "DEVOLUCIONES", rows_devoluciones, total_egreso_devolucion_contado)
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "ANULACIONES", rows_anulaciones, total_anulaciones_doc)
 
-    # 2. PERÍODO DE REPORTE (con nueva definición)
+    y = draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina, "PAGOS DE CUENTAS POR COBRAR", rows_pagos, total_ingreso_pago_credito)
+    y = draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina, "EXCEDENTES", rows_excedentes, total_egreso_excedente)
+
+    if y < 50 * mm:
+        y = _ticket_nueva_pagina(c, alto_pagina)
+
     c.setFont("Helvetica-Bold", 9)
-    c.drawCentredString(ancho_pagina / 2, y, "PERÍODO DE REPORTE")
-    y -= 4 * mm
-
+    c.drawCentredString(ancho_pagina / 2, y, "CAJA REAL")
+    y -= 5 * mm
     c.setFont("Helvetica", 8)
-    c.drawCentredString(ancho_pagina / 2, y, periodo_corto)
+    c.drawString(5 * mm, y, "Ingreso venta contado:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_ingreso_venta_contado:,.2f}")
+    y -= 3.5 * mm
+    c.drawString(5 * mm, y, "Ingreso pago credito:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_ingreso_pago_credito:,.2f}")
+    y -= 3.5 * mm
+    c.drawString(5 * mm, y, "Egreso devolucion contado:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_egreso_devolucion_contado:,.2f}")
+    y -= 3.5 * mm
+    c.drawString(5 * mm, y, "Egreso excedente:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_egreso_excedente:,.2f}")
+    y -= 3.5 * mm
+    c.drawString(5 * mm, y, "Egreso anulacion:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_egreso_anulacion:,.2f}")
     y -= 4 * mm
-
-    c.drawCentredString(ancho_pagina / 2, y, "(De 6:00 AM a 5:59 AM)")
-    y -= 6 * mm
-
-    # 3. FECHA Y HORA DE GENERACIÓN
-    c.setFont("Helvetica", 8)
-    c.drawString(5 * mm, y, f"Generado:")
-    c.drawRightString(ancho_pagina - 5 * mm, y,
-                      ahora_local.strftime('%d/%m/%Y %I:%M'))
-    y -= 4 * mm
-
-    # Línea separadora
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-    y -= 4 * mm
+    y -= 3.5 * mm
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "Total ingresos:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_ingresos:,.2f}")
+    y -= 3.5 * mm
+    c.drawString(5 * mm, y, "Total egresos:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_egresos:,.2f}")
+    y -= 5 * mm
 
-    # 4. RESUMEN DE VENTAS
-    c.setFont("Helvetica-Bold", 10)
-    c.drawCentredString(ancho_pagina / 2, y, "RESUMEN DE VENTAS")
-    y -= 4 * mm
-
-    c.setFont("Helvetica", 8)
-    c.drawString(5 * mm, y, f"Total de Facturas:")
     c.setFont("Helvetica-Bold", 12)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"{facturas_hoy.count()}")
-    y -= 4 * mm
-
-    # Línea separadora punteada
-    c.setDash(1, 2)
-    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-    c.setDash()
-    y -= 6 * mm
-
-    # 5. DETALLE DE FACTURAS (si hay)
-    if facturas_hoy.exists():
-        c.setFont("Helvetica-Bold", 9)
-        c.drawCentredString(ancho_pagina / 2, y, "DETALLE DE FACTURAS")
-        y -= 5 * mm
-
-        # Encabezado de tabla
-        c.setFont("Helvetica-Bold", 8)
-        c.drawString(5 * mm, y, "FACTURA")
-        c.drawString(30 * mm, y, "HORA")
-        c.drawString(42 * mm, y, "CLIENTE")
-        c.drawRightString(ancho_pagina - 5 * mm, y, "TOTAL")
-        y -= 4 * mm
-
-        c.setFont("Helvetica", 7)
-        for factura in facturas_hoy:
-            # Verificar si hay espacio en la página
-            if y < 25 * mm:  # Si queda poco espacio
-                c.showPage()
-                c.setFont("Helvetica", 8)
-                y = alto_pagina - 10 * mm
-                # Reimprimir encabezado de tabla
-                c.setFont("Helvetica-Bold", 8)
-                c.drawString(5 * mm, y, "FACTURA")
-                c.drawString(30 * mm, y, "HORA")
-                c.drawString(42 * mm, y, "CLIENTE")
-                c.drawRightString(ancho_pagina - 5 * mm, y, "TOTAL")
-                y -= 4 * mm
-                c.setFont("Helvetica", 7)
-
-            # Número de factura (mostrar solo los últimos 8 dígitos)
-            num_factura = factura.numero_factura
-            if len(num_factura) > 8:
-                num_factura = "..." + num_factura[-8:]
-            c.drawString(5 * mm, y, f"#{num_factura}")
-
-            # Hora (siempre convertir igual que pagos)
-            hora_factura = factura.fecha_factura
-            if timezone.is_naive(hora_factura):
-                hora_factura = timezone.make_aware(hora_factura, timezone.utc)
-            hora_factura = hora_factura.astimezone(tz_rd)
-            c.drawString(30 * mm, y, hora_factura.strftime('%I:%M %p'))
-
-            # Cliente (truncar si es muy largo)
-            cliente = factura.nombre_cliente or "CLIENTE"
-            if len(cliente) > 10:
-                cliente = cliente[:10] + "."
-            c.drawString(42 * mm, y, cliente)
-
-            # Total de la factura
-            c.drawRightString(ancho_pagina - 5 * mm, y,
-                              f"${factura.total:,.2f}")
-            y -= 3.5 * mm
-
-        # Línea separadora después de la lista
-        c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-        y -= 8 * mm
-
-
-    # 6. PAGOS DE CUENTAS POR COBRAR (CXC)
-    from .models import PagoCuentaCobrar
-    pagos_cxc = PagoCuentaCobrar.objects.filter(
-        fecha_pago__gte=inicio_dia,
-        fecha_pago__lte=fin_dia
-    ).order_by('fecha_pago')
-    total_cxc = pagos_cxc.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-
-    # Mostrar sección de pagos CXC si existen
-    if pagos_cxc.exists():
-        c.setFont("Helvetica-Bold", 9)
-        c.drawCentredString(ancho_pagina / 2, y, "PAGOS DE CUENTAS POR COBRAR")
-        y -= 5 * mm
-
-        # Encabezado de tabla
-        c.setFont("Helvetica-Bold", 8)
-        c.drawString(5 * mm, y, "COMP.")
-        c.drawString(22 * mm, y, "HORA")
-        c.drawString(32 * mm, y, "CLIENTE")
-        c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
-        y -= 4 * mm
-
-        c.setFont("Helvetica", 7)
-        for pago in pagos_cxc:
-            if y < 25 * mm:
-                c.showPage()
-                c.setFont("Helvetica", 8)
-                y = alto_pagina - 10 * mm
-                c.setFont("Helvetica-Bold", 8)
-                c.drawString(5 * mm, y, "COMP.")
-                c.drawString(22 * mm, y, "HORA")
-                c.drawString(32 * mm, y, "CLIENTE")
-                c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
-                y -= 4 * mm
-                c.setFont("Helvetica", 7)
-
-            # Comprobante (últimos 8 dígitos)
-            comp = pago.numero_comprobante or "-"
-            if len(comp) > 8:
-                comp = "..." + comp[-8:]
-            c.drawString(5 * mm, y, f"#{comp}")
-
-            # Hora (idéntico a facturas)
-            fecha_pago = pago.fecha_pago
-            hora_str = '--:--'
-            if isinstance(fecha_pago, datetime):
-                import pytz
-                tz_rd = pytz.timezone('America/Santo_Domingo')
-                if timezone.is_naive(fecha_pago):
-                    fecha_pago = timezone.make_aware(fecha_pago, pytz.UTC)
-                fecha_pago = fecha_pago.astimezone(tz_rd)
-                hora_str = fecha_pago.strftime('%I:%M')
-            c.drawString(22 * mm, y, hora_str)
-
-            # Cliente (truncar si es muy largo)
-            cliente_obj = pago.cuenta_por_cobrar.cliente if pago.cuenta_por_cobrar and hasattr(pago.cuenta_por_cobrar, 'cliente') else None
-            if cliente_obj:
-                # Buscar campo de nombre más representativo
-                nombre_cliente = getattr(cliente_obj, 'razon_social', None) or getattr(cliente_obj, 'nombre_completo', None) or str(cliente_obj)
-            else:
-                nombre_cliente = "CLIENTE"
-            if len(nombre_cliente) > 10:
-                nombre_cliente = nombre_cliente[:10] + "."
-            c.drawString(32 * mm, y, nombre_cliente)
-
-            # Monto
-            c.drawRightString(ancho_pagina - 5 * mm, y, f"${pago.monto:,.2f}")
-            y -= 3.5 * mm
-
-        # Línea separadora después de la lista
-        c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-        y -= 8 * mm
-
-    # 7. TOTAL EN CAJA (Facturas + CXC)
-    total_en_caja = venta_dia + total_cxc
-    c.setFont("Helvetica-Bold", 11)
     c.drawString(5 * mm, y, "TOTAL EN CAJA:")
     c.setFont("Helvetica-Bold", 14)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"${total_en_caja:,.2f}")
-    y -= 8 * mm
-
-    # Línea doble para énfasis
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${caja_neta:,.2f}")
+    y -= 6 * mm
     c.setLineWidth(0.8)
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
     y -= 1.5 * mm
@@ -5575,91 +5615,27 @@ def generar_pdf_ticket_dia(request):
     c.setLineWidth(1)
     y -= 6 * mm
 
+    if y < 20 * mm:
+        y = _ticket_nueva_pagina(c, alto_pagina)
 
-
-    # 7. RESUMEN DE TOTALES (nuevo orden y negrita)
-    c.setFont("Helvetica", 8)
-    c.drawCentredString(ancho_pagina / 2, y, "RESUMEN DE TOTALES")
-    y -= 4 * mm
-
-    # Calcular total vendido a crédito y cantidad de facturas a crédito (cuentas por cobrar pendientes creadas ese día)
-    from .models import CuentaPorCobrar
-    cuentas_credito = CuentaPorCobrar.objects.filter(
-        fecha_creacion__gte=inicio_dia,
-        fecha_creacion__lte=fin_dia,
-        estado='pendiente'
-    )
-    total_credito = cuentas_credito.aggregate(total=Sum('monto_original'))['total'] or Decimal('0.00')
-    cantidad_credito = cuentas_credito.count()
-
-    # Cantidad de Facturas
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(5 * mm, y, "Cantidad de Facturas:")
-    c.setFont("Helvetica", 8)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"{facturas_hoy.count()}")
-    y -= 3.5 * mm
-
-    # Total de Facturas
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(5 * mm, y, "Total de Facturas:")
-    c.setFont("Helvetica", 8)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${venta_dia:,.2f}")
-    y -= 3.5 * mm
-
-    # Cantidad de Factura a Crédito
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(5 * mm, y, "Cantidad de Factura a Crédito:")
-    c.setFont("Helvetica", 8)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"{cantidad_credito}")
-    y -= 3.5 * mm
-
-    # Total vendido a crédito
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(5 * mm, y, "Total vendido a crédito:")
-    c.setFont("Helvetica", 8)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_credito:,.2f}")
-    y -= 3.5 * mm
-
-    # Cantidad de Pagos
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(5 * mm, y, "Cantidad de Pagos:")
-    c.setFont("Helvetica", 8)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"{pagos_cxc.count()}")
-    y -= 3.5 * mm
-
-    # Total de Pagos
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(5 * mm, y, "Total de Pagos:")
-    c.setFont("Helvetica", 8)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_cxc:,.2f}")
-    y -= 4 * mm
-
-    # 8. PIE DE PÁGINA
     c.setFont("Helvetica", 8)
     c.drawCentredString(ancho_pagina / 2, y, "*** GRACIAS POR SU VISITA ***")
-    y -= 3 * mm
 
-    c.setFont("Helvetica", 7)
-    c.drawCentredString(ancho_pagina / 2, y,
-                        "Sistema de Gestión de Restaurantes")
-    y -= 3 * mm
-
-    c.drawCentredString(ancho_pagina / 2, y, "www.mirestaurante.com")
-    y -= 5 * mm
-
-    # Guardar el PDF
     c.save()
-
-    # Obtener el valor del buffer y devolver como respuesta HTTP
     buffer.seek(0)
 
-    # Configurar respuesta HTTP
     response = HttpResponse(buffer, content_type='application/pdf')
-    filename = f"reporte_ventas_{ahora_local.strftime('%Y%m%d_%H%M')}.pdf"
-    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    response['Content-Disposition'] = f"inline; filename=\"cuadre_caja_{ahora_local.strftime('%Y%m%d_%H%M')}.pdf\""
     return response
 
 
+@login_required
+def generar_pdf_ticket_dia(request):
+    return generar_pdf_cuadre_caja(request)
+
+#==========================================================================================================
+#                         PRODUCTOS VENDIDOS EN EL DÍA Y REPORTE DE PRODUCTOS VENDIDOS       
+#==========================================================================================================
 @login_required
 def productos_vendidos_dia(request):
     """Vista para mostrar los productos vendidos en el día"""
@@ -5761,11 +5737,6 @@ def productos_vendidos_dia(request):
     }
 
     return render(request, 'facturacion/productos_vendidos_dia.html', context)
-
-
-# Para PDF
-
-# Importar modelos
 
 
 @login_required
@@ -6637,13 +6608,12 @@ def generar_pdf_productos_dia_a4(request):
     response.write(pdf)
 
     return response
-# views.py - Actualiza la función anulacionydevolucion
 
 
-# ============================================================
-# FUNCIONES DE GESTIÓN DE STOCK - SOLO BEBIDAS
-# ============================================================
 
+# ========================================================================================================
+#                           FUNCIONES DE GESTIÓN DE STOCK - SOLO BEBIDAS
+# ========================================================================================================
 @login_required
 def anulacionydevolucion(request):
     """Vista principal para anulación y devolución de facturas"""
@@ -6954,8 +6924,6 @@ def disminuir_stock_producto(identificador, cantidad):
 # ============================================================
 # NORMALIZACIÓN DE ITEMS
 # ============================================================
-
-
 def normalizar_items_factura(factura):
     """Normalizar los items de la factura para tener una estructura consistente"""
     items_normalizados = []
@@ -7034,15 +7002,11 @@ def buscar_item_por_nombre(items, nombre_buscar):
             return item
 
     return None
-# ============================================================
-# VISTA PRINCIPAL
-# ============================================================
 
 
 # ============================================================
 # DEVOLUCIÓN TOTAL
 # ============================================================
-
 @login_required
 def procesar_devolucion_total(request):
     """Funcionalidad deshabilitada: la devolución total fue eliminada."""
