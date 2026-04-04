@@ -5696,8 +5696,12 @@ def productos_vendidos_dia(request):
     total_ventas = sum([p['ingresos'] for p in productos_dia_detalle])
 
     # Obtener venta del día
-    venta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))[
+    venta_bruta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))[
         'total_dia'] or Decimal('0.00')
+    total_devuelto_dia = facturas_hoy.aggregate(
+        total_devuelto=Sum('devoluciones__monto_devuelto')
+    )['total_devuelto'] or Decimal('0.00')
+    venta_dia = venta_bruta_dia - total_devuelto_dia
 
     context = {
         'productos_dia_detalle': productos_dia_detalle,
@@ -6302,12 +6306,19 @@ def generar_pdf_productos_dia_a4(request):
         estado__in=['pagada', 'parcialmente_devuelta']
     ).prefetch_related('detalles')
 
-    venta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))[
+    venta_bruta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))[
         'total_dia'] or Decimal('0.00')
+    
+    total_devuelto_dia = facturas_hoy.aggregate(
+        total_devuelto=Sum('devoluciones__monto_devuelto')
+    )['total_devuelto'] or Decimal('0.00')
+
+    venta_dia = venta_bruta_dia - total_devuelto_dia
 
     print(
         f"🔍 DEBUG: Encontradas {facturas_hoy.count()} facturas en el período")
-    print(f"🔍 DEBUG: Venta total del día: ${venta_dia}")
+    print(f"🔍 DEBUG: Venta bruta del día: ${venta_bruta_dia}")
+    print(f"🔍 DEBUG: Total devuelto del día: ${total_devuelto_dia}")
 
     # Obtener productos vendidos en el día (neto: venta - devolución)
     productos_vendidos = {}
