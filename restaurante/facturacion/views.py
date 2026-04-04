@@ -43,6 +43,7 @@ from django.core.paginator import Paginator
 from django.db.models import Sum, Count, Q, Exists, OuterRef
 from django.db.models.functions import Coalesce
 from django.db.models import DecimalField
+from functools import lru_cache
 from decimal import Decimal
 from django.contrib import messages
 from datetime import date
@@ -71,6 +72,16 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from django.db.models import Sum, Count, Q
 import io, os
 from datetime import date
+import uuid
+from decimal import Decimal
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
+from django.urls import reverse
+from django.db import transaction, IntegrityError
+from django.utils import timezone
+from datetime import datetime
 
 @csrf_exempt
 def index(request):
@@ -3986,7 +3997,7 @@ def dashbort(request):
         )
     )
 
-    resumen_dia = _resumen_movimientos_caja(inicio_dia, fin_dia)
+    resumen_dia = _resumen_movimientos_caja_cached(inicio_dia, fin_dia)
     venta_dia = resumen_dia['caja_neta']
 
     # Base de pagos del día para el detalle y compatibilidad con reportes
@@ -4029,8 +4040,8 @@ def dashbort(request):
         )
     )
 
-    resumen_mes = _resumen_movimientos_caja(inicio_mes, fin_mes)
-    venta_mes = resumen_mes['ingresos_total']
+    resumen_mes = _resumen_movimientos_caja_cached(inicio_mes, fin_mes)
+    venta_mes = resumen_mes['caja_neta']
     pagos_credito_mes_qs = PagoCuentaCobrar.objects.filter(
         fecha_pago__gte=inicio_mes,
         fecha_pago__lte=fin_mes
@@ -4041,13 +4052,7 @@ def dashbort(request):
     # Ventas del día anterior (mismo rango 6 AM - 5:59 AM)
     inicio_dia_anterior = inicio_dia - timedelta(days=1)
     fin_dia_anterior = fin_dia - timedelta(days=1)
-    venta_dia_anterior_contado = Factura.objects.filter(
-        fecha_factura__gte=inicio_dia_anterior,
-        fecha_factura__lte=fin_dia_anterior,
-        estado='pagada'
-    ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-
-    resumen_dia_anterior = _resumen_movimientos_caja(inicio_dia_anterior, fin_dia_anterior)
+    resumen_dia_anterior = _resumen_movimientos_caja_cached(inicio_dia_anterior, fin_dia_anterior)
     venta_dia_anterior = resumen_dia_anterior['caja_neta']
 
     # Ventas del mes anterior
@@ -4062,14 +4067,8 @@ def dashbort(request):
         datetime.combine(fin_mes_pasado, datetime.max.time())
     )
 
-    venta_mes_pasado_contado = Factura.objects.filter(
-        fecha_factura__gte=inicio_mes_pasado_time,
-        fecha_factura__lte=fin_mes_pasado_time,
-        estado='pagada'
-    ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-
-    resumen_mes_pasado = _resumen_movimientos_caja(inicio_mes_pasado_time, fin_mes_pasado_time)
-    venta_mes_pasado = resumen_mes_pasado['ingresos_total']
+    resumen_mes_pasado = _resumen_movimientos_caja_cached(inicio_mes_pasado_time, fin_mes_pasado_time)
+    venta_mes_pasado = resumen_mes_pasado['caja_neta']
 
     # 3. PEDIDOS HOY - Usar misma definición de "día" (6 AM a 5:59 AM)
     total_pedidos = Pedido.objects.filter(
@@ -4203,33 +4202,17 @@ def dashbort(request):
     ventas_7_dias = []
 
     for i in range(6, -1, -1):
-        # Para cada día en el gráfico, aplicar la misma lógica de 6 AM a 5:59 AM
         dia_referencia = hoy_local - timedelta(days=i)
-
-        # Determinar rango para este día
-        if i == 0:
-            # Para hoy, usar los rangos ya calculados
-            dia_inicio = inicio_dia
-            dia_fin = fin_dia
-            dia_str = "Hoy"
-        else:
-            # Para días anteriores
-            dia_anterior = dia_referencia
-            # Crear rango de 6 AM a 5:59 AM del día siguiente
-            dia_inicio = timezone.make_aware(
-                datetime.combine(dia_anterior, datetime(
-                    2000, 1, 1, 6, 0, 0).time())
-            )
-            dia_fin = timezone.make_aware(
-                datetime.combine(dia_anterior + timedelta(days=1),
-                                 datetime(2000, 1, 1, 5, 59, 59).time())
-            )
-            dia_str = dia_anterior.strftime('%a')
-
-        venta_dia_grafico = _resumen_movimientos_caja(dia_inicio, dia_fin)['caja_neta']
-
+        dia_inicio = timezone.make_aware(
+            datetime.combine(dia_referencia, datetime(2000, 1, 1, 6, 0, 0).time())
+        )
+        dia_fin = timezone.make_aware(
+            datetime.combine(dia_referencia + timedelta(days=1), datetime(2000, 1, 1, 5, 59, 59).time())
+        )
+        total_dia_operativo = _resumen_movimientos_caja_cached(dia_inicio, dia_fin)['caja_neta']
+        dia_str = 'Hoy' if i == 0 else dia_referencia.strftime('%a')
         ultimos_7_dias.append(dia_str)
-        ventas_7_dias.append(float(venta_dia_grafico))
+        ventas_7_dias.append(float(total_dia_operativo))
 
     # 10. DATOS PARA GRÁFICO DE CATEGORÍAS - Mantener igual
     categorias_data = []
@@ -4413,7 +4396,7 @@ def dashbort(request):
             datetime.combine(fecha_dia, datetime.max.time())
         )
 
-        venta_dia_mes = _resumen_movimientos_caja(inicio_dia_cal, fin_dia_cal)['caja_neta']
+        venta_dia_mes = _resumen_movimientos_caja_cached(inicio_dia_cal, fin_dia_cal)['caja_neta']
 
         labels_mensuales.append(fecha_dia.strftime('%d %b'))
         proyeccion_mensual.append(float(venta_dia_mes))
@@ -4444,7 +4427,7 @@ def dashbort(request):
         )
         
         # Obtener ventas de este mes
-        venta_mes_grafico = _resumen_movimientos_caja(inicio_mes_grafico, fin_mes_grafico)['caja_neta']
+        venta_mes_grafico = _resumen_movimientos_caja_cached(inicio_mes_grafico, fin_mes_grafico)['caja_neta']
         
         # Nombre del mes en español
         meses_esp = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
@@ -4476,32 +4459,34 @@ def dashbort(request):
         'llevar': Decimal('0.00'),
     }
 
-    for factura in facturas_mes:
-        fecha_local_factura = timezone.localtime(factura.fecha_factura)
-        hora = fecha_local_factura.hour
+    movimientos_mes = MovimientoFinanciero.objects.filter(
+        fecha_operacion__gte=inicio_mes,
+        fecha_operacion__lt=fin_mes,
+        tipo='INGRESO',
+        estado='ACTIVO'
+    ).select_related('factura')
+
+    for movimiento in movimientos_mes:
+        fecha_local_mov = timezone.localtime(movimiento.fecha_operacion)
+        hora = fecha_local_mov.hour
+        monto_mov = movimiento.monto or Decimal('0.00')
 
         if 6 <= hora <= 11:
-            horario_totales['Mañana'] += factura.total
+            horario_totales['Mañana'] += monto_mov
         elif 12 <= hora <= 16:
-            horario_totales['Mediodía'] += factura.total
+            horario_totales['Mediodía'] += monto_mov
         elif 17 <= hora <= 20:
-            horario_totales['Tarde'] += factura.total
+            horario_totales['Tarde'] += monto_mov
         else:
-            horario_totales['Noche'] += factura.total
+            horario_totales['Noche'] += monto_mov
 
-        metodo = (factura.metodo_pago or '').lower().strip()
+        metodo = (movimiento.metodo_pago or '').lower().strip()
         if metodo in metodo_totales:
-            metodo_totales[metodo] += factura.total
+            metodo_totales[metodo] += monto_mov
 
-        tipo_pedido = (factura.tipo_pedido or '').lower().strip()
+        tipo_pedido = ((movimiento.factura.tipo_pedido if movimiento.factura else '') or '').lower().strip()
         if tipo_pedido in tipos_pedido_totales:
-            tipos_pedido_totales[tipo_pedido] += factura.total
-
-    # Sumar pagos de cuentas por cobrar al grafico por metodo de pago del mes.
-    for pago_cxc in pagos_credito_mes_qs:
-        metodo_pago_cxc = (pago_cxc.metodo_pago or '').lower().strip()
-        if metodo_pago_cxc in metodo_totales:
-            metodo_totales[metodo_pago_cxc] += pago_cxc.monto
+            tipos_pedido_totales[tipo_pedido] += monto_mov
 
     ventas_horarios_data = [float(horario_totales[label]) for label in horario_labels]
     ventas_metodos_data = [
@@ -4637,7 +4622,7 @@ def dashbort(request):
     }
 
     if not dashboard_debug:
-        cache.set(cache_key, context, 300)
+        cache.set(cache_key, context, 60)
 
     return render(request, 'facturacion/dashbort.html', context)
 
@@ -4650,6 +4635,7 @@ def dashboard_stats(request):
         if scope not in ('summary', 'full'):
             scope = 'full'
         full_refresh = scope == 'full'
+        dashboard_debug = bool(settings.DEBUG and request.GET.get('debug') == '1')
 
         # Cache por ventanas alineadas con el frontend.
         # Summary: ventana corta para mantener frescura.
@@ -4662,10 +4648,11 @@ def dashboard_stats(request):
             second_bucket = (now_local.second // 15) * 15
             cache_bucket = f"{now_local.strftime('%Y%m%d%H%M')}{second_bucket:02d}"
 
-        cache_key = f"dashboard_stats:{scope}:{cache_bucket}"
-        cached_payload = cache.get(cache_key)
-        if cached_payload is not None:
-            return JsonResponse(cached_payload)
+        cache_key = f"dashboard_stats:{scope}:user:{request.user.id}:{cache_bucket}"
+        if not dashboard_debug:
+            cached_payload = cache.get(cache_key)
+            if cached_payload is not None:
+                return JsonResponse(cached_payload)
 
         def calcular_cambio_porcentual(actual, anterior):
             actual_val = float(actual or 0)
@@ -4729,7 +4716,7 @@ def dashboard_stats(request):
             )
         )
 
-        resumen_dia = _resumen_movimientos_caja(inicio_dia, fin_dia)
+        resumen_dia = _resumen_movimientos_caja_cached(inicio_dia, fin_dia)
         venta_dia = resumen_dia['caja_neta']
 
         # Usar el mismo rango UTC que el PDF para pagos hoy
@@ -4768,8 +4755,8 @@ def dashboard_stats(request):
             )
         )
 
-        resumen_mes = _resumen_movimientos_caja(inicio_mes, fin_mes)
-        venta_mes = resumen_mes['ingresos_total']
+        resumen_mes = _resumen_movimientos_caja_cached(inicio_mes, fin_mes)
+        venta_mes = resumen_mes['caja_neta']
 
         pagos_credito_mes_qs = PagoCuentaCobrar.objects.filter(
             fecha_pago__gte=inicio_mes,
@@ -4781,13 +4768,7 @@ def dashboard_stats(request):
         # Ventas del día anterior
         inicio_dia_anterior = inicio_dia - timedelta(days=1)
         fin_dia_anterior = fin_dia - timedelta(days=1)
-        venta_dia_anterior_contado = Factura.objects.filter(
-            fecha_factura__gte=inicio_dia_anterior,
-            fecha_factura__lte=fin_dia_anterior,
-            estado='pagada'
-        ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-
-        resumen_dia_anterior = _resumen_movimientos_caja(inicio_dia_anterior, fin_dia_anterior)
+        resumen_dia_anterior = _resumen_movimientos_caja_cached(inicio_dia_anterior, fin_dia_anterior)
         venta_dia_anterior = resumen_dia_anterior['caja_neta']
 
         # Ventas del mes anterior
@@ -4808,8 +4789,8 @@ def dashboard_stats(request):
             estado='pagada'
         )
 
-        resumen_mes_pasado = _resumen_movimientos_caja(inicio_mes_pasado_time, fin_mes_pasado_time)
-        venta_mes_pasado = resumen_mes_pasado['ingresos_total']
+        resumen_mes_pasado = _resumen_movimientos_caja_cached(inicio_mes_pasado_time, fin_mes_pasado_time)
+        venta_mes_pasado = resumen_mes_pasado['caja_neta']
 
         # 3. PEDIDOS HOY
         total_pedidos = Pedido.objects.filter(
@@ -4831,8 +4812,8 @@ def dashboard_stats(request):
         )
 
         # 5. GANANCIAS NETAS
-        ganancias_netas = venta_mes - gastos_totales
-        ganancias_netas_mes_pasado = venta_mes_pasado - gastos_totales_mes_pasado
+        ganancias_netas = resumen_mes['caja_neta']
+        ganancias_netas_mes_pasado = resumen_mes_pasado['caja_neta']
 
         # 6. NUEVOS CLIENTES (MES ACTUAL)
         nuevos_clientes = Factura.objects.filter(
@@ -4941,24 +4922,16 @@ def dashboard_stats(request):
             # 8. GRAFICO VENTAS SEMANA
             for i in range(6, -1, -1):
                 dia_referencia = hoy_local - timedelta(days=i)
-
-                if i == 0:
-                    dia_inicio = inicio_dia
-                    dia_fin = fin_dia
-                    dia_str = 'Hoy'
-                else:
-                    dia_inicio = timezone.make_aware(
-                        datetime.combine(dia_referencia, datetime(2000, 1, 1, 6, 0, 0).time())
-                    )
-                    dia_fin = timezone.make_aware(
-                        datetime.combine(dia_referencia + timedelta(days=1), datetime(2000, 1, 1, 5, 59, 59).time())
-                    )
-                    dia_str = dia_referencia.strftime('%a')
-
-                venta_dia_grafico = _resumen_movimientos_caja(dia_inicio, dia_fin)['caja_neta']
-
+                dia_inicio = timezone.make_aware(
+                    datetime.combine(dia_referencia, datetime(2000, 1, 1, 6, 0, 0).time())
+                )
+                dia_fin = timezone.make_aware(
+                    datetime.combine(dia_referencia + timedelta(days=1), datetime(2000, 1, 1, 5, 59, 59).time())
+                )
+                total_dia_operativo = _resumen_movimientos_caja_cached(dia_inicio, dia_fin)['caja_neta']
+                dia_str = 'Hoy' if i == 0 else dia_referencia.strftime('%a')
                 ultimos_7_dias.append(dia_str)
-                ventas_7_dias.append(float(venta_dia_grafico))
+                ventas_7_dias.append(float(total_dia_operativo))
 
             # 9. GRAFICO CATEGORIAS
             categoria_labels = {
@@ -5121,7 +5094,7 @@ def dashboard_stats(request):
                     datetime.combine(fecha_dia, datetime.max.time())
                 )
 
-                venta_dia_mes = _resumen_movimientos_caja(inicio_dia_cal, fin_dia_cal)['caja_neta']
+                venta_dia_mes = _resumen_movimientos_caja_cached(inicio_dia_cal, fin_dia_cal)['caja_neta']
 
                 labels_mensuales.append(fecha_dia.strftime('%d %b'))
                 proyeccion_mensual.append(float(venta_dia_mes))
@@ -5141,7 +5114,7 @@ def dashboard_stats(request):
                 inicio_mes_grafico = timezone.make_aware(datetime.combine(fecha_mes, datetime.min.time()))
                 fin_mes_grafico = timezone.make_aware(datetime.combine(ultimo_dia, datetime.max.time()))
 
-                venta_mes_grafico = _resumen_movimientos_caja(inicio_mes_grafico, fin_mes_grafico)['caja_neta']
+                venta_mes_grafico = _resumen_movimientos_caja_cached(inicio_mes_grafico, fin_mes_grafico)['caja_neta']
 
                 labels_anuales.append(meses_esp[fecha_mes.month - 1])
                 proyeccion_anual.append(float(venta_mes_grafico))
@@ -5182,32 +5155,34 @@ def dashboard_stats(request):
                 'llevar': Decimal('0.00'),
             }
 
-            for factura in facturas_mes:
-                fecha_local_factura = timezone.localtime(factura.fecha_factura)
-                hora = fecha_local_factura.hour
+            movimientos_mes = MovimientoFinanciero.objects.filter(
+                fecha_operacion__gte=inicio_mes,
+                fecha_operacion__lt=fin_mes,
+                tipo='INGRESO',
+                estado='ACTIVO'
+            ).select_related('factura')
+
+            for movimiento in movimientos_mes:
+                fecha_local_mov = timezone.localtime(movimiento.fecha_operacion)
+                hora = fecha_local_mov.hour
+                monto_mov = movimiento.monto or Decimal('0.00')
 
                 if 6 <= hora <= 11:
-                    horario_totales['Mañana'] += factura.total
+                    horario_totales['Mañana'] += monto_mov
                 elif 12 <= hora <= 16:
-                    horario_totales['Mediodía'] += factura.total
+                    horario_totales['Mediodía'] += monto_mov
                 elif 17 <= hora <= 20:
-                    horario_totales['Tarde'] += factura.total
+                    horario_totales['Tarde'] += monto_mov
                 else:
-                    horario_totales['Noche'] += factura.total
+                    horario_totales['Noche'] += monto_mov
 
-                metodo = (factura.metodo_pago or '').lower().strip()
+                metodo = (movimiento.metodo_pago or '').lower().strip()
                 if metodo in metodo_totales:
-                    metodo_totales[metodo] += factura.total
+                    metodo_totales[metodo] += monto_mov
 
-                tipo_pedido = (factura.tipo_pedido or '').lower().strip()
+                tipo_pedido = ((movimiento.factura.tipo_pedido if movimiento.factura else '') or '').lower().strip()
                 if tipo_pedido in tipos_pedido_totales:
-                    tipos_pedido_totales[tipo_pedido] += factura.total
-
-            # Sumar pagos de cuentas por cobrar al grafico por metodo de pago del mes.
-            for pago_cxc in pagos_credito_mes_qs:
-                metodo_pago_cxc = (pago_cxc.metodo_pago or '').lower().strip()
-                if metodo_pago_cxc in metodo_totales:
-                    metodo_totales[metodo_pago_cxc] += pago_cxc.monto
+                    tipos_pedido_totales[tipo_pedido] += monto_mov
 
             ventas_horarios_data = [float(horario_totales[label]) for label in horario_labels]
             ventas_metodos_data = [
@@ -5285,7 +5260,8 @@ def dashboard_stats(request):
         }
 
         cache_timeout = 300 if full_refresh else 20
-        cache.set(cache_key, payload, cache_timeout)
+        if not dashboard_debug:
+            cache.set(cache_key, payload, cache_timeout)
         return JsonResponse(payload)
 
     except Exception as e:
@@ -6614,88 +6590,6 @@ def generar_pdf_productos_dia_a4(request):
 # ========================================================================================================
 #                           FUNCIONES DE GESTIÓN DE STOCK - SOLO BEBIDAS
 # ========================================================================================================
-@login_required
-def anulacionydevolucion(request):
-    """Vista principal para anulación y devolución de facturas"""
-    factura = None
-    items = []
-    items_json = '[]'
-    productos_devueltos_json = '[]'
-    productos_disponibles_json = '[]'
-
-    numero_factura = request.GET.get('numero_factura', '').strip()
-    ultima_factura = request.GET.get('ultima') == 'true'
-
-    try:
-        if ultima_factura:
-            factura = Factura.objects.order_by('-fecha_creacion').first()
-            if factura:
-                messages.success(
-                    request, f'Última factura cargada: {factura.numero_factura}')
-            else:
-                messages.error(request, 'No hay facturas registradas')
-
-        elif numero_factura:
-            factura = Factura.objects.filter(
-                numero_factura__iexact=numero_factura).first()
-            if not factura:
-                factura = Factura.objects.filter(
-                    numero_factura__icontains=numero_factura).first()
-
-            if factura:
-                messages.success(
-                    request, f'Factura {factura.numero_factura} encontrada')
-            else:
-                messages.error(
-                    request, f'Factura {numero_factura} no encontrada')
-
-        if factura:
-            # Obtener items detallados
-            items = factura.get_items_detalle()
-            items_json = json.dumps(items, cls=DjangoJSONEncoder)
-
-            # Obtener productos disponibles para devolución
-            productos_disponibles = factura.get_productos_disponibles_devolucion()
-            productos_disponibles_json = json.dumps(
-                productos_disponibles, cls=DjangoJSONEncoder)
-
-            # Obtener resumen de devoluciones
-            resumen_devoluciones = factura.get_resumen_devoluciones()
-
-            # Obtener todas las devoluciones para el historial
-            devoluciones = factura.devoluciones.all()
-            todos_productos_devueltos = []
-
-            for devolucion in devoluciones:
-                if devolucion.productos_devueltos:
-                    todos_productos_devueltos.extend(
-                        devolucion.productos_devueltos)
-
-            productos_devueltos_json = json.dumps(
-                todos_productos_devueltos, cls=DjangoJSONEncoder)
-
-            print(f"\n📄 FACTURA: {factura.numero_factura}")
-            print(f"📦 Items totales: {len(items)}")
-            print(
-                f"✅ Productos disponibles para devolver: {len(productos_disponibles)}")
-            print(
-                f"💰 Total devuelto: ${resumen_devoluciones['total_devuelto']}")
-
-    except Exception as e:
-        messages.error(request, f'Error: {str(e)}')
-        import traceback
-        traceback.print_exc()
-
-    context = {
-        'factura': factura,
-        'items': items,
-        'items_json': items_json,
-        'productos_devueltos_json': productos_devueltos_json,
-        'productos_disponibles_json': productos_disponibles_json,
-    }
-
-    return render(request, 'facturacion/anulacionydevolucion.html', context)
-
 
 @login_required
 def anulacionydevolucion(request):
@@ -6921,9 +6815,9 @@ def disminuir_stock_producto(identificador, cantidad):
         traceback.print_exc()
         return False
 
-# ============================================================
-# NORMALIZACIÓN DE ITEMS
-# ============================================================
+# =========================================================================================================
+#                                   NORMALIZACIÓN DE ITEMS
+# =========================================================================================================
 def normalizar_items_factura(factura):
     """Normalizar los items de la factura para tener una estructura consistente"""
     items_normalizados = []
@@ -7004,18 +6898,18 @@ def buscar_item_por_nombre(items, nombre_buscar):
     return None
 
 
-# ============================================================
-# DEVOLUCIÓN TOTAL
-# ============================================================
+# ========================================================================================================
+#                                        DEVOLUCIÓN TOTAL
+# ========================================================================================================
 @login_required
 def procesar_devolucion_total(request):
     """Funcionalidad deshabilitada: la devolución total fue eliminada."""
     messages.warning(request, 'La opción de devolución total fue eliminada. Usa devolución parcial o anulación de factura.')
     return redirect('anulacionydevolucion')
 
-# ============================================================
-# DEVOLUCIÓN PARCIAL
-# ============================================================
+# ========================================================================================================
+#                                               DEVOLUCIÓN PARCIAL
+# ========================================================================================================
 
 
 @login_required
@@ -7451,8 +7345,6 @@ def resolver_excedente_devolucion(request):
 # ============================================================
 # ANULACIÓN DE FACTURA
 # ============================================================
-
-
 @login_required
 def procesar_anulacion_factura(request):
     """Procesar anulación de una factura con reposición de inventario y ajuste de pagos."""
@@ -7620,7 +7512,9 @@ def procesar_anulacion_factura(request):
 
 
 
-
+#==========================================================================================================
+#                                       
+#==========================================================================================================
 def gestiondeclientes(request):
     """Vista para gestión/listado de clientes con filtros y paginación."""
     tz_rd = pytz.timezone('America/Santo_Domingo')
@@ -8403,39 +8297,97 @@ def _calcular_saldo_factura_cxc(factura):
 
 def _resumen_movimientos_caja(inicio, fin):
     """Resume movimientos reales de caja en un rango de fechas."""
+    from django.utils import timezone
+
+    if timezone.is_naive(inicio):
+        inicio = timezone.make_aware(inicio, timezone.get_current_timezone())
+    if timezone.is_naive(fin):
+        fin = timezone.make_aware(fin, timezone.get_current_timezone())
+
+    inicio = timezone.localtime(inicio)
+    fin = timezone.localtime(fin)
+
+    credito_q = Q(cuenta_por_cobrar__isnull=False) | Q(pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
+    facturas_periodo = Factura.objects.filter(
+        fecha_factura__gte=inicio,
+        fecha_factura__lt=fin,
+    )
+
+    ventas_contado_qs = facturas_periodo.exclude(credito_q).filter(estado__in=['pagada', 'parcialmente_devuelta'])
+    ventas_credito_qs = facturas_periodo.filter(credito_q).filter(estado__in=['pagada', 'parcialmente_devuelta'])
+    anulaciones_qs = facturas_periodo.filter(estado='anulada')
+    devoluciones_doc_qs = facturas_periodo.filter(estado__in=['parcialmente_devuelta', 'totalmente_devuelta'])
+
+    total_ventas_contado_doc = ventas_contado_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+    total_ventas_credito_doc = ventas_credito_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+    total_anulaciones_doc = anulaciones_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+    total_devoluciones_doc = devoluciones_doc_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
     movimientos = MovimientoFinanciero.objects.filter(
         fecha_operacion__gte=inicio,
-        fecha_operacion__lte=fin,
+        fecha_operacion__lt=fin,
         estado='ACTIVO',
     )
 
-    ingreso_venta = movimientos.filter(tipo='INGRESO', origen='VENTA').aggregate(total=Sum('monto'), cantidad=Count('id'))
-    ingreso_pagos = movimientos.filter(tipo='INGRESO', origen='PAGO_CXC').aggregate(total=Sum('monto'), cantidad=Count('id'))
-    egreso_devoluciones = movimientos.filter(tipo='EGRESO', origen='DEVOLUCION').aggregate(total=Sum('monto'), cantidad=Count('id'))
-    egreso_anulaciones = movimientos.filter(tipo='EGRESO', origen='ANULACION').aggregate(total=Sum('monto'), cantidad=Count('id'))
+    ingreso_venta_contado_qs = movimientos.filter(tipo='INGRESO', origen='VENTA').exclude(
+        Q(factura__cuenta_por_cobrar__isnull=False) | Q(factura__pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
+    )
+    ingreso_pago_credito_qs = movimientos.filter(tipo='INGRESO', origen='PAGO_CXC')
 
-    ingreso_venta_total = ingreso_venta['total'] or Decimal('0.00')
-    ingreso_pagos_total = ingreso_pagos['total'] or Decimal('0.00')
-    egreso_devoluciones_total = egreso_devoluciones['total'] or Decimal('0.00')
-    egreso_anulaciones_total = egreso_anulaciones['total'] or Decimal('0.00')
+    egreso_devoluciones_contado_qs = movimientos.filter(
+        tipo='EGRESO',
+        origen='DEVOLUCION'
+    ).exclude(referencia='EXCEDENTE_DEVOLUCION').aggregate(total=Sum('monto'), cantidad=Count('id'))
+    
+
+    egreso_devoluciones_excedente_qs = movimientos.filter(
+        tipo='EGRESO',
+        origen='DEVOLUCION',
+        referencia='EXCEDENTE_DEVOLUCION'
+    ).aggregate(total=Sum('monto'), cantidad=Count('id'))
+
+    egreso_anulaciones_qs = movimientos.filter(tipo='EGRESO', origen='ANULACION').aggregate(total=Sum('monto'), cantidad=Count('id'))
+
+    ingreso_venta_contado = ingreso_venta_contado_qs.aggregate(total=Sum('monto'), cantidad=Count('id'))
+    ingreso_pago_credito = ingreso_pago_credito_qs.aggregate(total=Sum('monto'), cantidad=Count('id'))
+
+    ingreso_venta_total = ingreso_venta_contado['total'] or Decimal('0.00')
+    ingreso_pagos_total = ingreso_pago_credito['total'] or Decimal('0.00')
+    egreso_devoluciones_contado_total = egreso_devoluciones_contado_qs['total'] or Decimal('0.00')
+    egreso_devoluciones_excedente_total = egreso_devoluciones_excedente_qs['total'] or Decimal('0.00')
+    egreso_devoluciones_total = egreso_devoluciones_contado_total + egreso_devoluciones_excedente_total
+    egreso_anulaciones_total = egreso_anulaciones_qs['total'] or Decimal('0.00')
 
     ingresos_total = ingreso_venta_total + ingreso_pagos_total
-    egresos_total = egreso_devoluciones_total + egreso_anulaciones_total
+    egresos_total = egreso_devoluciones_total + egreso_anulaciones_total 
     caja_neta = ingresos_total - egresos_total
 
     return {
+        'total_ventas_contado_doc': total_ventas_contado_doc,
+        'total_ventas_credito_doc': total_ventas_credito_doc,
+        'total_anulaciones_doc': total_anulaciones_doc,
+        'total_devoluciones_doc': total_devoluciones_doc,
         'ingreso_venta_total': ingreso_venta_total,
         'ingreso_pagos_total': ingreso_pagos_total,
+        'egreso_devoluciones_contado_total': egreso_devoluciones_contado_total,
+        'egreso_devoluciones_excedente_total': egreso_devoluciones_excedente_total,
         'egreso_devoluciones_total': egreso_devoluciones_total,
         'egreso_anulaciones_total': egreso_anulaciones_total,
         'ingresos_total': ingresos_total,
         'egresos_total': egresos_total,
         'caja_neta': caja_neta,
-        'ingreso_venta_count': ingreso_venta['cantidad'] or 0,
-        'ingreso_pagos_count': ingreso_pagos['cantidad'] or 0,
-        'egreso_devoluciones_count': egreso_devoluciones['cantidad'] or 0,
-        'egreso_anulaciones_count': egreso_anulaciones['cantidad'] or 0,
+        'ingreso_venta_count': ingreso_venta_contado['cantidad'] or 0,
+        'ingreso_pagos_count': ingreso_pago_credito['cantidad'] or 0,
+        'egreso_devoluciones_contado_count': egreso_devoluciones_contado_qs['cantidad'] or 0,
+        'egreso_devoluciones_excedente_count': egreso_devoluciones_excedente_qs['cantidad'] or 0,
+        'egreso_devoluciones_count': (egreso_devoluciones_contado_qs['cantidad'] or 0) + (egreso_devoluciones_excedente_qs['cantidad'] or 0),
+        'egreso_anulaciones_count': egreso_anulaciones_qs['cantidad'] or 0,
     }
+
+
+@lru_cache(maxsize=50)
+def _resumen_movimientos_caja_cached(inicio, fin):
+    return _resumen_movimientos_caja(inicio, fin)
 
 
 def _facturas_que_cuentan_en_cards(queryset):
@@ -9135,18 +9087,6 @@ def cuentaporcobrar_comprobante_pdf(request):
     c.showPage()
     c.save()
     return response
-
-
-import uuid
-from decimal import Decimal
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_POST
-from django.shortcuts import get_object_or_404
-from django.http import JsonResponse
-from django.urls import reverse
-from django.db import transaction, IntegrityError
-from django.utils import timezone
-from datetime import datetime
 
 
 @login_required
