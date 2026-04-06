@@ -1624,6 +1624,7 @@
             let iconoCredito = '';
             const saldoDisponible = Number(cliente.saldo_disponible || 0);
             const saldoActual = Number(cliente.saldo_actual || 0);
+            const dineroFondo = Number(cliente.dinero_fondo || 0);
 
             if (cliente.limite_credito > 0) {
                 if (saldoDisponible > 0.009) {
@@ -1746,6 +1747,12 @@
                                 </div>
                             </div>
                         ` : ''}
+                        <div style="margin-bottom: 0.75rem;">
+                            <strong style="color: #4a5568;">Dinero en Fondo:</strong>
+                            <div style="margin-top: 0.25rem; font-size: 1.1rem; font-weight: bold; color: #38a169;">
+                                RD$ ${dineroFondo.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                        </div>
                         <div>
                             <strong style="color: #4a5568;">Días de Crédito:</strong>
                             <div style="margin-top: 0.25rem;">

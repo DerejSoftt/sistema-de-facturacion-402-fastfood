@@ -1683,10 +1683,20 @@
 <script>
 // Variables globales
 let currentOrder = null;
+let creditClientsData = [];
+let currentEditPaymentMethod = 'contado';
+let currentEditCreditClientId = '';
 
 // Inicializar la aplicación
 document.addEventListener('DOMContentLoaded', function() {
     console.log('=== INICIANDO GESTIÓN DE PEDIDOS ===');
+
+    try {
+        creditClientsData = JSON.parse('{{ clientes_credito_json|safe }}');
+    } catch (e) {
+        console.error('Error parseando clientes_credito_json:', e);
+        creditClientsData = [];
+    }
     
     setupEventListeners();
     
@@ -1963,6 +1973,16 @@ function openEditModal(pedidoId) {
 // Función para cargar datos en el modal de edición
 function cargarDatosEdicion(pedido) {
     const modalBody = document.getElementById('editModalBody');
+    const notasPedido = String(pedido.notas || '');
+    const pedidoEsCredito = notasPedido.includes('TIPO_PAGO_PEDIDO=credito');
+    const matchCliente = notasPedido.match(/CLIENTE_CREDITO_ID=(\d+)/);
+    window.__pedidoTipoActual = pedido.tipo_pedido || '';
+    window.__pedidoMesaNumero = pedido.mesa_numero || '';
+    window.__pedidoCodigoDelivery = pedido.codigo_delivery || '';
+    window.__pedidoNombreOriginal = pedido.nombre_cliente || '';
+    window.__pedidoTelefonoOriginal = pedido.telefono_cliente || '';
+    currentEditPaymentMethod = pedidoEsCredito ? 'credito' : 'contado';
+    currentEditCreditClientId = matchCliente ? matchCliente[1] : '';
     
     // Formatear items actuales
     let itemsHTML = '';
@@ -2022,6 +2042,32 @@ function cargarDatosEdicion(pedido) {
         
         <div class="edit-form-group">
             <label><i class="fas fa-user"></i> Información del Cliente</label>
+            <div style="display: grid; grid-template-columns: 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label for="editTipoPago">Tipo de Venta</label>
+                    <select id="editTipoPago" onchange="updateEditPaymentMethod()">
+                        <option value="contado" ${currentEditPaymentMethod === 'contado' ? 'selected' : ''}>Contado (Mesa por defecto)</option>
+                        <option value="credito" ${currentEditPaymentMethod === 'credito' ? 'selected' : ''}>Crédito (Seleccionar cliente)</option>
+                    </select>
+                </div>
+            </div>
+
+            <input type="hidden" id="editClienteCreditoId" value="${currentEditCreditClientId}">
+
+            <div id="editCreditFields" style="display: ${currentEditPaymentMethod === 'credito' ? 'block' : 'none'}; margin-bottom: 1rem; padding: 1rem; border: 1px solid #e0e6ff; border-radius: 10px; background: #f8f9ff;">
+                <div style="display: grid; grid-template-columns: 1fr; gap: 1rem;">
+                    <div>
+                        <label for="editCreditClientSearch">Buscar cliente de crédito</label>
+                        <input type="text" id="editCreditClientSearch" placeholder="Nombre, cédula o teléfono" oninput="renderEditCreditClientOptions(this.value)">
+                    </div>
+                    <div>
+                        <label for="editCreditClientSelect">Seleccionar cliente</label>
+                        <select id="editCreditClientSelect" onchange="onEditCreditClientChange()"></select>
+                    </div>
+                    <small id="editCreditClientHelp" style="color:#718096;"></small>
+                </div>
+            </div>
+
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                 <div>
                     <label for="editNombreCliente">Nombre *</label>
@@ -2092,9 +2138,151 @@ function cargarDatosEdicion(pedido) {
             </div>
         </div>
     `;
+
+    if (currentEditPaymentMethod === 'contado') {
+        const contadoData = getContadoDefaults();
+        document.getElementById('editNombreCliente').value = contadoData.nombre;
+        document.getElementById('editTelefonoCliente').value = contadoData.telefono;
+    }
+
+    renderEditCreditClientOptions();
+    updateEditPaymentMethod();
     
     // Inicializar búsqueda de productos
     buscarProductosDisponibles();
+}
+
+function renderEditCreditClientOptions(searchValue = '') {
+    const select = document.getElementById('editCreditClientSelect');
+    const help = document.getElementById('editCreditClientHelp');
+    if (!select) return;
+
+    const term = (searchValue || '').toLowerCase().trim();
+    const filtered = creditClientsData.filter((cliente) => {
+        const nombre = (cliente.nombre || '').toLowerCase();
+        const cedula = (cliente.cedula || '').toLowerCase();
+        const telefono = (cliente.telefono || '').toLowerCase();
+        return !term || nombre.includes(term) || cedula.includes(term) || telefono.includes(term);
+    });
+
+    const options = ['<option value="">Selecciona un cliente</option>'];
+    filtered.forEach((cliente) => {
+        options.push(`<option value="${cliente.id}">${cliente.nombre} - ${cliente.cedula} (RD$${Number(cliente.limite_credito || 0).toFixed(2)})</option>`);
+    });
+
+    select.innerHTML = options.join('');
+
+    if (currentEditCreditClientId && filtered.some((c) => String(c.id) === String(currentEditCreditClientId))) {
+        select.value = currentEditCreditClientId;
+    } else if (currentEditPaymentMethod === 'credito') {
+        currentEditCreditClientId = '';
+        select.value = '';
+        const hiddenId = document.getElementById('editClienteCreditoId');
+        if (hiddenId) hiddenId.value = '';
+    }
+
+    if (help) {
+        help.textContent = filtered.length === 0
+            ? 'No se encontraron clientes con esa búsqueda.'
+            : `${filtered.length} cliente(s) disponible(s).`;
+    }
+}
+
+function onEditCreditClientChange() {
+    const select = document.getElementById('editCreditClientSelect');
+    const hiddenId = document.getElementById('editClienteCreditoId');
+    if (!select || !hiddenId) return;
+
+    currentEditCreditClientId = select.value || '';
+    hiddenId.value = currentEditCreditClientId;
+
+    if (currentEditCreditClientId) {
+        const cliente = creditClientsData.find((c) => String(c.id) === String(currentEditCreditClientId));
+        if (cliente) {
+            const nombreInput = document.getElementById('editNombreCliente');
+            const telInput = document.getElementById('editTelefonoCliente');
+            if (nombreInput) nombreInput.value = cliente.nombre || '';
+            if (telInput) telInput.value = cliente.telefono || '';
+        }
+    }
+}
+
+function updateEditPaymentMethod() {
+    const tipoPagoSelect = document.getElementById('editTipoPago');
+    const creditFields = document.getElementById('editCreditFields');
+    const nombreInput = document.getElementById('editNombreCliente');
+    const telInput = document.getElementById('editTelefonoCliente');
+
+    if (!tipoPagoSelect) return;
+    currentEditPaymentMethod = tipoPagoSelect.value || 'contado';
+
+    const pedidoTipo = window.__pedidoTipoActual || '';
+    const contadoData = getContadoDefaults();
+
+    if (currentEditPaymentMethod === 'credito') {
+        if (creditFields) creditFields.style.display = 'block';
+        if (nombreInput) nombreInput.readOnly = true;
+        if (telInput) telInput.readOnly = true;
+        renderEditCreditClientOptions(document.getElementById('editCreditClientSearch')?.value || '');
+    } else {
+        if (creditFields) creditFields.style.display = 'none';
+        currentEditCreditClientId = '';
+        const hiddenId = document.getElementById('editClienteCreditoId');
+        if (hiddenId) hiddenId.value = '';
+        const select = document.getElementById('editCreditClientSelect');
+        if (select) select.value = '';
+        const search = document.getElementById('editCreditClientSearch');
+        if (search) search.value = '';
+
+        if (nombreInput) {
+            nombreInput.readOnly = pedidoTipo === 'mesa';
+            if (pedidoTipo === 'mesa') {
+                nombreInput.value = contadoData.nombre;
+            } else {
+                nombreInput.value = contadoData.nombre;
+            }
+        }
+        if (telInput) {
+            telInput.readOnly = pedidoTipo === 'mesa';
+            if (pedidoTipo === 'mesa') {
+                telInput.value = contadoData.telefono;
+            } else {
+                telInput.value = contadoData.telefono;
+            }
+        }
+    }
+}
+
+function getContadoDefaults() {
+    const tipo = (window.__pedidoTipoActual || '').toLowerCase();
+    const mesaNumero = window.__pedidoMesaNumero || '';
+    const codigoDelivery = window.__pedidoCodigoDelivery || '';
+
+    if (tipo === 'mesa') {
+        return {
+            nombre: mesaNumero ? `Mesa ${mesaNumero}` : 'Mesa',
+            telefono: ''
+        };
+    }
+
+    if (tipo === 'delivery') {
+        return {
+            nombre: codigoDelivery ? `Cliente Delivery ${codigoDelivery}` : 'Cliente Delivery',
+            telefono: ''
+        };
+    }
+
+    if (tipo === 'llevar') {
+        return {
+            nombre: codigoDelivery ? `Cliente Para Llevar ${codigoDelivery}` : 'Cliente Para Llevar',
+            telefono: ''
+        };
+    }
+
+    return {
+        nombre: window.__pedidoNombreOriginal || '',
+        telefono: window.__pedidoTelefonoOriginal || ''
+    };
 }
 
 // Función para buscar productos disponibles
@@ -2531,8 +2719,15 @@ async function guardarCambiosPedido() {
     const nombreCliente = document.getElementById('editNombreCliente').value;
     const telefonoCliente = document.getElementById('editTelefonoCliente').value;
     const notas = document.getElementById('editNotas').value;
+    const tipoPago = (document.getElementById('editTipoPago')?.value || 'contado').toLowerCase();
+    const clienteCreditoId = document.getElementById('editClienteCreditoId')?.value || '';
     
     // Validar nombre del cliente
+    if (tipoPago === 'credito' && !clienteCreditoId) {
+        showNotification('<i class="fas fa-exclamation-circle"></i> Debes seleccionar un cliente para venta a crédito', 'error');
+        return;
+    }
+
     if (!nombreCliente.trim()) {
         showNotification('<i class="fas fa-exclamation-circle"></i> El nombre del cliente es obligatorio', 'error');
         document.getElementById('editNombreCliente').focus();
@@ -2578,6 +2773,8 @@ async function guardarCambiosPedido() {
     formData.append('nombre_cliente', nombreCliente);
     formData.append('telefono_cliente', telefonoCliente);
     formData.append('notas', notas);
+    formData.append('tipo_pago', tipoPago);
+    formData.append('cliente_credito_id', clienteCreditoId);
     
     // Agregar CSRF token
     const csrfToken = getCSRFToken();
@@ -2729,6 +2926,32 @@ function mostrarAlertasStock(alertas) {
     }
 }
 
+function mostrarResumenReposicion(reposiciones) {
+    if (!reposiciones || reposiciones.length === 0) return;
+
+    const filas = reposiciones.slice(0, 5).map((item) => {
+        const anterior = Number(item.stock_anterior || 0).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const actual = Number(item.stock_actual || 0).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return `<div style="margin-top:6px; padding:6px 8px; background:#f0fff4; border-radius:6px; border:1px solid #c6f6d5;"><strong>${item.nombre}</strong><br><small>Stock: ${anterior} → ${actual}</small></div>`;
+    }).join('');
+
+    const extra = reposiciones.length > 5
+        ? `<div style="margin-top:6px;"><small>...y ${reposiciones.length - 5} producto(s) más</small></div>`
+        : '';
+
+    showNotification(`
+        <div style="display:flex; align-items:flex-start; gap:10px;">
+            <span style="font-size:1.3rem; color:#38a169;">✅</span>
+            <div>
+                <strong style="color:#2f855a;">Inventario repuesto</strong><br>
+                <small>Se actualizaron ${reposiciones.length} producto(s) al cancelar/eliminar.</small>
+                ${filas}
+                ${extra}
+            </div>
+        </div>
+    `, 'success');
+}
+
 // Función para abrir modal de cambio de estado
 function openStatusModal(pedidoId) {
     currentOrder = pedidoId;
@@ -2842,6 +3065,9 @@ function confirmarCambioEstado() {
             if (data.alertas) {
                 mostrarAlertasStock(data.alertas);
             }
+            if (data.reposicion_detalle) {
+                mostrarResumenReposicion(data.reposicion_detalle);
+            }
             
             closeStatusModal();
             
@@ -2907,6 +3133,9 @@ function deleteOrder(pedidoId) {
             // Mostrar alertas de stock si existen
             if (data.alertas) {
                 mostrarAlertasStock(data.alertas);
+            }
+            if (data.reposicion_detalle) {
+                mostrarResumenReposicion(data.reposicion_detalle);
             }
             
             // Eliminar la fila de la tabla
@@ -3086,6 +3315,13 @@ function closeStatusModal() {
 
 function closeEditModal() {
     document.getElementById('editModal').classList.remove('active');
+    window.__pedidoTipoActual = '';
+    window.__pedidoMesaNumero = '';
+    window.__pedidoCodigoDelivery = '';
+    window.__pedidoNombreOriginal = '';
+    window.__pedidoTelefonoOriginal = '';
+    currentEditCreditClientId = '';
+    currentEditPaymentMethod = 'contado';
 }
 
 // Función para alternar sidebar

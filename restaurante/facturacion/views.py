@@ -42,7 +42,9 @@ from .models import Producto, Plato, Pedido, Mesa, DeliveryConfig, HistorialEsta
 from django.core.paginator import Paginator
 from django.db.models import Sum, Count, Q, Exists, OuterRef
 from django.db.models.functions import Coalesce
-from django.db.models import DecimalField
+from django.db.models import DecimalField, IntegerField, DateField
+from django.db.models import Case, When, Value
+from django.db.models import Func
 from functools import lru_cache
 from decimal import Decimal
 from django.contrib import messages
@@ -1593,6 +1595,17 @@ def gestiondepedidos(request):
         'user': request.user,
         'page_title': 'Gestión de Pedidos Activos',
         'pedidos': pedidos_procesados,
+        'clientes_credito_json': json.dumps([
+            {
+                'id': cliente.id,
+                'nombre': cliente.nombre_completo,
+                'cedula': cliente.cedula,
+                'telefono': cliente.telefono_principal,
+                'limite_credito': float(cliente.limite_credito or 0),
+                'dias_credito': int(cliente.dias_credito or 0),
+            }
+            for cliente in Cliente.objects.filter(activo=True).order_by('nombre_completo')
+        ]),
         'estadisticas': {
             # Solo pedidos activos (sin pagar)
             'total_pedidos': total_pedidos_activos,
@@ -1638,20 +1651,30 @@ def actualizar_inventario_bebidas(items, operacion='restar'):
         # Evitar ruido/errores: solo procesar items de bebidas.
         categoria_item = str(item.get('categoria', '') or '').lower()
         tipo_item = str(item.get('tipo', '') or '').lower()
+        item_id_str = str(item_id or '').strip()
+        item_id_upper = item_id_str.upper()
+
         es_bebida = bool(item.get('es_bebida')) or categoria_item == 'bebida' or tipo_item == 'bebida'
-        if isinstance(item_id, str) and item_id.startswith('plato_'):
+        es_id_bebida = item_id_upper.startswith('PROD-') or item_id_str.startswith('bebida_')
+        es_id_plato = item_id_upper.startswith('PLATO-') or item_id_str.startswith('plato_')
+
+        if es_id_plato:
             es_bebida = False
-        if not es_bebida and not (isinstance(item_id, str) and item_id.startswith('PROD-')):
+
+        if not es_bebida and not es_id_bebida:
             continue
 
         print(
             f"  Procesando item: {item_name} (id: {item_id}, cantidad: {cantidad})")
 
-        # Verificar si es un producto de categoría bebida
-        # Caso 1: El ID empieza con "PROD-" (formato del frontend)
-        if isinstance(item_id, str) and item_id.startswith('PROD-'):
+        # Caso 1: El ID viene con prefijo de producto/bebida (PROD-123 o bebida_123)
+        if es_id_bebida:
             try:
-                prod_id = int(item_id.split('-')[1])
+                if item_id_upper.startswith('PROD-'):
+                    prod_id = int(item_id_str.split('-')[1])
+                else:
+                    prod_id = int(item_id_str.replace('bebida_', '', 1))
+
                 producto = Producto.objects.filter(
                     id=prod_id, categoria='bebida').first()
 
@@ -1713,9 +1736,64 @@ def actualizar_inventario_bebidas(items, operacion='restar'):
             except (IndexError, ValueError) as e:
                 print(f"  ❌ Error al parsear ID {item_id}: {e}")
 
-        # Caso 2: Buscar por nombre si no tenemos ID
+        # Caso 2: Buscar por ID numérico directo
+        elif item_id_str.isdigit():
+            producto = Producto.objects.filter(
+                id=int(item_id_str),
+                categoria='bebida'
+            ).first()
+
+            if producto:
+                try:
+                    cantidad_decimal = Decimal(str(cantidad))
+                    stock_anterior = producto.cantidad
+
+                    if operacion == 'restar':
+                        producto.cantidad -= cantidad_decimal
+                        mensaje = f"Descontando {cantidad_decimal} de {producto.nombre}"
+
+                        if producto.cantidad <= 0:
+                            alertas.append({
+                                'tipo': 'advertencia',
+                                'producto': producto.nombre,
+                                'stock_anterior': float(stock_anterior),
+                                'stock_actual': float(producto.cantidad),
+                                'cantidad_solicitada': float(cantidad_decimal),
+                                'mensaje': f"¡ATENCIÓN! {producto.nombre} quedó con stock CERO o NEGATIVO. Stock actual: {producto.cantidad}"
+                            })
+                        elif producto.cantidad < 10:
+                            alertas.append({
+                                'tipo': 'bajo_stock',
+                                'producto': producto.nombre,
+                                'stock_actual': float(producto.cantidad),
+                                'mensaje': f"Stock bajo de {producto.nombre}. Quedan solo {producto.cantidad} unidades."
+                            })
+                    else:
+                        producto.cantidad += cantidad_decimal
+                        mensaje = f"Reponiendo {cantidad_decimal} a {producto.nombre}"
+
+                    producto.save()
+                    print(
+                        f"  ✅ {mensaje} (Stock anterior: {stock_anterior}, actual: {producto.cantidad})")
+
+                    productos_actualizados.append({
+                        'id': producto.id,
+                        'nombre': producto.nombre,
+                        'stock_anterior': float(stock_anterior),
+                        'stock_actual': float(producto.cantidad),
+                        'categoria': producto.categoria
+                    })
+                except Exception as e:
+                    print(f"  ❌ Error con cantidad: {e}")
+            else:
+                print(f"  ⚠️ No se encontró bebida con ID numérico: {item_id_str}")
+
+        # Caso 3: Buscar por nombre si no tenemos ID utilizable
         elif item_name:
             producto = Producto.objects.filter(
+                nombre__iexact=item_name,
+                categoria='bebida'
+            ).first() or Producto.objects.filter(
                 nombre__icontains=item_name,
                 categoria='bebida'
             ).first()
@@ -2028,6 +2106,7 @@ def detalle_pedido(request, pedido_id):
         'nombre_cliente': nombre_cliente,
         'telefono_cliente': pedido.telefono_cliente or '',
         'direccion_entrega': pedido.direccion_entrega or '',
+        'codigo_delivery': pedido.codigo_delivery or '',
         'mesa_numero': pedido.mesa.numero_display if pedido.mesa else '',
         'items': items,  # Asegúrate de que esto incluya todos los campos necesarios
         'subtotal': float(pedido.subtotal),
@@ -2064,14 +2143,16 @@ def cambiar_estado_pedido(request, pedido_id):
             items_actuales = []
 
         alertas_totales = []
+        reposicion_detalle = []
 
         # Si el estado cambia a CANCELADO, reponer bebidas del inventario
         if nuevo_estado == 'cancelado' and pedido.estado != 'cancelado':
             print(
                 f"🔄 Cancelando pedido {pedido.codigo_pedido} - Reponiendo bebidas...")
-            alertas, _ = actualizar_inventario_bebidas(
+            alertas, productos_actualizados = actualizar_inventario_bebidas(
                 items_actuales, operacion='sumar')
             alertas_totales.extend(alertas)
+            reposicion_detalle.extend(productos_actualizados)
 
         # Si el estado cambia de CANCELADO a otro, descontar bebidas
         elif pedido.estado == 'cancelado' and nuevo_estado != 'cancelado':
@@ -2182,6 +2263,9 @@ def cambiar_estado_pedido(request, pedido_id):
             respuesta['alertas'] = alertas_totales
             print(f"⚠️ Se generaron {len(alertas_totales)} alertas de stock")
 
+        if reposicion_detalle:
+            respuesta['reposicion_detalle'] = reposicion_detalle
+
         return JsonResponse(respuesta)
 
     except Exception as e:
@@ -2214,6 +2298,7 @@ def eliminar_pedido(request, pedido_id):
         tiene_factura_pagada = pedido.facturas.filter(estado='pagada').exists()
 
         alertas_totales = []
+        reposicion_detalle = []
 
         if eliminar_vista:
             # Eliminar permanentemente de la base de datos
@@ -2223,9 +2308,10 @@ def eliminar_pedido(request, pedido_id):
             if not tiene_factura_pagada:
                 print(
                     f"🔄 Eliminando pedido {codigo_pedido} - Reponiendo bebidas...")
-                alertas, _ = actualizar_inventario_bebidas(
+                alertas, productos_actualizados = actualizar_inventario_bebidas(
                     items, operacion='sumar')
                 alertas_totales.extend(alertas)
+                reposicion_detalle.extend(productos_actualizados)
 
             # Verificar si tiene facturas antes de eliminar
             if pedido.facturas.exists():
@@ -2253,9 +2339,10 @@ def eliminar_pedido(request, pedido_id):
             if not tiene_factura_pagada:
                 print(
                     f"🔄 Cancelando pedido {pedido.codigo_pedido} - Reponiendo bebidas...")
-                alertas, _ = actualizar_inventario_bebidas(
+                alertas, productos_actualizados = actualizar_inventario_bebidas(
                     items, operacion='sumar')
                 alertas_totales.extend(alertas)
+                reposicion_detalle.extend(productos_actualizados)
 
             # LIBERAR MESA solo si NO tiene factura pagada
             if pedido.mesa and not tiene_factura_pagada:
@@ -2275,6 +2362,9 @@ def eliminar_pedido(request, pedido_id):
         if alertas_totales:
             respuesta['alertas'] = alertas_totales
             print(f"⚠️ Se generaron {len(alertas_totales)} alertas de stock")
+
+        if reposicion_detalle:
+            respuesta['reposicion_detalle'] = reposicion_detalle
 
         return JsonResponse(respuesta)
 
@@ -2481,6 +2571,11 @@ def editar_pedido(request, pedido_id):
         nombre_cliente = request.POST.get('nombre_cliente')
         telefono_cliente = request.POST.get('telefono_cliente')
         notas = request.POST.get('notas')
+        tipo_pago = (request.POST.get('tipo_pago', 'contado') or 'contado').strip().lower()
+        cliente_credito_id = (request.POST.get('cliente_credito_id', '') or '').strip()
+
+        if tipo_pago not in ['contado', 'credito']:
+            tipo_pago = 'contado'
 
         if not nuevos_items_json:
             return JsonResponse({'error': 'No se proporcionaron items'}, status=400)
@@ -2604,13 +2699,35 @@ def editar_pedido(request, pedido_id):
                         [item_diferencia], operacion='sumar')
                     alertas_totales.extend(alertas)
 
-        # Actualizar información del cliente si se proporciona
-        if nombre_cliente:
-            pedido.nombre_cliente = nombre_cliente
-        if telefono_cliente:
-            pedido.telefono_cliente = telefono_cliente
+        # Actualizar información del cliente según tipo de pago
+        cliente_credito = None
+        if tipo_pago == 'credito':
+            if not cliente_credito_id:
+                return JsonResponse({'error': 'Para venta a crédito debes seleccionar un cliente'}, status=400)
+            try:
+                cliente_credito = Cliente.objects.get(id=cliente_credito_id, activo=True)
+            except Cliente.DoesNotExist:
+                return JsonResponse({'error': 'El cliente seleccionado para crédito no es válido'}, status=400)
+
+            pedido.nombre_cliente = cliente_credito.nombre_completo
+            pedido.telefono_cliente = cliente_credito.telefono_principal or ''
+            pedido.notas = f"TIPO_PAGO_PEDIDO=credito;CLIENTE_CREDITO_ID={cliente_credito.id}"
+        else:
+            # Contado por defecto: para pedidos de mesa mantener referencia de mesa.
+            if pedido.tipo_pedido == 'mesa' and pedido.mesa:
+                pedido.nombre_cliente = f"Mesa {pedido.mesa.numero_display}"
+                pedido.telefono_cliente = ''
+            else:
+                if nombre_cliente is not None:
+                    pedido.nombre_cliente = nombre_cliente
+                if telefono_cliente is not None:
+                    pedido.telefono_cliente = telefono_cliente
+            pedido.notas = "TIPO_PAGO_PEDIDO=contado"
+
         if notas is not None:
-            pedido.notas = notas
+            notas_limpias = (notas or '').strip()
+            if notas_limpias:
+                pedido.notas = f"{pedido.notas};{notas_limpias}"
 
         # Actualizar items del pedido
         pedido.items = json.dumps(nuevos_items)
@@ -4091,12 +4208,6 @@ def dashbort(request):
         facturas_mes,
         include_stats=True
     )
-    facturas_mes_pasado_qs = Factura.objects.filter(
-        fecha_factura__gte=inicio_mes_pasado_time,
-        fecha_factura__lte=fin_mes_pasado_time,
-        estado='pagada'
-    )
-    calcular_costo_real_facturas(facturas_mes_pasado_qs)
 
     # 5. GANANCIAS NETAS
     ganancias_netas = resumen_mes['caja_neta']
@@ -4390,17 +4501,48 @@ def dashbort(request):
     labels_mensuales = []
     proyeccion_mensual = []
 
+    movimientos_mes_por_dia = MovimientoFinanciero.objects.filter(
+        fecha_operacion__gte=inicio_mes,
+        fecha_operacion__lt=fin_mes,
+        estado='ACTIVO'
+    ).annotate(
+        periodo=Func(
+            F('fecha_operacion'),
+            function='DATE',
+            output_field=DateField()
+        )
+    ).values('periodo').annotate(
+        ingresos=Coalesce(
+            Sum(
+                Case(
+                    When(tipo='INGRESO', then=F('monto')),
+                    default=Value(0),
+                    output_field=DecimalField(max_digits=18, decimal_places=2)
+                )
+            ),
+            Decimal('0.00')
+        ),
+        egresos=Coalesce(
+            Sum(
+                Case(
+                    When(tipo='EGRESO', then=F('monto')),
+                    default=Value(0),
+                    output_field=DecimalField(max_digits=18, decimal_places=2)
+                )
+            ),
+            Decimal('0.00')
+        )
+    )
+
+    neto_por_dia = {
+        row['periodo']: row['ingresos'] - row['egresos']
+        for row in movimientos_mes_por_dia
+        if row.get('periodo')
+    }
+
     for dia in range(1, hoy_local.day + 1):
         fecha_dia = hoy_local.replace(day=dia)
-        inicio_dia_cal = timezone.make_aware(
-            datetime.combine(fecha_dia, datetime.min.time())
-        )
-        fin_dia_cal = timezone.make_aware(
-            datetime.combine(fecha_dia, datetime.max.time())
-        )
-
-        venta_dia_mes = _resumen_movimientos_caja_cached(inicio_dia_cal, fin_dia_cal)['caja_neta']
-
+        venta_dia_mes = neto_por_dia.get(fecha_dia, Decimal('0.00'))
         labels_mensuales.append(fecha_dia.strftime('%d %b'))
         proyeccion_mensual.append(float(venta_dia_mes))
     
@@ -4408,36 +4550,66 @@ def dashbort(request):
     labels_anuales = []
     proyeccion_anual = []
     
-    # Calcular ventas de los últimos 12 meses
-    for i in range(11, -1, -1):
-        # Calcular fecha del mes
-        fecha_mes = hoy_local.replace(day=1)
-        for _ in range(i):
-            # Retroceder un mes
-            fecha_mes = (fecha_mes.replace(day=1) - timedelta(days=1)).replace(day=1)
-        
-        # Calcular inicio y fin del mes
-        if fecha_mes.month == 12:
-            ultimo_dia = fecha_mes.replace(day=31)
-        else:
-            ultimo_dia = fecha_mes.replace(month=fecha_mes.month + 1, day=1) - timedelta(days=1)
-        
-        inicio_mes_grafico = timezone.make_aware(
-            datetime.combine(fecha_mes, datetime.min.time())
+    meses_referencia = []
+    fecha_mes_ref = hoy_local.replace(day=1)
+    for _ in range(12):
+        meses_referencia.append(fecha_mes_ref)
+        fecha_mes_ref = (fecha_mes_ref - timedelta(days=1)).replace(day=1)
+    meses_referencia.reverse()
+
+    inicio_12_meses = timezone.make_aware(
+        datetime.combine(meses_referencia[0], datetime.min.time())
+    )
+    if hoy_local.month == 12:
+        inicio_mes_siguiente = hoy_local.replace(year=hoy_local.year + 1, month=1, day=1)
+    else:
+        inicio_mes_siguiente = hoy_local.replace(month=hoy_local.month + 1, day=1)
+    fin_12_meses = timezone.make_aware(
+        datetime.combine(inicio_mes_siguiente, datetime.min.time())
+    )
+
+    movimientos_12_meses = MovimientoFinanciero.objects.filter(
+        fecha_operacion__gte=inicio_12_meses,
+        fecha_operacion__lt=fin_12_meses,
+        estado='ACTIVO'
+    ).annotate(
+        anio=Func(F('fecha_operacion'), function='YEAR', output_field=IntegerField()),
+        mes=Func(F('fecha_operacion'), function='MONTH', output_field=IntegerField())
+    ).values('anio', 'mes').annotate(
+        ingresos=Coalesce(
+            Sum(
+                Case(
+                    When(tipo='INGRESO', then=F('monto')),
+                    default=Value(0),
+                    output_field=DecimalField(max_digits=18, decimal_places=2)
+                )
+            ),
+            Decimal('0.00')
+        ),
+        egresos=Coalesce(
+            Sum(
+                Case(
+                    When(tipo='EGRESO', then=F('monto')),
+                    default=Value(0),
+                    output_field=DecimalField(max_digits=18, decimal_places=2)
+                )
+            ),
+            Decimal('0.00')
         )
-        fin_mes_grafico = timezone.make_aware(
-            datetime.combine(ultimo_dia, datetime.max.time())
-        )
-        
-        # Obtener ventas de este mes
-        venta_mes_grafico = _resumen_movimientos_caja_cached(inicio_mes_grafico, fin_mes_grafico)['caja_neta']
-        
-        # Nombre del mes en español
-        meses_esp = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
-                     'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
-        
+    )
+
+    neto_por_mes = {}
+    for row in movimientos_12_meses:
+        anio = row.get('anio')
+        mes = row.get('mes')
+        if anio and mes:
+            neto_por_mes[(anio, mes)] = row['ingresos'] - row['egresos']
+
+    meses_esp = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+                 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+    for fecha_mes in meses_referencia:
         labels_anuales.append(meses_esp[fecha_mes.month - 1])
-        proyeccion_anual.append(float(venta_mes_grafico))
+        proyeccion_anual.append(float(neto_por_mes.get((fecha_mes.year, fecha_mes.month), Decimal('0.00'))))
     
     # 12. DATOS REALES PARA GRÁFICO DE HORARIO Y MÉTODO DE PAGO
     # Se usa el mes actual para tener una muestra más estable.
@@ -7072,9 +7244,17 @@ def procesar_devolucion_parcial(request):
 
             # ── Detectar tipo de venta ─────────────────────────────────────
             notas_pedido = (factura.pedido.notas or '') if factura.pedido else ''
+            # hasattr(factura, 'cuenta_por_cobrar') siempre es True en Django
+            # porque el descriptor existe aunque no haya CxC. Usar try/except.
+            _tiene_cxc = False
+            try:
+                _ = factura.cuenta_por_cobrar
+                _tiene_cxc = True
+            except Exception:
+                _tiene_cxc = False
             es_credito = (
                 ('TIPO_PAGO_PEDIDO=credito' in notas_pedido)
-                or hasattr(factura, 'cuenta_por_cobrar')
+                or _tiene_cxc
                 or factura.pagos_cxc.exists()
             )
 
@@ -7118,7 +7298,7 @@ def procesar_devolucion_parcial(request):
                 )
 
             # ── Ajustar CxC si es crédito ──────────────────────────────────
-            if es_credito and hasattr(factura, 'cuenta_por_cobrar'):
+            if es_credito and _tiene_cxc:
                 cxc = factura.cuenta_por_cobrar
                 if cxc.estado not in ('pagada', 'anulada'):
                     nuevo_saldo = max(
@@ -7180,9 +7360,12 @@ def procesar_devolucion_parcial(request):
                 # Excedente: el cliente pagó más de lo que debe tras la devolución.
                 # El frontend pedirá la decisión (devolver dinero o saldo a favor).
                 cliente_para_saldo = None
-                if hasattr(factura, 'cuenta_por_cobrar') and factura.cuenta_por_cobrar.cliente:
-                    cliente_para_saldo = factura.cuenta_por_cobrar.cliente
-                else:
+                try:
+                    if factura.cuenta_por_cobrar.cliente:
+                        cliente_para_saldo = factura.cuenta_por_cobrar.cliente
+                except Exception:
+                    pass
+                if not cliente_para_saldo:
                     for cliente in Cliente.objects.all():
                         if _cliente_coincide_con_factura(cliente, factura):
                             cliente_para_saldo = cliente
@@ -7407,9 +7590,15 @@ def procesar_anulacion_factura(request):
                 bebidas_repuestas = 0
 
                 notas_pedido = (factura.pedido.notas or '') if factura.pedido else ''
+                _tiene_cxc = False
+                try:
+                    _ = factura.cuenta_por_cobrar
+                    _tiene_cxc = True
+                except Exception:
+                    _tiene_cxc = False
                 es_credito = (
                     ('TIPO_PAGO_PEDIDO=credito' in notas_pedido)
-                    or hasattr(factura, 'cuenta_por_cobrar')
+                    or _tiene_cxc
                     or factura.pagos_cxc.exists()
                 )
 
@@ -7447,11 +7636,13 @@ def procesar_anulacion_factura(request):
                     if pagos_eliminados:
                         pagos_qs.delete()
 
-                    if hasattr(factura, 'cuenta_por_cobrar'):
+                    try:
                         cuenta = factura.cuenta_por_cobrar
                         cuenta.estado = 'anulada'
                         cuenta.saldo_pendiente = Decimal('0.00')
                         cuenta.save(update_fields=['estado', 'saldo_pendiente'])
+                    except Exception:
+                        pass
                 else:
                     # En contado se devuelve el total de la factura
                     monto_devuelto = Decimal(str(factura.total or 0))
@@ -7681,6 +7872,11 @@ def _cliente_json(cliente):
     limite_credito = cliente.limite_credito or Decimal('0.00')
     saldo_actual = _calcular_saldo_credito_cliente(cliente)
     saldo_disponible = limite_credito - saldo_actual
+    dinero_fondo = SaldoAFavor.objects.filter(
+        cliente=cliente,
+        estado='pendiente',
+        activo=True
+    ).aggregate(total=Sum('monto')).get('total') or Decimal('0.00')
 
     return {
         'id': cliente.id,
@@ -7697,6 +7893,7 @@ def _cliente_json(cliente):
         'activo': cliente.activo,
         'saldo_actual': float(saldo_actual),
         'saldo_disponible': float(saldo_disponible),
+        'dinero_fondo': float(dinero_fondo),
         'fecha_registro': cliente.fecha_registro.isoformat() if cliente.fecha_registro else None,
         'fecha_actualizacion': cliente.fecha_actualizacion.isoformat() if cliente.fecha_actualizacion else None,
         'usuario_registro': (cliente.registrado_por.username if getattr(cliente, 'registrado_por', None) else 'Sistema'),
