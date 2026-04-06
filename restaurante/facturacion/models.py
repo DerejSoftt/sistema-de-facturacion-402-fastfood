@@ -1303,9 +1303,10 @@ class MovimientoFinanciero(models.Model):
     ]
 
     ESTADO_CHOICES = [
-        ("ACTIVO",    "Activo"),
-        ("REVERTIDO", "Revertido"),
-    ]
+    ("ACTIVO",    "Activo"),
+    ("INACTIVO",  "Inactivo"),
+    ("REVERTIDO", "Revertido"),
+]
 
     tipo   = models.CharField(max_length=10, choices=TIPO_CHOICES, verbose_name="Tipo")
     origen = models.CharField(max_length=20, choices=ORIGEN_CHOICES, verbose_name="Origen")

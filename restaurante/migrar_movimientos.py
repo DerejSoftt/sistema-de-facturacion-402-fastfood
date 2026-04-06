@@ -6,8 +6,7 @@ django.setup()
 
 from decimal import Decimal
 from facturacion.models import Factura, MovimientoFinanciero, Devolucion
-
-DRY_RUN = True  # ← Primero True, luego False
+DRY_RUN = False  # ← Primero True, luego False
 
 creados        = 0
 ya_tienen      = 0
