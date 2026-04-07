@@ -3518,7 +3518,7 @@ def imprimir_factura_termica(request, factura_id):
         'items': items_normalizados,  # Usar los items normalizados
         'empresa': {
             'nombre': '402 FASTFOOD',
-            'direccion': 'Av. Principal 30 DE MAYO',
+            'direccion': 'Av. Principal 30 DE MAYO FRENTE A LA BOMBA',
             'telefono': '849-362-1791',
             'ruc': ''
         }
