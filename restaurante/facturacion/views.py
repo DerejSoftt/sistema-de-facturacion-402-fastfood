@@ -3090,6 +3090,7 @@ def crear_factura(request):
                 MovimientoFinanciero.objects.create(
                     tipo="INGRESO",
                     origen="VENTA",
+                    referencia='VENTA_CONTADO',
                     monto=factura.total,
                     fecha_operacion=factura.fecha_factura,
                     factura=factura,
@@ -3229,6 +3230,7 @@ def marcar_factura_pagada(request, factura_id):
         MovimientoFinanciero.objects.create(
             tipo="INGRESO",
             origen="VENTA",
+            referencia='VENTA_CREDITO',
             monto=factura.total,
             fecha_operacion=timezone.now(),
             factura=factura,
@@ -7110,9 +7112,11 @@ def procesar_anulacion_factura(request):
                         ).exists()
 
                     if _registrar_egreso:
+                        referencia_anulacion = 'ANULACION_CREDITO' if es_credito else 'ANULACION_CONTADO'
                         MovimientoFinanciero.objects.create(
                             tipo="EGRESO",
                             origen="ANULACION",
+                            referencia=referencia_anulacion,
                             monto=monto_devuelto,
                             fecha_operacion=timezone.now(),
                             factura=factura,
