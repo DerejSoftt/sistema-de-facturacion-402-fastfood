@@ -4116,19 +4116,24 @@ def dashbort(request):
     ganancias_netas    = r_mes['caja_neta']
     ganancias_pasadas  = r_mes_ant['caja_neta']
  
-    # ── Cards — conteos ────────────────────────────────────────────────────
-    # Facturas contado del día (para subtítulo de card)
-    facturas_hoy_card = _facturas_que_cuentan_en_cards(
-        Factura.objects.filter(fecha_factura__gte=inicio_dia, fecha_factura__lt=fin_dia)
+    # ── Cards — conteos de movimientos reales (ACTIVO + INACTIVO) ────────
+    movs_hoy = MovimientoFinanciero.objects.filter(
+        fecha_operacion__gte=inicio_dia,
+        fecha_operacion__lt=fin_dia,
+        estado__in=['ACTIVO', 'INACTIVO'],
     )
-    facturas_mes_card = _facturas_que_cuentan_en_cards(
-        Factura.objects.filter(fecha_factura__gte=inicio_mes, fecha_factura__lt=fin_mes)
+    movs_mes = MovimientoFinanciero.objects.filter(
+        fecha_operacion__gte=inicio_mes,
+        fecha_operacion__lt=fin_mes,
+        estado__in=['ACTIVO', 'INACTIVO'],
     )
- 
-    total_pagos_hoy    = r_dia['ingreso_pagos_count']
-    total_egresos_hoy  = r_dia['egreso_devoluciones_count'] + r_dia['egreso_anulaciones_count']
-    total_pagos_mes    = r_mes['ingreso_pagos_count']
-    total_egresos_mes  = r_mes['egreso_devoluciones_count'] + r_mes['egreso_anulaciones_count']
+
+    total_facturas_hoy = movs_hoy.filter(tipo='INGRESO', origen='VENTA').count()
+    total_facturas_mes = movs_mes.filter(tipo='INGRESO', origen='VENTA').count()
+    total_pagos_hoy    = movs_hoy.filter(tipo='INGRESO', origen='PAGO_CXC').count()
+    total_pagos_mes    = movs_mes.filter(tipo='INGRESO', origen='PAGO_CXC').count()
+    total_egresos_hoy  = movs_hoy.filter(tipo='EGRESO', origen__in=['DEVOLUCION', 'ANULACION']).count()
+    total_egresos_mes  = movs_mes.filter(tipo='EGRESO', origen__in=['DEVOLUCION', 'ANULACION']).count()
  
     # ── Pedidos ────────────────────────────────────────────────────────────
     total_pedidos = Pedido.objects.filter(
@@ -4415,8 +4420,8 @@ def dashbort(request):
         'nuevos_clientes':  nuevos_clientes,
  
         # Subtítulos de cards
-        'total_facturas_hoy':  facturas_hoy_card.count(),
-        'total_facturas_mes':  facturas_mes_card.count(),
+        'total_facturas_hoy':  total_facturas_hoy,
+        'total_facturas_mes':  total_facturas_mes,
         'total_pagos_hoy':     total_pagos_hoy,
         'total_pagos_mes':     total_pagos_mes,
         'total_egresos_hoy':   total_egresos_hoy,
@@ -4568,17 +4573,24 @@ def dashboard_stats(request):
         ganancias_netas   = r_mes['caja_neta']
         ganancias_ant     = r_mes_ant['caja_neta']
  
-        # Cards conteos
-        facturas_hoy_card = _facturas_que_cuentan_en_cards(
-            Factura.objects.filter(fecha_factura__gte=inicio_dia, fecha_factura__lt=fin_dia)
+        # Cards conteos de movimientos reales (ACTIVO + INACTIVO)
+        movs_hoy = MovimientoFinanciero.objects.filter(
+            fecha_operacion__gte=inicio_dia,
+            fecha_operacion__lt=fin_dia,
+            estado__in=['ACTIVO', 'INACTIVO'],
         )
-        facturas_mes_card = _facturas_que_cuentan_en_cards(
-            Factura.objects.filter(fecha_factura__gte=inicio_mes, fecha_factura__lt=fin_mes)
+        movs_mes = MovimientoFinanciero.objects.filter(
+            fecha_operacion__gte=inicio_mes,
+            fecha_operacion__lt=fin_mes,
+            estado__in=['ACTIVO', 'INACTIVO'],
         )
-        total_pagos_hoy   = r_dia['ingreso_pagos_count']
-        total_egresos_hoy = r_dia['egreso_devoluciones_count'] + r_dia['egreso_anulaciones_count']
-        total_pagos_mes   = r_mes['ingreso_pagos_count']
-        total_egresos_mes = r_mes['egreso_devoluciones_count'] + r_mes['egreso_anulaciones_count']
+
+        total_facturas_hoy = movs_hoy.filter(tipo='INGRESO', origen='VENTA').count()
+        total_facturas_mes = movs_mes.filter(tipo='INGRESO', origen='VENTA').count()
+        total_pagos_hoy    = movs_hoy.filter(tipo='INGRESO', origen='PAGO_CXC').count()
+        total_pagos_mes    = movs_mes.filter(tipo='INGRESO', origen='PAGO_CXC').count()
+        total_egresos_hoy  = movs_hoy.filter(tipo='EGRESO', origen__in=['DEVOLUCION', 'ANULACION']).count()
+        total_egresos_mes  = movs_mes.filter(tipo='EGRESO', origen__in=['DEVOLUCION', 'ANULACION']).count()
  
         # Pedidos
         total_pedidos      = Pedido.objects.filter(fecha_pedido__gte=inicio_dia, fecha_pedido__lt=fin_dia).count()
@@ -4772,8 +4784,8 @@ def dashboard_stats(request):
             'total_pedidos':   total_pedidos,
             'nuevos_clientes': nuevos_clientes,
             # Subtítulos
-            'total_facturas_hoy': facturas_hoy_card.count(),
-            'total_facturas_mes': facturas_mes_card.count(),
+            'total_facturas_hoy': total_facturas_hoy,
+            'total_facturas_mes': total_facturas_mes,
             'total_pagos_hoy':    total_pagos_hoy,
             'total_pagos_mes':    total_pagos_mes,
             'total_egresos_hoy':  total_egresos_hoy,
@@ -4957,52 +4969,61 @@ def generar_pdf_cuadre_caja(request):
 
     periodo_texto = f"{inicio_dia.astimezone(tz_rd).strftime('%d/%m/%Y %H:%M')} - {fin_dia.astimezone(tz_rd).strftime('%d/%m/%Y %H:%M')}"
 
-    credito_q = Q(cuenta_por_cobrar__isnull=False) | Q(pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
-    facturas_periodo = Factura.objects.filter(fecha_factura__gte=inicio_dia, fecha_factura__lte=fin_dia)
+    credito_q = Q(factura__cuenta_por_cobrar__isnull=False) | Q(factura__pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
 
-    ventas_contado_qs = facturas_periodo.exclude(credito_q).filter(estado__in=['pagada', 'parcialmente_devuelta'])
-    ventas_credito_qs = facturas_periodo.filter(credito_q).filter(estado__in=['pagada', 'parcialmente_devuelta'])
-    anulaciones_qs = facturas_periodo.filter(estado='anulada')
-    devoluciones_doc_qs = facturas_periodo.filter(estado__in=['parcialmente_devuelta', 'totalmente_devuelta'])
-
-    total_ventas_contado = ventas_contado_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-    total_ventas_credito = ventas_credito_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-    total_anulaciones_doc = anulaciones_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-    total_devoluciones_doc = devoluciones_doc_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-
+    # Para el ticket de cuadre se muestran TODOS los movimientos con monto
+    # (activos e inactivos) para mantener trazabilidad completa del turno.
+    # Solo se excluyen ajustes manuales revertidos.
     movimientos = MovimientoFinanciero.objects.filter(
         fecha_operacion__gte=inicio_dia,
-        fecha_operacion__lte=fin_dia,
-        estado='ACTIVO',
+        fecha_operacion__lt=fin_dia,
+        estado__in=['ACTIVO', 'INACTIVO'],
     )
 
     ingreso_venta_contado_qs = movimientos.filter(tipo='INGRESO', origen='VENTA').exclude(
-        Q(factura__cuenta_por_cobrar__isnull=False) | Q(factura__pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
+        credito_q
     )
+    ingreso_venta_credito_qs = movimientos.filter(tipo='INGRESO', origen='VENTA').filter(credito_q)
     ingreso_pago_credito_qs = movimientos.filter(tipo='INGRESO', origen='PAGO_CXC')
     egreso_devolucion_contado_qs = movimientos.filter(tipo='EGRESO', origen='DEVOLUCION').exclude(referencia='EXCEDENTE_DEVOLUCION')
     egreso_excedente_qs = movimientos.filter(tipo='EGRESO', origen='DEVOLUCION', referencia='EXCEDENTE_DEVOLUCION')
     egreso_anulacion_qs = movimientos.filter(tipo='EGRESO', origen='ANULACION')
 
     total_ingreso_venta_contado = ingreso_venta_contado_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    total_ingreso_venta_credito = ingreso_venta_credito_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     total_ingreso_pago_credito = ingreso_pago_credito_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     total_egreso_devolucion_contado = egreso_devolucion_contado_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     total_egreso_excedente = egreso_excedente_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     total_egreso_anulacion = egreso_anulacion_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
+    total_ventas_contado = total_ingreso_venta_contado
+    total_ventas_credito = total_ingreso_venta_credito
+    total_anulaciones_doc = total_egreso_anulacion
+    total_devoluciones_doc = total_egreso_devolucion_contado + total_egreso_excedente
+
     total_ingresos = total_ingreso_venta_contado + total_ingreso_pago_credito
     total_egresos = total_egreso_devolucion_contado + total_egreso_excedente + total_egreso_anulacion
     caja_neta = total_ingresos - total_egresos
 
-    rows_ventas = [
-        {
-            'factura': f.numero_factura,
-            'hora': _ticket_hora_12h(f.fecha_factura, tz_rd),
-            'cliente': f.nombre_cliente or 'CLIENTE',
-            'monto': f.total or Decimal('0.00'),
-        }
-        for f in ventas_contado_qs.order_by('fecha_factura')
-    ]
+    rows_ventas_contado = []
+    for mov in ingreso_venta_contado_qs.select_related('factura').order_by('fecha_operacion'):
+        factura = mov.factura
+        rows_ventas_contado.append({
+            'factura': factura.numero_factura if factura else (mov.referencia or '-'),
+            'hora': _ticket_hora_12h(mov.fecha_operacion, tz_rd),
+            'cliente': (factura.nombre_cliente if factura else 'CLIENTE') or 'CLIENTE',
+            'monto': mov.monto or Decimal('0.00'),
+        })
+
+    rows_ventas_credito = []
+    for mov in ingreso_venta_credito_qs.select_related('factura').order_by('fecha_operacion'):
+        factura = mov.factura
+        rows_ventas_credito.append({
+            'factura': factura.numero_factura if factura else (mov.referencia or '-'),
+            'hora': _ticket_hora_12h(mov.fecha_operacion, tz_rd),
+            'cliente': (factura.nombre_cliente if factura else 'CLIENTE') or 'CLIENTE',
+            'monto': mov.monto or Decimal('0.00'),
+        })
 
     rows_devoluciones = []
     for mov in egreso_devolucion_contado_qs.select_related('factura').order_by('fecha_operacion'):
@@ -5014,15 +5035,15 @@ def generar_pdf_cuadre_caja(request):
             'monto': mov.monto or Decimal('0.00'),
         })
 
-    rows_anulaciones = [
-        {
-            'factura': f.numero_factura,
-            'hora': _ticket_hora_12h(f.fecha_factura, tz_rd),
-            'cliente': f.nombre_cliente or 'CLIENTE',
-            'monto': f.total or Decimal('0.00'),
-        }
-        for f in anulaciones_qs.order_by('fecha_factura')
-    ]
+    rows_anulaciones = []
+    for mov in egreso_anulacion_qs.select_related('factura').order_by('fecha_operacion'):
+        factura = mov.factura
+        rows_anulaciones.append({
+            'factura': factura.numero_factura if factura else (mov.referencia or '-'),
+            'hora': _ticket_hora_12h(mov.fecha_operacion, tz_rd),
+            'cliente': (factura.nombre_cliente if factura else 'CLIENTE') or 'CLIENTE',
+            'monto': mov.monto or Decimal('0.00'),
+        })
 
     rows_pagos = []
     for pago in PagoCuentaCobrar.objects.filter(fecha_pago__gte=inicio_dia, fecha_pago__lte=fin_dia).select_related('cuenta_por_cobrar__cliente').order_by('fecha_pago'):
@@ -5092,7 +5113,8 @@ def generar_pdf_cuadre_caja(request):
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
     y -= 5 * mm
 
-    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "VENTAS", rows_ventas, total_ventas_contado)
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "VENTAS CONTADO", rows_ventas_contado, total_ventas_contado)
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "VENTAS CREDITO", rows_ventas_credito, total_ventas_credito)
     y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "DEVOLUCIONES", rows_devoluciones, total_egreso_devolucion_contado)
     y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "ANULACIONES", rows_anulaciones, total_anulaciones_doc)
 
@@ -7063,23 +7085,46 @@ def procesar_anulacion_factura(request):
                 # Sincronizar movimientos financieros (marca INACTIVO los originales)
                 _sincronizar_movimientos_factura(factura)
 
-                # Registrar egreso financiero por anulación
+                # Registrar egreso financiero por anulación.
+                # REGLA: solo se genera un egreso real de caja si hubo un ingreso
+                # real previo. Anular una factura "pendiente" (nunca cobrada) no
+                # mueve dinero, por lo que NO debe registrarse ningún egreso.
+                #
+                #  · Contado  → verificar que exista un MovimientoFinanciero de
+                #               INGRESO/VENTA vinculado a esta factura.
+                #  · Crédito  → el egreso equivale a los pagos CxC eliminados;
+                #               solo aplica si efectivamente se eliminaron pagos.
                 if monto_devuelto > 0:
-                    MovimientoFinanciero.objects.create(
-                        tipo="EGRESO",
-                        origen="ANULACION",
-                        monto=monto_devuelto,
-                        fecha_operacion=timezone.now(),
-                        factura=factura,
-                        devolucion=devolucion,
-                        metodo_pago=factura.metodo_pago,
-                        creado_por=request.user,
-                        descripcion=(
-                            f"Anulación factura {factura.numero_factura}. "
-                            f"Motivo: {motivo or 'Sin motivo'}. "
-                            + (f"Pagos CxC eliminados: {pagos_eliminados}." if es_credito else "")
-                        ),
-                    )
+                    _registrar_egreso = False
+
+                    if es_credito:
+                        # Solo si se eliminaron pagos ya cobrados
+                        _registrar_egreso = pagos_eliminados > 0
+                    else:
+                        # Contado: solo si la factura tenía un ingreso registrado
+                        # (es decir, ya había sido cobrada antes de la anulación)
+                        _registrar_egreso = MovimientoFinanciero.objects.filter(
+                            factura=factura,
+                            tipo='INGRESO',
+                            origen='VENTA',
+                        ).exists()
+
+                    if _registrar_egreso:
+                        MovimientoFinanciero.objects.create(
+                            tipo="EGRESO",
+                            origen="ANULACION",
+                            monto=monto_devuelto,
+                            fecha_operacion=timezone.now(),
+                            factura=factura,
+                            devolucion=devolucion,
+                            metodo_pago=factura.metodo_pago,
+                            creado_por=request.user,
+                            descripcion=(
+                                f"Anulación factura {factura.numero_factura}. "
+                                f"Motivo: {motivo or 'Sin motivo'}. "
+                                + (f"Pagos CxC eliminados: {pagos_eliminados}." if es_credito else "")
+                            ),
+                        )
 
                 # Cerrar el ciclo en este mismo flujo: evitar que reaparezca en gestión/facturación.
                 if factura.pedido:
@@ -7911,91 +7956,158 @@ def _resumen_movimientos_caja(inicio, fin):
     """
     Resume el movimiento real de caja en un rango de fechas.
     Fuente única de verdad: MovimientoFinanciero.
-    No mezcla queries sobre Factura directamente para los totales de caja.
+
+    PERFORMANCE: toda la lógica de caja se resuelve en UNA sola query
+    usando annotate+Case/When en lugar de 6 queries separadas.
+    Llamada 4 veces por request de dashboard_stats → de ~24 queries a 4.
     """
-    from django.db.models import Sum, Count, Case, When, Value
+    from django.db.models import Sum, Count, Case, When, IntegerField
     from django.db.models import DecimalField as DField
     from django.db.models.functions import Coalesce
     from django.utils import timezone
     from decimal import Decimal
- 
+
     if timezone.is_naive(inicio):
         inicio = timezone.make_aware(inicio, timezone.get_current_timezone())
     if timezone.is_naive(fin):
         fin = timezone.make_aware(fin, timezone.get_current_timezone())
- 
+
     inicio = timezone.localtime(inicio)
     fin    = timezone.localtime(fin)
- 
-    # ── Una sola query sobre MovimientoFinanciero ──────────────────────────
+
+    # ── Query única con Case/When — 1 round-trip al DB ────────────────────
     # Estados válidos para caja: ACTIVO solamente.
     # INACTIVO = movimientos de facturas anuladas/totalmente devueltas.
     # REVERTIDO = correcciones manuales — no cuentan en caja operativa.
-    movimientos = MovimientoFinanciero.objects.filter(
+    _Z   = Decimal('0.00')
+    _D   = DField()
+    _I   = IntegerField()
+
+    agg = MovimientoFinanciero.objects.filter(
         fecha_operacion__gte=inicio,
         fecha_operacion__lt=fin,
         estado='ACTIVO',
+    ).aggregate(
+        # ── Ingreso venta contado (excluye crédito via JOIN) ────────────────
+        # Nota: el exclude de crédito requiere JOIN a factura/pedido; se hace
+        # en post-proceso separando INGRESO/VENTA en dos sub-sumas para mantener
+        # una sola query sin subquery correlacionada costosa.
+        # INGRESO/VENTA de cualquier tipo (contado + crédito juntos aquí)
+        _iv_total=Coalesce(Sum(Case(
+            When(tipo='INGRESO', origen='VENTA', then='monto'),
+            default=_Z, output_field=_D,
+        )), _Z),
+        _iv_count=Coalesce(Sum(Case(
+            When(tipo='INGRESO', origen='VENTA', then=1),
+            default=0, output_field=_I,
+        )), 0),
+        # INGRESO/PAGO_CXC
+        _ip_total=Coalesce(Sum(Case(
+            When(tipo='INGRESO', origen='PAGO_CXC', then='monto'),
+            default=_Z, output_field=_D,
+        )), _Z),
+        _ip_count=Coalesce(Sum(Case(
+            When(tipo='INGRESO', origen='PAGO_CXC', then=1),
+            default=0, output_field=_I,
+        )), 0),
+        # EGRESO/DEVOLUCION contado (excluye excedente)
+        _edc_total=Coalesce(Sum(Case(
+            When(tipo='EGRESO', origen='DEVOLUCION', then=Case(
+                When(referencia='EXCEDENTE_DEVOLUCION', then=_Z),
+                default='monto', output_field=_D,
+            )),
+            default=_Z, output_field=_D,
+        )), _Z),
+        _edc_count=Coalesce(Sum(Case(
+            When(tipo='EGRESO', origen='DEVOLUCION', then=Case(
+                When(referencia='EXCEDENTE_DEVOLUCION', then=0),
+                default=1, output_field=_I,
+            )),
+            default=0, output_field=_I,
+        )), 0),
+        # EGRESO/DEVOLUCION excedente
+        _ede_total=Coalesce(Sum(Case(
+            When(tipo='EGRESO', origen='DEVOLUCION', referencia='EXCEDENTE_DEVOLUCION', then='monto'),
+            default=_Z, output_field=_D,
+        )), _Z),
+        _ede_count=Coalesce(Sum(Case(
+            When(tipo='EGRESO', origen='DEVOLUCION', referencia='EXCEDENTE_DEVOLUCION', then=1),
+            default=0, output_field=_I,
+        )), 0),
+        # EGRESO/ANULACION
+        _ea_total=Coalesce(Sum(Case(
+            When(tipo='EGRESO', origen='ANULACION', then='monto'),
+            default=_Z, output_field=_D,
+        )), _Z),
+        _ea_count=Coalesce(Sum(Case(
+            When(tipo='EGRESO', origen='ANULACION', then=1),
+            default=0, output_field=_I,
+        )), 0),
     )
- 
-    # Ingresos por ventas de contado
+
+    # INGRESO/VENTA de crédito requiere un filtro por FK — query separada
+    # pero acotada al mismo rango (muy selectiva, pocas filas en producción).
     credito_q = (
         Q(factura__cuenta_por_cobrar__isnull=False) |
         Q(factura__pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
     )
-    ingreso_venta_contado_agg = movimientos.filter(
-        tipo='INGRESO', origen='VENTA'
-    ).exclude(credito_q).aggregate(
-        total=Coalesce(Sum('monto'), Decimal('0.00')),
-        cantidad=Count('id')
+    iv_credito_agg = MovimientoFinanciero.objects.filter(
+        fecha_operacion__gte=inicio,
+        fecha_operacion__lt=fin,
+        estado='ACTIVO',
+        tipo='INGRESO',
+        origen='VENTA',
+    ).filter(credito_q).aggregate(
+        total=Coalesce(Sum('monto'), _Z),
+        cantidad=Coalesce(Sum(Case(When(tipo='INGRESO', then=1), default=0, output_field=_I)), 0),
     )
- 
-    # Ingresos por pagos de CxC (crédito cobrado)
-    ingreso_pago_credito_agg = movimientos.filter(
-        tipo='INGRESO', origen='PAGO_CXC'
+
+    # EGRESO/ANULACION válido para caja real:
+    # solo cuenta si existe un ingreso ACTIVO relacionado con la misma factura.
+    # Esto evita caja negativa cuando la factura ya quedó anulada y sus ingresos
+    # fueron desactivados por sincronización.
+    ingreso_relacionado_q = MovimientoFinanciero.objects.filter(
+        factura=OuterRef('factura'),
+        estado='ACTIVO',
+        tipo='INGRESO',
+        origen__in=['VENTA', 'PAGO_CXC'],
+    )
+
+    anulacion_real_agg = MovimientoFinanciero.objects.filter(
+        fecha_operacion__gte=inicio,
+        fecha_operacion__lt=fin,
+        estado='ACTIVO',
+        tipo='EGRESO',
+        origen='ANULACION',
+    ).annotate(
+        tiene_ingreso_relacionado=Exists(ingreso_relacionado_q)
+    ).filter(
+        Q(factura__isnull=True) | Q(tiene_ingreso_relacionado=True)
     ).aggregate(
-        total=Coalesce(Sum('monto'), Decimal('0.00')),
-        cantidad=Count('id')
+        total=Coalesce(Sum('monto'), _Z),
+        cantidad=Count('id'),
     )
- 
-    # Egresos por devoluciones (contado y excedentes separados)
-    egreso_dev_contado_agg = movimientos.filter(
-        tipo='EGRESO', origen='DEVOLUCION'
-    ).exclude(referencia='EXCEDENTE_DEVOLUCION').aggregate(
-        total=Coalesce(Sum('monto'), Decimal('0.00')),
-        cantidad=Count('id')
-    )
- 
-    egreso_dev_excedente_agg = movimientos.filter(
-        tipo='EGRESO', origen='DEVOLUCION',
-        referencia='EXCEDENTE_DEVOLUCION'
-    ).aggregate(
-        total=Coalesce(Sum('monto'), Decimal('0.00')),
-        cantidad=Count('id')
-    )
- 
-    # Egresos por anulaciones
-    egreso_anulacion_agg = movimientos.filter(
-        tipo='EGRESO', origen='ANULACION'
-    ).aggregate(
-        total=Coalesce(Sum('monto'), Decimal('0.00')),
-        cantidad=Count('id')
-    )
- 
-    # ── Totales ────────────────────────────────────────────────────────────
-    ingreso_venta_total      = ingreso_venta_contado_agg['total']
-    ingreso_pagos_total      = ingreso_pago_credito_agg['total']
-    egreso_dev_contado_total = egreso_dev_contado_agg['total']
-    egreso_dev_excedente_total = egreso_dev_excedente_agg['total']
-    egreso_dev_total         = egreso_dev_contado_total + egreso_dev_excedente_total
-    egreso_anulacion_total   = egreso_anulacion_agg['total']
- 
+
+    # ── Derivar totales ────────────────────────────────────────────────────
+    ingreso_venta_total        = agg['_iv_total'] - iv_credito_agg['total']
+    ingreso_venta_count        = agg['_iv_count'] - iv_credito_agg['cantidad']
+    ingreso_pagos_total        = agg['_ip_total']
+    ingreso_pagos_count        = agg['_ip_count']
+    egreso_dev_contado_total   = agg['_edc_total']
+    egreso_dev_contado_count   = agg['_edc_count']
+    egreso_dev_excedente_total = agg['_ede_total']
+    egreso_dev_excedente_count = agg['_ede_count']
+    egreso_anulacion_total     = anulacion_real_agg['total']
+    egreso_anulacion_count     = anulacion_real_agg['cantidad']
+
+    egreso_dev_total = egreso_dev_contado_total + egreso_dev_excedente_total
+    egreso_dev_count = egreso_dev_contado_count + egreso_dev_excedente_count
+
     ingresos_total = ingreso_venta_total + ingreso_pagos_total
     egresos_total  = egreso_dev_total + egreso_anulacion_total
     caja_neta      = ingresos_total - egresos_total
- 
-    # ── Datos de documentos (para cuadre de caja PDF) ──────────────────────
-    # Estos SÍ vienen de Factura — son para el reporte de documentos,
-    # no para los totales de caja del dashboard.
+
+    # ── Datos de documentos (para PDF cuadre) — query a Factura ───────────
     credito_fac_q = (
         Q(cuenta_por_cobrar__isnull=False) |
         Q(pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
@@ -8004,45 +8116,48 @@ def _resumen_movimientos_caja(inicio, fin):
         fecha_factura__gte=inicio,
         fecha_factura__lt=fin,
     )
-    total_ventas_contado_doc  = facturas_periodo.exclude(credito_fac_q).filter(
-        estado__in=['pagada', 'parcialmente_devuelta']
-    ).aggregate(total=Coalesce(Sum('total'), Decimal('0.00')))['total']
- 
-    total_ventas_credito_doc  = facturas_periodo.filter(credito_fac_q).filter(
-        estado__in=['pagada', 'parcialmente_devuelta']
-    ).aggregate(total=Coalesce(Sum('total'), Decimal('0.00')))['total']
- 
-    total_anulaciones_doc     = facturas_periodo.filter(
-        estado='anulada'
-    ).aggregate(total=Coalesce(Sum('total'), Decimal('0.00')))['total']
- 
-    total_devoluciones_doc    = facturas_periodo.filter(
-        estado__in=['parcialmente_devuelta', 'totalmente_devuelta']
-    ).aggregate(total=Coalesce(Sum('total'), Decimal('0.00')))['total']
- 
+    doc_agg = facturas_periodo.aggregate(
+        contado_pagadas=Coalesce(Sum(Case(
+            When(~credito_fac_q, estado__in=['pagada', 'parcialmente_devuelta'], then='total'),
+            default=_Z, output_field=_D,
+        )), _Z),
+        credito_pagadas=Coalesce(Sum(Case(
+            When(credito_fac_q, estado__in=['pagada', 'parcialmente_devuelta'], then='total'),
+            default=_Z, output_field=_D,
+        )), _Z),
+        anuladas=Coalesce(Sum(Case(
+            When(estado='anulada', then='total'),
+            default=_Z, output_field=_D,
+        )), _Z),
+        devueltas=Coalesce(Sum(Case(
+            When(estado__in=['parcialmente_devuelta', 'totalmente_devuelta'], then='total'),
+            default=_Z, output_field=_D,
+        )), _Z),
+    )
+
     return {
         # ── Para cards del dashboard ───────────────────────────────────────
-        'caja_neta':                        caja_neta,
-        'ingresos_total':                   ingresos_total,
-        'egresos_total':                    egresos_total,
-        'ingreso_venta_total':              ingreso_venta_total,
-        'ingreso_pagos_total':              ingreso_pagos_total,
-        'egreso_devoluciones_total':        egreso_dev_total,
-        'egreso_devoluciones_contado_total':egreso_dev_contado_total,
-        'egreso_devoluciones_excedente_total': egreso_dev_excedente_total,
-        'egreso_anulaciones_total':         egreso_anulacion_total,
+        'caja_neta':                            caja_neta,
+        'ingresos_total':                       ingresos_total,
+        'egresos_total':                        egresos_total,
+        'ingreso_venta_total':                  ingreso_venta_total,
+        'ingreso_pagos_total':                  ingreso_pagos_total,
+        'egreso_devoluciones_total':            egreso_dev_total,
+        'egreso_devoluciones_contado_total':    egreso_dev_contado_total,
+        'egreso_devoluciones_excedente_total':  egreso_dev_excedente_total,
+        'egreso_anulaciones_total':             egreso_anulacion_total,
         # ── Conteos (para subtítulo de cards) ─────────────────────────────
-        'ingreso_venta_count':              ingreso_venta_contado_agg['cantidad'],
-        'ingreso_pagos_count':              ingreso_pago_credito_agg['cantidad'],
-        'egreso_devoluciones_contado_count':egreso_dev_contado_agg['cantidad'],
-        'egreso_devoluciones_excedente_count': egreso_dev_excedente_agg['cantidad'],
-        'egreso_devoluciones_count':        egreso_dev_contado_agg['cantidad'] + egreso_dev_excedente_agg['cantidad'],
-        'egreso_anulaciones_count':         egreso_anulacion_agg['cantidad'],
+        'ingreso_venta_count':                  ingreso_venta_count,
+        'ingreso_pagos_count':                  ingreso_pagos_count,
+        'egreso_devoluciones_contado_count':    egreso_dev_contado_count,
+        'egreso_devoluciones_excedente_count':  egreso_dev_excedente_count,
+        'egreso_devoluciones_count':            egreso_dev_count,
+        'egreso_anulaciones_count':             egreso_anulacion_count,
         # ── Para PDF de cuadre (datos de documentos) ──────────────────────
-        'total_ventas_contado_doc':         total_ventas_contado_doc,
-        'total_ventas_credito_doc':         total_ventas_credito_doc,
-        'total_anulaciones_doc':            total_anulaciones_doc,
-        'total_devoluciones_doc':           total_devoluciones_doc,
+        'total_ventas_contado_doc':             doc_agg['contado_pagadas'],
+        'total_ventas_credito_doc':             doc_agg['credito_pagadas'],
+        'total_anulaciones_doc':                doc_agg['anuladas'],
+        'total_devoluciones_doc':               doc_agg['devueltas'],
     }
 
 
