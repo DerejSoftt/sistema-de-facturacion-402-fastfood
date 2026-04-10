@@ -4053,10 +4053,14 @@ def dashbort(request):
             'class':  'trend-up' if val > 0 else 'trend-down' if val < 0 else 'trend-neutral',
         }
  
-    # ── Tiempo ─────────────────────────────────────────────────────────────
-    ahora_local  = timezone.localtime()
+    # ── Tiempo (forzado a RD) ─────────────────────────────────────────────
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    ahora_local  = timezone.now().astimezone(tz_rd)
     hoy_local    = ahora_local.date()
     dashboard_debug = bool(settings.DEBUG and request.GET.get('debug') == '1')
+
+    def _aware_rd(fecha, hora):
+        return timezone.make_aware(datetime.combine(fecha, hora), tz_rd)
  
     # ── Cache ──────────────────────────────────────────────────────────────
     if not dashboard_debug:
@@ -4069,19 +4073,11 @@ def dashbort(request):
     # ── Definición del día operativo: 6:00 AM → 5:59:59 AM día siguiente ──
     # Esta lógica es fija y no cambia — siempre el mismo rango para cuadre.
     if ahora_local.hour >= 6:
-        inicio_dia = timezone.make_aware(
-            datetime.combine(hoy_local, time(6, 0, 0))
-        )
-        fin_dia = timezone.make_aware(
-            datetime.combine(hoy_local + timedelta(days=1), time(5, 59, 59))
-        )
+        inicio_dia = _aware_rd(hoy_local, time(6, 0, 0))
+        fin_dia = _aware_rd(hoy_local + timedelta(days=1), time(5, 59, 59))
     else:
-        inicio_dia = timezone.make_aware(
-            datetime.combine(hoy_local - timedelta(days=1), time(6, 0, 0))
-        )
-        fin_dia = timezone.make_aware(
-            datetime.combine(hoy_local, time(5, 59, 59))
-        )
+        inicio_dia = _aware_rd(hoy_local - timedelta(days=1), time(6, 0, 0))
+        fin_dia = _aware_rd(hoy_local, time(5, 59, 59))
  
     inicio_dia_anterior = inicio_dia - timedelta(days=1)
     fin_dia_anterior    = fin_dia    - timedelta(days=1)
@@ -4093,14 +4089,14 @@ def dashbort(request):
     else:
         primer_dia_mes_siguiente = hoy_local.replace(month=hoy_local.month + 1, day=1)
  
-    inicio_mes = timezone.make_aware(datetime.combine(primer_dia_mes,          time(0, 0, 0)))
-    fin_mes    = timezone.make_aware(datetime.combine(primer_dia_mes_siguiente, time(0, 0, 0)))
+    inicio_mes = _aware_rd(primer_dia_mes, time(0, 0, 0))
+    fin_mes    = _aware_rd(primer_dia_mes_siguiente, time(0, 0, 0))
     # Nota: usamos __lt fin_mes (exclusive) en todas las queries del mes
  
     # ── Mes anterior ───────────────────────────────────────────────────────
     ultimo_dia_mes_pasado  = primer_dia_mes - timedelta(days=1)
     primer_dia_mes_pasado  = ultimo_dia_mes_pasado.replace(day=1)
-    inicio_mes_pasado = timezone.make_aware(datetime.combine(primer_dia_mes_pasado, time(0, 0, 0)))
+    inicio_mes_pasado = _aware_rd(primer_dia_mes_pasado, time(0, 0, 0))
     fin_mes_pasado    = inicio_mes  # exclusive upper bound
  
     # ── Resúmenes de caja (fuente: MovimientoFinanciero) ───────────────────
@@ -4245,8 +4241,8 @@ def dashbort(request):
     ventas_7_dias   = []
     for i in range(6, -1, -1):
         ref = hoy_local - timedelta(days=i)
-        d_inicio = timezone.make_aware(datetime.combine(ref,                   time(6, 0, 0)))
-        d_fin    = timezone.make_aware(datetime.combine(ref + timedelta(days=1), time(5, 59, 59)))
+        d_inicio = _aware_rd(ref, time(6, 0, 0))
+        d_fin    = _aware_rd(ref + timedelta(days=1), time(5, 59, 59))
         neto     = _resumen_movimientos_caja(d_inicio, d_fin)['caja_neta']
         ultimos_7_dias.append('Hoy' if i == 0 else ref.strftime('%a'))
         ventas_7_dias.append(float(neto))
@@ -4306,29 +4302,16 @@ def dashbort(request):
     categorias_data         = [CATEGORIA_LABELS.get(c, c.title()) for c in cat_acumulado]
     ventas_categorias_data  = [float(v) for v in cat_acumulado.values()]
  
-    # ── Gráfico mensual (por día, desde MovimientoFinanciero) ─────────────
-    movimientos_mes_por_dia = (
-        MovimientoFinanciero.objects
-        .filter(fecha_operacion__gte=inicio_mes, fecha_operacion__lt=fin_mes, estado='ACTIVO')
-        .annotate(periodo=Func(F('fecha_operacion'), function='DATE', output_field=DateField()))
-        .values('periodo')
-        .annotate(
-            ingresos=Coalesce(Sum(Case(When(tipo='INGRESO', then=F('monto')),
-                default=Value(0), output_field=DecimalField(max_digits=18, decimal_places=2))), Decimal('0.00')),
-            egresos=Coalesce(Sum(Case(When(tipo='EGRESO',  then=F('monto')),
-                default=Value(0), output_field=DecimalField(max_digits=18, decimal_places=2))), Decimal('0.00')),
-        )
-    )
-    neto_por_dia = {
-        row['periodo']: row['ingresos'] - row['egresos']
-        for row in movimientos_mes_por_dia if row.get('periodo')
-    }
+    # ── Gráfico mensual (por día) con la MISMA lógica que la card mensual ─
     labels_mensuales   = []
     proyeccion_mensual = []
     for dia in range(1, hoy_local.day + 1):
         fecha_dia = hoy_local.replace(day=dia)
+        di = _aware_rd(fecha_dia, time(0, 0, 0))
+        df = _aware_rd(fecha_dia + timedelta(days=1), time(0, 0, 0))
+        neto = _resumen_movimientos_caja(di, df)['caja_neta']
         labels_mensuales.append(fecha_dia.strftime('%d %b'))
-        proyeccion_mensual.append(float(neto_por_dia.get(fecha_dia, Decimal('0.00'))))
+        proyeccion_mensual.append(float(neto))
  
     # ── Gráfico anual (últimos 12 meses, desde MovimientoFinanciero) ───────
     meses_ref = []
@@ -4338,7 +4321,7 @@ def dashbort(request):
         ref_mes = (ref_mes - timedelta(days=1)).replace(day=1)
     meses_ref.reverse()
  
-    inicio_12 = timezone.make_aware(datetime.combine(meses_ref[0], time(0, 0, 0)))
+    inicio_12 = _aware_rd(meses_ref[0], time(0, 0, 0))
     fin_12    = fin_mes  # hasta fin del mes actual
  
     movimientos_12 = (
@@ -4509,8 +4492,12 @@ def dashboard_stats(request):
         dashboard_debug = bool(settings.DEBUG and request.GET.get('debug') == '1')
  
         # ── Cache ──────────────────────────────────────────────────────────
-        ahora_local = timezone.localtime()
+        tz_rd = pytz.timezone('America/Santo_Domingo')
+        ahora_local = timezone.now().astimezone(tz_rd)
         hoy_local   = ahora_local.date()
+
+        def _aware_rd(fecha, hora):
+            return timezone.make_aware(datetime.combine(fecha, hora), tz_rd)
         if full_refresh:
             bucket = f"{ahora_local.strftime('%Y%m%d%H')}{(ahora_local.minute // 5) * 5:02d}"
         else:
@@ -4537,11 +4524,11 @@ def dashboard_stats(request):
  
         # ── Rangos de tiempo ───────────────────────────────────────────────
         if ahora_local.hour >= 6:
-            inicio_dia = timezone.make_aware(datetime.combine(hoy_local,                   time(6, 0, 0)))
-            fin_dia    = timezone.make_aware(datetime.combine(hoy_local + timedelta(days=1), time(5, 59, 59)))
+            inicio_dia = _aware_rd(hoy_local, time(6, 0, 0))
+            fin_dia    = _aware_rd(hoy_local + timedelta(days=1), time(5, 59, 59))
         else:
-            inicio_dia = timezone.make_aware(datetime.combine(hoy_local - timedelta(days=1), time(6, 0, 0)))
-            fin_dia    = timezone.make_aware(datetime.combine(hoy_local,                     time(5, 59, 59)))
+            inicio_dia = _aware_rd(hoy_local - timedelta(days=1), time(6, 0, 0))
+            fin_dia    = _aware_rd(hoy_local, time(5, 59, 59))
  
         inicio_dia_anterior = inicio_dia - timedelta(days=1)
         fin_dia_anterior    = fin_dia    - timedelta(days=1)
@@ -4552,12 +4539,12 @@ def dashboard_stats(request):
         else:
             primer_dia_mes_siguiente = hoy_local.replace(month=hoy_local.month + 1, day=1)
  
-        inicio_mes = timezone.make_aware(datetime.combine(primer_dia_mes,             time(0, 0, 0)))
-        fin_mes    = timezone.make_aware(datetime.combine(primer_dia_mes_siguiente,   time(0, 0, 0)))
+        inicio_mes = _aware_rd(primer_dia_mes, time(0, 0, 0))
+        fin_mes    = _aware_rd(primer_dia_mes_siguiente, time(0, 0, 0))
  
         ultimo_dia_mes_pasado = primer_dia_mes - timedelta(days=1)
         primer_dia_mes_pasado = ultimo_dia_mes_pasado.replace(day=1)
-        inicio_mes_pasado = timezone.make_aware(datetime.combine(primer_dia_mes_pasado, time(0, 0, 0)))
+        inicio_mes_pasado = _aware_rd(primer_dia_mes_pasado, time(0, 0, 0))
         fin_mes_pasado    = inicio_mes
  
         # ── Resúmenes de caja ──────────────────────────────────────────────
@@ -4687,8 +4674,8 @@ def dashboard_stats(request):
             # Gráfico 7 días
             for i in range(6, -1, -1):
                 ref   = hoy_local - timedelta(days=i)
-                di    = timezone.make_aware(datetime.combine(ref,                   time(6, 0, 0)))
-                df    = timezone.make_aware(datetime.combine(ref + timedelta(days=1), time(5, 59, 59)))
+                di    = _aware_rd(ref, time(6, 0, 0))
+                df    = _aware_rd(ref + timedelta(days=1), time(5, 59, 59))
                 neto  = _resumen_movimientos_caja(di, df)['caja_neta']
                 ultimos_7_dias.append('Hoy' if i == 0 else ref.strftime('%a'))
                 ventas_7_dias.append(float(neto))
@@ -4707,22 +4694,14 @@ def dashboard_stats(request):
             categorias_data        = [CLABELS.get(c, c.title()) for c in cat_acc]
             ventas_categorias_data = list(cat_acc.values())
  
-            # Gráfico mensual
-            mov_mes_dia = (
-                MovimientoFinanciero.objects
-                .filter(fecha_operacion__gte=inicio_mes, fecha_operacion__lt=fin_mes, estado='ACTIVO')
-                .annotate(periodo=Func(F('fecha_operacion'), function='DATE', output_field=DateField()))
-                .values('periodo')
-                .annotate(
-                    ing=Coalesce(Sum(Case(When(tipo='INGRESO', then=F('monto')), default=Value(0), output_field=DecimalField(max_digits=18, decimal_places=2))), Decimal('0.00')),
-                    egr=Coalesce(Sum(Case(When(tipo='EGRESO',  then=F('monto')), default=Value(0), output_field=DecimalField(max_digits=18, decimal_places=2))), Decimal('0.00')),
-                )
-            )
-            neto_dia = {row['periodo']: row['ing'] - row['egr'] for row in mov_mes_dia if row.get('periodo')}
+            # Gráfico mensual con la MISMA lógica que la card mensual
             for d in range(1, hoy_local.day + 1):
                 fd = hoy_local.replace(day=d)
+                di = _aware_rd(fd, time(0, 0, 0))
+                df = _aware_rd(fd + timedelta(days=1), time(0, 0, 0))
+                neto = _resumen_movimientos_caja(di, df)['caja_neta']
                 labels_mensuales.append(fd.strftime('%d %b'))
-                proyeccion_mensual.append(float(neto_dia.get(fd, Decimal('0.00'))))
+                proyeccion_mensual.append(float(neto))
  
             # Gráfico anual
             meses_ref = []
@@ -4731,7 +4710,7 @@ def dashboard_stats(request):
                 meses_ref.append(rm)
                 rm = (rm - timedelta(days=1)).replace(day=1)
             meses_ref.reverse()
-            inicio_12 = timezone.make_aware(datetime.combine(meses_ref[0], time(0, 0, 0)))
+            inicio_12 = _aware_rd(meses_ref[0], time(0, 0, 0))
             mov_12 = (
                 MovimientoFinanciero.objects
                 .filter(fecha_operacion__gte=inicio_12, fecha_operacion__lt=fin_mes, estado='ACTIVO')

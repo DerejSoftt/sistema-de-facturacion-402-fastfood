@@ -1862,8 +1862,8 @@
                 if (fechaDesde || fechaHasta) {
                     const clienteTieneFacturasEnRango = cliente.facturas.some(factura => {
                         const fechaFactura = parseLocalDateString(factura.fecha_emision);
-                        const desde = fechaDesde ? new Date(fechaDesde) : null;
-                        const hasta = fechaHasta ? new Date(fechaHasta) : null;
+                        const desde = fechaDesde ? parseLocalDateString(fechaDesde) : null;
+                        const hasta = fechaHasta ? parseLocalDateString(fechaHasta) : null;
 
                         if (!fechaFactura) {
                             return false;
