@@ -258,6 +258,41 @@
             transform: translateY(-2px);
         }
         
+        /* Estilos para campos válidos */
+        .form-group input.valid,
+        .form-group select.valid {
+            border-color: #4CAF50;
+            background-color: #f0fff4;
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+        }
+        
+        .form-group input.valid:focus,
+        .form-group select.valid:focus {
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.3);
+        }
+        
+        /* Estilos para campos válidos */
+        .form-group input.valid,
+        .form-group select.valid {
+            border-color: #4CAF50;
+            background-color: #f0fff4;
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+        }
+        
+        .form-group input.valid:focus,
+        .form-group select.valid:focus {
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.3);
+        }
+        
+        /* Estilos para campos inválidos */
+        .form-group input.invalid,
+        .form-group select.invalid {
+            border-color: #e0e0e0;
+            background-color: #fff5f5;
+        }
+        
         .btn {
             padding: 1rem 2.5rem;
             border: none;
@@ -539,7 +574,6 @@
                                         <option value="">Seleccionar...</option>
                                         <option value="bebida">Bebida</option>
                                         <option value="trago">Trago</option>
-                                        <option value="postre">Postre</option>
                                         <option value="carne">Carne</option>
                                         <option value="verdura">Verdura</option>
                                         <option value="lacteo">Lácteo</option>
@@ -621,6 +655,34 @@
             document.getElementById('quantity').parentElement.style.display = '';
         }
     });
+
+    // Función para validar campos en tiempo real
+    function validateField(field) {
+        if (!field) return;
+        
+        let isValid = false;
+        const value = field.value.trim();
+        
+        // Validar según el tipo de campo
+        if (field.id === 'productName') {
+            isValid = value.length > 0;
+        } else if (field.id === 'category') {
+            isValid = value.length > 0;
+        } else if (field.id === 'quantity' || field.id === 'price' || field.id === 'botellas' || field.id === 'ml_botella' || field.id === 'ml_trago') {
+            const numValue = parseFloat(desformatearNumero(value));
+            isValid = !isNaN(numValue) && numValue > 0;
+        }
+        
+        // Agregar o remover clase 'valid'
+        if (isValid) {
+            field.classList.add('valid');
+            field.classList.remove('invalid');
+        } else {
+            field.classList.remove('valid');
+            field.classList.add('invalid');
+        }
+    }
+
         // Mostrar/ocultar campos según categoría
         const categorySelect = document.getElementById('category');
         const groupBotellas = document.getElementById('group-botellas');
@@ -643,9 +705,16 @@
             if (isTrago) {
                 quantityInput.parentElement.style.display = 'none';
                 quantityInput.removeAttribute('required');
+                quantityInput.classList.remove('valid', 'invalid');
             } else {
                 quantityInput.parentElement.style.display = '';
                 quantityInput.setAttribute('required', 'required');
+            }
+            // Limpiar validación de campos que se ocultan
+            if (!isTrago) {
+                botellasInput.classList.remove('valid', 'invalid');
+                mlBotellaSelect.classList.remove('valid', 'invalid');
+                mlTragoSelect.classList.remove('valid', 'invalid');
             }
         }
         categorySelect.addEventListener('change', actualizarCamposTrago);
@@ -666,6 +735,10 @@
             } else {
                 totalTragosInput.value = '';
             }
+            // Validar campos de trago
+            validateField(botellasInput);
+            validateField(mlBotellaSelect);
+            validateField(mlTragoSelect);
         }
     const form = document.getElementById('productForm');
     const confirmationMessage = document.getElementById('confirmationMessage');
@@ -698,6 +771,15 @@
     function desformatearNumero(valor) {
         return valor.replace(/,/g, '');
     }
+
+    // Agregar validación en tiempo real a todos los campos
+    document.getElementById('productName').addEventListener('input', function() { validateField(this); });
+    document.getElementById('category').addEventListener('change', function() { validateField(this); });
+    document.getElementById('quantity').addEventListener('input', function() { validateField(this); });
+    document.getElementById('price').addEventListener('input', function() { validateField(this); });
+    document.getElementById('botellas').addEventListener('input', function() { validateField(this); });
+    document.getElementById('ml_botella').addEventListener('change', function() { validateField(this); });
+    document.getElementById('ml_trago').addEventListener('change', function() { validateField(this); });
 
     // Event listeners para formatear cantidad
     quantityInput.addEventListener('input', function(e) {
