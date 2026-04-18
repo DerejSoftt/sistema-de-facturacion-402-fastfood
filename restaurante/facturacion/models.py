@@ -38,19 +38,24 @@ class Producto(models.Model):
         editable=False,
         help_text="Código único del producto"
     )
-    nombre = models.CharField(max_length=200, verbose_name="Nombre del Producto")
-    categoria = models.CharField(max_length=50, choices=CATEGORIAS, verbose_name="Categoría")
+    nombre = models.CharField(
+        max_length=200, verbose_name="Nombre del Producto")
+    categoria = models.CharField(
+        max_length=50, choices=CATEGORIAS, verbose_name="Categoría")
     cantidad = models.DecimalField(
         max_digits=10, decimal_places=2,
         verbose_name="Cantidad", help_text="Cantidad en stock"
     )
-    precio_compra = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio de Compra")
+    precio_compra = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="Precio de Compra")
     subtotal = models.DecimalField(
         max_digits=12, decimal_places=2,
         editable=False, default=Decimal('0.00'), verbose_name="Subtotal"
     )
-    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
-    fecha_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Fecha de actualización")
+    fecha_creacion = models.DateTimeField(
+        auto_now_add=True, verbose_name="Fecha de creación")
+    fecha_actualizacion = models.DateTimeField(
+        auto_now=True, verbose_name="Fecha de actualización")
 
     class Meta:
         verbose_name = "Producto"
@@ -59,9 +64,11 @@ class Producto(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.codigo:
-            categoria_abrev = self.categoria[:3].upper() if self.categoria else 'GEN'
+            categoria_abrev = self.categoria[:3].upper(
+            ) if self.categoria else 'GEN'
             fecha = timezone.now().strftime("%y%m%d")
-            random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+            random_str = ''.join(random.choices(
+                string.ascii_uppercase + string.digits, k=4))
             self.codigo = f"PROD-{categoria_abrev}-{fecha}-{random_str}"
         self.subtotal = self.cantidad * self.precio_compra
         super().save(*args, **kwargs)
@@ -104,11 +111,15 @@ class Plato(models.Model):
         ('especial', 'Especial del Chef'),
     ]
 
-    codigo = models.CharField(max_length=10, unique=True, verbose_name="Código")
+    codigo = models.CharField(
+        max_length=10, unique=True, verbose_name="Código")
     nombre = models.CharField(max_length=200, verbose_name="Nombre del Plato")
-    categoria = models.CharField(max_length=50, choices=CATEGORIAS, verbose_name="Categoría")
-    precio = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio")
-    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+    categoria = models.CharField(
+        max_length=50, choices=CATEGORIAS, verbose_name="Categoría")
+    precio = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="Precio")
+    fecha_creacion = models.DateTimeField(
+        auto_now_add=True, verbose_name="Fecha de Creación")
     activo = models.BooleanField(default=True, verbose_name="Activo")
 
     class Meta:
@@ -163,12 +174,14 @@ class Mesa(models.Model):
         ('mesa 10', 'Mesa 10'),
     ]
 
-    numero = models.CharField(max_length=20, choices=NUMERO_CHOICES, verbose_name="Número de Mesa")
+    numero = models.CharField(
+        max_length=20, choices=NUMERO_CHOICES, verbose_name="Número de Mesa")
     capacidad = models.IntegerField(default=4, verbose_name="Capacidad")
     estado = models.CharField(
         max_length=20, choices=ESTADO_CHOICES, default='disponible', verbose_name="Estado"
     )
-    ubicacion = models.CharField(max_length=100, blank=True, verbose_name="Ubicación")
+    ubicacion = models.CharField(
+        max_length=100, blank=True, verbose_name="Ubicación")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -197,19 +210,25 @@ class DeliveryConfig(models.Model):
         ('llevar', 'Para Llevar'),
     ]
     CODIGO_CHOICES = [
-        ('D001', 'D001'), ('D002', 'D002'), ('D003', 'D003'), ('D004', 'D004'), ('D005', 'D005'),
-        ('L001', 'L001'), ('L002', 'L002'), ('L003', 'L003'), ('L004', 'L004'), ('L005', 'L005'),
+        ('D001', 'D001'), ('D002', 'D002'), ('D003',
+                                             'D003'), ('D004', 'D004'), ('D005', 'D005'),
+        ('L001', 'L001'), ('L002', 'L002'), ('L003',
+                                             'L003'), ('L004', 'L004'), ('L005', 'L005'),
     ]
 
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='delivery', verbose_name="Tipo")
-    codigo = models.CharField(max_length=10, choices=CODIGO_CHOICES, verbose_name="Código")
+    tipo = models.CharField(
+        max_length=20, choices=TIPO_CHOICES, default='delivery', verbose_name="Tipo")
+    codigo = models.CharField(
+        max_length=10, choices=CODIGO_CHOICES, verbose_name="Código")
     estado = models.CharField(
         max_length=20,
-        choices=[('disponible', 'Disponible'), ('ocupado', 'Ocupado'), ('inactivo', 'Inactivo')],
+        choices=[('disponible', 'Disponible'),
+                 ('ocupado', 'Ocupado'), ('inactivo', 'Inactivo')],
         default='disponible',
         verbose_name="Estado"
     )
-    descripcion = models.CharField(max_length=200, blank=True, verbose_name="Descripción")
+    descripcion = models.CharField(
+        max_length=200, blank=True, verbose_name="Descripción")
 
     class Meta:
         verbose_name = "Configuración Código"
@@ -241,30 +260,48 @@ class Pedido(models.Model):
         ('cancelado', 'Cancelado'),
         ('completado', 'Completado'),
     ]
+    TIPO_PAGO_CHOICES = [
+        ('contado', 'Al Contado'),
+        ('credito', 'A Crédito'),
+    ]
 
-    codigo_pedido = models.CharField(max_length=20, unique=True, verbose_name="Código de Pedido")
-    tipo_pedido = models.CharField(max_length=20, choices=TIPO_PEDIDO_CHOICES, verbose_name="Tipo de Pedido")
+    codigo_pedido = models.CharField(
+        max_length=20, unique=True, verbose_name="Código de Pedido")
+    tipo_pedido = models.CharField(
+        max_length=20, choices=TIPO_PEDIDO_CHOICES, verbose_name="Tipo de Pedido")
+    tipo_pago = models.CharField(
+        max_length=20, choices=TIPO_PAGO_CHOICES, default='contado', verbose_name="Tipo de Pago")
 
     mesa = models.ForeignKey(
         'Mesa', on_delete=models.SET_NULL, null=True, blank=True,
         verbose_name="Mesa", related_name='pedidos'
     )
-    codigo_delivery = models.CharField(max_length=10, blank=True, verbose_name="Código Delivery")
+    codigo_delivery = models.CharField(
+        max_length=10, blank=True, verbose_name="Código Delivery")
 
-    nombre_cliente = models.CharField(max_length=200, blank=True, verbose_name="Nombre del Cliente")
-    telefono_cliente = models.CharField(max_length=20, blank=True, verbose_name="Teléfono")
-    direccion_entrega = models.TextField(blank=True, verbose_name="Dirección de Entrega")
+    nombre_cliente = models.CharField(
+        max_length=200, blank=True, verbose_name="Nombre del Cliente")
+    telefono_cliente = models.CharField(
+        max_length=20, blank=True, verbose_name="Teléfono")
+    direccion_entrega = models.TextField(
+        blank=True, verbose_name="Dirección de Entrega")
 
-    items = models.JSONField(verbose_name="Items del Pedido", help_text="Lista de platos en formato JSON")
-    subtotal = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Subtotal")
-    envio = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Costo de Envío")
-    total = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Total")
+    items = models.JSONField(
+        verbose_name="Items del Pedido", help_text="Lista de platos en formato JSON")
+    subtotal = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="Subtotal")
+    envio = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0, verbose_name="Costo de Envío")
+    total = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="Total")
 
     estado = models.CharField(
         max_length=20, choices=ESTADO_PEDIDO_CHOICES, default='pendiente', verbose_name="Estado del Pedido"
     )
-    fecha_pedido = models.DateTimeField(default=timezone.now, verbose_name="Fecha del Pedido")
-    fecha_entrega = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Entrega")
+    fecha_pedido = models.DateTimeField(
+        default=timezone.now, verbose_name="Fecha del Pedido")
+    fecha_entrega = models.DateTimeField(
+        null=True, blank=True, verbose_name="Fecha de Entrega")
     notas = models.TextField(blank=True, verbose_name="Notas del Pedido")
 
     creado_por = models.ForeignKey(
@@ -312,7 +349,8 @@ class Pedido(models.Model):
             last_pedido = Pedido.objects.filter(
                 codigo_pedido__startswith=f'ORD-{timestamp}'
             ).order_by('-codigo_pedido').first()
-            new_num = (int(last_pedido.codigo_pedido.split('-')[-1]) + 1) if last_pedido else 1
+            new_num = (int(last_pedido.codigo_pedido.split(
+                '-')[-1]) + 1) if last_pedido else 1
             self.codigo_pedido = f'ORD-{timestamp}-{new_num:04d}'
 
         super().save(*args, **kwargs)
@@ -363,13 +401,18 @@ class DetalleItemPedido(models.Model):
         ('bebida', 'Bebida'),
     ]
 
-    pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name='detalles_items')
+    pedido = models.ForeignKey(
+        Pedido, on_delete=models.CASCADE, related_name='detalles_items')
     id_plato = models.IntegerField(verbose_name="ID del Plato/Bebida")
-    nombre_plato = models.CharField(max_length=200, verbose_name="Nombre del Plato/Bebida")
+    nombre_plato = models.CharField(
+        max_length=200, verbose_name="Nombre del Plato/Bebida")
     cantidad = models.IntegerField(verbose_name="Cantidad")
-    precio_unitario = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio Unitario")
-    subtotal_item = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Subtotal Item")
-    tipo_item = models.CharField(max_length=20, choices=TIPOS_ITEM, default='plato', verbose_name="Tipo de Item")
+    precio_unitario = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="Precio Unitario")
+    subtotal_item = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="Subtotal Item")
+    tipo_item = models.CharField(
+        max_length=20, choices=TIPOS_ITEM, default='plato', verbose_name="Tipo de Item")
     notas = models.TextField(blank=True, verbose_name="Notas del Item")
 
     class Meta:
@@ -386,7 +429,8 @@ class DetalleItemPedido(models.Model):
 
 class HistorialEstadoPedido(models.Model):
     """Modelo para rastrear cambios de estado del pedido"""
-    pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name='historial_estados')
+    pedido = models.ForeignKey(
+        Pedido, on_delete=models.CASCADE, related_name='historial_estados')
     estado_anterior = models.CharField(max_length=20)
     estado_nuevo = models.CharField(max_length=20)
     usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
@@ -453,17 +497,31 @@ class Factura(models.Model):
         related_name='facturas', verbose_name="Pedido"
     )
 
-    numero_factura = models.CharField(max_length=50, unique=True, verbose_name="Número de Factura")
-    fecha_factura = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Factura")
+    numero_factura = models.CharField(
+        max_length=50, unique=True, verbose_name="Número de Factura")
+    fecha_factura = models.DateTimeField(
+        default=timezone.now, verbose_name="Fecha de Factura")
 
-    tipo_pedido = models.CharField(max_length=20, verbose_name="Tipo de Pedido")
-    numero_mesa_codigo = models.CharField(max_length=20, blank=True, verbose_name="Número de Mesa/Código")
-    nombre_cliente = models.CharField(max_length=200, blank=True, verbose_name="Nombre del Cliente")
-    telefono_cliente = models.CharField(max_length=20, blank=True, verbose_name="Teléfono del Cliente")
-    direccion_entrega = models.TextField(blank=True, verbose_name="Dirección de Entrega")
+    tipo_pedido = models.CharField(
+        max_length=20, verbose_name="Tipo de Pedido")
+    numero_mesa_codigo = models.CharField(
+        max_length=20, blank=True, verbose_name="Número de Mesa/Código")
+    nombre_cliente = models.CharField(
+        max_length=200, blank=True, verbose_name="Nombre del Cliente")
+    telefono_cliente = models.CharField(
+        max_length=20, blank=True, verbose_name="Teléfono del Cliente")
+    direccion_entrega = models.TextField(
+        blank=True, verbose_name="Dirección de Entrega")
 
     metodo_pago = models.CharField(
         max_length=20, choices=METODO_PAGO_CHOICES, default='efectivo', verbose_name="Método de Pago"
+    )
+    tipo_pago = models.CharField(
+        max_length=20,
+        choices=[('contado', 'Al Contado'), ('credito', 'A Crédito')],
+        default='contado',
+        verbose_name="Tipo de Pago",
+        db_index=True  # Índice para filtros frecuentes
     )
     estado = models.CharField(
         max_length=30, choices=ESTADO_FACTURA_CHOICES, default='pendiente', verbose_name="Estado de la Factura"
@@ -475,28 +533,39 @@ class Factura(models.Model):
         verbose_name="Productos Devueltos (legacy)",
         help_text="Campo legacy. Los nuevos registros usan DetalleDevolucion."
     )
-    fecha_devolucion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Devolución")
+    fecha_devolucion = models.DateTimeField(
+        null=True, blank=True, verbose_name="Fecha de Devolución")
 
     # Anulación
-    motivo_anulacion = models.TextField(blank=True, verbose_name="Motivo de Anulación")
-    fecha_anulacion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Anulación")
+    motivo_anulacion = models.TextField(
+        blank=True, verbose_name="Motivo de Anulación")
+    fecha_anulacion = models.DateTimeField(
+        null=True, blank=True, verbose_name="Fecha de Anulación")
     usuario_anulacion = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='facturas_anuladas', verbose_name="Anulado por"
     )
 
     # Totales
-    subtotal = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Subtotal")
-    iva = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="IVA 12%")
-    envio = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Costo de Envío")
-    descuento = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Descuento")
-    total = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Total")
+    subtotal = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="Subtotal")
+    iva = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="IVA 12%")
+    envio = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0, verbose_name="Costo de Envío")
+    descuento = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0, verbose_name="Descuento")
+    total = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="Total")
 
-    items = models.JSONField(verbose_name="Items de la Factura", help_text="Items en formato JSON")
+    items = models.JSONField(
+        verbose_name="Items de la Factura", help_text="Items en formato JSON")
     notas = models.TextField(blank=True, verbose_name="Notas Adicionales")
 
-    impresa = models.BooleanField(default=False, verbose_name="Factura Impresa")
-    fecha_impresion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de Impresión")
+    impresa = models.BooleanField(
+        default=False, verbose_name="Factura Impresa")
+    fecha_impresion = models.DateTimeField(
+        null=True, blank=True, verbose_name="Fecha de Impresión")
 
     creado_por = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True,
@@ -584,7 +653,8 @@ class Factura(models.Model):
             self.motivo_anulacion = motivo
             self.fecha_anulacion = timezone.now()
             self.usuario_anulacion = usuario
-            self.save(update_fields=['estado', 'motivo_anulacion', 'fecha_anulacion', 'usuario_anulacion'])
+            self.save(update_fields=[
+                      'estado', 'motivo_anulacion', 'fecha_anulacion', 'usuario_anulacion'])
 
             # 3. Cancelar pedido y liberar mesa
             if self.pedido:
@@ -660,7 +730,8 @@ class Factura(models.Model):
                     return super().save(*args, **kwargs)
                 except IntegrityError:
                     self.numero_factura = ''
-            raise IntegrityError('No se pudo generar un numero_factura único tras varios intentos')
+            raise IntegrityError(
+                'No se pudo generar un numero_factura único tras varios intentos')
         super().save(*args, **kwargs)
 
     # ── Métodos de consulta ────────────────────────────────────────────────────
@@ -708,41 +779,52 @@ class Factura(models.Model):
             for i, item in enumerate(items):
                 nombre = (
                     item.get('nombre') or item.get('name') or
-                    item.get('producto') or item.get('product') or f'Producto {i+1}'
+                    item.get('producto') or item.get(
+                        'product') or f'Producto {i+1}'
                 )
                 try:
-                    cantidad = float(str(item.get('cantidad') or item.get('quantity') or item.get('qty') or '1'))
+                    cantidad = float(str(item.get('cantidad') or item.get(
+                        'quantity') or item.get('qty') or '1'))
                 except (ValueError, TypeError):
                     cantidad = 1.0
 
                 try:
-                    precio = float(str(item.get('precio') or item.get('price') or item.get('unit_price') or '0'))
+                    precio = float(str(item.get('precio') or item.get(
+                        'price') or item.get('unit_price') or '0'))
                 except (ValueError, TypeError):
                     precio = 0.0
 
                 subtotal = cantidad * precio
                 categoria = (
-                    item.get('categoria') or item.get('category') or item.get('categ') or 'otro'
+                    item.get('categoria') or item.get(
+                        'category') or item.get('categ') or 'otro'
                 ).lower()
-                producto_id = item.get('producto_id') or item.get('product_id') or item.get('id')
+                producto_id = item.get('producto_id') or item.get(
+                    'product_id') or item.get('id')
                 codigo = item.get('codigo') or item.get('code') or ''
 
                 if enrich_from_db and (not codigo or categoria == 'otro'):
                     producto_db = None
                     plato_db = None
                     if producto_id:
-                        producto_db = Producto.objects.filter(id=producto_id).first()
+                        producto_db = Producto.objects.filter(
+                            id=producto_id).first()
                     if not producto_db and nombre:
-                        producto_db = Producto.objects.filter(nombre__iexact=nombre.strip()).first()
+                        producto_db = Producto.objects.filter(
+                            nombre__iexact=nombre.strip()).first()
                     if not producto_db and nombre:
-                        producto_db = Producto.objects.filter(nombre__icontains=nombre.strip()).first()
+                        producto_db = Producto.objects.filter(
+                            nombre__icontains=nombre.strip()).first()
                     if not producto_db:
                         if producto_id:
-                            plato_db = Plato.objects.filter(id=producto_id).first()
+                            plato_db = Plato.objects.filter(
+                                id=producto_id).first()
                         if not plato_db and nombre:
-                            plato_db = Plato.objects.filter(nombre__iexact=nombre.strip()).first()
+                            plato_db = Plato.objects.filter(
+                                nombre__iexact=nombre.strip()).first()
                         if not plato_db and nombre:
-                            plato_db = Plato.objects.filter(nombre__icontains=nombre.strip()).first()
+                            plato_db = Plato.objects.filter(
+                                nombre__icontains=nombre.strip()).first()
                     if producto_db:
                         if not codigo:
                             codigo = producto_db.codigo
@@ -812,7 +894,8 @@ class Factura(models.Model):
                 for detalle in detalles:
                     nombre = detalle.nombre_producto or ''
                     cantidad = float(detalle.cantidad or 0)
-                    resumen['productos'][nombre] = resumen['productos'].get(nombre, 0) + cantidad
+                    resumen['productos'][nombre] = resumen['productos'].get(
+                        nombre, 0) + cantidad
                 continue
 
             # Fallback legacy JSON
@@ -820,7 +903,8 @@ class Factura(models.Model):
                 for producto in devolucion.productos_devueltos:
                     nombre = producto.get('nombre', '')
                     cantidad = float(producto.get('cantidad', 0))
-                    resumen['productos'][nombre] = resumen['productos'].get(nombre, 0) + cantidad
+                    resumen['productos'][nombre] = resumen['productos'].get(
+                        nombre, 0) + cantidad
         return resumen
 
     def get_cantidad_items(self):
@@ -872,6 +956,7 @@ class Factura(models.Model):
 # FACTURA DETALLE
 # =============================================================================
 
+
 class FacturaDetalle(models.Model):
     """
     Detalle relacional de una factura.
@@ -920,6 +1005,7 @@ class FacturaDetalle(models.Model):
 # SALIDA DE PRODUCTO
 # =============================================================================
 
+
 class SalidaProducto(models.Model):
     MOTIVOS = [
         ('venta', 'Venta'),
@@ -929,12 +1015,17 @@ class SalidaProducto(models.Model):
         ('otro', 'Otro'),
     ]
 
-    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='salidas')
-    cantidad = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Cantidad retirada")
-    motivo = models.CharField(max_length=50, choices=MOTIVOS, verbose_name="Motivo de salida")
+    producto = models.ForeignKey(
+        Producto, on_delete=models.CASCADE, related_name='salidas')
+    cantidad = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="Cantidad retirada")
+    motivo = models.CharField(
+        max_length=50, choices=MOTIVOS, verbose_name="Motivo de salida")
     responsable = models.CharField(max_length=200, verbose_name="Responsable")
-    observaciones = models.TextField(blank=True, null=True, verbose_name="Observaciones")
-    fecha_registro = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de registro")
+    observaciones = models.TextField(
+        blank=True, null=True, verbose_name="Observaciones")
+    fecha_registro = models.DateTimeField(
+        auto_now_add=True, verbose_name="Fecha de registro")
 
     class Meta:
         verbose_name = "Salida de Producto"
@@ -981,8 +1072,10 @@ class Devolucion(models.Model):
         max_digits=10, decimal_places=2,
         default=Decimal('0.00'), verbose_name="Monto Devuelto"
     )
-    motivo = models.TextField(blank=True, verbose_name="Motivo de la Devolución")
-    fecha_devolucion = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Devolución")
+    motivo = models.TextField(
+        blank=True, verbose_name="Motivo de la Devolución")
+    fecha_devolucion = models.DateTimeField(
+        default=timezone.now, verbose_name="Fecha de Devolución")
     procesado_por = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True,
         related_name='devoluciones_procesadas', verbose_name="Procesado por"
@@ -1008,7 +1101,8 @@ class Devolucion(models.Model):
         factura = self.factura
 
         if factura.estado == 'anulada':
-            raise ValueError("No se puede registrar una devolución en una factura anulada.")
+            raise ValueError(
+                "No se puede registrar una devolución en una factura anulada.")
 
         total_devuelto = factura.devoluciones.aggregate(
             total=models.Sum('monto_devuelto')
@@ -1049,10 +1143,14 @@ class DetalleDevolucion(models.Model):
         Devolucion, on_delete=models.CASCADE,
         related_name='detalles', verbose_name="Devolución"
     )
-    nombre_producto = models.CharField(max_length=200, verbose_name="Nombre del Producto")
-    cantidad = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Cantidad Devuelta")
-    precio_unitario = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio Unitario")
-    monto = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Monto Devuelto")
+    nombre_producto = models.CharField(
+        max_length=200, verbose_name="Nombre del Producto")
+    cantidad = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="Cantidad Devuelta")
+    precio_unitario = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="Precio Unitario")
+    monto = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="Monto Devuelto")
 
     class Meta:
         verbose_name = "Detalle de Devolución"
@@ -1093,8 +1191,10 @@ class CuentaPorCobrar(models.Model):
     )
     fecha_emision = models.DateField(verbose_name='Fecha de emision')
     fecha_vencimiento = models.DateField(verbose_name='Fecha de vencimiento')
-    monto_original = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Monto original')
-    saldo_pendiente = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Saldo pendiente')
+    monto_original = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name='Monto original')
+    saldo_pendiente = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name='Saldo pendiente')
     estado = models.CharField(
         max_length=20, choices=ESTADO_CHOICES, default='pendiente', verbose_name='Estado'
     )
@@ -1156,11 +1256,13 @@ class PagoCuentaCobrar(models.Model):
         validators=[MinValueValidator(Decimal('0.01'))],
         verbose_name='Monto pagado'
     )
-    fecha_pago = models.DateTimeField(default=timezone.now, verbose_name='Fecha y hora de pago')
+    fecha_pago = models.DateTimeField(
+        default=timezone.now, verbose_name='Fecha y hora de pago')
     metodo_pago = models.CharField(
         max_length=20, choices=METODO_PAGO_CHOICES, default='efectivo', verbose_name='Metodo de pago'
     )
-    referencia = models.CharField(max_length=120, blank=True, verbose_name='Referencia')
+    referencia = models.CharField(
+        max_length=120, blank=True, verbose_name='Referencia')
     numero_comprobante = models.CharField(
         max_length=40, unique=True, null=True, blank=True, verbose_name='Numero de comprobante'
     )
@@ -1230,9 +1332,11 @@ class Cliente(models.Model):
         max_length=11, unique=True,
         verbose_name="Cédula", help_text="Debe contener exactamente 11 dígitos"
     )
-    nombre_completo = models.CharField(max_length=200, verbose_name="Nombre Completo")
+    nombre_completo = models.CharField(
+        max_length=200, verbose_name="Nombre Completo")
     direccion = models.TextField(verbose_name="Dirección")
-    telefono_principal = models.CharField(max_length=10, verbose_name="Teléfono Principal")
+    telefono_principal = models.CharField(
+        max_length=10, verbose_name="Teléfono Principal")
     telefono_alternativo = models.CharField(
         max_length=10, blank=True, null=True, verbose_name="Teléfono Alternativo"
     )
@@ -1243,13 +1347,16 @@ class Cliente(models.Model):
     dias_credito = models.PositiveIntegerField(
         default=30, validators=[MaxValueValidator(365)], verbose_name="Días de Crédito"
     )
-    notas_credito = models.TextField(blank=True, null=True, verbose_name="Notas sobre Crédito")
+    notas_credito = models.TextField(
+        blank=True, null=True, verbose_name="Notas sobre Crédito")
     registrado_por = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='clientes_registrados', verbose_name='Registrado por'
     )
-    fecha_registro = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Registro")
-    fecha_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Fecha de Actualización")
+    fecha_registro = models.DateTimeField(
+        auto_now_add=True, verbose_name="Fecha de Registro")
+    fecha_actualizacion = models.DateTimeField(
+        auto_now=True, verbose_name="Fecha de Actualización")
     activo = models.BooleanField(default=True, verbose_name="Cliente Activo")
 
     class Meta:
@@ -1275,6 +1382,7 @@ class Cliente(models.Model):
 # =============================================================================
 # MOVIMIENTO FINANCIERO
 # =============================================================================
+
 
 class MovimientoFinanciero(models.Model):
     """
@@ -1303,13 +1411,15 @@ class MovimientoFinanciero(models.Model):
     ]
 
     ESTADO_CHOICES = [
-    ("ACTIVO",    "Activo"),
-    ("INACTIVO",  "Inactivo"),
-    ("REVERTIDO", "Revertido"),
-]
+        ("ACTIVO",    "Activo"),
+        ("INACTIVO",  "Inactivo"),
+        ("REVERTIDO", "Revertido"),
+    ]
 
-    tipo   = models.CharField(max_length=10, choices=TIPO_CHOICES, verbose_name="Tipo")
-    origen = models.CharField(max_length=20, choices=ORIGEN_CHOICES, verbose_name="Origen")
+    tipo = models.CharField(
+        max_length=10, choices=TIPO_CHOICES, verbose_name="Tipo")
+    origen = models.CharField(
+        max_length=20, choices=ORIGEN_CHOICES, verbose_name="Origen")
     estado = models.CharField(
         max_length=10, choices=ESTADO_CHOICES,
         default="ACTIVO", verbose_name="Estado"
@@ -1324,7 +1434,8 @@ class MovimientoFinanciero(models.Model):
     # Dos fechas: cuándo ocurrió el hecho vs cuándo entró al sistema.
     # Crítico cuando hay caídas de red o registros retroactivos.
     fecha_operacion = models.DateTimeField(verbose_name="Fecha de Operación")
-    fecha_registro  = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Registro")
+    fecha_registro = models.DateTimeField(
+        auto_now_add=True, verbose_name="Fecha de Registro")
 
     # Trazabilidad — conecta el movimiento con su documento de origen
     factura = models.ForeignKey(
@@ -1352,7 +1463,7 @@ class MovimientoFinanciero(models.Model):
     )
 
     descripcion = models.TextField(verbose_name="Descripción")
-    referencia  = models.CharField(
+    referencia = models.CharField(
         max_length=100, blank=True,
         db_index=True, verbose_name="Referencia"
     )
@@ -1499,10 +1610,10 @@ class SaldoAFavor(models.Model):
     )
 
     # ── Fechas ────────────────────────────────────────────────────────────────
-    fecha_creacion     = models.DateTimeField(auto_now_add=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
-    fecha_devolucion   = models.DateTimeField(null=True, blank=True)
-    fecha_anulacion    = models.DateTimeField(null=True, blank=True)
+    fecha_devolucion = models.DateTimeField(null=True, blank=True)
+    fecha_anulacion = models.DateTimeField(null=True, blank=True)
 
     # ── Antiduplicados por operación ──────────────────────────────────────────
     uuid_operacion = models.UUIDField(

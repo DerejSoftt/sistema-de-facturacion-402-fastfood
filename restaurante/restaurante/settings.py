@@ -28,7 +28,6 @@ load_dotenv()
 # SECURITY WARNING: keep the secret key used in production secret!
 
 
-
 # SECRET_KEY = 'django-insecure-m8))quru4uo6-(e#rgth5p5$1qo*f)h9h&h23tdmxhiu-77udo'
 SECRET_KEY = os.environ.get('SECRET_KEY')
 
@@ -45,6 +44,7 @@ CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',')
 # Application definition
 INSTALLED_APPS = [
     'facturacion',
+    'debug_toolbar',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -56,6 +56,7 @@ INSTALLED_APPS = [
 
 # Middleware
 MIDDLEWARE = [
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -101,11 +102,13 @@ DATABASES = {
         'HOST': os.environ.get('DB_HOST'),
         'PORT': os.environ.get('DB_PORT'),
         'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'", # esto es para mysql
-        }
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",  # esto es para mysql
+        },
+        # OPTIMIZACIÓN: Reutilizar conexiones por 10 min en lugar de negociar cada request
+        'CONN_MAX_AGE': 600,
+        'AUTOCOMMIT': True,   # Permitir autocommit para mejor rendimiento en lecturas
     }
 }
-
 
 
 # En tu settings.py, agrega esto:
@@ -128,7 +131,6 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
 
 
 # Static files (CSS, JavaScript, Images)
@@ -157,5 +159,39 @@ USE_I18N = True
 USE_TZ = True
 
 
+INTERNAL_IPS = [
+    "127.0.0.1",
+]
 
+# ============================================================================
+# OPTIMIZACIÓN DE CACHÉ Y SESIONES
+# ============================================================================
 
+# CACHÉ: Usar memoria (desarrollo) o Redis (producción)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'restaurante-cache',
+        'OPTIONS': {
+            'MAX_ENTRIES': 10000,
+        },
+        'TIMEOUT': 300,  # 5 minutos de default
+    }
+}
+
+# SESIONES: Usar base de datos con limpieza automática
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_COOKIE_AGE = 1209600  # 2 semanas
+# No guardar en cada request (mejora rendimiento)
+SESSION_SAVE_EVERY_REQUEST = False
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
+# CSRF SETTINGS
+CSRF_COOKIE_SECURE = False  # Cambiar a True en producción HTTPS
+CSRF_COOKIE_HTTPONLY = True
+
+# SECURITY HEADERS
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_SECURITY_POLICY = {
+    'DEFAULT_SRC': ("'self'",),
+}

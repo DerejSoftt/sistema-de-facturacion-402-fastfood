@@ -43,6 +43,7 @@ from django.db.models.functions import Coalesce
 from django.db.models import DecimalField, IntegerField, DateField
 from django.db.models import Case, When, Value
 from django.db.models import Func
+from django.db.models.functions import TruncDate, Extract, TruncMonth
 from functools import lru_cache
 from decimal import Decimal
 from django.contrib import messages
@@ -67,10 +68,12 @@ import pytz
 from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.lib import colors
 from reportlab.lib.units import mm
-from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image,)
+from reportlab.platypus import (
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image,)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from django.db.models import Sum, Count, Q
-import io, os
+import io
+import os
 from datetime import date, time
 import uuid
 from decimal import Decimal
@@ -82,6 +85,7 @@ from django.urls import reverse
 from django.db import transaction, IntegrityError
 from django.utils import timezone
 from datetime import datetime
+
 
 @csrf_exempt
 def index(request):
@@ -283,7 +287,8 @@ def api_tragos(request):
             cantidad=total_tragos,
             precio_compra=precio_compra
         )
-        producto.subtotal = Decimal(str(producto.cantidad)) * Decimal(str(producto.precio_compra))
+        producto.subtotal = Decimal(
+            str(producto.cantidad)) * Decimal(str(producto.precio_compra))
         producto.save()
         return JsonResponse({
             'success': True,
@@ -859,7 +864,6 @@ def pedidos(request):
         return render(request, 'facturacion/pedidos.html', context)
 
 
-
 def crear_pedido(request):
     """Vista para crear un nuevo pedido. Solo staff autenticado puede crear pedidos a crédito."""
     if request.method == 'POST':
@@ -867,8 +871,10 @@ def crear_pedido(request):
             # Obtener datos del formulario con valores por defecto
             tipo_pedido = request.POST.get('tipo_pedido')
             cart_items_json = request.POST.get('cart_items')
-            tipo_pago = (request.POST.get('tipo_pago', 'contado') or 'contado').strip().lower()
-            cliente_credito_id = (request.POST.get('cliente_credito_id', '') or '').strip()
+            tipo_pago = (request.POST.get('tipo_pago', 'contado')
+                         or 'contado').strip().lower()
+            cliente_credito_id = (request.POST.get(
+                'cliente_credito_id', '') or '').strip()
             cliente_credito = None
 
             if tipo_pago not in ['contado', 'credito']:
@@ -877,15 +883,19 @@ def crear_pedido(request):
             # RESTRICCIÓN DE SEGURIDAD: Solo staff autenticado puede crear pedidos a crédito
             if tipo_pago == 'credito':
                 if not request.user.is_authenticated or not request.user.is_staff:
-                    messages.error(request, 'Solo personal autorizado puede crear pedidos a crédito. Inicie sesión como staff.')
+                    messages.error(
+                        request, 'Solo personal autorizado puede crear pedidos a crédito. Inicie sesión como staff.')
                     return redirect('pedidos')
                 if not cliente_credito_id:
-                    messages.error(request, 'Para venta a crédito debes seleccionar un cliente')
+                    messages.error(
+                        request, 'Para venta a crédito debes seleccionar un cliente')
                     return redirect('pedidos')
                 try:
-                    cliente_credito = Cliente.objects.get(id=cliente_credito_id, activo=True)
+                    cliente_credito = Cliente.objects.get(
+                        id=cliente_credito_id, activo=True)
                 except Cliente.DoesNotExist:
-                    messages.error(request, 'El cliente seleccionado para crédito no es válido')
+                    messages.error(
+                        request, 'El cliente seleccionado para crédito no es válido')
                     return redirect('pedidos')
 
             print("=" * 80)
@@ -1652,9 +1662,12 @@ def actualizar_inventario_bebidas(items, operacion='restar'):
         item_id_str = str(item_id or '').strip()
         item_id_upper = item_id_str.upper()
 
-        es_bebida = bool(item.get('es_bebida')) or categoria_item == 'bebida' or tipo_item == 'bebida'
-        es_id_bebida = item_id_upper.startswith('PROD-') or item_id_str.startswith('bebida_')
-        es_id_plato = item_id_upper.startswith('PLATO-') or item_id_str.startswith('plato_')
+        es_bebida = bool(item.get('es_bebida')
+                         ) or categoria_item == 'bebida' or tipo_item == 'bebida'
+        es_id_bebida = item_id_upper.startswith(
+            'PROD-') or item_id_str.startswith('bebida_')
+        es_id_plato = item_id_upper.startswith(
+            'PLATO-') or item_id_str.startswith('plato_')
 
         if es_id_plato:
             es_bebida = False
@@ -1784,7 +1797,8 @@ def actualizar_inventario_bebidas(items, operacion='restar'):
                 except Exception as e:
                     print(f"  ❌ Error con cantidad: {e}")
             else:
-                print(f"  ⚠️ No se encontró bebida con ID numérico: {item_id_str}")
+                print(
+                    f"  ⚠️ No se encontró bebida con ID numérico: {item_id_str}")
 
         # Caso 3: Buscar por nombre si no tenemos ID utilizable
         elif item_name:
@@ -1965,34 +1979,44 @@ def historial_pedidos_pagados(request):
 
     if fecha:
         # Filtro por rangos de fecha-hora en zona RD para evitar desfases por timezone.
-        inicio_hoy = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        inicio_hoy = ahora_local.replace(
+            hour=0, minute=0, second=0, microsecond=0)
         fin_hoy = inicio_hoy + timedelta(days=1)
         inicio_mes_actual = inicio_hoy.replace(day=1)
 
         if fecha == 'hoy':
-            facturas = facturas.filter(fecha_factura__gte=inicio_hoy, fecha_factura__lt=fin_hoy)
+            facturas = facturas.filter(
+                fecha_factura__gte=inicio_hoy, fecha_factura__lt=fin_hoy)
         elif fecha == 'ayer':
             inicio_ayer = inicio_hoy - timedelta(days=1)
-            facturas = facturas.filter(fecha_factura__gte=inicio_ayer, fecha_factura__lt=inicio_hoy)
+            facturas = facturas.filter(
+                fecha_factura__gte=inicio_ayer, fecha_factura__lt=inicio_hoy)
         elif fecha in ['ultimos_7_dias', 'semana']:
             inicio_7_dias = inicio_hoy - timedelta(days=6)
-            facturas = facturas.filter(fecha_factura__gte=inicio_7_dias, fecha_factura__lt=fin_hoy)
+            facturas = facturas.filter(
+                fecha_factura__gte=inicio_7_dias, fecha_factura__lt=fin_hoy)
         elif fecha == 'ultimos_30_dias':
             inicio_30_dias = inicio_hoy - timedelta(days=29)
-            facturas = facturas.filter(fecha_factura__gte=inicio_30_dias, fecha_factura__lt=fin_hoy)
+            facturas = facturas.filter(
+                fecha_factura__gte=inicio_30_dias, fecha_factura__lt=fin_hoy)
         elif fecha in ['este_mes', 'mes']:
-            facturas = facturas.filter(fecha_factura__gte=inicio_mes_actual, fecha_factura__lt=fin_hoy)
+            facturas = facturas.filter(
+                fecha_factura__gte=inicio_mes_actual, fecha_factura__lt=fin_hoy)
         elif fecha == 'mes_pasado':
             fin_mes_pasado = inicio_mes_actual
             ultimo_dia_mes_pasado = inicio_mes_actual - timedelta(days=1)
             inicio_mes_pasado = ultimo_dia_mes_pasado.replace(day=1)
-            facturas = facturas.filter(fecha_factura__gte=inicio_mes_pasado, fecha_factura__lt=fin_mes_pasado)
+            facturas = facturas.filter(
+                fecha_factura__gte=inicio_mes_pasado, fecha_factura__lt=fin_mes_pasado)
         elif fecha == 'este_anio':
             inicio_anio = inicio_hoy.replace(month=1, day=1)
-            facturas = facturas.filter(fecha_factura__gte=inicio_anio, fecha_factura__lt=fin_hoy)
+            facturas = facturas.filter(
+                fecha_factura__gte=inicio_anio, fecha_factura__lt=fin_hoy)
         elif fecha == 'semana_actual':
-            inicio_semana = (inicio_hoy - timedelta(days=ahora_local.weekday()))
-            facturas = facturas.filter(fecha_factura__gte=inicio_semana, fecha_factura__lt=fin_hoy)
+            inicio_semana = (
+                inicio_hoy - timedelta(days=ahora_local.weekday()))
+            facturas = facturas.filter(
+                fecha_factura__gte=inicio_semana, fecha_factura__lt=fin_hoy)
 
     # Paginación de 50 facturas por página
     paginator = Paginator(facturas, 50)
@@ -2014,7 +2038,8 @@ def historial_pedidos_pagados(request):
                 'delivery': 'Domicilio',
                 'llevar': 'Recoger en Local',
             }
-            tipo_pedido_display = tipos.get(factura.tipo_pedido, factura.tipo_pedido.title() if factura.tipo_pedido else 'No definido')
+            tipo_pedido_display = tipos.get(factura.tipo_pedido, factura.tipo_pedido.title(
+            ) if factura.tipo_pedido else 'No definido')
 
         pedido_procesado = {
             'id': pedido_asociado.id if pedido_asociado else '',
@@ -2039,11 +2064,14 @@ def historial_pedidos_pagados(request):
 
     facturas_pagadas = facturas.filter(estado='pagada')
     total_facturas_emitidas = facturas.count()
-    ingresos_totales = facturas_pagadas.aggregate(total=Sum('total'))['total'] or 0
+    ingresos_totales = facturas_pagadas.aggregate(total=Sum('total'))[
+        'total'] or 0
 
     # Ingresos del mes actual en zona horaria RD (solo facturas pagadas)
-    inicio_mes_rd = ahora_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    inicio_hoy_rd = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    inicio_mes_rd = ahora_local.replace(
+        day=1, hour=0, minute=0, second=0, microsecond=0)
+    inicio_hoy_rd = ahora_local.replace(
+        hour=0, minute=0, second=0, microsecond=0)
     fin_hoy_rd = inicio_hoy_rd + timedelta(days=1)
     ingresos_mes_actual = facturas_base.filter(
         estado='pagada',
@@ -2218,7 +2246,8 @@ def cambiar_estado_pedido(request, pedido_id):
 
             return precio_decimal * cantidad_decimal
 
-        subtotal = sum((calcular_total_item(item) for item in items_actuales), Decimal('0.00'))
+        subtotal = sum((calcular_total_item(item)
+                       for item in items_actuales), Decimal('0.00'))
         total = subtotal + Decimal(str(pedido.envio or 0))
 
         pedido.subtotal = subtotal
@@ -2569,8 +2598,10 @@ def editar_pedido(request, pedido_id):
         nombre_cliente = request.POST.get('nombre_cliente')
         telefono_cliente = request.POST.get('telefono_cliente')
         notas = request.POST.get('notas')
-        tipo_pago = (request.POST.get('tipo_pago', 'contado') or 'contado').strip().lower()
-        cliente_credito_id = (request.POST.get('cliente_credito_id', '') or '').strip()
+        tipo_pago = (request.POST.get('tipo_pago', 'contado')
+                     or 'contado').strip().lower()
+        cliente_credito_id = (request.POST.get(
+            'cliente_credito_id', '') or '').strip()
 
         if tipo_pago not in ['contado', 'credito']:
             tipo_pago = 'contado'
@@ -2703,7 +2734,8 @@ def editar_pedido(request, pedido_id):
             if not cliente_credito_id:
                 return JsonResponse({'error': 'Para venta a crédito debes seleccionar un cliente'}, status=400)
             try:
-                cliente_credito = Cliente.objects.get(id=cliente_credito_id, activo=True)
+                cliente_credito = Cliente.objects.get(
+                    id=cliente_credito_id, activo=True)
             except Cliente.DoesNotExist:
                 return JsonResponse({'error': 'El cliente seleccionado para crédito no es válido'}, status=400)
 
@@ -2806,7 +2838,8 @@ def facturacion(request):
             estado__in=['pendiente', 'confirmado', 'preparacion',
                         'listo', 'entregado', 'completado']
         ).exclude(
-            id__in=pedidos_con_factura_activa_ids  # EXCLUIR pedidos con facturas ya creadas (incluye crédito)
+            # EXCLUIR pedidos con facturas ya creadas (incluye crédito)
+            id__in=pedidos_con_factura_activa_ids
         ).select_related('mesa').order_by('-fecha_pedido')
 
         # Obtener facturas PENDIENTES (las pagadas NO se muestran)
@@ -2883,7 +2916,8 @@ def facturacion(request):
 
         # Preparar facturas para estadísticas (todas, incluyendo pagadas)
         facturas_json = []
-        todas_facturas = Factura.objects.select_related('pedido').all().order_by('-fecha_factura')
+        todas_facturas = Factura.objects.select_related(
+            'pedido').all().order_by('-fecha_factura')
         for factura in todas_facturas:
             try:
                 factura_dict = {
@@ -2973,8 +3007,10 @@ def crear_factura(request):
 
             if pedido_es_credito and 'CLIENTE_CREDITO_ID=' in notas_pedido:
                 try:
-                    cliente_id_str = notas_pedido.split('CLIENTE_CREDITO_ID=')[-1].split(';')[0].strip()
-                    cliente_credito = Cliente.objects.filter(id=int(cliente_id_str), activo=True).first()
+                    cliente_id_str = notas_pedido.split(
+                        'CLIENTE_CREDITO_ID=')[-1].split(';')[0].strip()
+                    cliente_credito = Cliente.objects.filter(
+                        id=int(cliente_id_str), activo=True).first()
                 except (ValueError, TypeError):
                     cliente_credito = None
 
@@ -2985,13 +3021,16 @@ def crear_factura(request):
                 except (ValueError, TypeError):
                     return Decimal(default)
 
-            subtotal = _to_decimal(request.POST.get('subtotal', pedido.subtotal), '0.00')
+            subtotal = _to_decimal(request.POST.get(
+                'subtotal', pedido.subtotal), '0.00')
             # Obtener el valor real de envío si es delivery, si no, dejar en 0
             if pedido.tipo_pedido == 'delivery':
-                envio = _to_decimal(request.POST.get('envio', pedido.envio), '0.00')
+                envio = _to_decimal(request.POST.get(
+                    'envio', pedido.envio), '0.00')
             else:
                 envio = Decimal('0.00')
-            iva = Decimal('0.00')  # Establecer IVA a 0 ya que no lo estamos usando
+            # Establecer IVA a 0 ya que no lo estamos usando
+            iva = Decimal('0.00')
 
             # Calcular el total correctamente
             # Si hay descuento, tomarlo en cuenta (si no existe, usar 0)
@@ -3053,20 +3092,24 @@ def crear_factura(request):
                 for item in items:
                     nombre = (
                         item.get('name') or item.get('nombre') or
-                        item.get('product') or item.get('producto') or 'Sin nombre'
+                        item.get('product') or item.get(
+                            'producto') or 'Sin nombre'
                     )
                     try:
-                        cantidad = Decimal(str(item.get('quantity') or item.get('cantidad') or 1))
+                        cantidad = Decimal(
+                            str(item.get('quantity') or item.get('cantidad') or 1))
                     except Exception:
                         cantidad = Decimal('1')
 
                     try:
-                        precio = Decimal(str(item.get('price') or item.get('precio') or 0))
+                        precio = Decimal(
+                            str(item.get('price') or item.get('precio') or 0))
                     except Exception:
                         precio = Decimal('0')
 
                     try:
-                        subtotal_item = Decimal(str(item.get('total') or item.get('subtotal') or 0))
+                        subtotal_item = Decimal(
+                            str(item.get('total') or item.get('subtotal') or 0))
                         if subtotal_item == 0:
                             subtotal_item = cantidad * precio
                     except Exception:
@@ -3197,7 +3240,8 @@ def descontar_bebidas_inventario(pedido):
             print(
                 f"✅ Total bebidas descontadas del inventario: {', '.join(bebidas_descontadas)}")
         else:
-            print("ℹ️ No se descontaron bebidas en este paso (posiblemente ya descontadas al crear el pedido)")
+            print(
+                "ℹ️ No se descontaron bebidas en este paso (posiblemente ya descontadas al crear el pedido)")
 
     except Exception as e:
         print(f"❌ Error al descontar bebidas del inventario: {e}")
@@ -3222,7 +3266,7 @@ def marcar_factura_pagada(request, factura_id):
         # Marcar como pagada
         factura.estado = 'pagada'
         factura.save()
-        
+
         # Sincronizar movimientos financieros
         _sincronizar_movimientos_factura(factura)
 
@@ -3971,7 +4015,8 @@ def calcular_costo_real_facturas(facturas_queryset, include_stats=False):
         'items_no_mapeados': 0,
     }
 
-    productos = Producto.objects.only('id', 'codigo', 'nombre', 'precio_compra')
+    productos = Producto.objects.only(
+        'id', 'codigo', 'nombre', 'precio_compra')
     productos_por_id = {producto.id: producto for producto in productos}
     productos_por_codigo = {
         (producto.codigo or '').strip().lower(): producto
@@ -4007,7 +4052,8 @@ def calcular_costo_real_facturas(facturas_queryset, include_stats=False):
 
             producto_db = None
 
-            producto_id = item.get('producto_id') or item.get('product_id') or item.get('id')
+            producto_id = item.get('producto_id') or item.get(
+                'product_id') or item.get('id')
             if producto_id is not None:
                 try:
                     producto_db = productos_por_id.get(int(producto_id))
@@ -4015,12 +4061,14 @@ def calcular_costo_real_facturas(facturas_queryset, include_stats=False):
                     producto_db = None
 
             if not producto_db:
-                codigo = str(item.get('codigo') or item.get('code') or '').strip().lower()
+                codigo = str(item.get('codigo') or item.get(
+                    'code') or '').strip().lower()
                 if codigo:
                     producto_db = productos_por_codigo.get(codigo)
 
             if not producto_db:
-                nombre = str(item.get('name') or item.get('nombre') or '').strip().lower()
+                nombre = str(item.get('name') or item.get(
+                    'nombre') or '').strip().lower()
                 if nombre:
                     producto_db = productos_por_nombre.get(nombre)
 
@@ -4038,30 +4086,30 @@ def calcular_costo_real_facturas(facturas_queryset, include_stats=False):
 
 @login_required
 def dashbort(request):
- 
+
     # ── Helpers internos ───────────────────────────────────────────────────
     def _pct(actual, anterior):
         a, b = float(actual or 0), float(anterior or 0)
         if b > 0:
             return ((a - b) / b) * 100
         return 100.0 if a > 0 else 0.0
- 
+
     def _trend(val):
         return {
             'value':  round(val, 1),
-            'icon':   'up'   if val > 0 else 'down'  if val < 0 else 'neutral',
+            'icon':   'up' if val > 0 else 'down' if val < 0 else 'neutral',
             'class':  'trend-up' if val > 0 else 'trend-down' if val < 0 else 'trend-neutral',
         }
- 
+
     # ── Tiempo (forzado a RD) ─────────────────────────────────────────────
     tz_rd = pytz.timezone('America/Santo_Domingo')
-    ahora_local  = timezone.now().astimezone(tz_rd)
-    hoy_local    = ahora_local.date()
+    ahora_local = timezone.now().astimezone(tz_rd)
+    hoy_local = ahora_local.date()
     dashboard_debug = bool(settings.DEBUG and request.GET.get('debug') == '1')
 
     def _aware_rd(fecha, hora):
         return timezone.make_aware(datetime.combine(fecha, hora), tz_rd)
- 
+
     # ── Cache ──────────────────────────────────────────────────────────────
     if not dashboard_debug:
         bucket = f"{ahora_local.strftime('%Y%m%d%H')}{(ahora_local.minute // 5) * 5:02d}"
@@ -4069,7 +4117,7 @@ def dashbort(request):
         cached = cache.get(cache_key)
         if cached is not None:
             return render(request, 'facturacion/dashbort.html', cached)
- 
+
     # ── Definición del día operativo: 6:00 AM → 5:59:59 AM día siguiente ──
     # Esta lógica es fija y no cambia — siempre el mismo rango para cuadre.
     if ahora_local.hour >= 6:
@@ -4078,61 +4126,83 @@ def dashbort(request):
     else:
         inicio_dia = _aware_rd(hoy_local - timedelta(days=1), time(6, 0, 0))
         fin_dia = _aware_rd(hoy_local, time(5, 59, 59))
- 
+
     inicio_dia_anterior = inicio_dia - timedelta(days=1)
-    fin_dia_anterior    = fin_dia    - timedelta(days=1)
- 
+    fin_dia_anterior = fin_dia - timedelta(days=1)
+
     # ── Mes actual (calendario) ────────────────────────────────────────────
-    primer_dia_mes  = hoy_local.replace(day=1)
+    primer_dia_mes = hoy_local.replace(day=1)
     if hoy_local.month == 12:
-        primer_dia_mes_siguiente = hoy_local.replace(year=hoy_local.year + 1, month=1, day=1)
+        primer_dia_mes_siguiente = hoy_local.replace(
+            year=hoy_local.year + 1, month=1, day=1)
     else:
-        primer_dia_mes_siguiente = hoy_local.replace(month=hoy_local.month + 1, day=1)
- 
+        primer_dia_mes_siguiente = hoy_local.replace(
+            month=hoy_local.month + 1, day=1)
+
     inicio_mes = _aware_rd(primer_dia_mes, time(0, 0, 0))
-    fin_mes    = _aware_rd(primer_dia_mes_siguiente, time(0, 0, 0))
+    fin_mes = _aware_rd(primer_dia_mes_siguiente, time(0, 0, 0))
     # Nota: usamos __lt fin_mes (exclusive) en todas las queries del mes
- 
+
     # ── Mes anterior ───────────────────────────────────────────────────────
-    ultimo_dia_mes_pasado  = primer_dia_mes - timedelta(days=1)
-    primer_dia_mes_pasado  = ultimo_dia_mes_pasado.replace(day=1)
+    ultimo_dia_mes_pasado = primer_dia_mes - timedelta(days=1)
+    primer_dia_mes_pasado = ultimo_dia_mes_pasado.replace(day=1)
     inicio_mes_pasado = _aware_rd(primer_dia_mes_pasado, time(0, 0, 0))
-    fin_mes_pasado    = inicio_mes  # exclusive upper bound
- 
+    fin_mes_pasado = inicio_mes  # exclusive upper bound
+
     # ── Resúmenes de caja (fuente: MovimientoFinanciero) ───────────────────
-    r_dia      = _resumen_movimientos_caja(inicio_dia,      fin_dia)
-    r_dia_ant  = _resumen_movimientos_caja(inicio_dia_anterior, fin_dia_anterior)
-    r_mes      = _resumen_movimientos_caja(inicio_mes,      fin_mes)
-    r_mes_ant  = _resumen_movimientos_caja(inicio_mes_pasado, fin_mes_pasado)
- 
-    venta_dia          = r_dia['caja_neta']
+    r_dia = _resumen_movimientos_caja(inicio_dia,      fin_dia)
+    r_dia_ant = _resumen_movimientos_caja(
+        inicio_dia_anterior, fin_dia_anterior)
+    r_mes = _resumen_movimientos_caja(inicio_mes,      fin_mes)
+    r_mes_ant = _resumen_movimientos_caja(inicio_mes_pasado, fin_mes_pasado)
+
+    venta_dia = r_dia['caja_neta']
     venta_dia_anterior = r_dia_ant['caja_neta']
-    venta_mes          = r_mes['caja_neta']
-    venta_mes_pasado   = r_mes_ant['caja_neta']
-    gastos_totales     = r_mes['egresos_total']
-    gastos_mes_pasado  = r_mes_ant['egresos_total']
-    ganancias_netas    = r_mes['caja_neta']
-    ganancias_pasadas  = r_mes_ant['caja_neta']
- 
-    # ── Cards — conteos de movimientos reales (ACTIVO + INACTIVO) ────────
-    movs_hoy = MovimientoFinanciero.objects.filter(
+    venta_mes = r_mes['caja_neta']
+    venta_mes_pasado = r_mes_ant['caja_neta']
+    gastos_totales = r_mes['egresos_total']
+    gastos_mes_pasado = r_mes_ant['egresos_total']
+    ganancias_netas = r_mes['caja_neta']
+    ganancias_pasadas = r_mes_ant['caja_neta']
+
+    # ── Cards — conteos consolidados en UNA sola query (no 6) ──────────────
+    # OPTIMIZACIÓN: Antes: 6 queries de .count()
+    #               Después: 2 queries .aggregate() con Case/When
+    from django.db.models import Count, Case, When
+
+    conteos_hoy = MovimientoFinanciero.objects.filter(
         fecha_operacion__gte=inicio_dia,
         fecha_operacion__lt=fin_dia,
         estado__in=['ACTIVO', 'INACTIVO'],
+    ).aggregate(
+        total_facturas=Count(
+            Case(When(tipo='INGRESO', origen='VENTA', then=1))),
+        total_pagos=Count(
+            Case(When(tipo='INGRESO', origen='PAGO_CXC', then=1))),
+        total_egresos=Count(
+            Case(When(tipo='EGRESO', origen__in=['DEVOLUCION', 'ANULACION'], then=1))),
     )
-    movs_mes = MovimientoFinanciero.objects.filter(
+
+    conteos_mes = MovimientoFinanciero.objects.filter(
         fecha_operacion__gte=inicio_mes,
         fecha_operacion__lt=fin_mes,
         estado__in=['ACTIVO', 'INACTIVO'],
+    ).aggregate(
+        total_facturas=Count(
+            Case(When(tipo='INGRESO', origen='VENTA', then=1))),
+        total_pagos=Count(
+            Case(When(tipo='INGRESO', origen='PAGO_CXC', then=1))),
+        total_egresos=Count(
+            Case(When(tipo='EGRESO', origen__in=['DEVOLUCION', 'ANULACION'], then=1))),
     )
 
-    total_facturas_hoy = movs_hoy.filter(tipo='INGRESO', origen='VENTA').count()
-    total_facturas_mes = movs_mes.filter(tipo='INGRESO', origen='VENTA').count()
-    total_pagos_hoy    = movs_hoy.filter(tipo='INGRESO', origen='PAGO_CXC').count()
-    total_pagos_mes    = movs_mes.filter(tipo='INGRESO', origen='PAGO_CXC').count()
-    total_egresos_hoy  = movs_hoy.filter(tipo='EGRESO', origen__in=['DEVOLUCION', 'ANULACION']).count()
-    total_egresos_mes  = movs_mes.filter(tipo='EGRESO', origen__in=['DEVOLUCION', 'ANULACION']).count()
- 
+    total_facturas_hoy = conteos_hoy['total_facturas']
+    total_facturas_mes = conteos_mes['total_facturas']
+    total_pagos_hoy = conteos_hoy['total_pagos']
+    total_pagos_mes = conteos_mes['total_pagos']
+    total_egresos_hoy = conteos_hoy['total_egresos']
+    total_egresos_mes = conteos_mes['total_egresos']
+
     # ── Pedidos ────────────────────────────────────────────────────────────
     total_pedidos = Pedido.objects.filter(
         fecha_pedido__gte=inicio_dia, fecha_pedido__lt=fin_dia
@@ -4140,7 +4210,7 @@ def dashbort(request):
     total_pedidos_ayer = Pedido.objects.filter(
         fecha_pedido__gte=inicio_dia_anterior, fecha_pedido__lt=fin_dia_anterior
     ).count()
- 
+
     # ── Clientes activos del mes ───────────────────────────────────────────
     # Contamos clientes del modelo Cliente que tienen facturas pagadas este mes.
     # Fallback: nombres únicos en facturas si no hay modelo Cliente vinculado.
@@ -4156,7 +4226,7 @@ def dashbort(request):
             .exclude(nombre_cliente='')
             .values('nombre_cliente').distinct().count()
         )
- 
+
     nuevos_clientes_mes_pasado = Cliente.objects.filter(
         fecha_registro__gte=inicio_mes_pasado,
         fecha_registro__lt=fin_mes_pasado,
@@ -4169,7 +4239,7 @@ def dashbort(request):
             .exclude(nombre_cliente='')
             .values('nombre_cliente').distinct().count()
         )
- 
+
     # ── Actividades recientes ──────────────────────────────────────────────
     actividades_recientes = (
         Factura.objects
@@ -4177,11 +4247,11 @@ def dashbort(request):
         .order_by('-fecha_factura')
         .only('numero_factura', 'fecha_factura', 'nombre_cliente', 'estado', 'total')[:5]
     )
- 
+
     # ── Productos top del día (desde FacturaDetalle — sin iterar Python) ───
     from django.db.models import Sum as _Sum, FloatField
     from django.db.models.functions import Coalesce as _Coalesce
- 
+
     facturas_hoy_ids = list(
         Factura.objects.filter(
             fecha_factura__gte=inicio_dia,
@@ -4189,7 +4259,7 @@ def dashbort(request):
             estado__in=['pagada', 'parcialmente_devuelta']
         ).values_list('id', flat=True)
     )
- 
+
     facturas_ayer_ids = list(
         Factura.objects.filter(
             fecha_factura__gte=inicio_dia_anterior,
@@ -4197,7 +4267,7 @@ def dashbort(request):
             estado__in=['pagada', 'parcialmente_devuelta']
         ).values_list('id', flat=True)
     )
- 
+
     # Top hoy desde FacturaDetalle
     productos_hoy_qs = (
         FacturaDetalle.objects
@@ -4209,7 +4279,7 @@ def dashbort(request):
         )
         .order_by('-cantidad_total')[:5]
     )
- 
+
     # Cantidades ayer para tendencia
     productos_ayer_dict = {
         row['nombre_producto']: float(row['cantidad_total'])
@@ -4220,13 +4290,13 @@ def dashbort(request):
             .annotate(cantidad_total=_Sum('cantidad'))
         )
     }
- 
+
     productos_top = []
     for row in productos_hoy_qs:
-        nombre   = row['nombre_producto']
-        actual   = float(row['cantidad_total'] or 0)
+        nombre = row['nombre_producto']
+        actual = float(row['cantidad_total'] or 0)
         anterior = productos_ayer_dict.get(nombre, 0)
-        cambio   = _pct(actual, anterior)
+        cambio = _pct(actual, anterior)
         productos_top.append({
             'nombre':      nombre,
             'cantidad':    actual,
@@ -4235,18 +4305,35 @@ def dashbort(request):
             'trend_icon':  'up' if cambio > 0 else 'down' if cambio < 0 else 'neutral',
             'trend_class': 'trend-up' if cambio > 0 else 'trend-down' if cambio < 0 else 'trend-neutral',
         })
- 
-    # ── Gráfico ventas últimos 7 días ──────────────────────────────────────
-    ultimos_7_dias  = []
-    ventas_7_dias   = []
+
+    # ── Gráfico ventas últimos 7 días (OPTIMIZADO: 1 query en lugar de 7) ──
+    fecha_hace_7 = _aware_rd(hoy_local - timedelta(days=6), time(6, 0, 0))
+
+    movimientos_7_dias = (
+        MovimientoFinanciero.objects
+        .filter(fecha_operacion__gte=fecha_hace_7, fecha_operacion__lt=fin_dia, estado='ACTIVO')
+        .annotate(fecha_dia=TruncDate('fecha_operacion'))
+        .values('fecha_dia')
+        .annotate(
+            ingresos=Coalesce(Sum(Case(When(tipo='INGRESO', then='monto'), default=Decimal(
+                '0.00'), output_field=DecimalField())), Decimal('0.00')),
+            egresos=Coalesce(Sum(Case(When(tipo='EGRESO', then='monto'), default=Decimal(
+                '0.00'), output_field=DecimalField())), Decimal('0.00')),
+        )
+        .order_by('fecha_dia')
+    )
+
+    neto_por_dia_7 = {row['fecha_dia']: row['ingresos'] -
+                      row['egresos'] for row in movimientos_7_dias}
+
+    ultimos_7_dias = []
+    ventas_7_dias = []
     for i in range(6, -1, -1):
         ref = hoy_local - timedelta(days=i)
-        d_inicio = _aware_rd(ref, time(6, 0, 0))
-        d_fin    = _aware_rd(ref + timedelta(days=1), time(5, 59, 59))
-        neto     = _resumen_movimientos_caja(d_inicio, d_fin)['caja_neta']
+        neto = neto_por_dia_7.get(ref, Decimal('0.00'))
         ultimos_7_dias.append('Hoy' if i == 0 else ref.strftime('%a'))
         ventas_7_dias.append(float(neto))
- 
+
     # ── Gráfico categorías del día (desde FacturaDetalle + Plato) ─────────
     # Resolvemos categoría desde Plato por nombre (join eficiente en memoria)
     plato_cat = {
@@ -4265,14 +4352,14 @@ def dashbort(request):
         'verdura': 'Verdura', 'lacteo': 'Lácteo', 'rapida': 'Comida Rápida',
         'especial': 'Especial', 'otro': 'Otro',
     }
- 
+
     detalles_hoy = (
         FacturaDetalle.objects
         .filter(factura_id__in=facturas_hoy_ids)
         .values('nombre_producto')
         .annotate(ingreso=_Sum('subtotal'))
     )
- 
+
     # Si no hay facturas hoy, usar el mes
     if not facturas_hoy_ids:
         facturas_mes_ids = list(
@@ -4288,7 +4375,7 @@ def dashbort(request):
             .values('nombre_producto')
             .annotate(ingreso=_Sum('subtotal'))
         )
- 
+
     cat_acumulado = {}
     for row in detalles_hoy:
         nombre_lower = (row['nombre_producto'] or '').strip().lower()
@@ -4297,22 +4384,39 @@ def dashbort(request):
             producto_cat.get(nombre_lower) or
             'otro'
         )
-        cat_acumulado[cat] = cat_acumulado.get(cat, Decimal('0.00')) + (row['ingreso'] or Decimal('0.00'))
- 
-    categorias_data         = [CATEGORIA_LABELS.get(c, c.title()) for c in cat_acumulado]
-    ventas_categorias_data  = [float(v) for v in cat_acumulado.values()]
- 
-    # ── Gráfico mensual (por día) con la MISMA lógica que la card mensual ─
-    labels_mensuales   = []
+        cat_acumulado[cat] = cat_acumulado.get(cat, Decimal(
+            '0.00')) + (row['ingreso'] or Decimal('0.00'))
+
+    categorias_data = [CATEGORIA_LABELS.get(
+        c, c.title()) for c in cat_acumulado]
+    ventas_categorias_data = [float(v) for v in cat_acumulado.values()]
+
+    # ── Gráfico mensual (OPTIMIZADO: 1 query en lugar de 31) ─────────────────
+    movimientos_mes = (
+        MovimientoFinanciero.objects
+        .filter(fecha_operacion__gte=inicio_mes, fecha_operacion__lt=fin_mes, estado='ACTIVO')
+        .annotate(fecha_dia=TruncDate('fecha_operacion'))
+        .values('fecha_dia')
+        .annotate(
+            ingresos=Coalesce(Sum(Case(When(tipo='INGRESO', then='monto'), default=Decimal(
+                '0.00'), output_field=DecimalField())), Decimal('0.00')),
+            egresos=Coalesce(Sum(Case(When(tipo='EGRESO', then='monto'), default=Decimal(
+                '0.00'), output_field=DecimalField())), Decimal('0.00')),
+        )
+        .order_by('fecha_dia')
+    )
+
+    neto_por_dia_mes = {row['fecha_dia']: row['ingresos'] -
+                        row['egresos'] for row in movimientos_mes}
+
+    labels_mensuales = []
     proyeccion_mensual = []
     for dia in range(1, hoy_local.day + 1):
         fecha_dia = hoy_local.replace(day=dia)
-        di = _aware_rd(fecha_dia, time(0, 0, 0))
-        df = _aware_rd(fecha_dia + timedelta(days=1), time(0, 0, 0))
-        neto = _resumen_movimientos_caja(di, df)['caja_neta']
+        neto = neto_por_dia_mes.get(fecha_dia, Decimal('0.00'))
         labels_mensuales.append(fecha_dia.strftime('%d %b'))
         proyeccion_mensual.append(float(neto))
- 
+
     # ── Gráfico anual (últimos 12 meses, desde MovimientoFinanciero) ───────
     meses_ref = []
     ref_mes = primer_dia_mes
@@ -4320,81 +4424,116 @@ def dashbort(request):
         meses_ref.append(ref_mes)
         ref_mes = (ref_mes - timedelta(days=1)).replace(day=1)
     meses_ref.reverse()
- 
+
     inicio_12 = _aware_rd(meses_ref[0], time(0, 0, 0))
-    fin_12    = fin_mes  # hasta fin del mes actual
- 
+    fin_12 = fin_mes  # hasta fin del mes actual
+
     movimientos_12 = (
         MovimientoFinanciero.objects
         .filter(fecha_operacion__gte=inicio_12, fecha_operacion__lt=fin_12, estado='ACTIVO')
         .annotate(
-            anio=Func(F('fecha_operacion'), function='YEAR',  output_field=IntegerField()),
-            mes =Func(F('fecha_operacion'), function='MONTH', output_field=IntegerField()),
+            anio=Func(F('fecha_operacion'), function='YEAR',
+                      output_field=IntegerField()),
+            mes=Func(F('fecha_operacion'), function='MONTH',
+                     output_field=IntegerField()),
         )
         .values('anio', 'mes')
         .annotate(
             ingresos=Coalesce(Sum(Case(When(tipo='INGRESO', then=F('monto')),
-                default=Value(0), output_field=DecimalField(max_digits=18, decimal_places=2))), Decimal('0.00')),
+                                       default=Value(0), output_field=DecimalField(max_digits=18, decimal_places=2))), Decimal('0.00')),
             egresos=Coalesce(Sum(Case(When(tipo='EGRESO',  then=F('monto')),
-                default=Value(0), output_field=DecimalField(max_digits=18, decimal_places=2))), Decimal('0.00')),
+                                      default=Value(0), output_field=DecimalField(max_digits=18, decimal_places=2))), Decimal('0.00')),
         )
     )
     neto_por_mes = {
         (row['anio'], row['mes']): row['ingresos'] - row['egresos']
         for row in movimientos_12 if row.get('anio') and row.get('mes')
     }
-    MESES_ESP      = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
-    labels_anuales   = [MESES_ESP[m.month - 1] for m in meses_ref]
-    proyeccion_anual = [float(neto_por_mes.get((m.year, m.month), Decimal('0.00'))) for m in meses_ref]
- 
-    # ── Gráfico horario, método de pago, tipo de pedido (desde MovFin mes) ─
-    horario_totales      = {'Mañana': Decimal('0'), 'Mediodía': Decimal('0'), 'Tarde': Decimal('0'), 'Noche': Decimal('0')}
-    metodo_totales       = {'efectivo': Decimal('0'), 'tarjeta': Decimal('0'), 'transferencia': Decimal('0')}
-    tipo_pedido_totales  = {'mesa': Decimal('0'), 'delivery': Decimal('0'), 'llevar': Decimal('0')}
- 
-    for mov in (
+    MESES_ESP = ['Ene', 'Feb', 'Mar', 'Abr', 'May',
+                 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+    labels_anuales = [MESES_ESP[m.month - 1] for m in meses_ref]
+    proyeccion_anual = [float(neto_por_mes.get(
+        (m.year, m.month), Decimal('0.00'))) for m in meses_ref]
+
+    # ── Gráfico horario, método de pago, tipo de pedido (OPTIMIZADO: 2 queries en lugar de 1 full scan + bucle Python) ──
+    # Query 1: Agregación por hora
+    horarios_agg = (
         MovimientoFinanciero.objects
         .filter(fecha_operacion__gte=inicio_mes, fecha_operacion__lt=fin_mes,
                 tipo='INGRESO', estado='ACTIVO')
-        .select_related('factura')
-        .only('fecha_operacion', 'monto', 'metodo_pago', 'factura__tipo_pedido')
-    ):
-        hora  = timezone.localtime(mov.fecha_operacion).hour
-        monto = mov.monto or Decimal('0')
- 
-        if   6  <= hora <= 11: horario_totales['Mañana']   += monto
-        elif 12 <= hora <= 16: horario_totales['Mediodía'] += monto
-        elif 17 <= hora <= 20: horario_totales['Tarde']    += monto
-        else:                  horario_totales['Noche']    += monto
- 
-        metodo = (mov.metodo_pago or '').lower().strip()
+        .annotate(hora=Extract('fecha_operacion', 'hour'))
+        .values('hora')
+        .annotate(total=Coalesce(Sum('monto'), Decimal('0.00')))
+    )
+
+    horario_totales = {'Mañana': Decimal('0'), 'Mediodía': Decimal(
+        '0'), 'Tarde': Decimal('0'), 'Noche': Decimal('0')}
+    for row in horarios_agg:
+        hora = row['hora'] or 0
+        monto = row['total'] or Decimal('0')
+        if 6 <= hora <= 11:
+            horario_totales['Mañana'] += monto
+        elif 12 <= hora <= 16:
+            horario_totales['Mediodía'] += monto
+        elif 17 <= hora <= 20:
+            horario_totales['Tarde'] += monto
+        else:
+            horario_totales['Noche'] += monto
+
+    # Query 2: Agregación por método de pago (directo en la query)
+    metodo_agg = (
+        MovimientoFinanciero.objects
+        .filter(fecha_operacion__gte=inicio_mes, fecha_operacion__lt=fin_mes,
+                tipo='INGRESO', estado='ACTIVO')
+        .values('metodo_pago')
+        .annotate(total=Coalesce(Sum('monto'), Decimal('0.00')))
+    )
+
+    metodo_totales = {'efectivo': Decimal('0'), 'tarjeta': Decimal(
+        '0'), 'transferencia': Decimal('0')}
+    for row in metodo_agg:
+        metodo = (row['metodo_pago'] or '').lower().strip()
         if metodo in metodo_totales:
-            metodo_totales[metodo] += monto
- 
-        tp = ((mov.factura.tipo_pedido if mov.factura else '') or '').lower().strip()
+            metodo_totales[metodo] += row['total'] or Decimal('0')
+
+    # Query 3: Agregación por tipo de pedido (join con factura)
+    tipo_pedido_agg = (
+        MovimientoFinanciero.objects
+        .filter(fecha_operacion__gte=inicio_mes, fecha_operacion__lt=fin_mes,
+                tipo='INGRESO', estado='ACTIVO')
+        .values('factura__tipo_pedido')
+        .annotate(total=Coalesce(Sum('monto'), Decimal('0.00')))
+    )
+
+    tipo_pedido_totales = {'mesa': Decimal(
+        '0'), 'delivery': Decimal('0'), 'llevar': Decimal('0')}
+    for row in tipo_pedido_agg:
+        tp = (row['factura__tipo_pedido'] or '').lower().strip()
         if tp in tipo_pedido_totales:
-            tipo_pedido_totales[tp] += monto
- 
+            tipo_pedido_totales[tp] += row['total'] or Decimal('0')
+
     # ── Costos (para stats de debug) ───────────────────────────────────────
     facturas_mes_qs = Factura.objects.filter(
         fecha_factura__gte=inicio_mes,
         fecha_factura__lt=fin_mes,
         estado__in=['pagada', 'parcialmente_devuelta']
     )
-    _, costo_mes_stats = calcular_costo_real_facturas(facturas_mes_qs, include_stats=True)
- 
+    _, costo_mes_stats = calcular_costo_real_facturas(
+        facturas_mes_qs, include_stats=True)
+
     # ── Trends ─────────────────────────────────────────────────────────────
-    t_dia      = _trend(_pct(venta_dia,         venta_dia_anterior))
-    t_mes      = _trend(_pct(venta_mes,          venta_mes_pasado))
-    t_gastos   = _trend(_pct(gastos_totales,     gastos_mes_pasado))
-    t_ganancias= _trend(_pct(ganancias_netas,    ganancias_pasadas))
-    t_pedidos  = _trend(_pct(total_pedidos,      total_pedidos_ayer))
+    t_dia = _trend(_pct(venta_dia,         venta_dia_anterior))
+    t_mes = _trend(_pct(venta_mes,          venta_mes_pasado))
+    t_gastos = _trend(_pct(gastos_totales,     gastos_mes_pasado))
+    t_ganancias = _trend(_pct(ganancias_netas,    ganancias_pasadas))
+    t_pedidos = _trend(_pct(total_pedidos,      total_pedidos_ayer))
     t_clientes = _trend(_pct(nuevos_clientes,    nuevos_clientes_mes_pasado))
- 
+
     # ── Rango visual para la card de cuadre ────────────────────────────────
-    rango_dia_inicio = timezone.localtime(inicio_dia).strftime('%d/%m/%Y %H:%M')
-    rango_dia_fin    = timezone.localtime(fin_dia).strftime('%d/%m/%Y %H:%M')
- 
+    rango_dia_inicio = timezone.localtime(
+        inicio_dia).strftime('%d/%m/%Y %H:%M')
+    rango_dia_fin = timezone.localtime(fin_dia).strftime('%d/%m/%Y %H:%M')
+
     context = {
         # Cards principales
         'venta_dia':        venta_dia,
@@ -4403,7 +4542,7 @@ def dashbort(request):
         'ganancias_netas':  ganancias_netas,
         'total_pedidos':    total_pedidos,
         'nuevos_clientes':  nuevos_clientes,
- 
+
         # Subtítulos de cards
         'total_facturas_hoy':  total_facturas_hoy,
         'total_facturas_mes':  total_facturas_mes,
@@ -4411,16 +4550,16 @@ def dashbort(request):
         'total_pagos_mes':     total_pagos_mes,
         'total_egresos_hoy':   total_egresos_hoy,
         'total_egresos_mes':   total_egresos_mes,
- 
+
         # Rango del día operativo (siempre igual)
         'rango_dia_inicio':  rango_dia_inicio,
         'rango_dia_fin':     rango_dia_fin,
         'definicion_dia':    '6:00 AM — 5:59 AM (día siguiente)',
- 
+
         # Actividades
         'actividades':     actividades_recientes,
         'productos_top':   productos_top,
- 
+
         # Gráficos
         'dias_grafico':                 json.dumps(ultimos_7_dias),
         'ventas_grafico':               json.dumps(ventas_7_dias),
@@ -4430,13 +4569,13 @@ def dashbort(request):
         'proyeccion_mensual_json':      json.dumps(proyeccion_mensual),
         'labels_anuales_json':          json.dumps(labels_anuales),
         'proyeccion_anual_json':        json.dumps(proyeccion_anual),
-        'horarios_grafico':             json.dumps(['Mañana','Mediodía','Tarde','Noche']),
-        'ventas_horarios_grafico':      json.dumps([float(horario_totales[k]) for k in ['Mañana','Mediodía','Tarde','Noche']]),
-        'metodos_pago_grafico':         json.dumps(['Efectivo','Tarjeta','Transferencia']),
+        'horarios_grafico':             json.dumps(['Mañana', 'Mediodía', 'Tarde', 'Noche']),
+        'ventas_horarios_grafico':      json.dumps([float(horario_totales[k]) for k in ['Mañana', 'Mediodía', 'Tarde', 'Noche']]),
+        'metodos_pago_grafico':         json.dumps(['Efectivo', 'Tarjeta', 'Transferencia']),
         'ventas_metodos_pago_grafico':  json.dumps([float(metodo_totales['efectivo']), float(metodo_totales['tarjeta']), float(metodo_totales['transferencia'])]),
-        'tipos_pedido_grafico':         json.dumps(['Mesa','Delivery','Llevar']),
+        'tipos_pedido_grafico':         json.dumps(['Mesa', 'Delivery', 'Llevar']),
         'ventas_tipos_pedido_grafico':  json.dumps([float(tipo_pedido_totales['mesa']), float(tipo_pedido_totales['delivery']), float(tipo_pedido_totales['llevar'])]),
- 
+
         # Trends
         'trend_venta_dia':       t_dia['value'],
         'trend_venta_dia_icon':  t_dia['icon'],
@@ -4456,7 +4595,7 @@ def dashbort(request):
         'trend_clientes':        t_clientes['value'],
         'trend_clientes_icon':   t_clientes['icon'],
         'trend_clientes_class':  t_clientes['class'],
- 
+
         # Debug / stats
         'fecha_actual':             ahora_local.strftime('%A, %d de %B de %Y'),
         'hora_actual':              ahora_local.strftime('%I:%M:%S'),
@@ -4468,33 +4607,33 @@ def dashbort(request):
         'costos_items_mapeados':    costo_mes_stats['items_mapeados'],
         'costos_items_no_mapeados': costo_mes_stats['items_no_mapeados'],
         'dashboard_debug':          dashboard_debug,
- 
+
         # Datos crudos para diagnóstico en template
         'datos_semana_raw':    list(zip(ultimos_7_dias, ventas_7_dias)),
-        'datos_categorias_raw':list(zip(categorias_data, ventas_categorias_data)),
+        'datos_categorias_raw': list(zip(categorias_data, ventas_categorias_data)),
         'datos_mensual_raw':   list(zip(labels_mensuales, proyeccion_mensual)),
         'datos_anual_raw':     list(zip(labels_anuales, proyeccion_anual)),
     }
- 
+
     if not dashboard_debug:
         cache.set(cache_key, context, 60)
- 
+
     return render(request, 'facturacion/dashbort.html', context)
- 
 
 
 @login_required
 def dashboard_stats(request):
     """Vista API JSON para actualización en tiempo real del dashboard."""
     try:
-        scope        = (request.GET.get('scope') or 'full').strip().lower()
+        scope = (request.GET.get('scope') or 'full').strip().lower()
         full_refresh = scope == 'full'
-        dashboard_debug = bool(settings.DEBUG and request.GET.get('debug') == '1')
- 
+        dashboard_debug = bool(
+            settings.DEBUG and request.GET.get('debug') == '1')
+
         # ── Cache ──────────────────────────────────────────────────────────
         tz_rd = pytz.timezone('America/Santo_Domingo')
         ahora_local = timezone.now().astimezone(tz_rd)
-        hoy_local   = ahora_local.date()
+        hoy_local = ahora_local.date()
 
         def _aware_rd(fecha, hora):
             return timezone.make_aware(datetime.combine(fecha, hora), tz_rd)
@@ -4502,111 +4641,137 @@ def dashboard_stats(request):
             bucket = f"{ahora_local.strftime('%Y%m%d%H')}{(ahora_local.minute // 5) * 5:02d}"
         else:
             bucket = f"{ahora_local.strftime('%Y%m%d%H%M')}{(ahora_local.second // 15) * 15:02d}"
- 
+
         cache_key = f"dashboard_stats:v3:{scope}:{request.user.id}:{bucket}"
         if not dashboard_debug:
             cached = cache.get(cache_key)
             if cached is not None:
                 return JsonResponse(cached)
- 
+
         # ── Helpers ────────────────────────────────────────────────────────
         def _pct(actual, anterior):
             a, b = float(actual or 0), float(anterior or 0)
-            if b > 0: return ((a - b) / b) * 100
+            if b > 0:
+                return ((a - b) / b) * 100
             return 100.0 if a > 0 else 0.0
- 
+
         def _trend(val):
             return {
                 'value':  round(val, 1),
                 'icon':   'up' if val > 0 else 'down' if val < 0 else 'neutral',
                 'class':  'trend-up' if val > 0 else 'trend-down' if val < 0 else 'trend-neutral',
             }
- 
+
         # ── Rangos de tiempo ───────────────────────────────────────────────
         if ahora_local.hour >= 6:
             inicio_dia = _aware_rd(hoy_local, time(6, 0, 0))
-            fin_dia    = _aware_rd(hoy_local + timedelta(days=1), time(5, 59, 59))
+            fin_dia = _aware_rd(hoy_local + timedelta(days=1), time(5, 59, 59))
         else:
-            inicio_dia = _aware_rd(hoy_local - timedelta(days=1), time(6, 0, 0))
-            fin_dia    = _aware_rd(hoy_local, time(5, 59, 59))
- 
+            inicio_dia = _aware_rd(
+                hoy_local - timedelta(days=1), time(6, 0, 0))
+            fin_dia = _aware_rd(hoy_local, time(5, 59, 59))
+
         inicio_dia_anterior = inicio_dia - timedelta(days=1)
-        fin_dia_anterior    = fin_dia    - timedelta(days=1)
- 
+        fin_dia_anterior = fin_dia - timedelta(days=1)
+
         primer_dia_mes = hoy_local.replace(day=1)
         if hoy_local.month == 12:
-            primer_dia_mes_siguiente = hoy_local.replace(year=hoy_local.year + 1, month=1, day=1)
+            primer_dia_mes_siguiente = hoy_local.replace(
+                year=hoy_local.year + 1, month=1, day=1)
         else:
-            primer_dia_mes_siguiente = hoy_local.replace(month=hoy_local.month + 1, day=1)
- 
+            primer_dia_mes_siguiente = hoy_local.replace(
+                month=hoy_local.month + 1, day=1)
+
         inicio_mes = _aware_rd(primer_dia_mes, time(0, 0, 0))
-        fin_mes    = _aware_rd(primer_dia_mes_siguiente, time(0, 0, 0))
- 
+        fin_mes = _aware_rd(primer_dia_mes_siguiente, time(0, 0, 0))
+
         ultimo_dia_mes_pasado = primer_dia_mes - timedelta(days=1)
         primer_dia_mes_pasado = ultimo_dia_mes_pasado.replace(day=1)
         inicio_mes_pasado = _aware_rd(primer_dia_mes_pasado, time(0, 0, 0))
-        fin_mes_pasado    = inicio_mes
- 
+        fin_mes_pasado = inicio_mes
+
         # ── Resúmenes de caja ──────────────────────────────────────────────
-        r_dia     = _resumen_movimientos_caja(inicio_dia,     fin_dia)
-        r_dia_ant = _resumen_movimientos_caja(inicio_dia_anterior, fin_dia_anterior)
-        r_mes     = _resumen_movimientos_caja(inicio_mes,     fin_mes)
-        r_mes_ant = _resumen_movimientos_caja(inicio_mes_pasado, fin_mes_pasado)
- 
-        venta_dia         = r_dia['caja_neta']
-        venta_dia_ant     = r_dia_ant['caja_neta']
-        venta_mes         = r_mes['caja_neta']
-        venta_mes_ant     = r_mes_ant['caja_neta']
-        gastos_totales    = r_mes['egresos_total']
-        gastos_ant        = r_mes_ant['egresos_total']
-        ganancias_netas   = r_mes['caja_neta']
-        ganancias_ant     = r_mes_ant['caja_neta']
- 
-        # Cards conteos de movimientos reales (ACTIVO + INACTIVO)
-        movs_hoy = MovimientoFinanciero.objects.filter(
+        r_dia = _resumen_movimientos_caja(inicio_dia,     fin_dia)
+        r_dia_ant = _resumen_movimientos_caja(
+            inicio_dia_anterior, fin_dia_anterior)
+        r_mes = _resumen_movimientos_caja(inicio_mes,     fin_mes)
+        r_mes_ant = _resumen_movimientos_caja(
+            inicio_mes_pasado, fin_mes_pasado)
+
+        venta_dia = r_dia['caja_neta']
+        venta_dia_ant = r_dia_ant['caja_neta']
+        venta_mes = r_mes['caja_neta']
+        venta_mes_ant = r_mes_ant['caja_neta']
+        gastos_totales = r_mes['egresos_total']
+        gastos_ant = r_mes_ant['egresos_total']
+        ganancias_netas = r_mes['caja_neta']
+        ganancias_ant = r_mes_ant['caja_neta']
+
+        # Cards conteos consolidados en UNA sola query (no 6)
+        conteos_hoy = MovimientoFinanciero.objects.filter(
             fecha_operacion__gte=inicio_dia,
             fecha_operacion__lt=fin_dia,
             estado__in=['ACTIVO', 'INACTIVO'],
+        ).aggregate(
+            total_facturas=Count(
+                Case(When(tipo='INGRESO', origen='VENTA', then=1))),
+            total_pagos=Count(
+                Case(When(tipo='INGRESO', origen='PAGO_CXC', then=1))),
+            total_egresos=Count(
+                Case(When(tipo='EGRESO', origen__in=['DEVOLUCION', 'ANULACION'], then=1))),
         )
-        movs_mes = MovimientoFinanciero.objects.filter(
+        conteos_mes = MovimientoFinanciero.objects.filter(
             fecha_operacion__gte=inicio_mes,
             fecha_operacion__lt=fin_mes,
             estado__in=['ACTIVO', 'INACTIVO'],
+        ).aggregate(
+            total_facturas=Count(
+                Case(When(tipo='INGRESO', origen='VENTA', then=1))),
+            total_pagos=Count(
+                Case(When(tipo='INGRESO', origen='PAGO_CXC', then=1))),
+            total_egresos=Count(
+                Case(When(tipo='EGRESO', origen__in=['DEVOLUCION', 'ANULACION'], then=1))),
         )
 
-        total_facturas_hoy = movs_hoy.filter(tipo='INGRESO', origen='VENTA').count()
-        total_facturas_mes = movs_mes.filter(tipo='INGRESO', origen='VENTA').count()
-        total_pagos_hoy    = movs_hoy.filter(tipo='INGRESO', origen='PAGO_CXC').count()
-        total_pagos_mes    = movs_mes.filter(tipo='INGRESO', origen='PAGO_CXC').count()
-        total_egresos_hoy  = movs_hoy.filter(tipo='EGRESO', origen__in=['DEVOLUCION', 'ANULACION']).count()
-        total_egresos_mes  = movs_mes.filter(tipo='EGRESO', origen__in=['DEVOLUCION', 'ANULACION']).count()
- 
+        total_facturas_hoy = conteos_hoy['total_facturas']
+        total_facturas_mes = conteos_mes['total_facturas']
+        total_pagos_hoy = conteos_hoy['total_pagos']
+        total_pagos_mes = conteos_mes['total_pagos']
+        total_egresos_hoy = conteos_hoy['total_egresos']
+        total_egresos_mes = conteos_mes['total_egresos']
+
         # Pedidos
-        total_pedidos      = Pedido.objects.filter(fecha_pedido__gte=inicio_dia, fecha_pedido__lt=fin_dia).count()
-        total_pedidos_ayer = Pedido.objects.filter(fecha_pedido__gte=inicio_dia_anterior, fecha_pedido__lt=fin_dia_anterior).count()
- 
+        total_pedidos = Pedido.objects.filter(
+            fecha_pedido__gte=inicio_dia, fecha_pedido__lt=fin_dia).count()
+        total_pedidos_ayer = Pedido.objects.filter(
+            fecha_pedido__gte=inicio_dia_anterior, fecha_pedido__lt=fin_dia_anterior).count()
+
         # Clientes
-        nuevos_clientes = Cliente.objects.filter(fecha_registro__gte=inicio_mes, fecha_registro__lt=fin_mes, activo=True).count()
+        nuevos_clientes = Cliente.objects.filter(
+            fecha_registro__gte=inicio_mes, fecha_registro__lt=fin_mes, activo=True).count()
         if nuevos_clientes == 0:
-            nuevos_clientes = Factura.objects.filter(fecha_factura__gte=inicio_mes, fecha_factura__lt=fin_mes, estado='pagada').exclude(nombre_cliente='').values('nombre_cliente').distinct().count()
- 
-        nuevos_clientes_ant = Cliente.objects.filter(fecha_registro__gte=inicio_mes_pasado, fecha_registro__lt=fin_mes_pasado, activo=True).count()
+            nuevos_clientes = Factura.objects.filter(fecha_factura__gte=inicio_mes, fecha_factura__lt=fin_mes, estado='pagada').exclude(
+                nombre_cliente='').values('nombre_cliente').distinct().count()
+
+        nuevos_clientes_ant = Cliente.objects.filter(
+            fecha_registro__gte=inicio_mes_pasado, fecha_registro__lt=fin_mes_pasado, activo=True).count()
         if nuevos_clientes_ant == 0:
-            nuevos_clientes_ant = Factura.objects.filter(fecha_factura__gte=inicio_mes_pasado, fecha_factura__lt=fin_mes_pasado, estado='pagada').exclude(nombre_cliente='').values('nombre_cliente').distinct().count()
- 
+            nuevos_clientes_ant = Factura.objects.filter(fecha_factura__gte=inicio_mes_pasado, fecha_factura__lt=fin_mes_pasado, estado='pagada').exclude(
+                nombre_cliente='').values('nombre_cliente').distinct().count()
+
         # Trends
-        t_dia       = _trend(_pct(venta_dia, venta_dia_ant))
-        t_mes       = _trend(_pct(venta_mes, venta_mes_ant))
-        t_gastos    = _trend(_pct(gastos_totales, gastos_ant))
+        t_dia = _trend(_pct(venta_dia, venta_dia_ant))
+        t_mes = _trend(_pct(venta_mes, venta_mes_ant))
+        t_gastos = _trend(_pct(gastos_totales, gastos_ant))
         t_ganancias = _trend(_pct(ganancias_netas, ganancias_ant))
-        t_pedidos   = _trend(_pct(total_pedidos, total_pedidos_ayer))
-        t_clientes  = _trend(_pct(nuevos_clientes, nuevos_clientes_ant))
- 
+        t_pedidos = _trend(_pct(total_pedidos, total_pedidos_ayer))
+        t_clientes = _trend(_pct(nuevos_clientes, nuevos_clientes_ant))
+
         # Actividades recientes
         actividades_recientes = Factura.objects.filter(
             estado__in=['pagada', 'parcialmente_devuelta']
         ).order_by('-fecha_factura').only('numero_factura', 'fecha_factura', 'nombre_cliente', 'estado', 'total')[:5]
- 
+
         actividades_json = [
             {
                 'numero_factura': f.numero_factura,
@@ -4617,35 +4782,35 @@ def dashboard_stats(request):
             }
             for f in actividades_recientes
         ]
- 
+
         # ── Solo en full_refresh: gráficos y productos top ─────────────────
-        productos_top_json    = []
-        ultimos_7_dias        = []
-        ventas_7_dias         = []
-        categorias_data       = []
-        ventas_categorias_data= []
-        labels_mensuales      = []
-        proyeccion_mensual    = []
-        labels_anuales        = []
-        proyeccion_anual      = []
-        ventas_horarios_data  = [0, 0, 0, 0]
-        ventas_metodos_data   = [0, 0, 0]
+        productos_top_json = []
+        ultimos_7_dias = []
+        ventas_7_dias = []
+        categorias_data = []
+        ventas_categorias_data = []
+        labels_mensuales = []
+        proyeccion_mensual = []
+        labels_anuales = []
+        proyeccion_anual = []
+        ventas_horarios_data = [0, 0, 0, 0]
+        ventas_metodos_data = [0, 0, 0]
         ventas_tipos_pedido_data = [0, 0, 0]
- 
+
         if full_refresh:
             from django.db.models import Sum as _Sum
- 
+
             # Productos top desde FacturaDetalle
             fac_hoy_ids = list(Factura.objects.filter(
                 fecha_factura__gte=inicio_dia, fecha_factura__lt=fin_dia,
                 estado__in=['pagada', 'parcialmente_devuelta']
             ).values_list('id', flat=True))
- 
+
             fac_ayer_ids = list(Factura.objects.filter(
                 fecha_factura__gte=inicio_dia_anterior, fecha_factura__lt=fin_dia_anterior,
                 estado__in=['pagada', 'parcialmente_devuelta']
             ).values_list('id', flat=True))
- 
+
             top_hoy = (
                 FacturaDetalle.objects.filter(factura_id__in=fac_hoy_ids)
                 .values('nombre_producto')
@@ -4658,10 +4823,10 @@ def dashboard_stats(request):
                 .values('nombre_producto').annotate(cant=_Sum('cantidad'))
             }
             for row in top_hoy:
-                nombre   = row['nombre_producto']
-                actual   = float(row['cant'] or 0)
+                nombre = row['nombre_producto']
+                actual = float(row['cant'] or 0)
                 anterior = ayer_dict.get(nombre, 0)
-                cambio   = _pct(actual, anterior)
+                cambio = _pct(actual, anterior)
                 productos_top_json.append({
                     'nombre':      nombre,
                     'cantidad':    actual,
@@ -4670,30 +4835,34 @@ def dashboard_stats(request):
                     'trend_icon':  'up' if cambio > 0 else 'down' if cambio < 0 else 'neutral',
                     'trend_class': 'trend-up' if cambio > 0 else 'trend-down' if cambio < 0 else 'trend-neutral',
                 })
- 
+
             # Gráfico 7 días
             for i in range(6, -1, -1):
-                ref   = hoy_local - timedelta(days=i)
-                di    = _aware_rd(ref, time(6, 0, 0))
-                df    = _aware_rd(ref + timedelta(days=1), time(5, 59, 59))
-                neto  = _resumen_movimientos_caja(di, df)['caja_neta']
+                ref = hoy_local - timedelta(days=i)
+                di = _aware_rd(ref, time(6, 0, 0))
+                df = _aware_rd(ref + timedelta(days=1), time(5, 59, 59))
+                neto = _resumen_movimientos_caja(di, df)['caja_neta']
                 ultimos_7_dias.append('Hoy' if i == 0 else ref.strftime('%a'))
                 ventas_7_dias.append(float(neto))
- 
+
             # Categorías desde FacturaDetalle
-            plato_cat   = {n.strip().lower(): c.strip().lower() for n, c in Plato.objects.values_list('nombre', 'categoria') if n}
-            prod_cat    = {n.strip().lower(): c.strip().lower() for n, c in Producto.objects.values_list('nombre', 'categoria') if n}
-            CLABELS     = {'entrada':'Entrada','principal':'Plato Principal','postre':'Postre','bebida':'Bebida','carne':'Carne','verdura':'Verdura','lacteo':'Lácteo','rapida':'Comida Rápida','especial':'Especial','otro':'Otro'}
- 
-            src_ids = fac_hoy_ids or list(Factura.objects.filter(fecha_factura__gte=inicio_mes, fecha_factura__lt=fin_mes, estado__in=['pagada','parcialmente_devuelta']).values_list('id', flat=True))
+            plato_cat = {n.strip().lower(): c.strip().lower()
+                         for n, c in Plato.objects.values_list('nombre', 'categoria') if n}
+            prod_cat = {n.strip().lower(): c.strip().lower(
+            ) for n, c in Producto.objects.values_list('nombre', 'categoria') if n}
+            CLABELS = {'entrada': 'Entrada', 'principal': 'Plato Principal', 'postre': 'Postre', 'bebida': 'Bebida', 'carne': 'Carne',
+                       'verdura': 'Verdura', 'lacteo': 'Lácteo', 'rapida': 'Comida Rápida', 'especial': 'Especial', 'otro': 'Otro'}
+
+            src_ids = fac_hoy_ids or list(Factura.objects.filter(fecha_factura__gte=inicio_mes, fecha_factura__lt=fin_mes, estado__in=[
+                                          'pagada', 'parcialmente_devuelta']).values_list('id', flat=True))
             cat_acc = {}
             for row in FacturaDetalle.objects.filter(factura_id__in=src_ids).values('nombre_producto').annotate(ing=_Sum('subtotal')):
-                nl  = (row['nombre_producto'] or '').strip().lower()
+                nl = (row['nombre_producto'] or '').strip().lower()
                 cat = plato_cat.get(nl) or prod_cat.get(nl) or 'otro'
                 cat_acc[cat] = cat_acc.get(cat, 0) + float(row['ing'] or 0)
-            categorias_data        = [CLABELS.get(c, c.title()) for c in cat_acc]
+            categorias_data = [CLABELS.get(c, c.title()) for c in cat_acc]
             ventas_categorias_data = list(cat_acc.values())
- 
+
             # Gráfico mensual con la MISMA lógica que la card mensual
             for d in range(1, hoy_local.day + 1):
                 fd = hoy_local.replace(day=d)
@@ -4702,7 +4871,7 @@ def dashboard_stats(request):
                 neto = _resumen_movimientos_caja(di, df)['caja_neta']
                 labels_mensuales.append(fd.strftime('%d %b'))
                 proyeccion_mensual.append(float(neto))
- 
+
             # Gráfico anual
             meses_ref = []
             rm = primer_dia_mes
@@ -4717,15 +4886,20 @@ def dashboard_stats(request):
                 .annotate(anio=Func(F('fecha_operacion'), function='YEAR', output_field=IntegerField()), mes=Func(F('fecha_operacion'), function='MONTH', output_field=IntegerField()))
                 .values('anio', 'mes')
                 .annotate(
-                    ing=Coalesce(Sum(Case(When(tipo='INGRESO', then=F('monto')), default=Value(0), output_field=DecimalField(max_digits=18, decimal_places=2))), Decimal('0.00')),
-                    egr=Coalesce(Sum(Case(When(tipo='EGRESO',  then=F('monto')), default=Value(0), output_field=DecimalField(max_digits=18, decimal_places=2))), Decimal('0.00')),
+                    ing=Coalesce(Sum(Case(When(tipo='INGRESO', then=F('monto')), default=Value(
+                        0), output_field=DecimalField(max_digits=18, decimal_places=2))), Decimal('0.00')),
+                    egr=Coalesce(Sum(Case(When(tipo='EGRESO',  then=F('monto')), default=Value(
+                        0), output_field=DecimalField(max_digits=18, decimal_places=2))), Decimal('0.00')),
                 )
             )
-            neto_mes = {(r['anio'], r['mes']): r['ing'] - r['egr'] for r in mov_12 if r.get('anio') and r.get('mes')}
-            MESP = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
-            labels_anuales   = [MESP[m.month - 1] for m in meses_ref]
-            proyeccion_anual = [float(neto_mes.get((m.year, m.month), Decimal('0.00'))) for m in meses_ref]
- 
+            neto_mes = {(r['anio'], r['mes']): r['ing'] - r['egr']
+                        for r in mov_12 if r.get('anio') and r.get('mes')}
+            MESP = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+                    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+            labels_anuales = [MESP[m.month - 1] for m in meses_ref]
+            proyeccion_anual = [
+                float(neto_mes.get((m.year, m.month), Decimal('0.00'))) for m in meses_ref]
+
             # Horario, método, tipo de pedido
             ht = {'Mañana': 0.0, 'Mediodía': 0.0, 'Tarde': 0.0, 'Noche': 0.0}
             mt = {'efectivo': 0.0, 'tarjeta': 0.0, 'transferencia': 0.0}
@@ -4734,27 +4908,38 @@ def dashboard_stats(request):
                 fecha_operacion__gte=inicio_mes, fecha_operacion__lt=fin_mes,
                 tipo='INGRESO', estado='ACTIVO'
             ).select_related('factura').only('fecha_operacion', 'monto', 'metodo_pago', 'factura__tipo_pedido'):
-                hora  = timezone.localtime(mov.fecha_operacion).hour
+                hora = timezone.localtime(mov.fecha_operacion).hour
                 monto = float(mov.monto or 0)
-                if   6  <= hora <= 11: ht['Mañana']   += monto
-                elif 12 <= hora <= 16: ht['Mediodía'] += monto
-                elif 17 <= hora <= 20: ht['Tarde']    += monto
-                else:                  ht['Noche']    += monto
+                if 6 <= hora <= 11:
+                    ht['Mañana'] += monto
+                elif 12 <= hora <= 16:
+                    ht['Mediodía'] += monto
+                elif 17 <= hora <= 20:
+                    ht['Tarde'] += monto
+                else:
+                    ht['Noche'] += monto
                 m = (mov.metodo_pago or '').lower().strip()
-                if m in mt: mt[m] += monto
-                tp = ((mov.factura.tipo_pedido if mov.factura else '') or '').lower().strip()
-                if tp in tt: tt[tp] += monto
- 
-            ventas_horarios_data     = [ht['Mañana'], ht['Mediodía'], ht['Tarde'], ht['Noche']]
-            ventas_metodos_data      = [mt['efectivo'], mt['tarjeta'], mt['transferencia']]
-            ventas_tipos_pedido_data = [tt['mesa'], tt['delivery'], tt['llevar']]
- 
+                if m in mt:
+                    mt[m] += monto
+                tp = ((mov.factura.tipo_pedido if mov.factura else '')
+                      or '').lower().strip()
+                if tp in tt:
+                    tt[tp] += monto
+
+            ventas_horarios_data = [ht['Mañana'],
+                                    ht['Mediodía'], ht['Tarde'], ht['Noche']]
+            ventas_metodos_data = [mt['efectivo'],
+                                   mt['tarjeta'], mt['transferencia']]
+            ventas_tipos_pedido_data = [
+                tt['mesa'], tt['delivery'], tt['llevar']]
+
         # Costos
         _, costo_stats = calcular_costo_real_facturas(
-            Factura.objects.filter(fecha_factura__gte=inicio_mes, fecha_factura__lt=fin_mes, estado__in=['pagada', 'parcialmente_devuelta']),
+            Factura.objects.filter(fecha_factura__gte=inicio_mes, fecha_factura__lt=fin_mes, estado__in=[
+                                   'pagada', 'parcialmente_devuelta']),
             include_stats=True
         )
- 
+
         payload = {
             'status': 'success',
             # Cards
@@ -4787,12 +4972,12 @@ def dashboard_stats(request):
             'proyeccion_mensual':         proyeccion_mensual,
             'labels_anuales':             labels_anuales,
             'proyeccion_anual':           proyeccion_anual,
-            'horarios_grafico':           ['Mañana','Mediodía','Tarde','Noche'],
+            'horarios_grafico':           ['Mañana', 'Mediodía', 'Tarde', 'Noche'],
             'ventas_horarios_grafico':    ventas_horarios_data,
-            'metodos_pago_grafico':       ['Efectivo','Tarjeta','Transferencia'],
-            'ventas_metodos_pago_grafico':ventas_metodos_data,
-            'tipos_pedido_grafico':       ['Mesa','Delivery','Llevar'],
-            'ventas_tipos_pedido_grafico':ventas_tipos_pedido_data,
+            'metodos_pago_grafico':       ['Efectivo', 'Tarjeta', 'Transferencia'],
+            'ventas_metodos_pago_grafico': ventas_metodos_data,
+            'tipos_pedido_grafico':       ['Mesa', 'Delivery', 'Llevar'],
+            'ventas_tipos_pedido_grafico': ventas_tipos_pedido_data,
             # Actividades
             'actividades': actividades_json,
             'productos_top': productos_top_json,
@@ -4803,21 +4988,23 @@ def dashboard_stats(request):
             'costos_items_mapeados':    costo_stats['items_mapeados'],
             'costos_items_no_mapeados': costo_stats['items_no_mapeados'],
         }
- 
+
         cache_timeout = 300 if full_refresh else 20
         if not dashboard_debug:
             cache.set(cache_key, payload, cache_timeout)
- 
+
         return JsonResponse(payload)
- 
+
     except Exception as e:
         import traceback
         traceback.print_exc()
         return JsonResponse({'status': 'error', 'message': str(e)})
 
-#==========================================================================================================
-#                                GENERAL PDF CUADRE DE CAJA          
-#==========================================================================================================
+# ==========================================================================================================
+#                                GENERAL PDF CUADRE DE CAJA
+# ==========================================================================================================
+
+
 def _ticket_nueva_pagina(c, alto_pagina):
     c.showPage()
     c.setFont("Helvetica", 8)
@@ -4876,12 +5063,14 @@ def draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, titulo, rows, total):
         c.drawString(5 * mm, y, f"#{_ticket_ref_corta(row['factura'])}")
         c.drawString(30 * mm, y, row['hora'])
         c.drawString(42 * mm, y, _ticket_cliente_corto(row['cliente']))
-        c.drawRightString(ancho_pagina - 5 * mm, y, f"{Decimal(str(row['monto'])):,.2f}")
+        c.drawRightString(ancho_pagina - 5 * mm, y,
+                          f"{Decimal(str(row['monto'])):,.2f}")
         y -= 3.5 * mm
 
     c.setFont("Helvetica-Bold", 8)
     c.drawString(5 * mm, y, "TOTAL:")
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${Decimal(str(total or 0)):,.2f}")
+    c.drawRightString(ancho_pagina - 5 * mm, y,
+                      f"RD${Decimal(str(total or 0)):,.2f}")
     y -= 4 * mm
 
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
@@ -4922,12 +5111,14 @@ def draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina, titulo, rows, total)
         c.drawString(5 * mm, y, f"#{_ticket_ref_corta(row['comp'])}")
         c.drawString(22 * mm, y, row['hora'])
         c.drawString(32 * mm, y, _ticket_cliente_corto(row['cliente']))
-        c.drawRightString(ancho_pagina - 5 * mm, y, f"{Decimal(str(row['monto'])):,.2f}")
+        c.drawRightString(ancho_pagina - 5 * mm, y,
+                          f"{Decimal(str(row['monto'])):,.2f}")
         y -= 3.5 * mm
 
     c.setFont("Helvetica-Bold", 8)
     c.drawString(5 * mm, y, "TOTAL:")
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${Decimal(str(total or 0)):,.2f}")
+    c.drawRightString(ancho_pagina - 5 * mm, y,
+                      f"RD${Decimal(str(total or 0)):,.2f}")
     y -= 4 * mm
 
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
@@ -4942,15 +5133,20 @@ def generar_pdf_cuadre_caja(request):
     hoy_local = ahora_local.date()
 
     if ahora_local.hour >= 6:
-        inicio_dia = timezone.make_aware(datetime.combine(hoy_local, datetime(2000, 1, 1, 6, 0, 0).time()))
-        fin_dia = timezone.make_aware(datetime.combine(hoy_local + timedelta(days=1), datetime(2000, 1, 1, 5, 59, 59).time()))
+        inicio_dia = timezone.make_aware(datetime.combine(
+            hoy_local, datetime(2000, 1, 1, 6, 0, 0).time()))
+        fin_dia = timezone.make_aware(datetime.combine(
+            hoy_local + timedelta(days=1), datetime(2000, 1, 1, 5, 59, 59).time()))
     else:
-        inicio_dia = timezone.make_aware(datetime.combine(hoy_local - timedelta(days=1), datetime(2000, 1, 1, 6, 0, 0).time()))
-        fin_dia = timezone.make_aware(datetime.combine(hoy_local, datetime(2000, 1, 1, 5, 59, 59).time()))
+        inicio_dia = timezone.make_aware(datetime.combine(
+            hoy_local - timedelta(days=1), datetime(2000, 1, 1, 6, 0, 0).time()))
+        fin_dia = timezone.make_aware(datetime.combine(
+            hoy_local, datetime(2000, 1, 1, 5, 59, 59).time()))
 
     periodo_texto = f"{inicio_dia.astimezone(tz_rd).strftime('%d/%m/%Y %H:%M')} - {fin_dia.astimezone(tz_rd).strftime('%d/%m/%Y %H:%M')}"
 
-    credito_q = Q(factura__cuenta_por_cobrar__isnull=False) | Q(factura__pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
+    credito_q = Q(factura__cuenta_por_cobrar__isnull=False) | Q(
+        factura__pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
 
     # Para el ticket de cuadre se muestran TODOS los movimientos con monto
     # (activos e inactivos) para mantener trazabilidad completa del turno.
@@ -4964,18 +5160,28 @@ def generar_pdf_cuadre_caja(request):
     ingreso_venta_contado_qs = movimientos.filter(tipo='INGRESO', origen='VENTA').exclude(
         credito_q
     )
-    ingreso_venta_credito_qs = movimientos.filter(tipo='INGRESO', origen='VENTA').filter(credito_q)
-    ingreso_pago_credito_qs = movimientos.filter(tipo='INGRESO', origen='PAGO_CXC')
-    egreso_devolucion_contado_qs = movimientos.filter(tipo='EGRESO', origen='DEVOLUCION').exclude(referencia='EXCEDENTE_DEVOLUCION')
-    egreso_excedente_qs = movimientos.filter(tipo='EGRESO', origen='DEVOLUCION', referencia='EXCEDENTE_DEVOLUCION')
+    ingreso_venta_credito_qs = movimientos.filter(
+        tipo='INGRESO', origen='VENTA').filter(credito_q)
+    ingreso_pago_credito_qs = movimientos.filter(
+        tipo='INGRESO', origen='PAGO_CXC')
+    egreso_devolucion_contado_qs = movimientos.filter(
+        tipo='EGRESO', origen='DEVOLUCION').exclude(referencia='EXCEDENTE_DEVOLUCION')
+    egreso_excedente_qs = movimientos.filter(
+        tipo='EGRESO', origen='DEVOLUCION', referencia='EXCEDENTE_DEVOLUCION')
     egreso_anulacion_qs = movimientos.filter(tipo='EGRESO', origen='ANULACION')
 
-    total_ingreso_venta_contado = ingreso_venta_contado_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    total_ingreso_venta_credito = ingreso_venta_credito_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    total_ingreso_pago_credito = ingreso_pago_credito_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    total_egreso_devolucion_contado = egreso_devolucion_contado_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    total_egreso_excedente = egreso_excedente_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    total_egreso_anulacion = egreso_anulacion_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    total_ingreso_venta_contado = ingreso_venta_contado_qs.aggregate(
+        total=Sum('monto'))['total'] or Decimal('0.00')
+    total_ingreso_venta_credito = ingreso_venta_credito_qs.aggregate(
+        total=Sum('monto'))['total'] or Decimal('0.00')
+    total_ingreso_pago_credito = ingreso_pago_credito_qs.aggregate(
+        total=Sum('monto'))['total'] or Decimal('0.00')
+    total_egreso_devolucion_contado = egreso_devolucion_contado_qs.aggregate(
+        total=Sum('monto'))['total'] or Decimal('0.00')
+    total_egreso_excedente = egreso_excedente_qs.aggregate(
+        total=Sum('monto'))['total'] or Decimal('0.00')
+    total_egreso_anulacion = egreso_anulacion_qs.aggregate(
+        total=Sum('monto'))['total'] or Decimal('0.00')
 
     total_ventas_contado = total_ingreso_venta_contado
     total_ventas_credito = total_ingreso_venta_credito
@@ -4983,7 +5189,8 @@ def generar_pdf_cuadre_caja(request):
     total_devoluciones_doc = total_egreso_devolucion_contado + total_egreso_excedente
 
     total_ingresos = total_ingreso_venta_contado + total_ingreso_pago_credito
-    total_egresos = total_egreso_devolucion_contado + total_egreso_excedente + total_egreso_anulacion
+    total_egresos = total_egreso_devolucion_contado + \
+        total_egreso_excedente + total_egreso_anulacion
     caja_neta = total_ingresos - total_egresos
 
     rows_ventas_contado = []
@@ -5028,7 +5235,8 @@ def generar_pdf_cuadre_caja(request):
 
     rows_pagos = []
     for pago in PagoCuentaCobrar.objects.filter(fecha_pago__gte=inicio_dia, fecha_pago__lte=fin_dia).select_related('cuenta_por_cobrar__cliente').order_by('fecha_pago'):
-        cliente_obj = pago.cuenta_por_cobrar.cliente if pago.cuenta_por_cobrar and hasattr(pago.cuenta_por_cobrar, 'cliente') else None
+        cliente_obj = pago.cuenta_por_cobrar.cliente if pago.cuenta_por_cobrar and hasattr(
+            pago.cuenta_por_cobrar, 'cliente') else None
         nombre_cliente = (
             getattr(cliente_obj, 'razon_social', None)
             or getattr(cliente_obj, 'nombre_completo', None)
@@ -5067,7 +5275,8 @@ def generar_pdf_cuadre_caja(request):
     y -= 5 * mm
     c.setFont("Helvetica", 8)
     c.drawString(5 * mm, y, "Fecha/Hora:")
-    c.drawRightString(ancho_pagina - 5 * mm, y, ahora_local.strftime('%d/%m/%Y %I:%M'))
+    c.drawRightString(ancho_pagina - 5 * mm, y,
+                      ahora_local.strftime('%d/%m/%Y %I:%M'))
     y -= 4 * mm
     c.drawString(5 * mm, y, "Periodo:")
     c.drawRightString(ancho_pagina - 5 * mm, y, periodo_texto)
@@ -5080,27 +5289,37 @@ def generar_pdf_cuadre_caja(request):
     y -= 5 * mm
     c.setFont("Helvetica", 8)
     c.drawString(5 * mm, y, "Ventas contado:")
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_ventas_contado:,.2f}")
+    c.drawRightString(ancho_pagina - 5 * mm, y,
+                      f"RD${total_ventas_contado:,.2f}")
     y -= 3.5 * mm
     c.drawString(5 * mm, y, "Ventas credito:")
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_ventas_credito:,.2f}")
+    c.drawRightString(ancho_pagina - 5 * mm, y,
+                      f"RD${total_ventas_credito:,.2f}")
     y -= 3.5 * mm
     c.drawString(5 * mm, y, "Anulaciones:")
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_anulaciones_doc:,.2f}")
+    c.drawRightString(ancho_pagina - 5 * mm, y,
+                      f"RD${total_anulaciones_doc:,.2f}")
     y -= 3.5 * mm
     c.drawString(5 * mm, y, "Devoluciones (visual):")
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_devoluciones_doc:,.2f}")
+    c.drawRightString(ancho_pagina - 5 * mm, y,
+                      f"RD${total_devoluciones_doc:,.2f}")
     y -= 5 * mm
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
     y -= 5 * mm
 
-    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "VENTAS CONTADO", rows_ventas_contado, total_ventas_contado)
-    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "VENTAS CREDITO", rows_ventas_credito, total_ventas_credito)
-    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "DEVOLUCIONES", rows_devoluciones, total_egreso_devolucion_contado)
-    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "ANULACIONES", rows_anulaciones, total_anulaciones_doc)
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina,
+                              "VENTAS CONTADO", rows_ventas_contado, total_ventas_contado)
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina,
+                              "VENTAS CREDITO", rows_ventas_credito, total_ventas_credito)
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "DEVOLUCIONES",
+                              rows_devoluciones, total_egreso_devolucion_contado)
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina,
+                              "ANULACIONES", rows_anulaciones, total_anulaciones_doc)
 
-    y = draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina, "PAGOS DE CUENTAS POR COBRAR", rows_pagos, total_ingreso_pago_credito)
-    y = draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina, "EXCEDENTES", rows_excedentes, total_egreso_excedente)
+    y = draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina,
+                               "PAGOS DE CUENTAS POR COBRAR", rows_pagos, total_ingreso_pago_credito)
+    y = draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina,
+                               "EXCEDENTES", rows_excedentes, total_egreso_excedente)
 
     if y < 50 * mm:
         y = _ticket_nueva_pagina(c, alto_pagina)
@@ -5110,19 +5329,24 @@ def generar_pdf_cuadre_caja(request):
     y -= 5 * mm
     c.setFont("Helvetica", 8)
     c.drawString(5 * mm, y, "Ingreso venta contado:")
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_ingreso_venta_contado:,.2f}")
+    c.drawRightString(ancho_pagina - 5 * mm, y,
+                      f"RD${total_ingreso_venta_contado:,.2f}")
     y -= 3.5 * mm
     c.drawString(5 * mm, y, "Ingreso pago credito:")
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_ingreso_pago_credito:,.2f}")
+    c.drawRightString(ancho_pagina - 5 * mm, y,
+                      f"RD${total_ingreso_pago_credito:,.2f}")
     y -= 3.5 * mm
     c.drawString(5 * mm, y, "Egreso devolucion contado:")
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_egreso_devolucion_contado:,.2f}")
+    c.drawRightString(ancho_pagina - 5 * mm, y,
+                      f"RD${total_egreso_devolucion_contado:,.2f}")
     y -= 3.5 * mm
     c.drawString(5 * mm, y, "Egreso excedente:")
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_egreso_excedente:,.2f}")
+    c.drawRightString(ancho_pagina - 5 * mm, y,
+                      f"RD${total_egreso_excedente:,.2f}")
     y -= 3.5 * mm
     c.drawString(5 * mm, y, "Egreso anulacion:")
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_egreso_anulacion:,.2f}")
+    c.drawRightString(ancho_pagina - 5 * mm, y,
+                      f"RD${total_egreso_anulacion:,.2f}")
     y -= 4 * mm
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
     y -= 3.5 * mm
@@ -5156,7 +5380,8 @@ def generar_pdf_cuadre_caja(request):
     buffer.seek(0)
 
     response = HttpResponse(buffer, content_type='application/pdf')
-    response['Content-Disposition'] = f"inline; filename=\"cuadre_caja_{ahora_local.strftime('%Y%m%d_%H%M')}.pdf\""
+    response[
+        'Content-Disposition'] = f"inline; filename=\"cuadre_caja_{ahora_local.strftime('%Y%m%d_%H%M')}.pdf\""
     return response
 
 
@@ -5164,9 +5389,11 @@ def generar_pdf_cuadre_caja(request):
 def generar_pdf_ticket_dia(request):
     return generar_pdf_cuadre_caja(request)
 
-#==========================================================================================================
-#                         PRODUCTOS VENDIDOS EN EL DÍA Y REPORTE DE PRODUCTOS VENDIDOS       
-#==========================================================================================================
+# ==========================================================================================================
+#                         PRODUCTOS VENDIDOS EN EL DÍA Y REPORTE DE PRODUCTOS VENDIDOS
+# ==========================================================================================================
+
+
 @login_required
 def productos_vendidos_dia(request):
     """Vista para mostrar los productos vendidos en el día"""
@@ -5863,7 +6090,7 @@ def generar_pdf_productos_dia_a4(request):
 
     venta_bruta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))[
         'total_dia'] or Decimal('0.00')
-    
+
     total_devuelto_dia = facturas_hoy.aggregate(
         total_devuelto=Sum('devoluciones__monto_devuelto')
     )['total_devuelto'] or Decimal('0.00')
@@ -5908,15 +6135,18 @@ def generar_pdf_productos_dia_a4(request):
                 for detalle in detalles_reales:
                     cantidad = float(detalle.cantidad or 0)
                     precio = Decimal(str(detalle.precio_unitario or 0))
-                    subtotal_detalle = detalle.subtotal if detalle.subtotal is not None else (Decimal(str(cantidad)) * precio)
-                    _acumular_vendido(detalle.nombre_producto, cantidad, subtotal_detalle)
+                    subtotal_detalle = detalle.subtotal if detalle.subtotal is not None else (
+                        Decimal(str(cantidad)) * precio)
+                    _acumular_vendido(detalle.nombre_producto,
+                                      cantidad, subtotal_detalle)
             else:
                 items = factura.get_items_detalle(enrich_from_db=False)
                 print(
                     f"🔍 DEBUG: Factura {factura.numero_factura} sin detalle real; usando JSON ({len(items)} items)")
                 if items and isinstance(items, list):
                     for item in items:
-                        nombre = item.get('nombre', '').strip() or item.get('name', '').strip() or item.get('producto', '').strip() or item.get('product', '').strip()
+                        nombre = item.get('nombre', '').strip() or item.get('name', '').strip(
+                        ) or item.get('producto', '').strip() or item.get('product', '').strip()
 
                         cantidad = 0
                         for key_cantidad in ('cantidad', 'quantity', 'qty'):
@@ -5936,28 +6166,34 @@ def generar_pdf_productos_dia_a4(request):
                                 except (ValueError, TypeError):
                                     pass
 
-                        _acumular_vendido(nombre, cantidad, Decimal(str(cantidad * precio)))
+                        _acumular_vendido(nombre, cantidad,
+                                          Decimal(str(cantidad * precio)))
 
             # Devoluciones por producto de la misma factura
             devueltos_por_producto = {}
-            devoluciones = factura.devoluciones.prefetch_related('detalles').all()
+            devoluciones = factura.devoluciones.prefetch_related(
+                'detalles').all()
             for devolucion in devoluciones:
                 detalles_dev = list(devolucion.detalles.all())
                 if detalles_dev:
                     for det_dev in detalles_dev:
-                        nombre_dev = str(det_dev.nombre_producto or '').strip().lower()
+                        nombre_dev = str(
+                            det_dev.nombre_producto or '').strip().lower()
                         if not nombre_dev:
                             continue
-                        devueltos_por_producto[nombre_dev] = devueltos_por_producto.get(nombre_dev, 0.0) + float(det_dev.cantidad or 0)
+                        devueltos_por_producto[nombre_dev] = devueltos_por_producto.get(
+                            nombre_dev, 0.0) + float(det_dev.cantidad or 0)
                     continue
 
                 # Fallback legacy JSON de devolución
                 if devolucion.productos_devueltos:
                     for prod_dev in devolucion.productos_devueltos:
-                        nombre_dev = str(prod_dev.get('nombre', '')).strip().lower()
+                        nombre_dev = str(prod_dev.get(
+                            'nombre', '')).strip().lower()
                         if not nombre_dev:
                             continue
-                        devueltos_por_producto[nombre_dev] = devueltos_por_producto.get(nombre_dev, 0.0) + float(prod_dev.get('cantidad', 0) or 0)
+                        devueltos_por_producto[nombre_dev] = devueltos_por_producto.get(
+                            nombre_dev, 0.0) + float(prod_dev.get('cantidad', 0) or 0)
 
             # Aplicar deducción neta por producto
             for key_prod, data_vendida in vendidos_por_producto.items():
@@ -5965,13 +6201,15 @@ def generar_pdf_productos_dia_a4(request):
                 if cantidad_vendida <= 0:
                     continue
 
-                cantidad_devuelta = float(devueltos_por_producto.get(key_prod, 0) or 0)
+                cantidad_devuelta = float(
+                    devueltos_por_producto.get(key_prod, 0) or 0)
                 cantidad_neta = max(cantidad_vendida - cantidad_devuelta, 0.0)
                 if cantidad_neta <= 0:
                     continue
 
                 ingresos_vendidos = Decimal(str(data_vendida['ingresos'] or 0))
-                precio_promedio = (ingresos_vendidos / Decimal(str(cantidad_vendida))) if cantidad_vendida > 0 else Decimal('0.00')
+                precio_promedio = (ingresos_vendidos / Decimal(str(cantidad_vendida))
+                                   ) if cantidad_vendida > 0 else Decimal('0.00')
                 ingresos_netos = precio_promedio * Decimal(str(cantidad_neta))
 
                 nombre_mostrar = data_vendida['nombre']
@@ -5980,7 +6218,8 @@ def generar_pdf_productos_dia_a4(request):
                     productos_vendidos[nombre_mostrar]['ingresos'] += ingresos_netos
                     productos_vendidos[nombre_mostrar]['precio_unitario'] = (
                         productos_vendidos[nombre_mostrar]['ingresos'] /
-                        Decimal(str(productos_vendidos[nombre_mostrar]['cantidad']))
+                        Decimal(
+                            str(productos_vendidos[nombre_mostrar]['cantidad']))
                     )
                 else:
                     productos_vendidos[nombre_mostrar] = {
@@ -6188,7 +6427,6 @@ def generar_pdf_productos_dia_a4(request):
     return response
 
 
-
 # ========================================================================================================
 #                           FUNCIONES DE GESTIÓN DE STOCK - SOLO BEBIDAS
 # ========================================================================================================
@@ -6275,7 +6513,6 @@ def anulacionydevolucion(request):
     }
 
     return render(request, 'facturacion/anulacionydevolucion.html', context)
-
 
 
 def buscar_producto_por_identificador(identificador):
@@ -6383,6 +6620,8 @@ def disminuir_stock_producto(identificador, cantidad):
 # =========================================================================================================
 #                                   NORMALIZACIÓN DE ITEMS
 # =========================================================================================================
+
+
 def normalizar_items_factura(factura):
     """Normalizar los items de la factura para tener una estructura consistente"""
     items_normalizados = []
@@ -6469,7 +6708,8 @@ def buscar_item_por_nombre(items, nombre_buscar):
 @login_required
 def procesar_devolucion_total(request):
     """Funcionalidad deshabilitada: la devolución total fue eliminada."""
-    messages.warning(request, 'La opción de devolución total fue eliminada. Usa devolución parcial o anulación de factura.')
+    messages.warning(
+        request, 'La opción de devolución total fue eliminada. Usa devolución parcial o anulación de factura.')
     return redirect('anulacionydevolucion')
 
 # ========================================================================================================
@@ -6506,8 +6746,8 @@ def procesar_devolucion_parcial(request):
         # Compatibilidad: si el frontend envió form-encoded en lugar de JSON
         body = request.POST
 
-    numero_factura  = body.get('numero_factura', '')
-    productos_json  = body.get('productos_devueltos', '[]')
+    numero_factura = body.get('numero_factura', '')
+    productos_json = body.get('productos_devueltos', '[]')
 
     if not numero_factura:
         return JsonResponse({'error': 'Número de factura requerido'}, status=400)
@@ -6539,18 +6779,18 @@ def procesar_devolucion_parcial(request):
         with transaction.atomic():
             factura = Factura.objects.select_for_update().get(numero_factura=numero_factura)
 
-            items_factura        = factura.get_items_detalle()
+            items_factura = factura.get_items_detalle()
             productos_procesados = []
             monto_total_devuelto = Decimal('0.00')
-            bebidas_repuestas    = 0
+            bebidas_repuestas = 0
 
             # ── Validar y calcular cada producto devuelto ──────────────────
             for producto_data in productos_devueltos:
-                producto_nombre  = producto_data.get('nombre', '')
-                producto_id      = producto_data.get('producto_id')
-                producto_codigo  = str(producto_data.get('codigo', '')).strip()
+                producto_nombre = producto_data.get('nombre', '')
+                producto_id = producto_data.get('producto_id')
+                producto_codigo = str(producto_data.get('codigo', '')).strip()
                 cantidad_devolver = float(producto_data.get('cantidad', 0))
-                categoria        = producto_data.get('categoria', '')
+                categoria = producto_data.get('categoria', '')
 
                 # Buscar item en factura: id > codigo > nombre
                 item_factura = None
@@ -6567,7 +6807,8 @@ def procesar_devolucion_parcial(request):
                         None
                     )
                 if not item_factura:
-                    item_factura = buscar_item_por_nombre(items_factura, producto_nombre)
+                    item_factura = buscar_item_por_nombre(
+                        items_factura, producto_nombre)
 
                 if not item_factura:
                     return JsonResponse(
@@ -6575,9 +6816,10 @@ def procesar_devolucion_parcial(request):
                         status=400
                     )
 
-                cantidad_original   = float(item_factura.get('cantidad', 0))
-                cantidad_ya_devuelta = factura.get_cantidad_ya_devuelta(producto_nombre)
-                cantidad_disponible  = cantidad_original - cantidad_ya_devuelta
+                cantidad_original = float(item_factura.get('cantidad', 0))
+                cantidad_ya_devuelta = factura.get_cantidad_ya_devuelta(
+                    producto_nombre)
+                cantidad_disponible = cantidad_original - cantidad_ya_devuelta
 
                 if cantidad_devolver > cantidad_disponible:
                     return JsonResponse(
@@ -6589,18 +6831,20 @@ def procesar_devolucion_parcial(request):
                         status=400
                     )
 
-                precio   = Decimal(str(item_factura.get('precio', 0)))
+                precio = Decimal(str(item_factura.get('precio', 0)))
                 subtotal = precio * Decimal(str(cantidad_devolver))
-                codigo   = item_factura.get('codigo', '')
+                codigo = item_factura.get('codigo', '')
                 producto_id_resuelto = item_factura.get('producto_id')
 
                 if not producto_id_resuelto:
                     if codigo:
-                        pm = Producto.objects.filter(codigo__iexact=codigo.strip()).first()
+                        pm = Producto.objects.filter(
+                            codigo__iexact=codigo.strip()).first()
                         if pm:
                             producto_id_resuelto = pm.id
                     if not producto_id_resuelto and producto_nombre:
-                        pm = Producto.objects.filter(nombre__iexact=producto_nombre.strip()).first()
+                        pm = Producto.objects.filter(
+                            nombre__iexact=producto_nombre.strip()).first()
                         if pm:
                             producto_id_resuelto = pm.id
 
@@ -6623,7 +6867,8 @@ def procesar_devolucion_parcial(request):
                 })
 
             # ── Detectar tipo de venta ─────────────────────────────────────
-            notas_pedido = (factura.pedido.notas or '') if factura.pedido else ''
+            notas_pedido = (
+                factura.pedido.notas or '') if factura.pedido else ''
             # hasattr(factura, 'cuenta_por_cobrar') siempre es True en Django
             # porque el descriptor existe aunque no haya CxC. Usar try/except.
             _tiene_cxc = False
@@ -6647,7 +6892,7 @@ def procesar_devolucion_parcial(request):
                     if hasattr(factura, 'get_total_neto')
                     else Decimal(str(factura.total or 0))
                 )
-                ya_devuelto  = factura.get_total_devuelto()
+                ya_devuelto = factura.get_total_devuelto()
                 monto_maximo = max(total_pagado - ya_devuelto, Decimal('0.00'))
 
                 if monto_maximo <= Decimal('0.00'):
@@ -6673,7 +6918,8 @@ def procesar_devolucion_parcial(request):
                     devolucion=devolucion,
                     nombre_producto=str(producto.get('nombre') or 'Producto'),
                     cantidad=Decimal(str(producto.get('cantidad', 0) or 0)),
-                    precio_unitario=Decimal(str(producto.get('precio_unitario', producto.get('precio', 0)) or 0)),
+                    precio_unitario=Decimal(
+                        str(producto.get('precio_unitario', producto.get('precio', 0)) or 0)),
                     monto=Decimal(str(producto.get('subtotal', 0) or 0)),
                 )
 
@@ -6686,7 +6932,8 @@ def procesar_devolucion_parcial(request):
                         Decimal('0.00')
                     )
                     cxc.saldo_pendiente = nuevo_saldo
-                    cxc.estado = 'pagada' if nuevo_saldo <= Decimal('0.00') else 'parcial'
+                    cxc.estado = 'pagada' if nuevo_saldo <= Decimal(
+                        '0.00') else 'parcial'
                     cxc.save(update_fields=['saldo_pendiente', 'estado'])
 
             # ── Actualizar estado de la factura ────────────────────────────
@@ -6698,7 +6945,7 @@ def procesar_devolucion_parcial(request):
 
             factura.fecha_devolucion = timezone.now()
             factura.save()
-            
+
             # Sincronizar movimientos financieros (para marcar INACTIVO si totalmente devuelta)
             _sincronizar_movimientos_factura(factura)
 
@@ -6801,6 +7048,7 @@ def procesar_devolucion_parcial(request):
 # RESOLVER EXCEDENTE DE DEVOLUCIÓN
 # ============================================================
 
+
 @login_required
 @require_POST
 def resolver_excedente_devolucion(request):
@@ -6824,10 +7072,10 @@ def resolver_excedente_devolucion(request):
     except (json.JSONDecodeError, ValueError):
         return JsonResponse({'error': 'Body JSON inválido'}, status=400)
 
-    factura_id    = body.get('factura_id')
+    factura_id = body.get('factura_id')
     devolucion_id = body.get('devolucion_id')
-    accion        = body.get('accion', '')
-    tipo          = body.get('tipo', '')
+    accion = body.get('accion', '')
+    tipo = body.get('tipo', '')
 
     # ── Validaciones básicas ───────────────────────────────────────────────
     if not factura_id or not devolucion_id:
@@ -6841,8 +7089,9 @@ def resolver_excedente_devolucion(request):
 
     try:
         with transaction.atomic():
-            factura    = Factura.objects.select_for_update().get(id=factura_id)
-            devolucion = Devolucion.objects.get(id=devolucion_id, factura=factura)
+            factura = Factura.objects.select_for_update().get(id=factura_id)
+            devolucion = Devolucion.objects.get(
+                id=devolucion_id, factura=factura)
 
             # ── Calcular monto a mover ─────────────────────────────────────
             if tipo == 'contado':
@@ -6865,7 +7114,7 @@ def resolver_excedente_devolucion(request):
                         {'error': 'No hay excedente en esta factura'},
                         status=400
                     )
-                monto      = abs(balance)
+                monto = abs(balance)
                 referencia = 'EXCEDENTE_DEVOLUCION'
 
             # ── Ejecutar acción elegida por el usuario ─────────────────────
@@ -6943,6 +7192,8 @@ def resolver_excedente_devolucion(request):
 # ============================================================
 # ANULACIÓN DE FACTURA
 # ============================================================
+
+
 @login_required
 def procesar_anulacion_factura(request):
     """Procesar anulación de una factura con reposición de inventario y ajuste de pagos."""
@@ -6969,7 +7220,8 @@ def procesar_anulacion_factura(request):
                 items = factura.get_items_detalle()
                 bebidas_repuestas = 0
 
-                notas_pedido = (factura.pedido.notas or '') if factura.pedido else ''
+                notas_pedido = (
+                    factura.pedido.notas or '') if factura.pedido else ''
                 _tiene_cxc = False
                 try:
                     _ = factura.cuenta_por_cobrar
@@ -7011,7 +7263,8 @@ def procesar_anulacion_factura(request):
                 # Ajustes financieros según tipo de venta
                 if es_credito:
                     pagos_qs = factura.pagos_cxc.all()
-                    monto_devuelto = pagos_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+                    monto_devuelto = pagos_qs.aggregate(total=Sum('monto'))[
+                        'total'] or Decimal('0.00')
                     pagos_eliminados = pagos_qs.count()
                     if pagos_eliminados:
                         pagos_qs.delete()
@@ -7020,7 +7273,8 @@ def procesar_anulacion_factura(request):
                         cuenta = factura.cuenta_por_cobrar
                         cuenta.estado = 'anulada'
                         cuenta.saldo_pendiente = Decimal('0.00')
-                        cuenta.save(update_fields=['estado', 'saldo_pendiente'])
+                        cuenta.save(update_fields=[
+                                    'estado', 'saldo_pendiente'])
                     except Exception:
                         pass
                 else:
@@ -7062,7 +7316,7 @@ def procesar_anulacion_factura(request):
                     'usuario_anulacion',
                     'fecha_devolucion',
                 ])
-                
+
                 # Sincronizar movimientos financieros (marca INACTIVO los originales)
                 _sincronizar_movimientos_factura(factura)
 
@@ -7144,11 +7398,9 @@ def procesar_anulacion_factura(request):
     return redirect('anulacionydevolucion')
 
 
-
-
-#==========================================================================================================
-#                                       
-#==========================================================================================================
+# ==========================================================================================================
+#
+# ==========================================================================================================
 def gestiondeclientes(request):
     """Vista para gestión/listado de clientes con filtros y paginación."""
     tz_rd = pytz.timezone('America/Santo_Domingo')
@@ -7177,20 +7429,25 @@ def gestiondeclientes(request):
 
     if fecha:
         # Filtro por rangos de fecha-hora en zona RD para evitar desfases por timezone.
-        inicio_hoy = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        inicio_hoy = ahora_local.replace(
+            hour=0, minute=0, second=0, microsecond=0)
         fin_hoy = inicio_hoy + timedelta(days=1)
         inicio_mes_actual = inicio_hoy.replace(day=1)
 
         if fecha == 'hoy':
-            clientes_qs = clientes_qs.filter(fecha_registro__gte=inicio_hoy, fecha_registro__lt=fin_hoy)
+            clientes_qs = clientes_qs.filter(
+                fecha_registro__gte=inicio_hoy, fecha_registro__lt=fin_hoy)
         elif fecha == 'ayer':
             inicio_ayer = inicio_hoy - timedelta(days=1)
-            clientes_qs = clientes_qs.filter(fecha_registro__gte=inicio_ayer, fecha_registro__lt=inicio_hoy)
+            clientes_qs = clientes_qs.filter(
+                fecha_registro__gte=inicio_ayer, fecha_registro__lt=inicio_hoy)
         elif fecha in ['semana', 'semana_actual']:
             inicio_semana = inicio_hoy - timedelta(days=ahora_local.weekday())
-            clientes_qs = clientes_qs.filter(fecha_registro__gte=inicio_semana, fecha_registro__lt=fin_hoy)
+            clientes_qs = clientes_qs.filter(
+                fecha_registro__gte=inicio_semana, fecha_registro__lt=fin_hoy)
         elif fecha in ['mes', 'este_mes']:
-            clientes_qs = clientes_qs.filter(fecha_registro__gte=inicio_mes_actual, fecha_registro__lt=fin_hoy)
+            clientes_qs = clientes_qs.filter(
+                fecha_registro__gte=inicio_mes_actual, fecha_registro__lt=fin_hoy)
 
     sort_map = {
         'nombre': 'nombre_completo',
@@ -7201,16 +7458,19 @@ def gestiondeclientes(request):
         'credito_desc': '-limite_credito',
         'credito_asc': 'limite_credito',
     }
-    clientes_qs = clientes_qs.order_by(sort_map.get(sort_by, 'nombre_completo'))
+    clientes_qs = clientes_qs.order_by(
+        sort_map.get(sort_by, 'nombre_completo'))
 
-    facturas_pendientes = list(Factura.objects.filter(estado='pendiente').prefetch_related('pagos_cxc'))
+    facturas_pendientes = list(Factura.objects.filter(
+        estado='pendiente').prefetch_related('pagos_cxc'))
 
     # Filtros que dependen de cálculo de saldo real.
     if credito in ('agotado', 'excedido'):
         clientes_filtrados = []
         for cliente in clientes_qs:
             limite = cliente.limite_credito or Decimal('0.00')
-            saldo_actual = _calcular_saldo_credito_cliente(cliente, facturas_pendientes)
+            saldo_actual = _calcular_saldo_credito_cliente(
+                cliente, facturas_pendientes)
             saldo_disponible = limite - saldo_actual
 
             # Reutilizable por la tabla sin recalcular durante el render de la página.
@@ -7232,7 +7492,8 @@ def gestiondeclientes(request):
 
     for cliente in page_obj.object_list:
         limite = cliente.limite_credito or Decimal('0.00')
-        saldo_actual = _calcular_saldo_credito_cliente(cliente, facturas_pendientes)
+        saldo_actual = _calcular_saldo_credito_cliente(
+            cliente, facturas_pendientes)
         cliente.saldo_actual = saldo_actual
         cliente.saldo_disponible = limite - saldo_actual
 
@@ -7268,7 +7529,7 @@ def _estadisticas_clientes():
     return {
         'total_clientes': Cliente.objects.count(),
         'clientes_activos': Cliente.objects.filter(activo=True).count(),
-       'credito_total': Cliente.objects.aggregate(total=Coalesce(Sum('limite_credito'), Decimal('0.00'), output_field=DecimalField()))['total'],
+        'credito_total': Cliente.objects.aggregate(total=Coalesce(Sum('limite_credito'), Decimal('0.00'), output_field=DecimalField()))['total'],
         'clientes_hoy': Cliente.objects.filter(fecha_registro__gte=inicio_hoy, fecha_registro__lt=fin_hoy).count(),
     }
 
@@ -7325,16 +7586,20 @@ def editar_cliente(request, cliente_id):
         cedula = (request.POST.get('cedula') or '').strip()
         nombre_completo = (request.POST.get('nombre_completo') or '').strip()
         direccion = (request.POST.get('direccion') or '').strip()
-        telefono_principal = (request.POST.get('telefono_principal') or '').strip()
-        telefono_alternativo = (request.POST.get('telefono_alternativo') or '').strip()
-        limite_credito_str = (request.POST.get('limite_credito') or '0').strip()
+        telefono_principal = (request.POST.get(
+            'telefono_principal') or '').strip()
+        telefono_alternativo = (request.POST.get(
+            'telefono_alternativo') or '').strip()
+        limite_credito_str = (request.POST.get(
+            'limite_credito') or '0').strip()
         dias_credito_str = (request.POST.get('dias_credito') or '30').strip()
         notas_credito = (request.POST.get('notas_credito') or '').strip()
         activo_str = (request.POST.get('activo') or 'true').strip().lower()
 
         cedula_limpia = ''.join(filter(str.isdigit, cedula))
         tel_principal_limpio = ''.join(filter(str.isdigit, telefono_principal))
-        tel_alt_limpio = ''.join(filter(str.isdigit, telefono_alternativo)) if telefono_alternativo else ''
+        tel_alt_limpio = ''.join(
+            filter(str.isdigit, telefono_alternativo)) if telefono_alternativo else ''
 
         if len(cedula_limpia) != 11:
             return JsonResponse({'success': False, 'error': 'La cédula debe tener exactamente 11 dígitos'})
@@ -7411,7 +7676,8 @@ def historial_cliente(request, cliente_id):
 
     cliente = get_object_or_404(Cliente, pk=cliente_id)
 
-    filtros = Q(nombre_cliente__iexact=cliente.nombre_completo) | Q(telefono_cliente=cliente.telefono_principal)
+    filtros = Q(nombre_cliente__iexact=cliente.nombre_completo) | Q(
+        telefono_cliente=cliente.telefono_principal)
     if cliente.telefono_alternativo:
         filtros |= Q(telefono_cliente=cliente.telefono_alternativo)
 
@@ -7451,30 +7717,30 @@ def reporte_clientes_pdf(request):
     """
 
     # ── Paleta ────────────────────────────────────────────────────────────────
-    GRIS_OSCURO  = colors.HexColor('#2C3E50')
-    GRIS_MEDIO   = colors.HexColor('#5D6D7E')
-    GRIS_CLARO   = colors.HexColor('#ECF0F1')
-    GRIS_BORDE   = colors.HexColor('#BDC3C7')
-    ACENTO       = colors.HexColor('#4A90A4')
+    GRIS_OSCURO = colors.HexColor('#2C3E50')
+    GRIS_MEDIO = colors.HexColor('#5D6D7E')
+    GRIS_CLARO = colors.HexColor('#ECF0F1')
+    GRIS_BORDE = colors.HexColor('#BDC3C7')
+    ACENTO = colors.HexColor('#4A90A4')
     ACENTO_CLARO = colors.HexColor('#EAF4F7')
-    VERDE        = colors.HexColor('#27AE60')
-    VERDE_CLR    = colors.HexColor('#EAFAF1')
-    ROJO         = colors.HexColor('#C0392B')
-    ROJO_CLR     = colors.HexColor('#FDEDEC')
-    AMARILLO     = colors.HexColor('#D4A017')
+    VERDE = colors.HexColor('#27AE60')
+    VERDE_CLR = colors.HexColor('#EAFAF1')
+    ROJO = colors.HexColor('#C0392B')
+    ROJO_CLR = colors.HexColor('#FDEDEC')
+    AMARILLO = colors.HexColor('#D4A017')
     AMARILLO_CLR = colors.HexColor('#FEF9E7')
-    BLANCO       = colors.white
+    BLANCO = colors.white
 
     # ── Filtros ───────────────────────────────────────────────────────────────
-    search  = request.GET.get('search',  '').strip()
-    estado  = request.GET.get('estado',  '')
+    search = request.GET.get('search',  '').strip()
+    estado = request.GET.get('estado',  '')
     credito = request.GET.get('credito', '')
 
     qs = Cliente.objects.all().order_by('nombre_completo')
     if search:
         qs = qs.filter(
             Q(nombre_completo__icontains=search) |
-            Q(cedula__icontains=search)           |
+            Q(cedula__icontains=search) |
             Q(telefono_principal__icontains=search)
         )
     if estado == 'activo':
@@ -7490,10 +7756,10 @@ def reporte_clientes_pdf(request):
 
     # ── Estadísticas ──────────────────────────────────────────────────────────
     total_clientes = len(clientes)
-    activos        = sum(1 for c in clientes if c.activo)
-    inactivos      = total_clientes - activos
-    con_credito    = sum(1 for c in clientes if float(c.limite_credito or 0) > 0)
-    credito_total  = sum(float(c.limite_credito or 0) for c in clientes)
+    activos = sum(1 for c in clientes if c.activo)
+    inactivos = total_clientes - activos
+    con_credito = sum(1 for c in clientes if float(c.limite_credito or 0) > 0)
+    credito_total = sum(float(c.limite_credito or 0) for c in clientes)
 
     # ── Buffer y documento ────────────────────────────────────────────────────
     buffer = io.BytesIO()
@@ -7510,24 +7776,29 @@ def reporte_clientes_pdf(request):
         base = kw.pop('parent', styles['Normal'])
         return ParagraphStyle(name, parent=base, **kw)
 
-    bold_sty   = sty('ecB',  fontName='Helvetica-Bold', fontSize=9)
-    cell_sty   = sty('ecC',  fontSize=8,  leading=11)
-    cell_b_sty = sty('ecCB', fontSize=8,  leading=11, fontName='Helvetica-Bold', textColor=GRIS_OSCURO)
+    bold_sty = sty('ecB',  fontName='Helvetica-Bold', fontSize=9)
+    cell_sty = sty('ecC',  fontSize=8,  leading=11)
+    cell_b_sty = sty('ecCB', fontSize=8,  leading=11,
+                     fontName='Helvetica-Bold', textColor=GRIS_OSCURO)
     cell_d_sty = sty('ecCD', fontSize=8,  leading=11, textColor=GRIS_OSCURO)
-    hdr_sty    = sty('ecH',  fontSize=8,  leading=10, fontName='Helvetica-Bold', alignment=1, textColor=BLANCO)
-    small_sty  = sty('ecSM', fontSize=8)
+    hdr_sty = sty('ecH',  fontSize=8,  leading=10,
+                  fontName='Helvetica-Bold', alignment=1, textColor=BLANCO)
+    small_sty = sty('ecSM', fontSize=8)
 
     story = []
 
     # ── Logo ──────────────────────────────────────────────────────────────────
     try:
-        logo_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        logo_path = os.path.join(
+            settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
         if not os.path.exists(logo_path):
-            logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+            logo_path = os.path.join(
+                settings.BASE_DIR, 'static', 'img', 'fastfood.png')
         if os.path.exists(logo_path):
             logo = Image(logo_path, width=30*mm, height=30*mm)
             logo_table = Table([[logo]], colWidths=[doc.width])
-            logo_table.setStyle(TableStyle([('ALIGN', (0,0), (0,0), 'CENTER')]))
+            logo_table.setStyle(TableStyle(
+                [('ALIGN', (0, 0), (0, 0), 'CENTER')]))
             story.append(logo_table)
             story.append(Spacer(1, 4))
     except Exception:
@@ -7549,13 +7820,13 @@ def reporte_clientes_pdf(request):
     ]]
     thdr = Table(hdr_data, colWidths=[ancho*0.27, ancho*0.46, ancho*0.27])
     thdr.setStyle(TableStyle([
-        ('BACKGROUND',    (0,0), (-1,0), GRIS_OSCURO),
-        ('VALIGN',        (0,0), (-1,0), 'MIDDLE'),
-        ('TOPPADDING',    (0,0), (-1,0), 12),
-        ('BOTTOMPADDING', (0,0), (-1,0), 12),
-        ('LEFTPADDING',   (0,0), (0,0),  10),
-        ('RIGHTPADDING',  (-1,0),(-1,0), 10),
-        ('LINEAFTER',     (0,0), (0,0),  4, ACENTO),
+        ('BACKGROUND',    (0, 0), (-1, 0), GRIS_OSCURO),
+        ('VALIGN',        (0, 0), (-1, 0), 'MIDDLE'),
+        ('TOPPADDING',    (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('LEFTPADDING',   (0, 0), (0, 0),  10),
+        ('RIGHTPADDING',  (-1, 0), (-1, 0), 10),
+        ('LINEAFTER',     (0, 0), (0, 0),  4, ACENTO),
     ]))
     story.append(thdr)
     story.append(Spacer(1, 7))
@@ -7565,39 +7836,43 @@ def reporte_clientes_pdf(request):
     # ══════════════════════════════════════════════════════════════════════════
     card_defs = [
         ('TOTAL\nCLIENTES',    str(total_clientes),          GRIS_OSCURO, GRIS_CLARO),
-        ('ACTIVOS',            str(activos),                  VERDE,       VERDE_CLR),
+        ('ACTIVOS',            str(activos),
+         VERDE,       VERDE_CLR),
         ('INACTIVOS',          str(inactivos),                ROJO,        ROJO_CLR),
-        ('CON\nCRÉDITO',      str(con_credito),              ACENTO,      ACENTO_CLARO),
-        ('CRÉDITO\nOTORGADO', f'RD$ {credito_total:,.0f}',  AMARILLO,    AMARILLO_CLR),
+        ('CON\nCRÉDITO',      str(con_credito),
+         ACENTO,      ACENTO_CLARO),
+        ('CRÉDITO\nOTORGADO',
+         f'RD$ {credito_total:,.0f}',  AMARILLO,    AMARILLO_CLR),
     ]
     card_w = ancho / 5
     card_cells = []
-    card_bgs   = []
+    card_bgs = []
     for lbl, val, vc, bg in card_defs:
         inner = Table(
             [[Paragraph(lbl, sty(f'ecCL{lbl[:3]}', fontSize=7, fontName='Helvetica-Bold',
-                                  textColor=GRIS_MEDIO, alignment=1, leading=9))],
+                                 textColor=GRIS_MEDIO, alignment=1, leading=9))],
              [Paragraph(val, sty(f'ecCV{lbl[:3]}', fontSize=15, fontName='Helvetica-Bold',
-                                  textColor=vc, alignment=1))]],
+                                 textColor=vc, alignment=1))]],
             colWidths=[card_w - 4*mm],
         )
         inner.setStyle(TableStyle([
-            ('TOPPADDING',    (0,0), (-1,-1), 7),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 7),
+            ('TOPPADDING',    (0, 0), (-1, -1), 7),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
         ]))
         card_cells.append(inner)
         card_bgs.append(bg)
 
     tcards = Table([card_cells], colWidths=[card_w]*5)
     card_ts = [
-        ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING',    (0,0), (-1,-1), 0),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-        ('LEFTPADDING',   (0,0), (-1,-1), 2),
-        ('RIGHTPADDING',  (0,0), (-1,-1), 2),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',    (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 2),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 2),
     ]
     for i, bg in enumerate(card_bgs):
-        card_ts += [('BACKGROUND', (i,0),(i,0), bg), ('BOX', (i,0),(i,0), 0.5, GRIS_BORDE)]
+        card_ts += [('BACKGROUND', (i, 0), (i, 0), bg),
+                    ('BOX', (i, 0), (i, 0), 0.5, GRIS_BORDE)]
     tcards.setStyle(TableStyle(card_ts))
     story.append(tcards)
     story.append(Spacer(1, 11))
@@ -7617,23 +7892,23 @@ def reporte_clientes_pdf(request):
 
         # Límite crédito (sin redundar días plazo)
         if float(c.limite_credito or 0) > 0:
-            cred_txt   = f'RD$ {float(c.limite_credito):,.2f}'
+            cred_txt = f'RD$ {float(c.limite_credito):,.2f}'
             cred_color = ACENTO
         else:
-            cred_txt   = 'Sin crédito'
+            cred_txt = 'Sin crédito'
             cred_color = GRIS_MEDIO
 
         # Días
         if int(c.dias_credito or 0) > 0:
-            dias_txt   = f'{c.dias_credito}d.'
+            dias_txt = f'{c.dias_credito}d.'
             dias_color = ACENTO
         else:
-            dias_txt   = 'Cont.'
+            dias_txt = 'Cont.'
             dias_color = GRIS_MEDIO
 
         # Estado
-        est_txt   = 'Activo'  if c.activo else 'Inactivo'
-        est_color = VERDE     if c.activo else ROJO
+        est_txt = 'Activo' if c.activo else 'Inactivo'
+        est_color = VERDE if c.activo else ROJO
 
         # Teléfono(s)
         tel_txt = c.telefono_principal or '-'
@@ -7656,8 +7931,10 @@ def reporte_clientes_pdf(request):
             Paragraph(est_txt,  sty(f'ecE{ri}',  fontSize=8, fontName='Helvetica-Bold',
                                     textColor=est_color,  alignment=1)),
             Paragraph(
-                c.fecha_registro.strftime('%d/%m/%Y') if c.fecha_registro else '-',
-                sty(f'ecR{ri}', fontSize=6.5, alignment=1, textColor=GRIS_MEDIO)
+                c.fecha_registro.strftime(
+                    '%d/%m/%Y') if c.fecha_registro else '-',
+                sty(f'ecR{ri}', fontSize=6.5,
+                    alignment=1, textColor=GRIS_MEDIO)
             ),
         ]
         data.append(fila)
@@ -7668,19 +7945,19 @@ def reporte_clientes_pdf(request):
             bg_row = ROJO_CLR if idx % 2 == 0 else colors.HexColor('#FDF2F0')
 
         row_styles += [
-            ('BACKGROUND', (0,ri), (-1,ri), bg_row),
-            ('LINEBELOW',  (0,ri), (-1,ri), 0.3, GRIS_BORDE),
+            ('BACKGROUND', (0, ri), (-1, ri), bg_row),
+            ('LINEBELOW',  (0, ri), (-1, ri), 0.3, GRIS_BORDE),
         ]
 
     tclientes = Table(data, colWidths=CW, repeatRows=1)
     tclientes.setStyle(TableStyle([
-        ('BACKGROUND',    (0,0), (-1,0), GRIS_OSCURO),
-        ('ALIGN',         (0,0), (-1,0), 'CENTER'),
-        ('VALIGN',        (0,0), (-1,-1),'MIDDLE'),
-        ('TOPPADDING',    (0,0), (-1,-1), 5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-        ('LEFTPADDING',   (0,0), (-1,-1), 3),
-        ('RIGHTPADDING',  (0,0), (-1,-1), 3),
+        ('BACKGROUND',    (0, 0), (-1, 0), GRIS_OSCURO),
+        ('ALIGN',         (0, 0), (-1, 0), 'CENTER'),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',    (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 3),
     ] + row_styles))
 
     story.append(Paragraph('<b>LISTADO DE CLIENTES</b>', bold_sty))
@@ -7705,9 +7982,9 @@ def reporte_clientes_pdf(request):
     ]]
     tpie = Table(pie_data, colWidths=[ancho*0.33]*3)
     tpie.setStyle(TableStyle([
-        ('LINEABOVE',     (0,0), (-1,0), 0.5, GRIS_BORDE),
-        ('TOPPADDING',    (0,0), (-1,0), 6),
-        ('VALIGN',        (0,0), (-1,0), 'MIDDLE'),
+        ('LINEABOVE',     (0, 0), (-1, 0), 0.5, GRIS_BORDE),
+        ('TOPPADDING',    (0, 0), (-1, 0), 6),
+        ('VALIGN',        (0, 0), (-1, 0), 'MIDDLE'),
     ]))
     story.append(tpie)
     story.append(Spacer(1, 5))
@@ -7731,8 +8008,6 @@ def reporte_clientes_pdf(request):
     return response
 
 
-
-
 def registrodeclientes(request):
     """Vista para el registro de clientes"""
     # Si es POST y es AJAX
@@ -7742,35 +8017,37 @@ def registrodeclientes(request):
             cedula = request.POST.get('cedula', '').strip()
             nombre_completo = request.POST.get('nombre_completo', '').strip()
             direccion = request.POST.get('direccion', '').strip()
-            telefono_principal = request.POST.get('telefono_principal', '').strip()
-            telefono_alternativo = request.POST.get('telefono_alternativo', '').strip()
-            
+            telefono_principal = request.POST.get(
+                'telefono_principal', '').strip()
+            telefono_alternativo = request.POST.get(
+                'telefono_alternativo', '').strip()
+
             # Obtener valores numéricos
             limite_credito = request.POST.get('limite_credito', '0')
             dias_credito = request.POST.get('dias_credito', '30')
-            
+
             # Convertir a tipos correctos
             try:
                 limite_credito_decimal = Decimal(limite_credito)
             except:
                 limite_credito_decimal = Decimal('0.00')
-            
+
             try:
                 dias_credito_int = int(dias_credito)
             except:
                 dias_credito_int = 30
-                
+
             notas_credito = request.POST.get('notas_credito', '').strip()
-            
+
             # === VALIDACIONES DEL BACKEND ===
-            
+
             # Validar cédula
             if not cedula:
                 return JsonResponse({
                     'success': False,
                     'error': 'La cédula es requerida'
                 })
-            
+
             # Limpiar cédula (solo números)
             cedula_limpia = ''.join(filter(str.isdigit, cedula))
             if len(cedula_limpia) != 11:
@@ -7778,32 +8055,34 @@ def registrodeclientes(request):
                     'success': False,
                     'error': 'La cédula debe tener exactamente 11 dígitos'
                 })
-            
+
             # Validar nombre
             if not nombre_completo or len(nombre_completo) < 5:
                 return JsonResponse({
                     'success': False,
                     'error': 'El nombre debe tener al menos 5 caracteres'
                 })
-            
+
             # Validar dirección
             if not direccion or len(direccion) < 10:
                 return JsonResponse({
                     'success': False,
                     'error': 'La dirección debe tener al menos 10 caracteres'
                 })
-            
+
             # Validar teléfono principal
-            telefono_principal_limpio = ''.join(filter(str.isdigit, telefono_principal))
+            telefono_principal_limpio = ''.join(
+                filter(str.isdigit, telefono_principal))
             if not telefono_principal_limpio or len(telefono_principal_limpio) != 10:
                 return JsonResponse({
                     'success': False,
                     'error': 'El teléfono principal debe tener 10 dígitos'
                 })
-            
+
             # Validar teléfono alternativo si existe
             if telefono_alternativo:
-                telefono_alt_limpio = ''.join(filter(str.isdigit, telefono_alternativo))
+                telefono_alt_limpio = ''.join(
+                    filter(str.isdigit, telefono_alternativo))
                 if telefono_alt_limpio and len(telefono_alt_limpio) != 10:
                     return JsonResponse({
                         'success': False,
@@ -7812,40 +8091,40 @@ def registrodeclientes(request):
                 telefono_alternativo = telefono_alt_limpio
             else:
                 telefono_alternativo = None
-            
+
             # Validar límite de crédito
             if limite_credito_decimal < 0:
                 return JsonResponse({
                     'success': False,
                     'error': 'El límite de crédito no puede ser negativo'
                 })
-            
+
             if limite_credito_decimal > 1000000:
                 return JsonResponse({
                     'success': False,
                     'error': 'El límite de crédito máximo es $1,000,000'
                 })
-            
+
             # Validar días de crédito
             if dias_credito_int < 0:
                 return JsonResponse({
                     'success': False,
                     'error': 'Los días de crédito no pueden ser negativos'
                 })
-            
+
             if dias_credito_int > 365:
                 return JsonResponse({
                     'success': False,
                     'error': 'Los días de crédito máximo son 365'
                 })
-            
+
             # Verificar si la cédula ya existe
             if Cliente.objects.filter(cedula=cedula_limpia).exists():
                 return JsonResponse({
                     'success': False,
                     'error': f'Ya existe un cliente con la cédula {cedula_limpia}'
                 })
-            
+
             # === CREAR CLIENTE ===
             cliente = Cliente.objects.create(
                 cedula=cedula_limpia,
@@ -7858,7 +8137,7 @@ def registrodeclientes(request):
                 notas_credito=notas_credito if notas_credito else None,
                 registrado_por=request.user if request.user.is_authenticated else None
             )
-            
+
             # Respuesta exitosa
             return JsonResponse({
                 'success': True,
@@ -7871,7 +8150,7 @@ def registrodeclientes(request):
                     'dias_credito': cliente.dias_credito
                 }
             })
-            
+
         except IntegrityError as e:
             return JsonResponse({
                 'success': False,
@@ -7882,7 +8161,7 @@ def registrodeclientes(request):
                 'success': False,
                 'error': f'Error inesperado: {str(e)}'
             })
-    
+
     # Si es GET, mostrar el formulario
     return render(request, 'facturacion/registrodeclientes.html')
 
@@ -7915,7 +8194,8 @@ def _cliente_coincide_con_factura(cliente, factura):
 
 def _factura_es_credito(factura):
     """Determina si una factura pertenece al flujo de crédito."""
-    notas_pedido = (factura.pedido.notas or '') if getattr(factura, 'pedido', None) else ''
+    notas_pedido = (factura.pedido.notas or '') if getattr(
+        factura, 'pedido', None) else ''
     return (
         ('TIPO_PAGO_PEDIDO=credito' in notas_pedido)
         or hasattr(factura, 'cuenta_por_cobrar')
@@ -7925,11 +8205,13 @@ def _factura_es_credito(factura):
 
 def _calcular_saldo_factura_cxc(factura):
     """Saldo real de una factura: ventas - devoluciones - pagos, con piso en cero."""
-    total_factura = factura.get_total_neto() if hasattr(factura, 'get_total_neto') else Decimal(str(factura.total or 0))
+    total_factura = factura.get_total_neto() if hasattr(
+        factura, 'get_total_neto') else Decimal(str(factura.total or 0))
     total_pagado = PagoCuentaCobrar.objects.filter(
         factura=factura
     ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    total_devuelto = factura.get_total_devuelto() if hasattr(factura, 'get_total_devuelto') else Decimal('0.00')
+    total_devuelto = factura.get_total_devuelto() if hasattr(
+        factura, 'get_total_devuelto') else Decimal('0.00')
 
     saldo = total_factura - total_devuelto - total_pagado
     return saldo if saldo > Decimal('0.00') else Decimal('0.00')
@@ -7940,11 +8222,13 @@ def _resumen_movimientos_caja(inicio, fin):
     Resume el movimiento real de caja en un rango de fechas.
     Fuente única de verdad: MovimientoFinanciero.
 
-    PERFORMANCE: toda la lógica de caja se resuelve en UNA sola query
-    usando annotate+Case/When en lugar de 6 queries separadas.
-    Llamada 4 veces por request de dashboard_stats → de ~24 queries a 4.
+    PERFORMANCE MEJORADO (v2):
+    - Eliminada query secundaria de crédito usando __contains (full table scan)
+    - Ahora usa el campo tipo_pago en Factura para detectar crédito (indexado)
+    - Reducción de 2 queries a 1 para resumen de caja
+    - Llamada 4 veces por request → de ~12-16 queries a 4
     """
-    from django.db.models import Sum, Count, Case, When, IntegerField
+    from django.db.models import Sum, Count, Case, When, IntegerField, Q, Exists, OuterRef
     from django.db.models import DecimalField as DField
     from django.db.models.functions import Coalesce
     from django.utils import timezone
@@ -7956,32 +8240,39 @@ def _resumen_movimientos_caja(inicio, fin):
         fin = timezone.make_aware(fin, timezone.get_current_timezone())
 
     inicio = timezone.localtime(inicio)
-    fin    = timezone.localtime(fin)
+    fin = timezone.localtime(fin)
 
     # ── Query única con Case/When — 1 round-trip al DB ────────────────────
-    # Estados válidos para caja: ACTIVO solamente.
-    # INACTIVO = movimientos de facturas anuladas/totalmente devueltas.
-    # REVERTIDO = correcciones manuales — no cuentan en caja operativa.
-    _Z   = Decimal('0.00')
-    _D   = DField()
-    _I   = IntegerField()
+    _Z = Decimal('0.00')
+    _D = DField()
+    _I = IntegerField()
 
+    # ─ NUEVO: usar tipo_pago en Factura para distinguir crédito (indexado)
     agg = MovimientoFinanciero.objects.filter(
         fecha_operacion__gte=inicio,
         fecha_operacion__lt=fin,
         estado='ACTIVO',
     ).aggregate(
-        # ── Ingreso venta contado (excluye crédito via JOIN) ────────────────
-        # Nota: el exclude de crédito requiere JOIN a factura/pedido; se hace
-        # en post-proceso separando INGRESO/VENTA en dos sub-sumas para mantener
-        # una sola query sin subquery correlacionada costosa.
-        # INGRESO/VENTA de cualquier tipo (contado + crédito juntos aquí)
-        _iv_total=Coalesce(Sum(Case(
-            When(tipo='INGRESO', origen='VENTA', then='monto'),
+        # INGRESO/VENTA contado — usa tipo_pago indexado
+        _iv_contado_total=Coalesce(Sum(Case(
+            When(tipo='INGRESO', origen='VENTA',
+                 factura__tipo_pago='contado', then='monto'),
             default=_Z, output_field=_D,
         )), _Z),
-        _iv_count=Coalesce(Sum(Case(
-            When(tipo='INGRESO', origen='VENTA', then=1),
+        _iv_contado_count=Coalesce(Sum(Case(
+            When(tipo='INGRESO', origen='VENTA',
+                 factura__tipo_pago='contado', then=1),
+            default=0, output_field=_I,
+        )), 0),
+        # INGRESO/VENTA crédito — usa tipo_pago indexado
+        _iv_credito_total=Coalesce(Sum(Case(
+            When(tipo='INGRESO', origen='VENTA',
+                 factura__tipo_pago='credito', then='monto'),
+            default=_Z, output_field=_D,
+        )), _Z),
+        _iv_credito_count=Coalesce(Sum(Case(
+            When(tipo='INGRESO', origen='VENTA',
+                 factura__tipo_pago='credito', then=1),
             default=0, output_field=_I,
         )), 0),
         # INGRESO/PAGO_CXC
@@ -8010,11 +8301,13 @@ def _resumen_movimientos_caja(inicio, fin):
         )), 0),
         # EGRESO/DEVOLUCION excedente
         _ede_total=Coalesce(Sum(Case(
-            When(tipo='EGRESO', origen='DEVOLUCION', referencia='EXCEDENTE_DEVOLUCION', then='monto'),
+            When(tipo='EGRESO', origen='DEVOLUCION',
+                 referencia='EXCEDENTE_DEVOLUCION', then='monto'),
             default=_Z, output_field=_D,
         )), _Z),
         _ede_count=Coalesce(Sum(Case(
-            When(tipo='EGRESO', origen='DEVOLUCION', referencia='EXCEDENTE_DEVOLUCION', then=1),
+            When(tipo='EGRESO', origen='DEVOLUCION',
+                 referencia='EXCEDENTE_DEVOLUCION', then=1),
             default=0, output_field=_I,
         )), 0),
         # EGRESO/ANULACION
@@ -8028,84 +8321,44 @@ def _resumen_movimientos_caja(inicio, fin):
         )), 0),
     )
 
-    # INGRESO/VENTA de crédito requiere un filtro por FK — query separada
-    # pero acotada al mismo rango (muy selectiva, pocas filas en producción).
-    credito_q = (
-        Q(factura__cuenta_por_cobrar__isnull=False) |
-        Q(factura__pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
-    )
-    iv_credito_agg = MovimientoFinanciero.objects.filter(
-        fecha_operacion__gte=inicio,
-        fecha_operacion__lt=fin,
-        estado='ACTIVO',
-        tipo='INGRESO',
-        origen='VENTA',
-    ).filter(credito_q).aggregate(
-        total=Coalesce(Sum('monto'), _Z),
-        cantidad=Coalesce(Sum(Case(When(tipo='INGRESO', then=1), default=0, output_field=_I)), 0),
-    )
-
-    # EGRESO/ANULACION válido para caja real:
-    # solo cuenta si existe un ingreso ACTIVO relacionado con la misma factura.
-    # Esto evita caja negativa cuando la factura ya quedó anulada y sus ingresos
-    # fueron desactivados por sincronización.
-    ingreso_relacionado_q = MovimientoFinanciero.objects.filter(
-        factura=OuterRef('factura'),
-        estado='ACTIVO',
-        tipo='INGRESO',
-        origen__in=['VENTA', 'PAGO_CXC'],
-    )
-
-    anulacion_real_agg = MovimientoFinanciero.objects.filter(
-        fecha_operacion__gte=inicio,
-        fecha_operacion__lt=fin,
-        estado='ACTIVO',
-        tipo='EGRESO',
-        origen='ANULACION',
-    ).annotate(
-        tiene_ingreso_relacionado=Exists(ingreso_relacionado_q)
-    ).filter(
-        Q(factura__isnull=True) | Q(tiene_ingreso_relacionado=True)
-    ).aggregate(
-        total=Coalesce(Sum('monto'), _Z),
-        cantidad=Count('id'),
-    )
-
     # ── Derivar totales ────────────────────────────────────────────────────
-    ingreso_venta_total        = agg['_iv_total'] - iv_credito_agg['total']
-    ingreso_venta_count        = agg['_iv_count'] - iv_credito_agg['cantidad']
-    ingreso_pagos_total        = agg['_ip_total']
-    ingreso_pagos_count        = agg['_ip_count']
-    egreso_dev_contado_total   = agg['_edc_total']
-    egreso_dev_contado_count   = agg['_edc_count']
+    ingreso_venta_contado_total = agg['_iv_contado_total']
+    ingreso_venta_contado_count = agg['_iv_contado_count']
+    ingreso_venta_credito_total = agg['_iv_credito_total']
+    ingreso_venta_credito_count = agg['_iv_credito_count']
+    ingreso_venta_total = ingreso_venta_contado_total + ingreso_venta_credito_total
+    ingreso_venta_count = ingreso_venta_contado_count + ingreso_venta_credito_count
+
+    ingreso_pagos_total = agg['_ip_total']
+    ingreso_pagos_count = agg['_ip_count']
+    egreso_dev_contado_total = agg['_edc_total']
+    egreso_dev_contado_count = agg['_edc_count']
     egreso_dev_excedente_total = agg['_ede_total']
     egreso_dev_excedente_count = agg['_ede_count']
-    egreso_anulacion_total     = anulacion_real_agg['total']
-    egreso_anulacion_count     = anulacion_real_agg['cantidad']
+    egreso_anulacion_total = agg['_ea_total']
+    egreso_anulacion_count = agg['_ea_count']
 
     egreso_dev_total = egreso_dev_contado_total + egreso_dev_excedente_total
     egreso_dev_count = egreso_dev_contado_count + egreso_dev_excedente_count
 
     ingresos_total = ingreso_venta_total + ingreso_pagos_total
-    egresos_total  = egreso_dev_total + egreso_anulacion_total
-    caja_neta      = ingresos_total - egresos_total
+    egresos_total = egreso_dev_total + egreso_anulacion_total
+    caja_neta = ingresos_total - egresos_total
 
     # ── Datos de documentos (para PDF cuadre) — query a Factura ───────────
-    credito_fac_q = (
-        Q(cuenta_por_cobrar__isnull=False) |
-        Q(pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
-    )
     facturas_periodo = Factura.objects.filter(
         fecha_factura__gte=inicio,
         fecha_factura__lt=fin,
     )
     doc_agg = facturas_periodo.aggregate(
         contado_pagadas=Coalesce(Sum(Case(
-            When(~credito_fac_q, estado__in=['pagada', 'parcialmente_devuelta'], then='total'),
+            When(tipo_pago='contado', estado__in=[
+                 'pagada', 'parcialmente_devuelta'], then='total'),
             default=_Z, output_field=_D,
         )), _Z),
         credito_pagadas=Coalesce(Sum(Case(
-            When(credito_fac_q, estado__in=['pagada', 'parcialmente_devuelta'], then='total'),
+            When(tipo_pago='credito', estado__in=[
+                 'pagada', 'parcialmente_devuelta'], then='total'),
             default=_Z, output_field=_D,
         )), _Z),
         anuladas=Coalesce(Sum(Case(
@@ -8113,7 +8366,8 @@ def _resumen_movimientos_caja(inicio, fin):
             default=_Z, output_field=_D,
         )), _Z),
         devueltas=Coalesce(Sum(Case(
-            When(estado__in=['parcialmente_devuelta', 'totalmente_devuelta'], then='total'),
+            When(estado__in=['parcialmente_devuelta',
+                 'totalmente_devuelta'], then='total'),
             default=_Z, output_field=_D,
         )), _Z),
     )
@@ -8147,7 +8401,7 @@ def _resumen_movimientos_caja(inicio, fin):
 def _sincronizar_movimientos_factura(factura):
     """
     Sincroniza los MovimientoFinanciero con el estado actual de la factura.
-    
+
     Reglas:
     - Si factura es 'anulada' o 'totalmente_devuelta': marca movimientos INACTIVOS
     - Si factura es 'pagada' o 'parcialmente_devuelta': marca movimientos ACTIVOS
@@ -8155,9 +8409,9 @@ def _sincronizar_movimientos_factura(factura):
     """
     if not factura or not hasattr(factura, 'id'):
         return
-    
+
     movimientos = MovimientoFinanciero.objects.filter(factura=factura)
-    
+
     if factura.estado in ['anulada', 'totalmente_devuelta']:
         # Marcar como inactivos para excluir del dashboard
         movimientos.update(estado='INACTIVO')
@@ -8175,30 +8429,30 @@ def _resumen_movimientos_caja_cached(inicio, fin):
 def _facturas_que_cuentan_en_cards(queryset):
     """
     Facturas que deben contarse en las cards del dashboard.
-    
+
     SOLO incluyen:
     - Ventas a CONTADO estado 'pagada'
     - Ventas a CONTADO estado 'parcialmente_devuelta'
-    
+
     EXCLUYEN:
     - Todas las ventas a CRÉDITO (sin importar estado)
     - Facturas anuladas
     - Facturas totalmente devueltas
     """
     from django.db.models import Q
-    
+
     # Excluir anuladas y totalmente devueltas
     qs = queryset.exclude(estado__in=['anulada', 'totalmente_devuelta'])
-    
+
     # Filtrar solo pagadas o parcialmente devueltas
     qs = qs.filter(estado__in=['pagada', 'parcialmente_devuelta'])
-    
+
     # Excluir facturas de CRÉDITO (tienen CuentaPorCobrar vinculada)
     qs = qs.exclude(cuenta_por_cobrar__isnull=False)
-    
+
     # Excluir facturas donde el pedido tiene TIPO_PAGO_PEDIDO=credito en notas
     qs = qs.exclude(pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
-    
+
     return qs
 
 
@@ -8207,7 +8461,8 @@ def _calcular_saldo_credito_cliente(cliente, facturas_pendientes=None):
     saldo = Decimal('0.00')
     facturas_contabilizadas = set()
 
-    cuentas_cliente = CuentaPorCobrar.objects.filter(cliente=cliente).select_related('factura').prefetch_related('factura__pagos_cxc')
+    cuentas_cliente = CuentaPorCobrar.objects.filter(cliente=cliente).select_related(
+        'factura').prefetch_related('factura__pagos_cxc')
     for cuenta in cuentas_cliente:
         factura = cuenta.factura
         if not factura:
@@ -8247,7 +8502,8 @@ def _saldo_factura_pendiente(factura):
 def _calcular_fechas_cxc(factura, cliente_match=None):
     tz_rd = pytz.timezone('America/Santo_Domingo')
     fecha_base = factura.fecha_factura or timezone.now()
-    fecha_emision = timezone.localtime(fecha_base, tz_rd).date() if timezone.is_aware(fecha_base) else fecha_base.date()
+    fecha_emision = timezone.localtime(fecha_base, tz_rd).date(
+    ) if timezone.is_aware(fecha_base) else fecha_base.date()
 
     dias_credito = 30
     if cliente_match and cliente_match.dias_credito is not None:
@@ -8262,8 +8518,10 @@ def _sincronizar_cuenta_por_cobrar(factura, cliente_match=None):
     if not _factura_es_credito(factura):
         return None
 
-    fecha_emision, fecha_vencimiento = _calcular_fechas_cxc(factura, cliente_match)
-    total_factura = factura.get_total_neto() if hasattr(factura, 'get_total_neto') else Decimal(str(factura.total or 0))
+    fecha_emision, fecha_vencimiento = _calcular_fechas_cxc(
+        factura, cliente_match)
+    total_factura = factura.get_total_neto() if hasattr(
+        factura, 'get_total_neto') else Decimal(str(factura.total or 0))
 
     defaults = {
         'cliente': cliente_match,
@@ -8274,7 +8532,8 @@ def _sincronizar_cuenta_por_cobrar(factura, cliente_match=None):
         'estado': 'pendiente',
         'notas': factura.notas or '',
     }
-    cuenta, created = CuentaPorCobrar.objects.get_or_create(factura=factura, defaults=defaults)
+    cuenta, created = CuentaPorCobrar.objects.get_or_create(
+        factura=factura, defaults=defaults)
 
     saldo = _calcular_saldo_factura_cxc(factura)
 
@@ -8312,7 +8571,8 @@ def _sincronizar_cuenta_por_cobrar(factura, cliente_match=None):
         cambios.append('notas')
 
     if cambios:
-        cuenta.save(update_fields=sorted(set(cambios + ['fecha_actualizacion'])))
+        cuenta.save(update_fields=sorted(
+            set(cambios + ['fecha_actualizacion'])))
     elif created:
         cuenta.save()
 
@@ -8388,8 +8648,10 @@ def _armar_clientes_cuentas_por_cobrar():
             group_key = f"fac:{factura.id}"
 
         if group_key not in agrupados:
-            nombre_ui = (cliente_match.nombre_completo if cliente_match else nombre_factura) or 'Cliente no identificado'
-            telefono_ui = (cliente_match.telefono_principal if cliente_match else factura.telefono_cliente) or ''
+            nombre_ui = (
+                cliente_match.nombre_completo if cliente_match else nombre_factura) or 'Cliente no identificado'
+            telefono_ui = (
+                cliente_match.telefono_principal if cliente_match else factura.telefono_cliente) or ''
             agrupados[group_key] = {
                 'group_key': group_key,
                 'cedula': cliente_match.cedula if cliente_match else 'N/A',
@@ -8411,7 +8673,8 @@ def _armar_clientes_cuentas_por_cobrar():
         for item in factura.get_items_detalle():
             cantidad_item = Decimal(str(item.get('cantidad', 0)))
             precio_item = Decimal(str(item.get('precio', 0)))
-            subtotal_item = Decimal(str(item.get('subtotal', cantidad_item * precio_item)))
+            subtotal_item = Decimal(
+                str(item.get('subtotal', cantidad_item * precio_item)))
             productos_originales.append({
                 'nombre': item.get('nombre', 'Producto'),
                 'codigo': item.get('codigo', ''),
@@ -8426,11 +8689,13 @@ def _armar_clientes_cuentas_por_cobrar():
             detalles = list(devolucion.detalles.all())
             if detalles:
                 for detalle in detalles:
-                    nombre = (detalle.nombre_producto or '').strip() or 'Producto'
+                    nombre = (
+                        detalle.nombre_producto or '').strip() or 'Producto'
                     key = nombre.lower()
                     cantidad = Decimal(str(detalle.cantidad or 0))
                     precio = Decimal(str(detalle.precio_unitario or 0))
-                    subtotal = Decimal(str(detalle.monto or (cantidad * precio)))
+                    subtotal = Decimal(
+                        str(detalle.monto or (cantidad * precio)))
                     if key not in productos_devueltos_map:
                         productos_devueltos_map[key] = {
                             'nombre': nombre,
@@ -8446,8 +8711,10 @@ def _armar_clientes_cuentas_por_cobrar():
                 nombre = str(item.get('nombre') or '').strip() or 'Producto'
                 key = nombre.lower()
                 cantidad = Decimal(str(item.get('cantidad', 0)))
-                precio = Decimal(str(item.get('precio_unitario', item.get('precio', 0))))
-                subtotal = Decimal(str(item.get('subtotal', cantidad * precio)))
+                precio = Decimal(
+                    str(item.get('precio_unitario', item.get('precio', 0))))
+                subtotal = Decimal(
+                    str(item.get('subtotal', cantidad * precio)))
                 if key not in productos_devueltos_map:
                     productos_devueltos_map[key] = {
                         'nombre': nombre,
@@ -8487,7 +8754,8 @@ def _armar_clientes_cuentas_por_cobrar():
         })
 
         for pago in factura.pagos_cxc.all():
-            metodo_label = dict(PagoCuentaCobrar.METODO_PAGO_CHOICES).get(pago.metodo_pago, pago.metodo_pago)
+            metodo_label = dict(PagoCuentaCobrar.METODO_PAGO_CHOICES).get(
+                pago.metodo_pago, pago.metodo_pago)
             agrupados[group_key]['historial_pagos'].append({
                 'fecha': pago.fecha_pago.isoformat(),
                 'monto': float(pago.monto),
@@ -8501,13 +8769,18 @@ def _armar_clientes_cuentas_por_cobrar():
     for idx, data in enumerate(agrupados.values(), start=1):
         # Orden requerido en CxC: primero facturas con saldo pendiente, luego pagadas;
         # dentro de cada grupo, las más nuevas arriba.
-        data['facturas'].sort(key=lambda x: x.get('fecha_emision') or '', reverse=True)
-        data['facturas'].sort(key=lambda x: float(x.get('saldo_pendiente') or 0) <= 0)
+        data['facturas'].sort(key=lambda x: x.get(
+            'fecha_emision') or '', reverse=True)
+        data['facturas'].sort(key=lambda x: float(
+            x.get('saldo_pendiente') or 0) <= 0)
         data['historial_pagos'].sort(key=lambda x: x['fecha'], reverse=True)
 
-        total_adeudado = sum(item['saldo_pendiente'] for item in data['facturas'])
-        facturas_vencidas = sum(1 for item in data['facturas'] if item['vencida'] and item['saldo_pendiente'] > 0)
-        deuda_vencida = sum(item['saldo_pendiente'] for item in data['facturas'] if item['vencida'] and item['saldo_pendiente'] > 0)
+        total_adeudado = sum(item['saldo_pendiente']
+                             for item in data['facturas'])
+        facturas_vencidas = sum(
+            1 for item in data['facturas'] if item['vencida'] and item['saldo_pendiente'] > 0)
+        deuda_vencida = sum(item['saldo_pendiente'] for item in data['facturas']
+                            if item['vencida'] and item['saldo_pendiente'] > 0)
 
         if total_adeudado >= 20000:
             nivel_deuda = 'alta'
@@ -8549,7 +8822,8 @@ def cuentaporcobrar_datos(request):
         for factura in cliente.get('facturas', [])
         if float(factura.get('saldo_pendiente') or 0) > 0
     )
-    clientes_con_deuda = sum(1 for cliente in clientes if float(cliente.get('total_adeudado') or 0) > 0)
+    clientes_con_deuda = sum(1 for cliente in clientes if float(
+        cliente.get('total_adeudado') or 0) > 0)
     return JsonResponse({'success': True, 'clientes': clientes, 'facturas_pendientes': facturas_pendientes, 'clientes_con_deuda': clientes_con_deuda})
 
 
@@ -8567,7 +8841,8 @@ def historial_pagos(request):
     page = int(request.GET.get('page', 1))
 
     # Consulta base: TODOS los pagos
-    pagos_base = PagoCuentaCobrar.objects.select_related('factura', 'cuenta_por_cobrar', 'registrado_por')
+    pagos_base = PagoCuentaCobrar.objects.select_related(
+        'factura', 'cuenta_por_cobrar', 'registrado_por')
     pagos = pagos_base.order_by('-fecha_pago')
 
     # Filtros
@@ -8580,34 +8855,44 @@ def historial_pagos(request):
     if metodo_pago:
         pagos = pagos.filter(metodo_pago=metodo_pago)
     if fecha:
-        inicio_hoy = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        inicio_hoy = ahora_local.replace(
+            hour=0, minute=0, second=0, microsecond=0)
         fin_hoy = inicio_hoy + timedelta(days=1)
         inicio_mes_actual = inicio_hoy.replace(day=1)
 
         if fecha == 'hoy':
-            pagos = pagos.filter(fecha_pago__gte=inicio_hoy, fecha_pago__lt=fin_hoy)
+            pagos = pagos.filter(fecha_pago__gte=inicio_hoy,
+                                 fecha_pago__lt=fin_hoy)
         elif fecha == 'ayer':
             inicio_ayer = inicio_hoy - timedelta(days=1)
-            pagos = pagos.filter(fecha_pago__gte=inicio_ayer, fecha_pago__lt=inicio_hoy)
+            pagos = pagos.filter(fecha_pago__gte=inicio_ayer,
+                                 fecha_pago__lt=inicio_hoy)
         elif fecha in ['ultimos_7_dias', 'semana']:
             inicio_7_dias = inicio_hoy - timedelta(days=6)
-            pagos = pagos.filter(fecha_pago__gte=inicio_7_dias, fecha_pago__lt=fin_hoy)
+            pagos = pagos.filter(
+                fecha_pago__gte=inicio_7_dias, fecha_pago__lt=fin_hoy)
         elif fecha == 'ultimos_30_dias':
             inicio_30_dias = inicio_hoy - timedelta(days=29)
-            pagos = pagos.filter(fecha_pago__gte=inicio_30_dias, fecha_pago__lt=fin_hoy)
+            pagos = pagos.filter(
+                fecha_pago__gte=inicio_30_dias, fecha_pago__lt=fin_hoy)
         elif fecha in ['este_mes', 'mes']:
-            pagos = pagos.filter(fecha_pago__gte=inicio_mes_actual, fecha_pago__lt=fin_hoy)
+            pagos = pagos.filter(
+                fecha_pago__gte=inicio_mes_actual, fecha_pago__lt=fin_hoy)
         elif fecha == 'mes_pasado':
             fin_mes_pasado = inicio_mes_actual
             ultimo_dia_mes_pasado = inicio_mes_actual - timedelta(days=1)
             inicio_mes_pasado = ultimo_dia_mes_pasado.replace(day=1)
-            pagos = pagos.filter(fecha_pago__gte=inicio_mes_pasado, fecha_pago__lt=fin_mes_pasado)
+            pagos = pagos.filter(
+                fecha_pago__gte=inicio_mes_pasado, fecha_pago__lt=fin_mes_pasado)
         elif fecha == 'este_anio':
             inicio_anio = inicio_hoy.replace(month=1, day=1)
-            pagos = pagos.filter(fecha_pago__gte=inicio_anio, fecha_pago__lt=fin_hoy)
+            pagos = pagos.filter(
+                fecha_pago__gte=inicio_anio, fecha_pago__lt=fin_hoy)
         elif fecha == 'semana_actual':
-            inicio_semana = (inicio_hoy - timedelta(days=ahora_local.weekday()))
-            pagos = pagos.filter(fecha_pago__gte=inicio_semana, fecha_pago__lt=fin_hoy)
+            inicio_semana = (
+                inicio_hoy - timedelta(days=ahora_local.weekday()))
+            pagos = pagos.filter(
+                fecha_pago__gte=inicio_semana, fecha_pago__lt=fin_hoy)
 
     # Paginación de 50 pagos por página
     paginator = Paginator(pagos, 50)
@@ -8637,14 +8922,19 @@ def historial_pagos(request):
 
     # Estadísticas
     total_pagos = pagos.count()
-    ingresos_totales = pagos.filter().aggregate(total=models.Sum('monto'))['total'] or 0
+    ingresos_totales = pagos.filter().aggregate(
+        total=models.Sum('monto'))['total'] or 0
 
     # Estadísticas mensuales y anuales (sobre TODOS los pagos, no solo filtrados)
-    inicio_mes_rd = ahora_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    inicio_hoy_rd = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    inicio_mes_rd = ahora_local.replace(
+        day=1, hour=0, minute=0, second=0, microsecond=0)
+    inicio_hoy_rd = ahora_local.replace(
+        hour=0, minute=0, second=0, microsecond=0)
     fin_hoy_rd = inicio_hoy_rd + timedelta(days=1)
-    pagos_mes_actual = pagos_base.filter(fecha_pago__gte=inicio_mes_rd, fecha_pago__lt=fin_hoy_rd)
-    ingresos_mes_actual = pagos_mes_actual.aggregate(total=models.Sum('monto'))['total'] or 0
+    pagos_mes_actual = pagos_base.filter(
+        fecha_pago__gte=inicio_mes_rd, fecha_pago__lt=fin_hoy_rd)
+    ingresos_mes_actual = pagos_mes_actual.aggregate(
+        total=models.Sum('monto'))['total'] or 0
     total_pagos_mes = pagos_mes_actual.count()
 
     context = {
@@ -8675,7 +8965,8 @@ def cuentaporcobrar_comprobante_pdf(request):
         return HttpResponse('Debe indicar pagos para generar el comprobante.', status=400)
 
     try:
-        pago_ids = [int(pid.strip()) for pid in pagos_param.split(',') if pid.strip()]
+        pago_ids = [int(pid.strip())
+                    for pid in pagos_param.split(',') if pid.strip()]
     except ValueError:
         return HttpResponse('Formato de pagos invalido.', status=400)
 
@@ -8696,15 +8987,20 @@ def cuentaporcobrar_comprobante_pdf(request):
 
     total_factura_por_id = {}
     for pago in pagos:
-        total_factura_por_id[pago.factura_id] = Decimal(str(pago.factura.total or '0'))
+        total_factura_por_id[pago.factura_id] = Decimal(
+            str(pago.factura.total or '0'))
 
-    acumulado_por_factura = {factura_id: Decimal('0.00') for factura_id in factura_ids}
+    acumulado_por_factura = {factura_id: Decimal(
+        '0.00') for factura_id in factura_ids}
     resumen_por_pago = {}
     for pago_hist in pagos_facturas:
-        total_factura = total_factura_por_id.get(pago_hist.factura_id, Decimal('0.00'))
-        acumulado_por_factura[pago_hist.factura_id] += Decimal(str(pago_hist.monto or '0'))
+        total_factura = total_factura_por_id.get(
+            pago_hist.factura_id, Decimal('0.00'))
+        acumulado_por_factura[pago_hist.factura_id] += Decimal(
+            str(pago_hist.monto or '0'))
 
-        saldo_actual = total_factura - acumulado_por_factura[pago_hist.factura_id]
+        saldo_actual = total_factura - \
+            acumulado_por_factura[pago_hist.factura_id]
         if saldo_actual < Decimal('0.00'):
             saldo_actual = Decimal('0.00')
 
@@ -8722,7 +9018,8 @@ def cuentaporcobrar_comprobante_pdf(request):
     lineas_encabezado = 14
     lineas_por_pago = 13
     lineas_pie = 6
-    alto_ticket = (lineas_encabezado + (len(pagos) * lineas_por_pago) + lineas_pie) * alto_linea
+    alto_ticket = (lineas_encabezado + (len(pagos) *
+                   lineas_por_pago) + lineas_pie) * alto_linea
     if alto_ticket < (120 * mm):
         alto_ticket = 120 * mm
 
@@ -8753,14 +9050,17 @@ def cuentaporcobrar_comprobante_pdf(request):
     no_transaccion_general = pagos[0].id if pagos else 0
     # Encabezado del negocio con logo
     try:
-        logo_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        logo_path = os.path.join(
+            settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
         if not os.path.exists(logo_path):
-            logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+            logo_path = os.path.join(
+                settings.BASE_DIR, 'static', 'img', 'fastfood.png')
 
         if os.path.exists(logo_path):
             logo_size = 14 * mm
             logo_x = (ancho_ticket - logo_size) / 2
-            c.drawImage(logo_path, logo_x, y - logo_size, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
+            c.drawImage(logo_path, logo_x, y - logo_size, width=logo_size,
+                        height=logo_size, preserveAspectRatio=True, mask='auto')
             y -= (logo_size + 2 * mm)
     except Exception:
         pass
@@ -8771,7 +9071,8 @@ def cuentaporcobrar_comprobante_pdf(request):
     c.setFont('Helvetica', 7)
     c.drawCentredString(ancho_ticket / 2, y, 'RNC: 00000000')
     y -= alto_linea
-    c.drawCentredString(ancho_ticket / 2, y, 'Direccion: Castanuelas, calle 30 de mayo frente a la bomba')
+    c.drawCentredString(
+        ancho_ticket / 2, y, 'Direccion: Castanuelas, calle 30 de mayo frente a la bomba')
     y -= alto_linea
     c.drawCentredString(ancho_ticket / 2, y, 'Telefono: 849-362-1791')
     y -= alto_linea
@@ -8785,9 +9086,9 @@ def cuentaporcobrar_comprobante_pdf(request):
     _draw_label_value(y, 'Generado', ahora_local.strftime('%d/%m/%Y %I:%M %p'))
     y -= alto_linea
     c.setFont('Helvetica', 7)
-    c.drawRightString(ancho_ticket - 5 * mm, y, f'Recibo: #{no_transaccion_general}')
+    c.drawRightString(ancho_ticket - 5 * mm, y,
+                      f'Recibo: #{no_transaccion_general}')
     y -= alto_linea
-
 
     for pago in pagos:
         resumen_pago = resumen_por_pago.get(pago.id, {
@@ -8796,16 +9097,20 @@ def cuentaporcobrar_comprobante_pdf(request):
         })
         saldo_anterior = resumen_pago['saldo_anterior']
         saldo_actual = resumen_pago['saldo_actual']
-        tipo_comprobante = 'Factura saldada' if saldo_actual <= Decimal('0.00') else 'Abono'
+        tipo_comprobante = 'Factura saldada' if saldo_actual <= Decimal(
+            '0.00') else 'Abono'
 
         numero_comprobante = pago.numero_comprobante or f'CP-{pago.id}'
         numero_factura = pago.factura.numero_factura or f'FACT-{pago.factura_id}'
-        cliente_nombre = (pago.factura.nombre_cliente or 'Cliente general')[:34]
-        metodo = pago.get_metodo_pago_display() if hasattr(pago, 'get_metodo_pago_display') else (pago.metodo_pago or 'N/A')
+        cliente_nombre = (
+            pago.factura.nombre_cliente or 'Cliente general')[:34]
+        metodo = pago.get_metodo_pago_display() if hasattr(
+            pago, 'get_metodo_pago_display') else (pago.metodo_pago or 'N/A')
         referencia = (pago.referencia or 'N/A')[:34]
 
         if pago.registrado_por:
-            nombre_usuario = (pago.registrado_por.get_full_name() or pago.registrado_por.username or 'N/A').strip()
+            nombre_usuario = (pago.registrado_por.get_full_name(
+            ) or pago.registrado_por.username or 'N/A').strip()
         else:
             nombre_usuario = 'N/A'
 
@@ -8816,9 +9121,11 @@ def cuentaporcobrar_comprobante_pdf(request):
 
         fecha_pago_local = pago.fecha_pago
         if timezone.is_naive(fecha_pago_local):
-            fecha_pago_local = timezone.make_aware(fecha_pago_local, timezone.get_current_timezone())
+            fecha_pago_local = timezone.make_aware(
+                fecha_pago_local, timezone.get_current_timezone())
         fecha_pago_local = timezone.localtime(fecha_pago_local, tz_rd)
-        _draw_label_value(y, 'Fecha pago', fecha_pago_local.strftime('%d/%m/%Y'))
+        _draw_label_value(
+            y, 'Fecha pago', fecha_pago_local.strftime('%d/%m/%Y'))
         y -= alto_linea
         _draw_label_value(y, 'Tipo', tipo_comprobante)
         y -= alto_linea
@@ -8855,15 +9162,19 @@ def cuentaporcobrar_comprobante_pdf(request):
     y -= alto_linea
 
     # Firma UUID de pago (centrada, negro para impresora térmica, pequeña, debajo del mensaje de gracias)
-    uuid_firmas = [str(p.uuid_pago) for p in pagos if hasattr(p, 'uuid_pago') and p.uuid_pago]
+    uuid_firmas = [str(p.uuid_pago)
+                   for p in pagos if hasattr(p, 'uuid_pago') and p.uuid_pago]
     if uuid_firmas:
         c.setFont('Helvetica-Oblique', 6)
-        c.setFillColorRGB(0, 0, 0)  # Negro para que se vea en impresora térmica
+        # Negro para que se vea en impresora térmica
+        c.setFillColorRGB(0, 0, 0)
         if len(uuid_firmas) == 1:
-            c.drawCentredString(ancho_ticket / 2, y, f"Firma: {uuid_firmas[0]}")
+            c.drawCentredString(ancho_ticket / 2, y,
+                                f"Firma: {uuid_firmas[0]}")
         else:
             # Si hay varios pagos, concatenar UUIDs separados por espacio
-            c.drawCentredString(ancho_ticket / 2, y, "Firmas: " + " ".join(uuid_firmas))
+            c.drawCentredString(ancho_ticket / 2, y,
+                                "Firmas: " + " ".join(uuid_firmas))
         y -= alto_linea
 
     c.showPage()
@@ -8919,23 +9230,25 @@ def cuentaporcobrar_registrar_pago(request):
 
     # ── Método de pago ────────────────────────────────────────────────────────
     metodo_pago = (payload.get('metodo_pago') or 'efectivo').strip()
-    metodos_validos = {item[0] for item in PagoCuentaCobrar.METODO_PAGO_CHOICES}
+    metodos_validos = {item[0]
+                       for item in PagoCuentaCobrar.METODO_PAGO_CHOICES}
     if metodo_pago not in metodos_validos:
         metodo_pago = 'efectivo'
 
     referencia = (payload.get('referencia') or '').strip()
-    notas      = (payload.get('notas')      or '').strip()
+    notas = (payload.get('notas') or '').strip()
 
     # ── Pago completo ─────────────────────────────────────────────────────────
     raw_pago_completo = payload.get('pago_completo', True)
     if isinstance(raw_pago_completo, bool):
         pago_completo = raw_pago_completo
     else:
-        pago_completo = str(raw_pago_completo).strip().lower() in {'1', 'true', 'si', 'sí', 'on'}
+        pago_completo = str(raw_pago_completo).strip().lower() in {
+            '1', 'true', 'si', 'sí', 'on'}
 
     # ── Identificadores ───────────────────────────────────────────────────────
-    factura_id      = payload.get('factura_id')
-    cliente_nombre  = (payload.get('cliente_nombre')  or '').strip()
+    factura_id = payload.get('factura_id')
+    cliente_nombre = (payload.get('cliente_nombre') or '').strip()
     cliente_telefono = _telefono_solo_digitos(payload.get('cliente_telefono'))
 
     # ── UUID — OBLIGATORIO desde el frontend ──────────────────────────────────
@@ -8955,11 +9268,12 @@ def cuentaporcobrar_registrar_pago(request):
     if factura_id:
         with transaction.atomic():
             factura = get_object_or_404(
-                Factura.objects.exclude(estado='pagada').prefetch_related('pagos_cxc'),
+                Factura.objects.exclude(
+                    estado='pagada').prefetch_related('pagos_cxc'),
                 id=factura_id
             )
-            cuenta        = _sincronizar_cuenta_por_cobrar(factura)
-            saldo_actual  = _saldo_factura_pendiente(factura)
+            cuenta = _sincronizar_cuenta_por_cobrar(factura)
+            saldo_actual = _saldo_factura_pendiente(factura)
 
             if saldo_actual <= 0:
                 return JsonResponse(
@@ -8968,7 +9282,8 @@ def cuentaporcobrar_registrar_pago(request):
                 )
             if monto > saldo_actual:
                 return JsonResponse(
-                    {'success': False, 'error': f'El monto excede el saldo pendiente (RD$ {saldo_actual}).'},
+                    {'success': False,
+                        'error': f'El monto excede el saldo pendiente (RD$ {saldo_actual}).'},
                     status=400
                 )
 
@@ -8989,7 +9304,8 @@ def cuentaporcobrar_registrar_pago(request):
                 )
             except IntegrityError:
                 # Dos requests simultáneos con el mismo UUID: el segundo llega aquí
-                pago_registrado = PagoCuentaCobrar.objects.get(uuid_pago=uuid_pago)
+                pago_registrado = PagoCuentaCobrar.objects.get(
+                    uuid_pago=uuid_pago)
                 creado = False
 
             # ── Pago duplicado — devolver info para reimpresión ──────────────
@@ -9014,10 +9330,10 @@ def cuentaporcobrar_registrar_pago(request):
             _sincronizar_cuenta_por_cobrar(factura)
 
             if _saldo_factura_pendiente(factura) <= 0:
-                factura.estado      = 'pagada'
+                factura.estado = 'pagada'
                 factura.metodo_pago = metodo_pago
                 factura.save(update_fields=['estado', 'metodo_pago'])
-                
+
                 # Sincronizar movimientos financieros
                 _sincronizar_movimientos_factura(factura)
 
@@ -9070,7 +9386,7 @@ def cuentaporcobrar_registrar_pago(request):
     facturas_cliente = []
 
     for factura in facturas_no_pagadas:
-        tel_factura    = _telefono_solo_digitos(factura.telefono_cliente)
+        tel_factura = _telefono_solo_digitos(factura.telefono_cliente)
         nombre_factura = (factura.nombre_cliente or '').strip().lower()
 
         coincide = False
@@ -9084,7 +9400,8 @@ def cuentaporcobrar_registrar_pago(request):
 
     if not facturas_cliente:
         return JsonResponse(
-            {'success': False, 'error': 'No se encontraron facturas pendientes para ese cliente.'},
+            {'success': False,
+                'error': 'No se encontraron facturas pendientes para ese cliente.'},
             status=404
         )
 
@@ -9102,18 +9419,18 @@ def cuentaporcobrar_registrar_pago(request):
         )
 
     # ── Distribuir el pago entre las facturas ─────────────────────────────
-    restante          = monto
-    aplicado_total    = Decimal('0.00')
+    restante = monto
+    aplicado_total = Decimal('0.00')
     pagos_creados_ids = []
-    pagos_creados     = []
-    hubo_reimpresion  = False
+    pagos_creados = []
+    hubo_reimpresion = False
 
     with transaction.atomic():
         for factura in facturas_cliente:
             if restante <= 0:
                 break
 
-            cuenta       = _sincronizar_cuenta_por_cobrar(factura)
+            cuenta = _sincronizar_cuenta_por_cobrar(factura)
             saldo_actual = _saldo_factura_pendiente(factura)
             if saldo_actual <= 0:
                 continue
@@ -9122,7 +9439,8 @@ def cuentaporcobrar_registrar_pago(request):
 
             # UUID único por factura dentro del pago distribuido
             # uuid_pago_factura = f"{uuid_pago}-{factura.id}"
-            uuid_pago_factura = str(uuid.uuid5(uuid.UUID(uuid_pago), str(factura.id)))
+            uuid_pago_factura = str(uuid.uuid5(
+                uuid.UUID(uuid_pago), str(factura.id)))
             # ── Idempotencia con get_or_create ───────────────────────────
             try:
                 pago_obj, creado = PagoCuentaCobrar.objects.get_or_create(
@@ -9139,8 +9457,9 @@ def cuentaporcobrar_registrar_pago(request):
                     }
                 )
             except IntegrityError:
-                pago_obj = PagoCuentaCobrar.objects.get(uuid_pago=uuid_pago_factura)
-                creado   = False
+                pago_obj = PagoCuentaCobrar.objects.get(
+                    uuid_pago=uuid_pago_factura)
+                creado = False
 
             pagos_creados_ids.append(str(pago_obj.id))
             pagos_creados.append(pago_obj)
@@ -9167,10 +9486,10 @@ def cuentaporcobrar_registrar_pago(request):
 
             _sincronizar_cuenta_por_cobrar(factura)
             if _saldo_factura_pendiente(factura) <= 0:
-                factura.estado      = 'pagada'
+                factura.estado = 'pagada'
                 factura.metodo_pago = metodo_pago
                 factura.save(update_fields=['estado', 'metodo_pago'])
-                
+
                 # Sincronizar movimientos financieros
                 _sincronizar_movimientos_factura(factura)
 
@@ -9208,7 +9527,8 @@ def cuentaporcobrar_registrar_pago(request):
         'numeros_comprobante':   numeros_comprobante,
     })
 
-@login_required   
+
+@login_required
 def estado_cuenta_cliente_pdf(request):
     """Genera un PDF A4 de estado de cuenta de un cliente."""
     cliente_id = request.GET.get('cliente_id')
@@ -9218,62 +9538,79 @@ def estado_cuenta_cliente_pdf(request):
         cliente = Cliente.objects.get(pk=cliente_id)
     except Cliente.DoesNotExist:
         return HttpResponse('Cliente no encontrado.', status=404)
- 
-    cuentas = CuentaPorCobrar.objects.filter(cliente=cliente).select_related('factura').order_by('fecha_emision')
+
+    cuentas = CuentaPorCobrar.objects.filter(
+        cliente=cliente).select_related('factura').order_by('fecha_emision')
     facturas = [c.factura for c in cuentas if c.factura]
-    pagos_qs = PagoCuentaCobrar.objects.filter(factura__in=facturas).select_related('factura').order_by('fecha_pago')
- 
-    total_facturado = sum((Decimal(str(f.total or 0)) for f in facturas), Decimal('0.00'))
+    pagos_qs = PagoCuentaCobrar.objects.filter(
+        factura__in=facturas).select_related('factura').order_by('fecha_pago')
+
+    total_facturado = sum((Decimal(str(f.total or 0))
+                          for f in facturas), Decimal('0.00'))
     total_devuelto = sum(
-        (Decimal(str(getattr(f, 'get_total_devuelto', lambda: Decimal('0.00'))() or 0)) for f in facturas),
+        (Decimal(str(getattr(f, 'get_total_devuelto', lambda: Decimal('0.00'))() or 0))
+         for f in facturas),
         Decimal('0.00')
     )
-    total_pagado = pagos_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    total_pagado = pagos_qs.aggregate(total=Sum('monto'))[
+        'total'] or Decimal('0.00')
     saldo_pendiente = total_facturado - total_devuelto - total_pagado
     if saldo_pendiente < Decimal('0.00'):
         saldo_pendiente = Decimal('0.00')
- 
+
     # ── Estilos ────────────────────────────────────────────────────────────────
     buffer = io.BytesIO()
-    doc    = SimpleDocTemplate(
+    doc = SimpleDocTemplate(
         buffer, pagesize=A4,
         rightMargin=20*mm, leftMargin=20*mm,
         topMargin=20*mm,   bottomMargin=20*mm,
     )
-    styles     = getSampleStyleSheet()
-    title_sty  = ParagraphStyle('TitleEC',  parent=styles['Heading1'],  fontSize=18, alignment=1, spaceAfter=4)
-    small_sty  = ParagraphStyle('SmallEC',  parent=styles['Normal'],    fontSize=9)
-    bold_sty   = ParagraphStyle('BoldEC',   parent=styles['Normal'],    fontName='Helvetica-Bold')
+    styles = getSampleStyleSheet()
+    title_sty = ParagraphStyle(
+        'TitleEC',  parent=styles['Heading1'],  fontSize=18, alignment=1, spaceAfter=4)
+    small_sty = ParagraphStyle(
+        'SmallEC',  parent=styles['Normal'],    fontSize=9)
+    bold_sty = ParagraphStyle(
+        'BoldEC',   parent=styles['Normal'],    fontName='Helvetica-Bold')
     # Estilo para celdas de tabla (evita overflow, hace word-wrap automático)
-    cell_sty   = ParagraphStyle('CellEC',   parent=styles['Normal'],    fontSize=9,  leading=11)
-    cell_b_sty = ParagraphStyle('CellBEC',  parent=styles['Normal'],    fontSize=9,  leading=11, fontName='Helvetica-Bold')
+    cell_sty = ParagraphStyle(
+        'CellEC',   parent=styles['Normal'],    fontSize=9,  leading=11)
+    cell_b_sty = ParagraphStyle(
+        'CellBEC',  parent=styles['Normal'],    fontSize=9,  leading=11, fontName='Helvetica-Bold')
     cell_i_sty = ParagraphStyle('CellIEC',  parent=styles['Normal'],    fontSize=8,  leading=10,
                                 fontName='Helvetica-Oblique', textColor=colors.HexColor('#555555'))
-    hdr_sty    = ParagraphStyle('HdrEC',    parent=styles['Normal'],    fontSize=9,  leading=11,
-                                fontName='Helvetica-Bold',   alignment=1)
- 
+    hdr_sty = ParagraphStyle('HdrEC',    parent=styles['Normal'],    fontSize=9,  leading=11,
+                             fontName='Helvetica-Bold',   alignment=1)
+
     story = []
- 
+
     # ── Logo + datos empresa ───────────────────────────────────────────────────
     try:
-        logo_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        logo_path = os.path.join(
+            settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
         if not os.path.exists(logo_path):
-            logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+            logo_path = os.path.join(
+                settings.BASE_DIR, 'static', 'img', 'fastfood.png')
         if os.path.exists(logo_path):
-            logo       = Image(logo_path, width=30*mm, height=30*mm)
+            logo = Image(logo_path, width=30*mm, height=30*mm)
             logo_table = Table([[logo]], colWidths=[doc.width])
-            logo_table.setStyle(TableStyle([('ALIGN', (0,0), (0,0), 'CENTER')]))
+            logo_table.setStyle(TableStyle(
+                [('ALIGN', (0, 0), (0, 0), 'CENTER')]))
             story.append(logo_table)
             story.append(Spacer(1, 4))
     except Exception:
         pass
- 
-    story.append(Paragraph("402 FASTFOOD",                                title_sty))
-    story.append(Paragraph("RNC: 00000000",                               small_sty))
-    story.append(Paragraph("Dirección: Castanuelas, calle 30 de mayo",    small_sty))
-    story.append(Paragraph("Teléfono: 849-362-1791",                      small_sty))
+
+    story.append(Paragraph("402 FASTFOOD",
+                 title_sty))
+    story.append(Paragraph("RNC: 00000000",
+                 small_sty))
+    story.append(
+        Paragraph("Dirección: Castanuelas, calle 30 de mayo",    small_sty))
+    story.append(
+        Paragraph("Teléfono: 849-362-1791",                      small_sty))
     story.append(Spacer(1, 8))
- 
+
     # ── Info cliente ───────────────────────────────────────────────────────────
     story.append(Paragraph("<b>INFORMACIÓN DEL CLIENTE</b>", bold_sty))
     tcli = Table([
@@ -9283,20 +9620,20 @@ def estado_cuenta_cliente_pdf(request):
         ["Email:",     getattr(cliente, 'email', '-')],
     ], colWidths=[60*mm, doc.width - 60*mm])
     tcli.setStyle(TableStyle([
-        ('FONTNAME',      (0,0), (-1,-1), 'Helvetica'),
-        ('FONTSIZE',      (0,0), (-1,-1), 10),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-        ('ALIGN',         (0,0), (0,-1),  'RIGHT'),
-        ('ALIGN',         (1,0), (1,-1),  'LEFT'),
+        ('FONTNAME',      (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE',      (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('ALIGN',         (0, 0), (0, -1),  'RIGHT'),
+        ('ALIGN',         (1, 0), (1, -1),  'LEFT'),
     ]))
     story.append(tcli)
     story.append(Spacer(1, 8))
- 
+
     # ── Tarjetas de totales ────────────────────────────────────────────────────
     val_sty = {
         'total':    ParagraphStyle('v1', parent=bold_sty, textColor=colors.HexColor('#222222'), fontSize=14, alignment=1),
         'pagado':   ParagraphStyle('v2', parent=bold_sty, textColor=colors.HexColor('#1ca64c'), fontSize=14, alignment=1),
-        'pendiente':ParagraphStyle('v3', parent=bold_sty, textColor=colors.HexColor('#d32f2f'), fontSize=14, alignment=1),
+        'pendiente': ParagraphStyle('v3', parent=bold_sty, textColor=colors.HexColor('#d32f2f'), fontSize=14, alignment=1),
     }
     tcard = Table([
         [Paragraph('<b>TOTAL FACTURADO</b>', bold_sty),
@@ -9307,15 +9644,15 @@ def estado_cuenta_cliente_pdf(request):
          Paragraph(f"RD$ {saldo_pendiente:,.2f}",  val_sty['pendiente'])],
     ], colWidths=[doc.width/3]*3)
     tcard.setStyle(TableStyle([
-        ('ALIGN',         (0,0), (-1,-1), 'CENTER'),
-        ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-        ('TOPPADDING',    (0,0), (-1,-1), 6),
-        ('LINEBELOW',     (0,1), (2,1),   1, colors.HexColor('#888888')),
+        ('ALIGN',         (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING',    (0, 0), (-1, -1), 6),
+        ('LINEBELOW',     (0, 1), (2, 1),   1, colors.HexColor('#888888')),
     ]))
     story.append(tcard)
     story.append(Spacer(1, 20))
- 
+
     # ── Tabla de detalle ───────────────────────────────────────────────────────
     # Anchos de columna  (suman doc.width = 170mm aprox en A4 con márgenes 20mm)
     #   col0 N°Factura  : 38mm   ← más ancho para evitar corte
@@ -9330,12 +9667,13 @@ def estado_cuenta_cliente_pdf(request):
     C4 = 24*mm
     C5 = 24*mm
     C2 = doc.width - C0 - C1 - C3 - C4 - C5   # ~38mm
- 
+
     col_widths = [C0, C1, C2, C3, C4, C5]
- 
-    COLOR_HDR  = colors.HexColor('#e3e3e3')
-    COLOR_PAGO = colors.HexColor('#f5f9f5')   # fondo verde muy suave para filas de pago
- 
+
+    COLOR_HDR = colors.HexColor('#e3e3e3')
+    # fondo verde muy suave para filas de pago
+    COLOR_PAGO = colors.HexColor('#f5f9f5')
+
     # Cabecera
     data = [[
         Paragraph('N° Factura',   hdr_sty),
@@ -9345,16 +9683,16 @@ def estado_cuenta_cliente_pdf(request):
         Paragraph('Pagado',       hdr_sty),
         Paragraph('Saldo',        hdr_sty),
     ]]
- 
+
     row_styles = []
-    row_idx    = 1
- 
+    row_idx = 1
+
     for cxc in cuentas:
-        f          = cxc.factura
+        f = cxc.factura
         pagos_fact = [p for p in pagos_qs if p.factura_id == f.id]
-        pagado     = sum([p.monto for p in pagos_fact])
-        saldo      = (f.total or 0) - pagado
- 
+        pagado = sum([p.monto for p in pagos_fact])
+        saldo = (f.total or 0) - pagado
+
         # ── Fila de factura ────────────────────────────────────────────────────
         descripcion = getattr(f, 'descripcion', None) or '-'
         data.append([
@@ -9367,63 +9705,72 @@ def estado_cuenta_cliente_pdf(request):
         ])
         row_styles += [
             ('ALIGN',       (3, row_idx), (5, row_idx), 'RIGHT'),
-            ('LINEBELOW',   (0, row_idx), (-1, row_idx), 0.25, colors.HexColor('#bbbbbb')),
+            ('LINEBELOW',   (0, row_idx), (-1, row_idx),
+             0.25, colors.HexColor('#bbbbbb')),
         ]
         row_idx += 1
- 
+
         # ── Filas de pago (una por pago) ───────────────────────────────────────
         for p in pagos_fact:
             metodo_str = p.get_metodo_pago_display()
-            comp_str   = p.numero_comprobante or '-'
+            comp_str = p.numero_comprobante or '-'
             # col2: método + comprobante en una sola celda, bien legible
-            desc_pago  = f"\u21b3 {metodo_str}   Comp.: {comp_str}"
- 
+            desc_pago = f"\u21b3 {metodo_str}   Comp.: {comp_str}"
+
             data.append([
-                Paragraph('', cell_i_sty),                           # col0: vacío
-                Paragraph(p.fecha_pago.strftime('%d/%m/%Y'), cell_i_sty),  # col1: fecha pago
-                Paragraph(desc_pago,                          cell_i_sty),  # col2: descripción pago
-                Paragraph('', cell_i_sty),                           # col3: vacío
-                Paragraph('', cell_i_sty),                           # col4: vacío
-                Paragraph(f"RD$ {p.monto:,.2f}",             cell_i_sty),  # col5: monto pago
+                # col0: vacío
+                Paragraph('', cell_i_sty),
+                Paragraph(p.fecha_pago.strftime('%d/%m/%Y'),
+                          cell_i_sty),  # col1: fecha pago
+                # col2: descripción pago
+                Paragraph(desc_pago,                          cell_i_sty),
+                # col3: vacío
+                Paragraph('', cell_i_sty),
+                # col4: vacío
+                Paragraph('', cell_i_sty),
+                Paragraph(f"RD$ {p.monto:,.2f}",
+                          cell_i_sty),  # col5: monto pago
             ])
             row_styles += [
                 ('BACKGROUND', (0, row_idx), (-1, row_idx), COLOR_PAGO),
                 ('ALIGN',      (5, row_idx), (5, row_idx),  'RIGHT'),
-                ('LINEBELOW',  (0, row_idx), (-1, row_idx), 0.15, colors.HexColor('#d0d0d0')),
+                ('LINEBELOW',  (0, row_idx), (-1, row_idx),
+                 0.15, colors.HexColor('#d0d0d0')),
             ]
             row_idx += 1
- 
+
     tdet = Table(data, colWidths=col_widths, repeatRows=1)
     tdet.setStyle(TableStyle([
         # Cabecera
-        ('BACKGROUND',    (0,0), (-1,0), COLOR_HDR),
-        ('FONTNAME',      (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE',      (0,0), (-1,0), 9),
-        ('ALIGN',         (0,0), (-1,0), 'CENTER'),
-        ('LINEBELOW',     (0,0), (-1,0), 1, colors.HexColor('#888888')),
+        ('BACKGROUND',    (0, 0), (-1, 0), COLOR_HDR),
+        ('FONTNAME',      (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE',      (0, 0), (-1, 0), 9),
+        ('ALIGN',         (0, 0), (-1, 0), 'CENTER'),
+        ('LINEBELOW',     (0, 0), (-1, 0), 1, colors.HexColor('#888888')),
         # General
-        ('VALIGN',        (0,0), (-1,-1), 'TOP'),
-        ('TOPPADDING',    (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ('LEFTPADDING',   (0,0), (-1,-1), 4),
-        ('RIGHTPADDING',  (0,0), (-1,-1), 4),
+        ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING',    (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 4),
         # Columnas numéricas alineadas a la derecha (filas de factura – base)
-        ('ALIGN',         (3,1), (5,-1), 'RIGHT'),
+        ('ALIGN',         (3, 1), (5, -1), 'RIGHT'),
     ] + row_styles))
     story.append(Paragraph("<b>DETALLE DE FACTURAS</b>", bold_sty))
     story.append(Spacer(1, 6))
     story.append(tdet)
     story.append(Spacer(1, 10))
- 
+
     # ── Notas ──────────────────────────────────────────────────────────────────
     story.append(Paragraph("<b>NOTAS / OBSERVACIONES</b>", bold_sty))
     # Fecha límite dinámica: 15 días después de hoy
-    fecha_limite = (timezone.localdate() + timedelta(days=15)).strftime('%d/%m/%Y')
+    fecha_limite = (timezone.localdate() +
+                    timedelta(days=15)).strftime('%d/%m/%Y')
     story.append(Paragraph(
         f"Por favor realizar los pagos pendientes antes del {fecha_limite}. Gracias por su preferencia.",
         small_sty,
     ))
- 
+
     # ── Build ──────────────────────────────────────────────────────────────────
     doc.build(story)
     pdf = buffer.getvalue()
