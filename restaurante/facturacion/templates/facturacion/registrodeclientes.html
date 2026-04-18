@@ -1325,6 +1325,12 @@
             }
 
             if (!formularioValido) {
+                // Llevar al usuario al primer campo con error
+                const primerCampoError = document.querySelector('input.error, textarea.error');
+                if (primerCampoError) {
+                    primerCampoError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    primerCampoError.focus();
+                }
                 mostrarNotificacion('Por favor, corrija los errores en el formulario.', 'error');
                 return;
             }
