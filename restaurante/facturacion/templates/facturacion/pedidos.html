@@ -3187,11 +3187,49 @@ body {
     // ========================================
     
     /**
+     * Limpiar todo al cargar la página (carrito, filtros, búsqueda, etc)
+     */
+    function clearAllPageData() {
+        // Limpiar carrito
+        cart = [];
+        localStorage.removeItem('restaurantCart');
+        
+        // Limpiar filtros y búsqueda
+        currentFilter = 'todos';
+        currentSearch = '';
+        currentOrderType = 'mesa';
+        currentTableId = '';
+        currentTableNumber = '';
+        currentDeliveryCode = '';
+        currentLlevarCode = '';
+        currentPaymentMethod = 'contado';
+        currentCreditClientId = '';
+        
+        // Limpiar inputs del DOM
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.value = '';
+        }
+        
+        // Resetear botones de filtro
+        document.querySelectorAll('.category-filter').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        const todosBtn = document.querySelector('.category-filter');
+        if (todosBtn) {
+            todosBtn.classList.add('active');
+        }
+    }
+    
+    /**
      * Inicializar la aplicación cuando el DOM esté listo
      */
     document.addEventListener('DOMContentLoaded', function() {
         console.log("=== INICIALIZANDO APLICACIÓN ===");
         syncCsrfTokens();
+        
+        // Limpiar todo al cargar la página
+        clearAllPageData();
         
         // Obtener datos de Django
         try {
@@ -4167,6 +4205,13 @@ body {
         searchInput.value = '';
         currentSearch = '';
         renderMenu();
+    }
+    
+    /**
+     * Recargar menú desde el servidor
+     */
+    function reloadMenu() {
+        location.reload();
     }
     
     // ========================================

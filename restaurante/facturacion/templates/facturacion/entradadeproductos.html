@@ -743,9 +743,29 @@
             const ml_trago = parseInt(mlTragoSelect.value) || 0;
             const total_tragos = Math.floor((botellas * ml_botella) / (ml_trago > 0 ? ml_trago : 1));
 
-            // Validaciones
-            if (!productName || !price || botellas <= 0 || ml_botella <= 0 || ml_trago <= 0) {
-                alert('Por favor complete todos los campos de trago correctamente.');
+            // Validaciones con mensajes personalizados
+            if (!productName) {
+                alert('⚠️ Campo requerido: Nombre del Producto');
+                return;
+            }
+            if (!category) {
+                alert('⚠️ Campo requerido: Categoría');
+                return;
+            }
+            if (!price || parseFloat(price) <= 0) {
+                alert('⚠️ Campo requerido: Precio de Compra (debe ser mayor a 0)');
+                return;
+            }
+            if (botellas <= 0) {
+                alert('⚠️ Campo requerido: Botellas (debe ser mayor a 0)');
+                return;
+            }
+            if (ml_botella <= 0) {
+                alert('⚠️ Campo requerido: ML por Botella (debe ser mayor a 0)');
+                return;
+            }
+            if (ml_trago <= 0) {
+                alert('⚠️ Campo requerido: ML por Trago (debe ser mayor a 0)');
                 return;
             }
 
@@ -803,12 +823,27 @@
                 alert('Error de conexión. Revisa la consola para más detalles.');
             }
         } else {
-            // Flujo normal para otras categorías (no se toca)
+            // Flujo normal para otras categorías
             const quantity = desformatearNumero(quantityInput.value);
-            if (!productName || !category || !quantity || !price) {
-                alert('Por favor complete todos los campos');
+            
+            // Validaciones con mensajes personalizados
+            if (!productName) {
+                alert('⚠️ Campo requerido: Nombre del Producto');
                 return;
             }
+            if (!category) {
+                alert('⚠️ Campo requerido: Categoría');
+                return;
+            }
+            if (!quantity || parseFloat(quantity) <= 0) {
+                alert('⚠️ Campo requerido: Cantidad (debe ser mayor a 0)');
+                return;
+            }
+            if (!price || parseFloat(price) <= 0) {
+                alert('⚠️ Campo requerido: Precio de Compra (debe ser mayor a 0)');
+                return;
+            }
+            
             const data = {
                 productName: productName,
                 category: category,

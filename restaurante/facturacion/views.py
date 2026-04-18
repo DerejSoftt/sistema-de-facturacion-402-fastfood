@@ -759,7 +759,7 @@ def pedidos(request):
 
         # 🔥 **BEBIDAS DE PRODUCTO**
         bebidas = Producto.objects.filter(
-            categoria='bebida',
+            categoria__in=['bebida', 'trago'],
             cantidad__gt=0  # Solo bebidas con stock
         ).order_by('nombre')
 
