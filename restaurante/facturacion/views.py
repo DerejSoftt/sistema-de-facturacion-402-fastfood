@@ -3796,7 +3796,8 @@ def roles(request):
 
     # Comprobar grupos existentes de una vez
     nombres_grupos = [g[0] for g in grupos_por_defecto]
-    grupos_existentes = set(Group.objects.filter(name__in=nombres_grupos).values_list('name', flat=True))
+    grupos_existentes = set(Group.objects.filter(
+        name__in=nombres_grupos).values_list('name', flat=True))
 
     for nombre, descripcion in grupos_por_defecto:
         if nombre not in grupos_existentes:
@@ -4186,7 +4187,8 @@ def dashbort(request):
         fecha_pago__gte=inicio_dia_utc,
         fecha_pago__lte=fin_dia_utc
     )
-    pagos_credito_dia = pagos_credito_dia_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    pagos_credito_dia = pagos_credito_dia_qs.aggregate(
+        total=Sum('monto'))['total'] or Decimal('0.00')
     total_pagos_hoy = pagos_credito_dia_qs.count()
 
     venta_dia = venta_dia_contado + pagos_credito_dia
@@ -4221,7 +4223,8 @@ def dashbort(request):
         fecha_pago__gte=inicio_mes,
         fecha_pago__lte=fin_mes
     )
-    pagos_credito_mes = pagos_credito_mes_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    pagos_credito_mes = pagos_credito_mes_qs.aggregate(
+        total=Sum('monto'))['total'] or Decimal('0.00')
     total_pagos_mes = pagos_credito_mes_qs.count()
 
     venta_mes = venta_mes_contado + pagos_credito_mes
@@ -4288,7 +4291,8 @@ def dashbort(request):
         fecha_factura__lte=fin_mes_pasado_time,
         estado='pagada'
     )
-    gastos_totales_mes_pasado = calcular_costo_real_facturas(facturas_mes_pasado_qs)
+    gastos_totales_mes_pasado = calcular_costo_real_facturas(
+        facturas_mes_pasado_qs)
 
     # 5. GANANCIAS NETAS
     ganancias_netas = venta_mes - gastos_totales
@@ -4365,7 +4369,8 @@ def dashbort(request):
             items = factura.get_items_detalle(enrich_from_db=False)
             if items and isinstance(items, list):
                 for item in items:
-                    nombre = item.get('name', '').strip() or item.get('nombre', '').strip()
+                    nombre = item.get('name', '').strip(
+                    ) or item.get('nombre', '').strip()
                     if not nombre:
                         continue
 
@@ -4373,7 +4378,8 @@ def dashbort(request):
                     if cantidad <= 0:
                         continue
 
-                    productos_ayer[nombre] = productos_ayer.get(nombre, 0) + cantidad
+                    productos_ayer[nombre] = productos_ayer.get(
+                        nombre, 0) + cantidad
         except Exception:
             continue
 
@@ -4499,7 +4505,8 @@ def dashbort(request):
             return categoria if categoria in categorias_validas else ''
 
         def resolver_categoria_item(item):
-            categoria_directa = normalizar_categoria(item.get('categoria') or item.get('category'))
+            categoria_directa = normalizar_categoria(
+                item.get('categoria') or item.get('category'))
             if categoria_directa:
                 return categoria_directa
 
@@ -4524,38 +4531,48 @@ def dashbort(request):
                     digitos = re.findall(r'\d+', valor_str)
                     return int(digitos[0]) if digitos else None
 
-            producto_id = item.get('producto_id') or item.get('product_id') or item.get('id')
+            producto_id = item.get('producto_id') or item.get(
+                'product_id') or item.get('id')
             pid = extraer_id_numerico(producto_id)
             if pid is not None:
-                categoria_por_id = normalizar_categoria(producto_categoria_por_id.get(pid))
+                categoria_por_id = normalizar_categoria(
+                    producto_categoria_por_id.get(pid))
                 if categoria_por_id:
                     return categoria_por_id
 
-                categoria_plato_id = normalizar_categoria(plato_categoria_por_id.get(pid))
+                categoria_plato_id = normalizar_categoria(
+                    plato_categoria_por_id.get(pid))
                 if categoria_plato_id:
                     return categoria_plato_id
 
-            codigo_item = (item.get('codigo') or item.get('code') or '').strip().lower()
+            codigo_item = (item.get('codigo') or item.get(
+                'code') or '').strip().lower()
             if codigo_item:
-                categoria_por_codigo = normalizar_categoria(producto_categoria_por_codigo.get(codigo_item))
+                categoria_por_codigo = normalizar_categoria(
+                    producto_categoria_por_codigo.get(codigo_item))
                 if categoria_por_codigo:
                     return categoria_por_codigo
 
-                categoria_plato_codigo = normalizar_categoria(plato_categoria_por_codigo.get(codigo_item))
+                categoria_plato_codigo = normalizar_categoria(
+                    plato_categoria_por_codigo.get(codigo_item))
                 if categoria_plato_codigo:
                     return categoria_plato_codigo
 
-            tipo_item = (item.get('tipo_item') or item.get('tipo') or '').strip().lower()
+            tipo_item = (item.get('tipo_item') or item.get(
+                'tipo') or '').strip().lower()
             if tipo_item == 'bebida' or bool(item.get('es_bebida')):
                 return 'bebida'
 
-            nombre_item = (item.get('name') or item.get('nombre') or '').strip().lower()
+            nombre_item = (item.get('name') or item.get(
+                'nombre') or '').strip().lower()
             if nombre_item:
-                categoria_producto = normalizar_categoria(producto_categoria_por_nombre.get(nombre_item))
+                categoria_producto = normalizar_categoria(
+                    producto_categoria_por_nombre.get(nombre_item))
                 if categoria_producto:
                     return categoria_producto
 
-                categoria_plato = normalizar_categoria(plato_categoria_por_nombre.get(nombre_item))
+                categoria_plato = normalizar_categoria(
+                    plato_categoria_por_nombre.get(nombre_item))
                 if categoria_plato:
                     return categoria_plato
 
@@ -4571,7 +4588,8 @@ def dashbort(request):
                 for item in items:
                     categoria = resolver_categoria_item(item)
                     cantidad, precio = obtener_cantidad_precio_item(item)
-                    acumulado[categoria] = acumulado.get(categoria, 0) + (cantidad * precio)
+                    acumulado[categoria] = acumulado.get(
+                        categoria, 0) + (cantidad * precio)
             return acumulado
 
         # Pase rapido por defecto
@@ -4579,22 +4597,26 @@ def dashbort(request):
 
         # Si no hay categorías hoy, intentar del mes
         if not categorias_dict:
-            categorias_dict = acumular_categorias(facturas_mes, enrich_items=False)
+            categorias_dict = acumular_categorias(
+                facturas_mes, enrich_items=False)
 
         # Fallback: si todo colapsa en "otro", reintentar enriqueciendo desde BD
         if categorias_dict and set(categorias_dict.keys()) == {'otro'}:
             categorias_dict_rapido = categorias_dict.copy()
-            categorias_dict = acumular_categorias(facturas_hoy, enrich_items=True)
+            categorias_dict = acumular_categorias(
+                facturas_hoy, enrich_items=True)
             if not categorias_dict:
-                categorias_dict = acumular_categorias(facturas_mes, enrich_items=True)
+                categorias_dict = acumular_categorias(
+                    facturas_mes, enrich_items=True)
 
             # Si aun viene solo "otro", conservar al menos el pase rapido
             if not categorias_dict:
                 categorias_dict = categorias_dict_rapido
-        
+
         # Si aún no hay datos, mantener listas vacías (sin datos reales)
         if categorias_dict:
-            categorias_data = [categoria_labels.get(categoria, categoria.title()) for categoria in categorias_dict.keys()]
+            categorias_data = [categoria_labels.get(
+                categoria, categoria.title()) for categoria in categorias_dict.keys()]
             ventas_categorias_data = list(categorias_dict.values())
         else:
             categorias_data = []
@@ -4633,32 +4655,34 @@ def dashbort(request):
 
         labels_mensuales.append(fecha_dia.strftime('%d %b'))
         proyeccion_mensual.append(float(venta_dia_mes))
-    
+
     # Etiquetas para gráfico anual (últimos 12 meses)
     labels_anuales = []
     proyeccion_anual = []
-    
+
     # Calcular ventas de los últimos 12 meses
     for i in range(11, -1, -1):
         # Calcular fecha del mes
         fecha_mes = hoy_local.replace(day=1)
         for _ in range(i):
             # Retroceder un mes
-            fecha_mes = (fecha_mes.replace(day=1) - timedelta(days=1)).replace(day=1)
-        
+            fecha_mes = (fecha_mes.replace(day=1) -
+                         timedelta(days=1)).replace(day=1)
+
         # Calcular inicio y fin del mes
         if fecha_mes.month == 12:
             ultimo_dia = fecha_mes.replace(day=31)
         else:
-            ultimo_dia = fecha_mes.replace(month=fecha_mes.month + 1, day=1) - timedelta(days=1)
-        
+            ultimo_dia = fecha_mes.replace(
+                month=fecha_mes.month + 1, day=1) - timedelta(days=1)
+
         inicio_mes_grafico = timezone.make_aware(
             datetime.combine(fecha_mes, datetime.min.time())
         )
         fin_mes_grafico = timezone.make_aware(
             datetime.combine(ultimo_dia, datetime.max.time())
         )
-        
+
         # Obtener ventas de este mes
         venta_mes_grafico = Factura.objects.filter(
             fecha_factura__gte=inicio_mes_grafico,
@@ -4672,14 +4696,14 @@ def dashbort(request):
         ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
         venta_mes_grafico += pagos_credito_mes_grafico
-        
+
         # Nombre del mes en español
-        meses_esp = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
+        meses_esp = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
                      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
-        
+
         labels_anuales.append(meses_esp[fecha_mes.month - 1])
         proyeccion_anual.append(float(venta_mes_grafico))
-    
+
     # 12. DATOS REALES PARA GRÁFICO DE HORARIO Y MÉTODO DE PAGO
     # Se usa el mes actual para tener una muestra más estable.
     horario_labels = ['Mañana', 'Mediodía', 'Tarde', 'Noche']
@@ -4730,7 +4754,8 @@ def dashbort(request):
         if metodo_pago_cxc in metodo_totales:
             metodo_totales[metodo_pago_cxc] += pago_cxc.monto
 
-    ventas_horarios_data = [float(horario_totales[label]) for label in horario_labels]
+    ventas_horarios_data = [float(horario_totales[label])
+                            for label in horario_labels]
     ventas_metodos_data = [
         float(metodo_totales['efectivo']),
         float(metodo_totales['tarjeta']),
@@ -4754,7 +4779,8 @@ def dashbort(request):
         ).order_by('-fecha_factura')[:10]
 
         total_facturas_db = Factura.objects.count()
-        total_facturas_pagadas_db = Factura.objects.filter(estado='pagada').count()
+        total_facturas_pagadas_db = Factura.objects.filter(
+            estado='pagada').count()
 
         primera_factura = Factura.objects.order_by('fecha_factura').first()
         ultima_factura = Factura.objects.order_by('-fecha_factura').first()
@@ -4775,10 +4801,14 @@ def dashbort(request):
 
     trend_venta_dia = calcular_cambio_porcentual(venta_dia, venta_dia_anterior)
     trend_venta_mes = calcular_cambio_porcentual(venta_mes, venta_mes_pasado)
-    trend_gastos = calcular_cambio_porcentual(gastos_totales, gastos_totales_mes_pasado)
-    trend_ganancias = calcular_cambio_porcentual(ganancias_netas, ganancias_netas_mes_pasado)
-    trend_pedidos = calcular_cambio_porcentual(total_pedidos, total_pedidos_ayer)
-    trend_clientes = calcular_cambio_porcentual(nuevos_clientes, nuevos_clientes_mes_pasado)
+    trend_gastos = calcular_cambio_porcentual(
+        gastos_totales, gastos_totales_mes_pasado)
+    trend_ganancias = calcular_cambio_porcentual(
+        ganancias_netas, ganancias_netas_mes_pasado)
+    trend_pedidos = calcular_cambio_porcentual(
+        total_pedidos, total_pedidos_ayer)
+    trend_clientes = calcular_cambio_porcentual(
+        nuevos_clientes, nuevos_clientes_mes_pasado)
 
     context = {
         'venta_dia': venta_dia,
@@ -4813,12 +4843,12 @@ def dashbort(request):
         'total_pagos_mes': total_pagos_mes,
         'facturas_hoy_todas': facturas_hoy_todas,
         'todas_facturas': todas_facturas,
-        
+
         # Información adicional para depuración
         'rango_dia_inicio': rango_dia_inicio.strftime('%d/%m/%Y %H:%M'),
         'rango_dia_fin': rango_dia_fin.strftime('%d/%m/%Y %H:%M'),
         'definicion_dia': '6:00 AM - 5:59 AM (día siguiente)',
-        
+
         # DATOS DE VERIFICACIÓN PARA MOSTRAR DIRECTAMENTE EN EL DASHBOARD
         'total_facturas_db': total_facturas_db,
         'total_facturas_pagadas_db': total_facturas_pagadas_db,
@@ -4827,7 +4857,7 @@ def dashbort(request):
         'facturas_mes_pasado': facturas_mes_pasado,
         'venta_mes_pasado': venta_mes_pasado,
         'mes_pasado_nombre': inicio_mes_pasado.strftime('%B %Y'),
-        
+
         # DATOS CRUDOS PARA DIAGNÓSTICO
         'datos_semana_raw': list(zip(ultimos_7_dias, ventas_7_dias)),
         'datos_categorias_raw': list(zip(categorias_data, ventas_categorias_data)),
@@ -4861,6 +4891,7 @@ def dashbort(request):
         cache.set(cache_key, context, 300)
 
     return render(request, 'facturacion/dashbort.html', context)
+
 
 @login_required
 def dashboard_stats(request):
@@ -5272,15 +5303,20 @@ def _ticket_cliente_corto(valor):
 
 
 def draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, titulo, rows, total):
-    if not rows:
-        return y
-
     if y < 35 * mm:
         y = _ticket_nueva_pagina(c, alto_pagina)
 
     c.setFont("Helvetica-Bold", 9)
     c.drawCentredString(ancho_pagina / 2, y, titulo)
     y -= 5 * mm
+
+    if not rows:
+        c.setFont("Helvetica-Oblique", 7)
+        c.drawString(5 * mm, y, "(Sin registros)")
+        y -= 4 * mm
+        c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+        y -= 6 * mm
+        return y
 
     c.setFont("Helvetica-Bold", 8)
     c.drawString(5 * mm, y, "FACTURA")
@@ -5303,11 +5339,11 @@ def draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, titulo, rows, total):
 
         c.drawString(5 * mm, y, f"#{_ticket_ref_corta(row['factura'])}")
         c.drawString(30 * mm, y, row['hora'])
-        
+
         cliente_label = row['cliente']
         if row.get('anulada'):
             cliente_label = f"(ANUL) {cliente_label}"
-        
+
         c.drawString(42 * mm, y, _ticket_cliente_corto(cliente_label))
         c.drawRightString(ancho_pagina - 5 * mm, y, f"{row['monto']:,.2f}")
         y -= 3.5 * mm
@@ -5322,15 +5358,20 @@ def draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, titulo, rows, total):
 
 
 def draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina, titulo, rows, total):
-    if not rows:
-        return y
-
     if y < 35 * mm:
         y = _ticket_nueva_pagina(c, alto_pagina)
 
     c.setFont("Helvetica-Bold", 9)
     c.drawCentredString(ancho_pagina / 2, y, titulo)
     y -= 5 * mm
+
+    if not rows:
+        c.setFont("Helvetica-Oblique", 7)
+        c.drawString(5 * mm, y, "(Sin registros)")
+        y -= 4 * mm
+        c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+        y -= 6 * mm
+        return y
 
     c.setFont("Helvetica-Bold", 8)
     c.drawString(5 * mm, y, "COMP.")
@@ -5353,7 +5394,7 @@ def draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina, titulo, rows, total)
 
         c.drawString(5 * mm, y, f"#{_ticket_ref_corta(row['comp'])}")
         c.drawString(22 * mm, y, row['hora'])
-        
+
         cliente_label = row['cliente']
         if row.get('anulada'):
             cliente_label = f"(ANUL) {cliente_label}"
@@ -5384,9 +5425,11 @@ def generar_pdf_cuadre_caja(request):
     from datetime import time
     if ahora_local.hour >= 2:
         inicio_dia = tz_rd.localize(datetime.combine(hoy_local, time(2, 0, 0)))
-        fin_dia = tz_rd.localize(datetime.combine(hoy_local + timedelta(days=1), time(1, 59, 59)))
+        fin_dia = tz_rd.localize(datetime.combine(
+            hoy_local + timedelta(days=1), time(1, 59, 59)))
     else:
-        inicio_dia = tz_rd.localize(datetime.combine(hoy_local - timedelta(days=1), time(2, 0, 0)))
+        inicio_dia = tz_rd.localize(datetime.combine(
+            hoy_local - timedelta(days=1), time(2, 0, 0)))
         fin_dia = tz_rd.localize(datetime.combine(hoy_local, time(1, 59, 59)))
 
     periodo_texto = f"{inicio_dia.strftime('%d/%m/%Y %I:%M %p')} - {fin_dia.strftime('%d/%m/%Y %I:%M %p')}"
@@ -5408,7 +5451,7 @@ def generar_pdf_cuadre_caja(request):
     # Filtro para MovimientoFinanciero (usa factura__)
     credito_mov_q = Q(factura__cuenta_por_cobrar__isnull=False) | Q(
         factura__pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
-    
+
     # Filtro para Factura (usa campos directos)
     credito_fac_q = Q(cuenta_por_cobrar__isnull=False) | Q(
         pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
@@ -5441,7 +5484,7 @@ def generar_pdf_cuadre_caja(request):
         cliente = "CLIENTE"
         if p and p.cuenta_por_cobrar:
             cliente = p.cuenta_por_cobrar.cliente.nombre_completo
-        
+
         pagos_data.append({
             'comp': p.numero_comprobante if p else mov.referencia,
             'hora': mov.fecha_operacion.astimezone(tz_rd).strftime('%I:%M %p'),
@@ -5490,22 +5533,26 @@ def generar_pdf_cuadre_caja(request):
         })
 
     # Totales para el resumen
-    total_ventas_contado = sum(x['monto'] for x in ventas_contado_data if not x['anulada'])
-    total_ventas_credito = sum(x['monto'] for x in ventas_credito_data if not x['anulada'])
+    total_ventas_contado = sum(x['monto']
+                               for x in ventas_contado_data if not x['anulada'])
+    total_ventas_credito = sum(x['monto']
+                               for x in ventas_credito_data if not x['anulada'])
     total_pagos = sum(x['monto'] for x in pagos_data if not x['anulada'])
     total_devoluciones = sum(x['monto'] for x in devoluciones_data)
     total_anulaciones = sum(x['monto'] for x in anulaciones_data)
     total_excedentes = sum(x['monto'] for x in excedentes_data)
     total_ajustes = sum(x['monto'] for x in ajustes_data)
 
-    total_ingresos = total_ventas_contado + total_pagos + sum(x['monto'] for x in ajustes_data if x['monto'] > 0)
-    total_egresos = abs(total_devoluciones) + abs(total_anulaciones) + abs(total_excedentes) + abs(sum(x['monto'] for x in ajustes_data if x['monto'] < 0))
+    total_ingresos = total_ventas_contado + total_pagos + \
+        sum(x['monto'] for x in ajustes_data if x['monto'] > 0)
+    total_egresos = abs(total_devoluciones) + abs(total_anulaciones) + abs(
+        total_excedentes) + abs(sum(x['monto'] for x in ajustes_data if x['monto'] < 0))
     caja_neta = total_ingresos - total_egresos
 
     # --- GENERAR PDF ---
     buffer = io.BytesIO()
     ancho_pagina = 80 * mm
-    alto_pagina = 297 * mm # Usar varias páginas si es necesario para ticket limpio
+    alto_pagina = 297 * mm  # Usar varias páginas si es necesario para ticket limpio
     c = canvas.Canvas(buffer, pagesize=(ancho_pagina, alto_pagina))
     y = alto_pagina - 10 * mm
 
@@ -5517,7 +5564,8 @@ def generar_pdf_cuadre_caja(request):
     c.drawCentredString(ancho_pagina / 2, y, "CUADRE DE CAJA")
     y -= 5 * mm
     c.setFont("Helvetica", 8)
-    c.drawString(5 * mm, y, f"Fecha: {ahora_local.strftime('%d/%m/%Y %I:%M %p')}")
+    c.drawString(
+        5 * mm, y, f"Fecha: {ahora_local.strftime('%d/%m/%Y %I:%M %p')}")
     y -= 4 * mm
     c.setFont("Helvetica-Bold", 7)
     c.drawString(5 * mm, y, f"Periodo: {periodo_texto}")
@@ -5547,16 +5595,24 @@ def generar_pdf_cuadre_caja(request):
     y -= 5 * mm
 
     # Tablas Seccionadas
-    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "VENTAS CONTADO", ventas_contado_data, sum(x['monto'] for x in ventas_contado_data))
-    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "VENTAS CRÉDITO", ventas_credito_data, sum(x['monto'] for x in ventas_credito_data))
-    y = draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina, "PAGOS CXC", pagos_data, sum(x['monto'] for x in pagos_data))
-    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "DEVOLUCIONES", devoluciones_data, total_devoluciones)
-    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "ANULACIONES", anulaciones_data, total_anulaciones)
-    y = draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina, "EXCEDENTES", excedentes_data, total_excedentes)
-    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "OTROS AJUSTES", ajustes_data, total_ajustes)
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "VENTAS CONTADO",
+                              ventas_contado_data, sum(x['monto'] for x in ventas_contado_data))
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "VENTAS CRÉDITO",
+                              ventas_credito_data, sum(x['monto'] for x in ventas_credito_data))
+    y = draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina,
+                               "PAGOS CXC", pagos_data, sum(x['monto'] for x in pagos_data))
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina,
+                              "DEVOLUCIONES", devoluciones_data, total_devoluciones)
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina,
+                              "ANULACIONES", anulaciones_data, total_anulaciones)
+    y = draw_tabla_movimientos(
+        c, y, ancho_pagina, alto_pagina, "EXCEDENTES", excedentes_data, total_excedentes)
+    y = draw_tabla_documentos(
+        c, y, ancho_pagina, alto_pagina, "OTROS AJUSTES", ajustes_data, total_ajustes)
 
     # Balance Final
-    if y < 40 * mm: y = _ticket_nueva_pagina(c, alto_pagina)
+    if y < 40 * mm:
+        y = _ticket_nueva_pagina(c, alto_pagina)
     c.setFont("Helvetica-Bold", 10)
     c.drawString(5 * mm, y, "TOTAL INGRESOS:")
     c.drawRightString(ancho_pagina - 5 * mm, y, f"RD$ {total_ingresos:,.2f}")
@@ -5574,9 +5630,9 @@ def generar_pdf_cuadre_caja(request):
     c.save()
     buffer.seek(0)
     response = HttpResponse(buffer, content_type='application/pdf')
-    response['Content-Disposition'] = f"inline; filename=\"cuadre_caja_{ahora_local.strftime('%Y%m%d_%H%M')}.pdf\""
+    response[
+        'Content-Disposition'] = f"inline; filename=\"cuadre_caja_{ahora_local.strftime('%Y%m%d_%H%M')}.pdf\""
     return response
-  
 
 
 @login_required
@@ -6017,7 +6073,8 @@ def detalle_producto_vendido(request, producto_nombre):
 
     # Configurar fechas por defecto (últimos 30 días)
     if not fecha_inicio or not fecha_fin:
-        fecha_fin_obj = timezone.now().astimezone(pytz.timezone('America/Santo_Domingo')).date()
+        fecha_fin_obj = timezone.now().astimezone(
+            pytz.timezone('America/Santo_Domingo')).date()
         fecha_inicio_obj = fecha_fin_obj - timedelta(days=30)
     else:
         fecha_inicio_obj = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
@@ -8435,7 +8492,7 @@ def _resumen_movimientos_caja(inicio, fin):
     from decimal import Decimal
 
     tz_rd = pytz.timezone('America/Santo_Domingo')
-    
+
     if timezone.is_naive(inicio):
         inicio = tz_rd.localize(inicio)
     if timezone.is_naive(fin):
@@ -9428,11 +9485,12 @@ def cuentaporcobrar_registrar_pago(request):
     fecha_pago = None
     tz_rd = pytz.timezone('America/Santo_Domingo')
     ahora_local = timezone.now().astimezone(tz_rd)
-    
+
     if fecha_pago_raw:
         try:
             fecha_sola = datetime.strptime(fecha_pago_raw, '%Y-%m-%d').date()
-            fecha_pago = tz_rd.localize(datetime.combine(fecha_sola, ahora_local.time()))
+            fecha_pago = tz_rd.localize(
+                datetime.combine(fecha_sola, ahora_local.time()))
         except Exception:
             return JsonResponse(
                 {'success': False, 'error': 'Fecha de pago inválida.'},
@@ -9595,7 +9653,8 @@ def cuentaporcobrar_registrar_pago(request):
         )
 
     # ── Buscar facturas pendientes del cliente ─────────────────────────────
-    facturas_no_pagadas = Factura.objects.exclude(estado='pagada').order_by('fecha_factura')
+    facturas_no_pagadas = Factura.objects.exclude(
+        estado='pagada').order_by('fecha_factura')
     facturas_cliente = []
     for f in facturas_no_pagadas:
         tel_factura = _telefono_solo_digitos(f.telefono_cliente)
@@ -9615,16 +9674,20 @@ def cuentaporcobrar_registrar_pago(request):
 
     with transaction.atomic():
         # Bloquear todas las facturas del cliente para asegurar consistencia del lote
-        facturas_lock = Factura.objects.select_for_update().filter(id__in=[f.id for f in facturas_cliente])
-        
+        facturas_lock = Factura.objects.select_for_update().filter(
+            id__in=[f.id for f in facturas_cliente])
+
         for factura in facturas_lock:
-            if restante <= 0: break
-            
+            if restante <= 0:
+                break
+
             saldo_actual = _saldo_factura_pendiente(factura)
-            if saldo_actual <= 0: continue
+            if saldo_actual <= 0:
+                continue
 
             monto_aplicar = saldo_actual if saldo_actual <= restante else restante
-            uuid_pago_factura = str(uuid.uuid5(uuid.UUID(uuid_pago), str(factura.id)))
+            uuid_pago_factura = str(uuid.uuid5(
+                uuid.UUID(uuid_pago), str(factura.id)))
 
             try:
                 pago_obj, creado = PagoCuentaCobrar.objects.get_or_create(
@@ -9637,7 +9700,8 @@ def cuentaporcobrar_registrar_pago(request):
                     }
                 )
             except IntegrityError:
-                pago_obj = PagoCuentaCobrar.objects.get(uuid_pago=uuid_pago_factura)
+                pago_obj = PagoCuentaCobrar.objects.get(
+                    uuid_pago=uuid_pago_factura)
                 creado = False
 
             pagos_creados_ids.append(str(pago_obj.id))
@@ -9664,7 +9728,7 @@ def cuentaporcobrar_registrar_pago(request):
 
     # ── Respuesta del pago distribuido ────────────────────────────────────
     comprobante_url = f"{reverse('cuentaporcobrar_comprobante_pdf')}?pagos={','.join(pagos_creados_ids)}" if pagos_creados_ids else ''
-    
+
     if aplicado_total <= 0 and hubo_reimpresion:
         response_data = {
             'success': True, 'mensaje': 'Pago ya registrado previamente.',
@@ -9702,12 +9766,15 @@ def estado_cuenta_cliente_pdf(request):
         return HttpResponse('Cliente no encontrado.', status=404)
 
     # 1. Recopilar todos los componentes del estado de cuenta
-    cuentas_qs = CuentaPorCobrar.objects.filter(cliente=cliente).select_related('factura')
+    cuentas_qs = CuentaPorCobrar.objects.filter(
+        cliente=cliente).select_related('factura')
     facturas_ids = [c.factura_id for c in cuentas_qs if c.factura_id]
     facturas_qs = Factura.objects.filter(id__in=facturas_ids)
-    
-    pagos_qs = PagoCuentaCobrar.objects.filter(factura_id__in=facturas_ids).order_by('fecha_pago')
-    devoluciones_qs = Devolucion.objects.filter(factura_id__in=facturas_ids).order_by('fecha_devolucion')
+
+    pagos_qs = PagoCuentaCobrar.objects.filter(
+        factura_id__in=facturas_ids).order_by('fecha_pago')
+    devoluciones_qs = Devolucion.objects.filter(
+        factura_id__in=facturas_ids).order_by('fecha_devolucion')
 
     # 2. Construir lista de movimientos
     movimientos = []
@@ -9761,7 +9828,7 @@ def estado_cuenta_cliente_pdf(request):
     saldo_acumulado = Decimal('0.00')
     total_debitos = Decimal('0.00')
     total_creditos = Decimal('0.00')
-    
+
     for mov in movimientos:
         saldo_acumulado += mov['debito']
         saldo_acumulado -= mov['credito']
@@ -9777,30 +9844,35 @@ def estado_cuenta_cliente_pdf(request):
         topMargin=20*mm,   bottomMargin=20*mm,
     )
     styles = getSampleStyleSheet()
-    title_sty = ParagraphStyle('TitleEC', parent=styles['Heading1'], fontSize=16, alignment=1)
+    title_sty = ParagraphStyle(
+        'TitleEC', parent=styles['Heading1'], fontSize=16, alignment=1)
     small_sty = ParagraphStyle('SmallEC', parent=styles['Normal'], fontSize=8)
-    bold_sty = ParagraphStyle('BoldEC', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9)
-    cell_sty = ParagraphStyle('CellEC', parent=styles['Normal'], fontSize=8, leading=10)
-    hdr_sty = ParagraphStyle('HdrEC', parent=styles['Normal'], fontSize=8, fontName='Helvetica-Bold', alignment=1)
+    bold_sty = ParagraphStyle(
+        'BoldEC', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9)
+    cell_sty = ParagraphStyle(
+        'CellEC', parent=styles['Normal'], fontSize=8, leading=10)
+    hdr_sty = ParagraphStyle(
+        'HdrEC', parent=styles['Normal'], fontSize=8, fontName='Helvetica-Bold', alignment=1)
 
     story = []
 
     # Encabezado Empresa (Logo simplificado o Texto)
     story.append(Paragraph("<b>402 FASTFOOD</b>", title_sty))
-    story.append(Paragraph("ESTADO DE CUENTA DE CLIENTE", ParagraphStyle('Sub', parent=title_sty, fontSize=12)))
+    story.append(Paragraph("ESTADO DE CUENTA DE CLIENTE",
+                 ParagraphStyle('Sub', parent=title_sty, fontSize=12)))
     story.append(Spacer(1, 10))
 
     # Info Cliente y Totales
     info_data = [
-        [Paragraph(f"<b>Cliente:</b> {cliente.nombre_completo}", cell_sty), 
+        [Paragraph(f"<b>Cliente:</b> {cliente.nombre_completo}", cell_sty),
          Paragraph(f"<b>Total Cargos:</b> RD$ {total_debitos:,.2f}", cell_sty)],
-        [Paragraph(f"<b>RNC/Cédula:</b> {getattr(cliente, 'rnc', '-')}", cell_sty), 
+        [Paragraph(f"<b>RNC/Cédula:</b> {getattr(cliente, 'rnc', '-')}", cell_sty),
          Paragraph(f"<b>Total Abonos:</b> RD$ {total_creditos:,.2f}", cell_sty)],
-        [Paragraph(f"<b>Fecha de Emisión:</b> {timezone.now().strftime('%d/%m/%Y %H:%M')}", cell_sty), 
+        [Paragraph(f"<b>Fecha de Emisión:</b> {timezone.now().strftime('%d/%m/%Y %H:%M')}", cell_sty),
          Paragraph(f"<b>SALDO ACTUAL:</b> RD$ {saldo_acumulado:,.2f}", ParagraphStyle('S', parent=cell_sty, fontName='Helvetica-Bold', textColor=colors.red if saldo_acumulado > 0 else colors.black))],
     ]
     tinfo = Table(info_data, colWidths=[doc.width*0.6, doc.width*0.4])
-    tinfo.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')]))
+    tinfo.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
     story.append(tinfo)
     story.append(Spacer(1, 15))
 
@@ -9817,40 +9889,48 @@ def estado_cuenta_cliente_pdf(request):
 
     for m in movimientos:
         color_mov = colors.black
-        if m['tipo'] == 'Pago': color_mov = colors.HexColor('#1ca64c')
-        elif m['tipo'] == 'Anulación': color_mov = colors.HexColor('#d32f2f')
-        elif m['tipo'] == 'Devolución': color_mov = colors.HexColor('#f39c12')
+        if m['tipo'] == 'Pago':
+            color_mov = colors.HexColor('#1ca64c')
+        elif m['tipo'] == 'Anulación':
+            color_mov = colors.HexColor('#d32f2f')
+        elif m['tipo'] == 'Devolución':
+            color_mov = colors.HexColor('#f39c12')
 
         data.append([
             Paragraph(m['fecha'].strftime('%d/%m/%Y'), cell_sty),
-            Paragraph(f"<b>{m['tipo']}</b>", ParagraphStyle('T', parent=cell_sty, textColor=color_mov)),
+            Paragraph(f"<b>{m['tipo']}</b>", ParagraphStyle('T',
+                      parent=cell_sty, textColor=color_mov)),
             Paragraph(m['referencia'], cell_sty),
             Paragraph(m['descripcion'], cell_sty),
-            Paragraph(f"{m['debito']:,.2f}" if m['debito'] > 0 else "-", ParagraphStyle('R', parent=cell_sty, alignment=2)),
-            Paragraph(f"{m['credito']:,.2f}" if m['credito'] > 0 else "-", ParagraphStyle('R', parent=cell_sty, alignment=2, textColor=color_mov)),
-            Paragraph(f"<b>{m['saldo']:,.2f}</b>", ParagraphStyle('R', parent=cell_sty, alignment=2, fontName='Helvetica-Bold')),
+            Paragraph(f"{m['debito']:,.2f}" if m['debito'] > 0 else "-",
+                      ParagraphStyle('R', parent=cell_sty, alignment=2)),
+            Paragraph(f"{m['credito']:,.2f}" if m['credito'] > 0 else "-",
+                      ParagraphStyle('R', parent=cell_sty, alignment=2, textColor=color_mov)),
+            Paragraph(f"<b>{m['saldo']:,.2f}</b>", ParagraphStyle('R',
+                      parent=cell_sty, alignment=2, fontName='Helvetica-Bold')),
         ])
 
     col_widths = [22*mm, 20*mm, 25*mm, 53*mm, 20*mm, 20*mm, 20*mm]
     tdet = Table(data, colWidths=col_widths, repeatRows=1)
     tdet.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f2f2f2')),
-        ('LINEBELOW', (0,0), (-1,0), 1, colors.black),
-        ('LINEBELOW', (0,1), (-1,-1), 0.5, colors.grey),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-        ('TOPPADDING', (0,0), (-1,-1), 3),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f2f2f2')),
+        ('LINEBELOW', (0, 0), (-1, 0), 1, colors.black),
+        ('LINEBELOW', (0, 1), (-1, -1), 0.5, colors.grey),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
     ]))
     story.append(tdet)
 
     # Footer
     story.append(Spacer(1, 20))
-    story.append(Paragraph(f"Documento generado automáticamente por el sistema de facturación. Balance pendiente al corte: RD$ {saldo_acumulado:,.2f}", small_sty))
+    story.append(Paragraph(
+        f"Documento generado automáticamente por el sistema de facturación. Balance pendiente al corte: RD$ {saldo_acumulado:,.2f}", small_sty))
 
     doc.build(story)
     pdf = buffer.getvalue()
     buffer.close()
-    
+
     response = HttpResponse(content_type='application/pdf')
     nombre_archivo = cliente.nombre_completo.strip().replace(' ', '_')
     response['Content-Disposition'] = f'attachment; filename="Estado_Cuenta_{nombre_archivo}.pdf"'
