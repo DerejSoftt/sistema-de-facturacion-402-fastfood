@@ -5050,7 +5050,7 @@ def draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, titulo, rows, total):
     if not rows:
         return y
 
-    if y < 30 * mm:
+    if y < 35 * mm:
         y = _ticket_nueva_pagina(c, alto_pagina)
 
     c.setFont("Helvetica-Bold", 9)
@@ -5066,22 +5066,96 @@ def draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, titulo, rows, total):
 
     c.setFont("Helvetica", 7)
     for row in rows:
-        if y < 25 * mm:
+        if y < 20 * mm:
             y = _ticket_nueva_pagina(c, alto_pagina)
             c.setFont("Helvetica-Bold", 8)
             c.drawString(5 * mm, y, "FACTURA")
             c.drawString(30 * mm, y, "HORA")
+            c.drawString(42 * mm, y, "CLIENTE")
+            c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
+            y -= 4 * mm
+            c.setFont("Helvetica", 7)
+
+        c.drawString(5 * mm, y, f"#{_ticket_ref_corta(row['factura'])}")
+        c.drawString(30 * mm, y, row['hora'])
+        
+        cliente_label = row['cliente']
+        if row.get('anulada'):
+            cliente_label = f"(ANUL) {cliente_label}"
+        
+        c.drawString(42 * mm, y, _ticket_cliente_corto(cliente_label))
+        c.drawRightString(ancho_pagina - 5 * mm, y, f"{row['monto']:,.2f}")
+        y -= 3.5 * mm
+
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "TOTAL:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD$ {total:,.2f}")
+    y -= 4 * mm
+    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+    y -= 6 * mm
+    return y
+
+
+def draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina, titulo, rows, total):
+    if not rows:
+        return y
+
+    if y < 35 * mm:
+        y = _ticket_nueva_pagina(c, alto_pagina)
+
+    c.setFont("Helvetica-Bold", 9)
+    c.drawCentredString(ancho_pagina / 2, y, titulo)
+    y -= 5 * mm
+
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "COMP.")
+    c.drawString(22 * mm, y, "HORA")
+    c.drawString(32 * mm, y, "CLIENTE")
+    c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
+    y -= 4 * mm
+
+    c.setFont("Helvetica", 7)
+    for row in rows:
+        if y < 20 * mm:
+            y = _ticket_nueva_pagina(c, alto_pagina)
+            c.setFont("Helvetica-Bold", 8)
+            c.drawString(5 * mm, y, "COMP.")
+            c.drawString(22 * mm, y, "HORA")
+            c.drawString(32 * mm, y, "CLIENTE")
+            c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
+            y -= 4 * mm
+            c.setFont("Helvetica", 7)
+
+        c.drawString(5 * mm, y, f"#{_ticket_ref_corta(row['comp'])}")
+        c.drawString(22 * mm, y, row['hora'])
+        
+        cliente_label = row['cliente']
+        if row.get('anulada'):
+            cliente_label = f"(ANUL) {cliente_label}"
+
+        c.drawString(32 * mm, y, _ticket_cliente_corto(cliente_label))
+        c.drawRightString(ancho_pagina - 5 * mm, y, f"{row['monto']:,.2f}")
+        y -= 3.5 * mm
+
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "TOTAL:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD$ {total:,.2f}")
+    y -= 4 * mm
+    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+    y -= 6 * mm
+    return y
+
 
 def generar_pdf_cuadre_caja(request):
     """
-    Genera un PDF de cuadre de caja (tipo ticket) con auditoría UNIVERSAL.
-    Muestra todas las operaciones (contado, crédito, anulaciones) para trazabilidad total.
+    Genera un PDF de cuadre de caja (tipo ticket) con diseño seccionado.
+    Garantiza que se muestren TODOS los movimientos para trazabilidad.
     """
     tz_rd = pytz.timezone('America/Santo_Domingo')
     ahora_local = timezone.now().astimezone(tz_rd)
     hoy_local = ahora_local.date()
 
-    # Definición del rango del "Día Operativo" (2:00 AM a 1:59 AM)
+    # Periodo Operativo: 2:00 AM a 1:59 AM
     from datetime import time
     if ahora_local.hour >= 2:
         inicio_dia = tz_rd.localize(datetime.combine(hoy_local, time(2, 0, 0)))
@@ -5092,84 +5166,121 @@ def generar_pdf_cuadre_caja(request):
 
     periodo_texto = f"{inicio_dia.strftime('%d/%m/%Y %I:%M %p')} - {fin_dia.strftime('%d/%m/%Y %I:%M %p')}"
 
-    # 1. Obtener todos los movimientos financieros (Cash Flow)
+    # Recopilar todos los movimientos financieros activos e inactivos
     movimientos_qs = MovimientoFinanciero.objects.filter(
         fecha_operacion__gte=inicio_dia,
         fecha_operacion__lt=fin_dia,
-        estado__in=['ACTIVO', 'INACTIVO'], # Incluir anulados para trazabilidad
+        estado__in=['ACTIVO', 'INACTIVO'],
     ).select_related('factura', 'pago_cxc', 'devolucion').order_by('fecha_operacion')
 
-    # 2. Obtener todas las facturas creadas hoy (para detectar ventas a crédito sin pagos)
+    # Facturas creadas hoy
     facturas_hoy_qs = Factura.objects.filter(
         fecha_factura__gte=inicio_dia,
         fecha_factura__lt=fin_dia
     ).select_related('cuenta_por_cobrar')
 
-    # Clasificación para el resumen (Totales)
-    # IMPORTANTE: Los totales solo deben sumar lo que REALMENTE afectó la caja (ACTIVO o INACTIVO que se compensa con egreso)
-    # Pero para simplificar y ser precisos, sumamos todos los ingresos y restamos todos los egresos registrados hoy.
-    total_ingreso_venta_contado = movimientos_qs.filter(tipo='INGRESO', origen='VENTA').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    total_ingreso_pago_credito = movimientos_qs.filter(tipo='INGRESO', origen='PAGO_CXC').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    total_ajuste_ingreso = movimientos_qs.filter(tipo='INGRESO', origen='AJUSTE').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    # --- CLASIFICACIÓN PARA LAS TABLAS ---
+    # Filtro para MovimientoFinanciero (usa factura__)
+    credito_mov_q = Q(factura__cuenta_por_cobrar__isnull=False) | Q(
+        factura__pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
     
-    total_egreso_devolucion = movimientos_qs.filter(tipo='EGRESO', origen='DEVOLUCION').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    total_egreso_anulacion = movimientos_qs.filter(tipo='EGRESO', origen='ANULACION').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    total_ajuste_egreso = movimientos_qs.filter(tipo='EGRESO', origen='AJUSTE').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    # Filtro para Factura (usa campos directos)
+    credito_fac_q = Q(cuenta_por_cobrar__isnull=False) | Q(
+        pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
 
-    total_ingresos = total_ingreso_venta_contado + total_ingreso_pago_credito + total_ajuste_ingreso
-    total_egresos = total_egreso_devolucion + total_egreso_anulacion + total_ajuste_egreso
+    # Secciones
+    ventas_contado_data = []
+    for mov in movimientos_qs.filter(tipo='INGRESO', origen='VENTA').exclude(credito_mov_q):
+        f = mov.factura
+        ventas_contado_data.append({
+            'factura': f.numero_factura if f else mov.referencia,
+            'hora': mov.fecha_operacion.astimezone(tz_rd).strftime('%I:%M %p'),
+            'cliente': (f.nombre_cliente if f else 'CLIENTE') or 'CLIENTE',
+            'monto': mov.monto,
+            'anulada': mov.estado == 'INACTIVO'
+        })
+
+    ventas_credito_data = []
+    for fac in facturas_hoy_qs.filter(credito_fac_q):
+        ventas_credito_data.append({
+            'factura': fac.numero_factura,
+            'hora': fac.fecha_factura.astimezone(tz_rd).strftime('%I:%M %p'),
+            'cliente': fac.nombre_cliente or 'CLIENTE',
+            'monto': fac.total,
+            'anulada': fac.estado == 'anulada'
+        })
+
+    pagos_data = []
+    for mov in movimientos_qs.filter(tipo='INGRESO', origen='PAGO_CXC'):
+        p = mov.pago_cxc
+        cliente = "CLIENTE"
+        if p and p.cuenta_por_cobrar:
+            cliente = p.cuenta_por_cobrar.cliente.nombre_completo
+        
+        pagos_data.append({
+            'comp': p.numero_comprobante if p else mov.referencia,
+            'hora': mov.fecha_operacion.astimezone(tz_rd).strftime('%I:%M %p'),
+            'cliente': cliente,
+            'monto': mov.monto,
+            'anulada': mov.estado == 'INACTIVO'
+        })
+
+    devoluciones_data = []
+    for mov in movimientos_qs.filter(tipo='EGRESO', origen='DEVOLUCION').exclude(referencia='EXCEDENTE_DEVOLUCION'):
+        f = mov.factura
+        devoluciones_data.append({
+            'factura': f.numero_factura if f else mov.referencia,
+            'hora': mov.fecha_operacion.astimezone(tz_rd).strftime('%I:%M %p'),
+            'cliente': (f.nombre_cliente if f else 'CLIENTE') or 'CLIENTE',
+            'monto': -mov.monto,
+        })
+
+    anulaciones_data = []
+    for mov in movimientos_qs.filter(tipo='EGRESO', origen='ANULACION'):
+        f = mov.factura
+        anulaciones_data.append({
+            'factura': f.numero_factura if f else mov.referencia,
+            'hora': mov.fecha_operacion.astimezone(tz_rd).strftime('%I:%M %p'),
+            'cliente': (f.nombre_cliente if f else 'CLIENTE') or 'CLIENTE',
+            'monto': -mov.monto,
+        })
+
+    excedentes_data = []
+    for mov in movimientos_qs.filter(tipo='EGRESO', origen='DEVOLUCION', referencia='EXCEDENTE_DEVOLUCION'):
+        f = mov.factura
+        excedentes_data.append({
+            'comp': f.numero_factura if f else mov.referencia,
+            'hora': mov.fecha_operacion.astimezone(tz_rd).strftime('%I:%M %p'),
+            'cliente': (f.nombre_cliente if f else 'CLIENTE') or 'CLIENTE',
+            'monto': -mov.monto,
+        })
+
+    ajustes_data = []
+    for mov in movimientos_qs.filter(origen='AJUSTE'):
+        ajustes_data.append({
+            'factura': mov.referencia or 'AJUSTE',
+            'hora': mov.fecha_operacion.astimezone(tz_rd).strftime('%I:%M %p'),
+            'cliente': (mov.comentario or 'Ajuste manual')[:20],
+            'monto': mov.monto if mov.tipo == 'INGRESO' else -mov.monto,
+        })
+
+    # Totales para el resumen
+    total_ventas_contado = sum(x['monto'] for x in ventas_contado_data if not x['anulada'])
+    total_ventas_credito = sum(x['monto'] for x in ventas_credito_data if not x['anulada'])
+    total_pagos = sum(x['monto'] for x in pagos_data if not x['anulada'])
+    total_devoluciones = sum(x['monto'] for x in devoluciones_data)
+    total_anulaciones = sum(x['monto'] for x in anulaciones_data)
+    total_excedentes = sum(x['monto'] for x in excedentes_data)
+    total_ajustes = sum(x['monto'] for x in ajustes_data)
+
+    total_ingresos = total_ventas_contado + total_pagos + sum(x['monto'] for x in ajustes_data if x['monto'] > 0)
+    total_egresos = abs(total_devoluciones) + abs(total_anulaciones) + abs(total_excedentes) + abs(sum(x['monto'] for x in ajustes_data if x['monto'] < 0))
     caja_neta = total_ingresos - total_egresos
 
-    # 3. Construir lista unificada de eventos para el detalle cronológico
-    eventos = []
-    
-    # Agregar todos los movimientos
-    ids_facturas_con_movimiento = set()
-    for mov in movimientos_qs:
-        tag = mov.get_origen_display()
-        if mov.estado == 'INACTIVO':
-            tag += " (ANULADA)"
-        
-        ref = mov.referencia or '-'
-        if mov.factura:
-            ref = mov.factura.numero_factura
-            ids_facturas_con_movimiento.add(mov.factura.id)
-        elif mov.pago_cxc:
-            ref = mov.pago_cxc.numero_comprobante or f"P-{mov.pago_cxc.id}"
-        
-        cliente = "CLIENTE"
-        if mov.factura:
-            cliente = mov.factura.nombre_cliente or "CLIENTE"
-        elif mov.pago_cxc and mov.pago_cxc.cuenta_por_cobrar:
-            cliente = mov.pago_cxc.cuenta_por_cobrar.cliente.nombre_completo
-
-        eventos.append({
-            'fecha': mov.fecha_operacion,
-            'hora': mov.fecha_operacion.astimezone(tz_rd).strftime('%I:%M %p'),
-            'ref': ref,
-            'tipo': tag,
-            'monto': mov.monto if mov.tipo == 'INGRESO' else -mov.monto
-        })
-
-    # Agregar facturas que NO tuvieron movimiento de caja (Ventas a Crédito puras)
-    for fac in facturas_hoy_qs.exclude(id__in=ids_facturas_con_movimiento):
-        eventos.append({
-            'fecha': fac.fecha_factura,
-            'hora': fac.fecha_factura.astimezone(tz_rd).strftime('%I:%M %p'),
-            'ref': fac.numero_factura,
-            'tipo': f"VENTA CRÉDITO {fac.get_estado_display().upper()}",
-            'monto': Decimal('0.00') # No afecta caja
-        })
-
-    # Ordenar todo cronológicamente
-    eventos.sort(key=lambda x: x['fecha'])
-
-    # ── Generar PDF ──────────────────────────────────────────────────────────
+    # --- GENERAR PDF ---
     buffer = io.BytesIO()
     ancho_pagina = 80 * mm
-    estimado_alto = 160 + (len(eventos) * 4.5)
-    alto_pagina = max(297, estimado_alto) * mm
-    
+    alto_pagina = 297 * mm # Usar varias páginas si es necesario para ticket limpio
     c = canvas.Canvas(buffer, pagesize=(ancho_pagina, alto_pagina))
     y = alto_pagina - 10 * mm
 
@@ -5178,10 +5289,10 @@ def generar_pdf_cuadre_caja(request):
     c.drawCentredString(ancho_pagina / 2, y, "402 FASTFOOD")
     y -= 6 * mm
     c.setFont("Helvetica-Bold", 10)
-    c.drawCentredString(ancho_pagina / 2, y, "AUDITORÍA DE CAJA")
+    c.drawCentredString(ancho_pagina / 2, y, "CUADRE DE CAJA")
     y -= 5 * mm
     c.setFont("Helvetica", 8)
-    c.drawString(5 * mm, y, f"Emisión: {ahora_local.strftime('%d/%m/%Y %I:%M %p')}")
+    c.drawString(5 * mm, y, f"Fecha: {ahora_local.strftime('%d/%m/%Y %I:%M %p')}")
     y -= 4 * mm
     c.setFont("Helvetica-Bold", 7)
     c.drawString(5 * mm, y, f"Periodo: {periodo_texto}")
@@ -5189,55 +5300,38 @@ def generar_pdf_cuadre_caja(request):
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
     y -= 5 * mm
 
-    # Resumen de Totales
+    # Resumen Inicial
     c.setFont("Helvetica-Bold", 9)
-    c.drawString(5 * mm, y, "RESUMEN DE FLUJO")
+    c.drawCentredString(ancho_pagina / 2, y, "RESUMEN")
     y -= 5 * mm
     c.setFont("Helvetica", 8)
-    
-    resumen = [
-        ("Ventas Contado (Bruto)", total_ingreso_venta_contado),
-        ("Pagos CxC Recibidos", total_ingreso_pago_credito),
-        ("Devoluciones/Anulac.", -total_egreso_devolucion - total_egreso_anulacion),
-        ("Otros Ajustes", total_ajuste_ingreso - total_ajuste_egreso),
+    res_items = [
+        ("Ventas Contado", total_ventas_contado),
+        ("Ventas Crédito", total_ventas_credito),
+        ("Pagos Recibidos", total_pagos),
+        ("Devoluciones", total_devoluciones),
+        ("Anulaciones", total_anulaciones),
+        ("Ajustes", total_ajustes),
     ]
-    
-    for label, monto in resumen:
+    for label, val in res_items:
         c.drawString(7 * mm, y, f"{label}:")
-        c.drawRightString(ancho_pagina - 7 * mm, y, f"RD$ {monto:,.2f}")
+        c.drawRightString(ancho_pagina - 7 * mm, y, f"RD$ {val:,.2f}")
         y -= 3.5 * mm
-    
-    y -= 2 * mm
-    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-    y -= 5 * mm
-
-    # Detalle Universal
-    c.setFont("Helvetica-Bold", 9)
-    c.drawCentredString(ancho_pagina / 2, y, "DETALLE DE OPERACIONES")
-    y -= 5 * mm
-    
-    c.setFont("Helvetica-Bold", 7)
-    c.drawString(5 * mm, y, "HORA")
-    c.drawString(18 * mm, y, "DOC/REF")
-    c.drawString(42 * mm, y, "TIPO / ESTADO")
-    c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
     y -= 3 * mm
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-    y -= 4 * mm
-
-    c.setFont("Helvetica", 6)
-    for ev in eventos:
-        c.drawString(5 * mm, y, ev['hora'])
-        c.drawString(18 * mm, y, _ticket_ref_corta(ev['ref']))
-        c.drawString(42 * mm, y, ev['tipo'][:20])
-        c.drawRightString(ancho_pagina - 5 * mm, y, f"{ev['monto']:,.2f}")
-        y -= 3.5 * mm
-
     y -= 5 * mm
-    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-    y -= 6 * mm
+
+    # Tablas Seccionadas
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "VENTAS CONTADO", ventas_contado_data, sum(x['monto'] for x in ventas_contado_data))
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "VENTAS CRÉDITO", ventas_credito_data, sum(x['monto'] for x in ventas_credito_data))
+    y = draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina, "PAGOS CXC", pagos_data, sum(x['monto'] for x in pagos_data))
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "DEVOLUCIONES", devoluciones_data, total_devoluciones)
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "ANULACIONES", anulaciones_data, total_anulaciones)
+    y = draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina, "EXCEDENTES", excedentes_data, total_excedentes)
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "OTROS AJUSTES", ajustes_data, total_ajustes)
 
     # Balance Final
+    if y < 40 * mm: y = _ticket_nueva_pagina(c, alto_pagina)
     c.setFont("Helvetica-Bold", 10)
     c.drawString(5 * mm, y, "TOTAL INGRESOS:")
     c.drawRightString(ancho_pagina - 5 * mm, y, f"RD$ {total_ingresos:,.2f}")
@@ -5245,20 +5339,13 @@ def generar_pdf_cuadre_caja(request):
     c.drawString(5 * mm, y, "TOTAL EGRESOS:")
     c.drawRightString(ancho_pagina - 5 * mm, y, f"RD$ {total_egresos:,.2f}")
     y -= 7 * mm
-    
     c.setFont("Helvetica-Bold", 12)
     c.drawString(5 * mm, y, "TOTAL EN CAJA:")
     c.drawRightString(ancho_pagina - 5 * mm, y, f"RD$ {caja_neta:,.2f}")
-    y -= 6 * mm
-    
-    if caja_neta < 0:
-        c.setFont("Helvetica-Oblique", 7)
-        c.drawCentredString(ancho_pagina / 2, y, "Nota: El total refleja el efectivo real en caja.")
-        y -= 3 * mm
-
+    y -= 10 * mm
     c.setFont("Helvetica", 8)
     c.drawCentredString(ancho_pagina / 2, y, "*** FIN DEL REPORTE ***")
-    
+
     c.save()
     buffer.seek(0)
     response = HttpResponse(buffer, content_type='application/pdf')
