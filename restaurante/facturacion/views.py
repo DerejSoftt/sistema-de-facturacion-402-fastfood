@@ -1560,7 +1560,7 @@ def gestiondepedidos(request):
     pedidos_procesados = procesar_pedidos_para_template(page_obj)
 
     # Calcular estadísticas SOLO de pedidos NO pagados
-    ahora_local = timezone.localtime()
+    ahora_local = timezone.now().astimezone(pytz.timezone('America/Santo_Domingo'))
     inicio_dia = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
     fin_dia = inicio_dia + timedelta(days=1)
 
@@ -4136,12 +4136,12 @@ def dashbort(request):
 
     # ── Definición del día operativo: 6:00 AM → 5:59:59 AM día siguiente ──
     # Esta lógica es fija y no cambia — siempre el mismo rango para cuadre.
-    if ahora_local.hour >= 6:
-        inicio_dia = _aware_rd(hoy_local, time(6, 0, 0))
-        fin_dia = _aware_rd(hoy_local + timedelta(days=1), time(5, 59, 59))
+    if ahora_local.hour >= 2:
+        inicio_dia = _aware_rd(hoy_local, time(2, 0, 0))
+        fin_dia = _aware_rd(hoy_local + timedelta(days=1), time(1, 59, 59))
     else:
-        inicio_dia = _aware_rd(hoy_local - timedelta(days=1), time(6, 0, 0))
-        fin_dia = _aware_rd(hoy_local, time(5, 59, 59))
+        inicio_dia = _aware_rd(hoy_local - timedelta(days=1), time(2, 0, 0))
+        fin_dia = _aware_rd(hoy_local, time(1, 59, 59))
 
     inicio_dia_anterior = inicio_dia - timedelta(days=1)
     fin_dia_anterior = fin_dia - timedelta(days=1)
@@ -4323,7 +4323,7 @@ def dashbort(request):
         })
 
     # ── Gráfico ventas últimos 7 días (OPTIMIZADO: 1 query en lugar de 7) ──
-    fecha_hace_7 = _aware_rd(hoy_local - timedelta(days=6), time(6, 0, 0))
+    fecha_hace_7 = _aware_rd(hoy_local - timedelta(days=6), time(2, 0, 0))
 
     movimientos_7_dias = (
         MovimientoFinanciero.objects
@@ -4679,13 +4679,13 @@ def dashboard_stats(request):
             }
 
         # ── Rangos de tiempo ───────────────────────────────────────────────
-        if ahora_local.hour >= 6:
-            inicio_dia = _aware_rd(hoy_local, time(6, 0, 0))
-            fin_dia = _aware_rd(hoy_local + timedelta(days=1), time(5, 59, 59))
+        if ahora_local.hour >= 2:
+            inicio_dia = _aware_rd(hoy_local, time(2, 0, 0))
+            fin_dia = _aware_rd(hoy_local + timedelta(days=1), time(1, 59, 59))
         else:
             inicio_dia = _aware_rd(
-                hoy_local - timedelta(days=1), time(6, 0, 0))
-            fin_dia = _aware_rd(hoy_local, time(5, 59, 59))
+                hoy_local - timedelta(days=1), time(2, 0, 0))
+            fin_dia = _aware_rd(hoy_local, time(1, 59, 59))
 
         inicio_dia_anterior = inicio_dia - timedelta(days=1)
         fin_dia_anterior = fin_dia - timedelta(days=1)
@@ -4855,7 +4855,7 @@ def dashboard_stats(request):
             # Gráfico 7 días
             for i in range(6, -1, -1):
                 ref = hoy_local - timedelta(days=i)
-                di = _aware_rd(ref, time(6, 0, 0))
+                di = _aware_rd(ref, time(2, 0, 0))
                 df = _aware_rd(ref + timedelta(days=1), time(5, 59, 59))
                 neto = _resumen_movimientos_caja(di, df)['caja_neta']
                 ultimos_7_dias.append('Hoy' if i == 0 else ref.strftime('%a'))
@@ -5367,25 +5367,26 @@ def generar_pdf_ticket_dia(request):
 def productos_vendidos_dia(request):
     """Vista para mostrar los productos vendidos en el día"""
     # Obtener hora local actual
-    ahora_local = timezone.localtime()
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    ahora_local = timezone.now().astimezone(tz_rd)
     hoy_local = ahora_local.date()
 
     # DEFINICIÓN DEL "DÍA": De 6:00 AM a 5:59 AM del día siguiente
-    if ahora_local.hour >= 6:
+    if ahora_local.hour >= 2:
         inicio_dia = timezone.make_aware(
-            datetime.combine(hoy_local, datetime(2000, 1, 1, 6, 0, 0).time())
+            datetime.combine(hoy_local, time(2, 0, 0))
         )
         fin_dia = timezone.make_aware(
             datetime.combine(hoy_local + timedelta(days=1),
-                             datetime(2000, 1, 1, 5, 59, 59).time())
+                             time(1, 59, 59))
         )
     else:
         inicio_dia = timezone.make_aware(
             datetime.combine(hoy_local - timedelta(days=1),
-                             datetime(2000, 1, 1, 6, 0, 0).time())
+                             time(2, 0, 0))
         )
         fin_dia = timezone.make_aware(
-            datetime.combine(hoy_local, datetime(2000, 1, 1, 5, 59, 59).time())
+            datetime.combine(hoy_local, time(1, 59, 59))
         )
 
     # Obtener facturas del período
@@ -5479,11 +5480,12 @@ def reporte_productos_vendidos(request):
 
     # Si no se especifican fechas, usar el día actual (de 6:00 a 5:59 del día siguiente)
     if not fecha_inicio or not fecha_fin:
-        ahora_local = timezone.localtime()
+        tz_rd = pytz.timezone('America/Santo_Domingo')
+        ahora_local = timezone.now().astimezone(tz_rd)
         hoy_local = ahora_local.date()
 
         # DEFINICIÓN DEL "DÍA": De 6:00 AM a 5:59 AM del día siguiente
-        if ahora_local.hour >= 6:
+        if ahora_local.hour >= 2:
             fecha_inicio = hoy_local
             fecha_fin = hoy_local + timedelta(days=1)
         else:
@@ -5507,10 +5509,11 @@ def reporte_productos_vendidos(request):
 
     except (ValueError, TypeError):
         # Si hay error en el formato, usar día actual
-        ahora_local = timezone.localtime()
+        tz_rd = pytz.timezone('America/Santo_Domingo')
+        ahora_local = timezone.now().astimezone(tz_rd)
         hoy_local = ahora_local.date()
 
-        if ahora_local.hour >= 6:
+        if ahora_local.hour >= 2:
             fecha_inicio_obj = hoy_local
             fecha_fin_obj = hoy_local + timedelta(days=1)
         else:
@@ -5676,10 +5679,11 @@ def reporte_productos_vendidos_json(request):
 
     # Configurar fechas
     if not fecha_inicio or not fecha_fin:
-        ahora_local = timezone.localtime()
+        tz_rd = pytz.timezone('America/Santo_Domingo')
+        ahora_local = timezone.now().astimezone(tz_rd)
         hoy_local = ahora_local.date()
 
-        if ahora_local.hour >= 6:
+        if ahora_local.hour >= 2:
             fecha_inicio_obj = hoy_local
             fecha_fin_obj = hoy_local + timedelta(days=1)
         else:
@@ -5788,7 +5792,7 @@ def detalle_producto_vendido(request, producto_nombre):
 
     # Configurar fechas por defecto (últimos 30 días)
     if not fecha_inicio or not fecha_fin:
-        fecha_fin_obj = timezone.localtime().date()
+        fecha_fin_obj = timezone.now().astimezone(pytz.timezone('America/Santo_Domingo')).date()
         fecha_inicio_obj = fecha_fin_obj - timedelta(days=30)
     else:
         fecha_inicio_obj = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
@@ -5895,10 +5899,11 @@ def generar_reporte_productos_excel(request):
 
     # Configurar fechas
     if not fecha_inicio or not fecha_fin:
-        ahora_local = timezone.localtime()
+        tz_rd = pytz.timezone('America/Santo_Domingo')
+        ahora_local = timezone.now().astimezone(tz_rd)
         hoy_local = ahora_local.date()
 
-        if ahora_local.hour >= 6:
+        if ahora_local.hour >= 2:
             fecha_inicio_obj = hoy_local
             fecha_fin_obj = hoy_local + timedelta(days=1)
         else:
@@ -5988,7 +5993,7 @@ def generar_reporte_productos_excel(request):
     writer.writerow(
         [f'Período: {fecha_inicio_obj.strftime("%d/%m/%Y")} 06:00 - {fecha_fin_obj.strftime("%d/%m/%Y")} 05:59'])
     writer.writerow(
-        [f'Generado: {timezone.localtime().strftime("%d/%m/%Y %H:%M:%S")}'])
+        [f'Generado: {timezone.now().astimezone(pytz.timezone("America/Santo_Domingo")).strftime("%d/%m/%Y %H:%M:%S")}'])
     writer.writerow([])
 
     # Escribir encabezados de datos
@@ -6025,30 +6030,31 @@ def generar_reporte_productos_excel(request):
 def generar_pdf_productos_dia_a4(request):
     """Generar PDF de productos vendidos en el día en formato A4"""
     # Obtener hora local actual
-    ahora_local = timezone.localtime()
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    ahora_local = timezone.now().astimezone(tz_rd)
     hoy_local = ahora_local.date()
 
-    # DEFINICIÓN DEL "DÍA": De 6:00 AM a 5:59 AM del día siguiente
-    if ahora_local.hour >= 6:
+    # DEFINICIÓN DEL "DÍA": De 2:00 AM a 1:59 AM del día siguiente
+    if ahora_local.hour >= 2:
         inicio_dia = timezone.make_aware(
-            datetime.combine(hoy_local, datetime(2000, 1, 1, 6, 0, 0).time())
+            datetime.combine(hoy_local, time(2, 0, 0))
         )
         fin_dia = timezone.make_aware(
             datetime.combine(hoy_local + timedelta(days=1),
-                             datetime(2000, 1, 1, 5, 59, 59).time())
+                             time(1, 59, 59))
         )
-        periodo_texto = f"{hoy_local.strftime('%d/%m/%Y')} 06:00 - {(hoy_local + timedelta(days=1)).strftime('%d/%m/%Y')} 05:59"
-        periodo_corto = f"{hoy_local.strftime('%d/%m')} 06:00 a {(hoy_local + timedelta(days=1)).strftime('%d/%m')} 06:00"
+        periodo_texto = f"{hoy_local.strftime('%d/%m/%Y')} 02:00 - {(hoy_local + timedelta(days=1)).strftime('%d/%m/%Y')} 01:59"
+        periodo_corto = f"{hoy_local.strftime('%d/%m')} 02:00 a {(hoy_local + timedelta(days=1)).strftime('%d/%m')} 02:00"
     else:
         inicio_dia = timezone.make_aware(
             datetime.combine(hoy_local - timedelta(days=1),
-                             datetime(2000, 1, 1, 6, 0, 0).time())
+                             time(2, 0, 0))
         )
         fin_dia = timezone.make_aware(
-            datetime.combine(hoy_local, datetime(2000, 1, 1, 5, 59, 59).time())
+            datetime.combine(hoy_local, time(1, 59, 59))
         )
-        periodo_texto = f"{(hoy_local - timedelta(days=1)).strftime('%d/%m/%Y')} 06:00 - {hoy_local.strftime('%d/%m/%Y')} 05:59"
-        periodo_corto = f"{(hoy_local - timedelta(days=1)).strftime('%d/%m')} 06:00 a {hoy_local.strftime('%d/%m')} 06:00"
+        periodo_texto = f"{(hoy_local - timedelta(days=1)).strftime('%d/%m/%Y')} 02:00 - {hoy_local.strftime('%d/%m/%Y')} 01:59"
+        periodo_corto = f"{(hoy_local - timedelta(days=1)).strftime('%d/%m')} 02:00 a {hoy_local.strftime('%d/%m')} 02:00"
 
     # Obtener facturas del período
     facturas_hoy = Factura.objects.filter(
@@ -8993,7 +8999,7 @@ def cuentaporcobrar_comprobante_pdf(request):
         alto_ticket = 120 * mm
 
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'inline; filename="comprobante_cxc_{timezone.localtime().strftime("%Y%m%d_%H%M%S")}.pdf"'
+    response['Content-Disposition'] = f'inline; filename="comprobante_cxc_{timezone.now().astimezone(pytz.timezone("America/Santo_Domingo")).strftime("%Y%m%d_%H%M%S")}.pdf"'
 
     c = canvas.Canvas(response, pagesize=(ancho_ticket, alto_ticket))
     y = alto_ticket - 8 * mm
