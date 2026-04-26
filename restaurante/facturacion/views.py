@@ -5185,6 +5185,8 @@ def generar_pdf_cuadre_caja(request):
     egreso_excedente_qs = movimientos.filter(
         tipo='EGRESO', origen='DEVOLUCION', referencia='EXCEDENTE_DEVOLUCION')
     egreso_anulacion_qs = movimientos.filter(tipo='EGRESO', origen='ANULACION')
+    ajuste_ingreso_qs = movimientos.filter(tipo='INGRESO', origen='AJUSTE')
+    ajuste_egreso_qs = movimientos.filter(tipo='EGRESO', origen='AJUSTE')
 
     total_ingreso_venta_contado = ingreso_venta_contado_qs.aggregate(
         total=Sum('monto'))['total'] or Decimal('0.00')
@@ -5198,15 +5200,19 @@ def generar_pdf_cuadre_caja(request):
         total=Sum('monto'))['total'] or Decimal('0.00')
     total_egreso_anulacion = egreso_anulacion_qs.aggregate(
         total=Sum('monto'))['total'] or Decimal('0.00')
+    total_ajuste_ingreso = ajuste_ingreso_qs.aggregate(
+        total=Sum('monto'))['total'] or Decimal('0.00')
+    total_ajuste_egreso = ajuste_egreso_qs.aggregate(
+        total=Sum('monto'))['total'] or Decimal('0.00')
 
     total_ventas_contado = total_ingreso_venta_contado
     total_ventas_credito = total_ingreso_venta_credito
     total_anulaciones_doc = total_egreso_anulacion
     total_devoluciones_doc = total_egreso_devolucion_contado + total_egreso_excedente
 
-    total_ingresos = total_ingreso_venta_contado + total_ingreso_pago_credito
+    total_ingresos = total_ingreso_venta_contado + total_ingreso_pago_credito + total_ajuste_ingreso
     total_egresos = total_egreso_devolucion_contado + \
-        total_egreso_excedente + total_egreso_anulacion
+        total_egreso_excedente + total_egreso_anulacion + total_ajuste_egreso
     caja_neta = total_ingresos - total_egresos
 
     rows_ventas_contado = []
@@ -5236,7 +5242,7 @@ def generar_pdf_cuadre_caja(request):
             'factura': factura.numero_factura if factura else (mov.referencia or '-'),
             'hora': _ticket_hora_12h(mov.fecha_operacion, tz_rd),
             'cliente': (factura.nombre_cliente if factura else 'CLIENTE') or 'CLIENTE',
-            'monto': mov.monto or Decimal('0.00'),
+            'monto': -(mov.monto or Decimal('0.00')),
         })
 
     rows_anulaciones = []
@@ -5246,7 +5252,7 @@ def generar_pdf_cuadre_caja(request):
             'factura': factura.numero_factura if factura else (mov.referencia or '-'),
             'hora': _ticket_hora_12h(mov.fecha_operacion, tz_rd),
             'cliente': (factura.nombre_cliente if factura else 'CLIENTE') or 'CLIENTE',
-            'monto': mov.monto or Decimal('0.00'),
+            'monto': -(mov.monto or Decimal('0.00')),
         })
 
     rows_pagos = []
@@ -5273,7 +5279,23 @@ def generar_pdf_cuadre_caja(request):
             'comp': (factura.numero_factura if factura else mov.referencia or '-'),
             'hora': _ticket_hora_12h(mov.fecha_operacion, tz_rd),
             'cliente': (factura.nombre_cliente if factura else 'CLIENTE') or 'CLIENTE',
+            'monto': -(mov.monto or Decimal('0.00')),
+        })
+
+    rows_ajustes = []
+    for mov in ajuste_ingreso_qs.order_by('fecha_operacion'):
+        rows_ajustes.append({
+            'factura': mov.referencia or 'AJUSTE(+)',
+            'hora': _ticket_hora_12h(mov.fecha_operacion, tz_rd),
+            'cliente': (mov.comentario or 'Ingreso manual')[:20],
             'monto': mov.monto or Decimal('0.00'),
+        })
+    for mov in ajuste_egreso_qs.order_by('fecha_operacion'):
+        rows_ajustes.append({
+            'factura': mov.referencia or 'AJUSTE(-)',
+            'hora': _ticket_hora_12h(mov.fecha_operacion, tz_rd),
+            'cliente': (mov.comentario or 'Egreso manual')[:20],
+            'monto': -(mov.monto or Decimal('0.00')),
         })
 
     buffer = io.BytesIO()
@@ -5319,6 +5341,10 @@ def generar_pdf_cuadre_caja(request):
     c.drawString(5 * mm, y, "Devoluciones (visual):")
     c.drawRightString(ancho_pagina - 5 * mm, y,
                       f"RD${total_devoluciones_doc:,.2f}")
+    y -= 3.5 * mm
+    c.drawString(5 * mm, y, "Otros Ajustes (neto):")
+    c.drawRightString(ancho_pagina - 5 * mm, y,
+                      f"RD${(total_ajuste_ingreso - total_ajuste_egreso):,.2f}")
     y -= 5 * mm
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
     y -= 5 * mm
@@ -5327,15 +5353,17 @@ def generar_pdf_cuadre_caja(request):
                               "VENTAS CONTADO", rows_ventas_contado, total_ventas_contado)
     y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina,
                               "VENTAS CREDITO", rows_ventas_credito, total_ventas_credito)
-    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "DEVOLUCIONES",
-                              rows_devoluciones, total_egreso_devolucion_contado)
     y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina,
-                              "ANULACIONES", rows_anulaciones, total_anulaciones_doc)
+                              "DEVOLUCIONES", rows_devoluciones, -total_egreso_devolucion_contado)
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina,
+                              "ANULACIONES", rows_anulaciones, -total_egreso_anulacion)
 
     y = draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina,
                                "PAGOS DE CUENTAS POR COBRAR", rows_pagos, total_ingreso_pago_credito)
     y = draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina,
-                               "EXCEDENTES", rows_excedentes, total_egreso_excedente)
+                               "EXCEDENTES", rows_excedentes, -total_egreso_excedente)
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina,
+                              "OTROS AJUSTES", rows_ajustes, (total_ajuste_ingreso - total_ajuste_egreso))
 
     if y < 50 * mm:
         y = _ticket_nueva_pagina(c, alto_pagina)
@@ -5373,6 +5401,14 @@ def generar_pdf_cuadre_caja(request):
     c.drawString(5 * mm, y, "Total egresos:")
     c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_egresos:,.2f}")
     y -= 5 * mm
+
+    # Nota aclaratoria sobre saldos negativos
+    if caja_neta < 0:
+        c.setFont("Helvetica-Oblique", 7)
+        c.drawCentredString(ancho_pagina / 2, y, "Nota: El valor negativo indica que los egresos")
+        y -= 3 * mm
+        c.drawCentredString(ancho_pagina / 2, y, "superaron a los ingresos en este periodo.")
+        y -= 5 * mm
 
     c.setFont("Helvetica-Bold", 12)
     c.drawString(5 * mm, y, "TOTAL EN CAJA:")
