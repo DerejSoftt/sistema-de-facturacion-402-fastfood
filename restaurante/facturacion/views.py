@@ -5074,37 +5074,41 @@ def draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, titulo, rows, total):
 
 def generar_pdf_cuadre_caja(request):
     """
-    Genera un PDF de cuadre de caja (tipo ticket) con auditoría cronológica.
-    El periodo se define de 6:00 AM a 5:59 AM del día siguiente (Hora Local).
+    Genera un PDF de cuadre de caja (tipo ticket) con auditoría UNIVERSAL.
+    Muestra todas las operaciones (contado, crédito, anulaciones) para trazabilidad total.
     """
     tz_rd = pytz.timezone('America/Santo_Domingo')
     ahora_local = timezone.now().astimezone(tz_rd)
     hoy_local = ahora_local.date()
 
-    # Definición del rango del "Día Operativo" (6:00 AM a 5:59 AM)
+    # Definición del rango del "Día Operativo" (2:00 AM a 1:59 AM)
     from datetime import time
-    if ahora_local.hour >= 6:
-        inicio_dia = tz_rd.localize(datetime.combine(hoy_local, time(6, 0, 0)))
-        fin_dia = tz_rd.localize(datetime.combine(hoy_local + timedelta(days=1), time(5, 59, 59)))
+    if ahora_local.hour >= 2:
+        inicio_dia = tz_rd.localize(datetime.combine(hoy_local, time(2, 0, 0)))
+        fin_dia = tz_rd.localize(datetime.combine(hoy_local + timedelta(days=1), time(1, 59, 59)))
     else:
-        inicio_dia = tz_rd.localize(datetime.combine(hoy_local - timedelta(days=1), time(6, 0, 0)))
-        fin_dia = tz_rd.localize(datetime.combine(hoy_local, time(5, 59, 59)))
+        inicio_dia = tz_rd.localize(datetime.combine(hoy_local - timedelta(days=1), time(2, 0, 0)))
+        fin_dia = tz_rd.localize(datetime.combine(hoy_local, time(1, 59, 59)))
 
     periodo_texto = f"{inicio_dia.strftime('%d/%m/%Y %I:%M %p')} - {fin_dia.strftime('%d/%m/%Y %I:%M %p')}"
 
-    # Recopilar TODOS los movimientos del periodo
+    # 1. Obtener todos los movimientos financieros (Cash Flow)
     movimientos_qs = MovimientoFinanciero.objects.filter(
         fecha_operacion__gte=inicio_dia,
         fecha_operacion__lt=fin_dia,
-        estado__in=['ACTIVO', 'INACTIVO'],
-    ).select_related('factura', 'pago_cxc').order_by('fecha_operacion')
+        estado__in=['ACTIVO', 'INACTIVO'], # Incluir anulados para trazabilidad
+    ).select_related('factura', 'pago_cxc', 'devolucion').order_by('fecha_operacion')
 
-    # Clasificación para el resumen (totales)
-    credito_q = Q(factura__cuenta_por_cobrar__isnull=False) | Q(
-        factura__pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
+    # 2. Obtener todas las facturas creadas hoy (para detectar ventas a crédito sin pagos)
+    facturas_hoy_qs = Factura.objects.filter(
+        fecha_factura__gte=inicio_dia,
+        fecha_factura__lt=fin_dia
+    ).select_related('cuenta_por_cobrar')
 
-    total_ingreso_venta_contado = movimientos_qs.filter(tipo='INGRESO', origen='VENTA').exclude(credito_q).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    total_ingreso_venta_credito = movimientos_qs.filter(tipo='INGRESO', origen='VENTA').filter(credito_q).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    # Clasificación para el resumen (Totales)
+    # IMPORTANTE: Los totales solo deben sumar lo que REALMENTE afectó la caja (ACTIVO o INACTIVO que se compensa con egreso)
+    # Pero para simplificar y ser precisos, sumamos todos los ingresos y restamos todos los egresos registrados hoy.
+    total_ingreso_venta_contado = movimientos_qs.filter(tipo='INGRESO', origen='VENTA').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     total_ingreso_pago_credito = movimientos_qs.filter(tipo='INGRESO', origen='PAGO_CXC').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     total_ajuste_ingreso = movimientos_qs.filter(tipo='INGRESO', origen='AJUSTE').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     
@@ -5112,17 +5116,24 @@ def generar_pdf_cuadre_caja(request):
     total_egreso_anulacion = movimientos_qs.filter(tipo='EGRESO', origen='ANULACION').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     total_ajuste_egreso = movimientos_qs.filter(tipo='EGRESO', origen='AJUSTE').aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
-    # Totales Finales
     total_ingresos = total_ingreso_venta_contado + total_ingreso_pago_credito + total_ajuste_ingreso
     total_egresos = total_egreso_devolucion + total_egreso_anulacion + total_ajuste_egreso
     caja_neta = total_ingresos - total_egresos
 
-    # Preparar filas para la auditoría cronológica
-    rows_auditoria = []
+    # 3. Construir lista unificada de eventos para el detalle cronológico
+    eventos = []
+    
+    # Agregar todos los movimientos
+    ids_facturas_con_movimiento = set()
     for mov in movimientos_qs:
+        tag = mov.get_origen_display()
+        if mov.estado == 'INACTIVO':
+            tag += " (ANULADA)"
+        
         ref = mov.referencia or '-'
         if mov.factura:
             ref = mov.factura.numero_factura
+            ids_facturas_con_movimiento.add(mov.factura.id)
         elif mov.pago_cxc:
             ref = mov.pago_cxc.numero_comprobante or f"P-{mov.pago_cxc.id}"
         
@@ -5132,19 +5143,31 @@ def generar_pdf_cuadre_caja(request):
         elif mov.pago_cxc and mov.pago_cxc.cuenta_por_cobrar:
             cliente = mov.pago_cxc.cuenta_por_cobrar.cliente.nombre_completo
 
-        rows_auditoria.append({
+        eventos.append({
+            'fecha': mov.fecha_operacion,
             'hora': mov.fecha_operacion.astimezone(tz_rd).strftime('%I:%M %p'),
             'ref': ref,
-            'tipo': mov.get_origen_display(),
-            'cliente': (cliente[:15] + '..') if len(cliente) > 15 else cliente,
+            'tipo': tag,
             'monto': mov.monto if mov.tipo == 'INGRESO' else -mov.monto
         })
+
+    # Agregar facturas que NO tuvieron movimiento de caja (Ventas a Crédito puras)
+    for fac in facturas_hoy_qs.exclude(id__in=ids_facturas_con_movimiento):
+        eventos.append({
+            'fecha': fac.fecha_factura,
+            'hora': fac.fecha_factura.astimezone(tz_rd).strftime('%I:%M %p'),
+            'ref': fac.numero_factura,
+            'tipo': f"VENTA CRÉDITO {fac.get_estado_display().upper()}",
+            'monto': Decimal('0.00') # No afecta caja
+        })
+
+    # Ordenar todo cronológicamente
+    eventos.sort(key=lambda x: x['fecha'])
 
     # ── Generar PDF ──────────────────────────────────────────────────────────
     buffer = io.BytesIO()
     ancho_pagina = 80 * mm
-    # Dinámico: estimar altura según cantidad de movimientos
-    estimado_alto = 150 + (len(rows_auditoria) * 5)
+    estimado_alto = 160 + (len(eventos) * 4.5)
     alto_pagina = max(297, estimado_alto) * mm
     
     c = canvas.Canvas(buffer, pagesize=(ancho_pagina, alto_pagina))
@@ -5155,10 +5178,10 @@ def generar_pdf_cuadre_caja(request):
     c.drawCentredString(ancho_pagina / 2, y, "402 FASTFOOD")
     y -= 6 * mm
     c.setFont("Helvetica-Bold", 10)
-    c.drawCentredString(ancho_pagina / 2, y, "CUADRE DE CAJA")
+    c.drawCentredString(ancho_pagina / 2, y, "AUDITORÍA DE CAJA")
     y -= 5 * mm
     c.setFont("Helvetica", 8)
-    c.drawString(5 * mm, y, f"Fecha Emisión: {ahora_local.strftime('%d/%m/%Y %I:%M %p')}")
+    c.drawString(5 * mm, y, f"Emisión: {ahora_local.strftime('%d/%m/%Y %I:%M %p')}")
     y -= 4 * mm
     c.setFont("Helvetica-Bold", 7)
     c.drawString(5 * mm, y, f"Periodo: {periodo_texto}")
@@ -5168,16 +5191,15 @@ def generar_pdf_cuadre_caja(request):
 
     # Resumen de Totales
     c.setFont("Helvetica-Bold", 9)
-    c.drawString(5 * mm, y, "RESUMEN DE CAJA")
+    c.drawString(5 * mm, y, "RESUMEN DE FLUJO")
     y -= 5 * mm
     c.setFont("Helvetica", 8)
     
     resumen = [
-        ("Ventas Contado", total_ingreso_venta_contado),
-        ("Pagos Recibidos", total_ingreso_pago_credito),
-        ("Devoluciones", -total_egreso_devolucion),
-        ("Anulaciones", -total_egreso_anulacion),
-        ("Ajustes Manuales", total_ajuste_ingreso - total_ajuste_egreso),
+        ("Ventas Contado (Bruto)", total_ingreso_venta_contado),
+        ("Pagos CxC Recibidos", total_ingreso_pago_credito),
+        ("Devoluciones/Anulac.", -total_egreso_devolucion - total_egreso_anulacion),
+        ("Otros Ajustes", total_ajuste_ingreso - total_ajuste_egreso),
     ]
     
     for label, monto in resumen:
@@ -5189,38 +5211,26 @@ def generar_pdf_cuadre_caja(request):
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
     y -= 5 * mm
 
-    # Auditoría Cronológica
+    # Detalle Universal
     c.setFont("Helvetica-Bold", 9)
     c.drawCentredString(ancho_pagina / 2, y, "DETALLE DE OPERACIONES")
     y -= 5 * mm
     
     c.setFont("Helvetica-Bold", 7)
     c.drawString(5 * mm, y, "HORA")
-    c.drawString(20 * mm, y, "DOC/REF")
-    c.drawString(45 * mm, y, "TIPO")
+    c.drawString(18 * mm, y, "DOC/REF")
+    c.drawString(42 * mm, y, "TIPO / ESTADO")
     c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
     y -= 3 * mm
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
     y -= 4 * mm
 
-    c.setFont("Helvetica", 6.5)
-    for row in rows_auditoria:
-        if y < 15 * mm:
-            y = _ticket_nueva_pagina(c, alto_pagina)
-            c.setFont("Helvetica-Bold", 7)
-            c.drawString(5 * mm, y, "HORA")
-            c.drawString(20 * mm, y, "DOC/REF")
-            c.drawString(45 * mm, y, "TIPO")
-            c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
-            y -= 3 * mm
-            c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-            y -= 4 * mm
-            c.setFont("Helvetica", 6.5)
-        
-        c.drawString(5 * mm, y, row['hora'])
-        c.drawString(20 * mm, y, _ticket_ref_corta(row['ref']))
-        c.drawString(45 * mm, y, row['tipo'][:12])
-        c.drawRightString(ancho_pagina - 5 * mm, y, f"{row['monto']:,.2f}")
+    c.setFont("Helvetica", 6)
+    for ev in eventos:
+        c.drawString(5 * mm, y, ev['hora'])
+        c.drawString(18 * mm, y, _ticket_ref_corta(ev['ref']))
+        c.drawString(42 * mm, y, ev['tipo'][:20])
+        c.drawRightString(ancho_pagina - 5 * mm, y, f"{ev['monto']:,.2f}")
         y -= 3.5 * mm
 
     y -= 5 * mm
@@ -5235,39 +5245,25 @@ def generar_pdf_cuadre_caja(request):
     c.drawString(5 * mm, y, "TOTAL EGRESOS:")
     c.drawRightString(ancho_pagina - 5 * mm, y, f"RD$ {total_egresos:,.2f}")
     y -= 7 * mm
-
-    # Nota aclaratoria sobre saldos negativos
-    if caja_neta < 0:
-        c.setFont("Helvetica-Oblique", 7)
-        c.drawCentredString(ancho_pagina / 2, y, "Nota: El valor negativo indica que los egresos")
-        y -= 3 * mm
-        c.drawCentredString(ancho_pagina / 2, y, "superaron a los ingresos en este periodo.")
-        y -= 5 * mm
-
+    
     c.setFont("Helvetica-Bold", 12)
     c.drawString(5 * mm, y, "TOTAL EN CAJA:")
-    c.setFont("Helvetica-Bold", 14)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${caja_neta:,.2f}")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD$ {caja_neta:,.2f}")
     y -= 6 * mm
-    c.setLineWidth(0.8)
-    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-    y -= 1.5 * mm
-    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-    c.setLineWidth(1)
-    y -= 6 * mm
-
-    if y < 20 * mm:
-        y = _ticket_nueva_pagina(c, alto_pagina)
+    
+    if caja_neta < 0:
+        c.setFont("Helvetica-Oblique", 7)
+        c.drawCentredString(ancho_pagina / 2, y, "Nota: El total refleja el efectivo real en caja.")
+        y -= 3 * mm
 
     c.setFont("Helvetica", 8)
-    c.drawCentredString(ancho_pagina / 2, y, "*** GRACIAS POR SU VISITA ***")
-
+    c.drawCentredString(ancho_pagina / 2, y, "*** FIN DEL REPORTE ***")
+    
     c.save()
     buffer.seek(0)
-
     response = HttpResponse(buffer, content_type='application/pdf')
-    response[
-        'Content-Disposition'] = f"inline; filename=\"cuadre_caja_{ahora_local.strftime('%Y%m%d_%H%M')}.pdf\""
+    response['Content-Disposition'] = f"inline; filename=\"cuadre_caja_{ahora_local.strftime('%Y%m%d_%H%M')}.pdf\""
+    return response
     return response
 
 
