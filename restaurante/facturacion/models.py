@@ -1662,3 +1662,51 @@ class SaldoAFavor(models.Model):
         self.fecha_anulacion = timezone.now()
         self.actualizado_por = usuario
         self.save()
+
+
+# =============================================================================
+# IDEMPOTENCY KEY
+# =============================================================================
+
+class IdempotencyKey(models.Model):
+    """
+    Rastreo de llaves de idempotencia para evitar duplicados y persistir respuestas.
+    Las llaves se guardan por 24 horas.
+    """
+    key = models.CharField(
+        max_length=128,
+        unique=True,
+        verbose_name="Llave de Idempotencia"
+    )
+    response_data = models.JSONField(
+        verbose_name="Datos de la Respuesta"
+    )
+    status_code = models.PositiveIntegerField(
+        default=200,
+        verbose_name="Código de Estado"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de Creación"
+    )
+    expires_at = models.DateTimeField(
+        verbose_name="Fecha de Expiración",
+        db_index=True
+    )
+
+    class Meta:
+        verbose_name = "Llave de Idempotencia"
+        verbose_name_plural = "Llaves de Idempotencia"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['key']),
+            models.Index(fields=['expires_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.key} (Vence: {self.expires_at})"
+
+    @property
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+

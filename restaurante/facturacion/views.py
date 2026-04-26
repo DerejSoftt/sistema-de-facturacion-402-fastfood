@@ -36,7 +36,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 import json
-from .models import Producto, Plato, Pedido, Mesa, DeliveryConfig, HistorialEstadoPedido, DetalleItemPedido, Factura, Devolucion, DetalleDevolucion, Cliente, PagoCuentaCobrar, CuentaPorCobrar, FacturaDetalle, MovimientoFinanciero, SaldoAFavor
+from .models import Producto, Plato, Pedido, Mesa, DeliveryConfig, HistorialEstadoPedido, DetalleItemPedido, Factura, Devolucion, DetalleDevolucion, Cliente, PagoCuentaCobrar, CuentaPorCobrar, FacturaDetalle, MovimientoFinanciero, SaldoAFavor, IdempotencyKey
 from django.core.paginator import Paginator
 from django.db.models import Sum, Count, Q, Exists, OuterRef
 from django.db.models.functions import Coalesce
@@ -47,8 +47,7 @@ from django.db.models.functions import TruncDate, Extract, TruncMonth
 from functools import lru_cache
 from decimal import Decimal
 from django.contrib import messages
-from datetime import date
-from datetime import datetime, timedelta
+from datetime import date, timedelta, datetime
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, DecimalField
@@ -9183,6 +9182,7 @@ def cuentaporcobrar_comprobante_pdf(request):
 
 
 @login_required
+@csrf_exempt
 @require_POST
 def cuentaporcobrar_registrar_pago(request):
     """Registra pago por factura puntual o por cliente (distribuido)."""
@@ -9192,6 +9192,21 @@ def cuentaporcobrar_registrar_pago(request):
         payload = json.loads(request.body.decode('utf-8') or '{}')
     except Exception:
         payload = request.POST
+
+    # ── UUID — OBLIGATORIO desde el frontend ──────────────────────────────────
+    uuid_pago = (payload.get('uuid_pago') or '').strip()
+    if not uuid_pago:
+        return JsonResponse(
+            {'success': False, 'error': 'uuid_pago es requerido. Debe generarse en el frontend antes de enviar.'},
+            status=400
+        )
+
+    # ── FASE 1: Verificación de Idempotencia Persistente ─────────────────────
+    # Si ya procesamos esta llave hace menos de 24h, devolvemos la respuesta guardada.
+    # Esto protege contra reintentos de red y garantiza consistencia total.
+    pago_previo = IdempotencyKey.objects.filter(key=uuid_pago).first()
+    if pago_previo and not pago_previo.is_expired:
+        return JsonResponse(pago_previo.response_data, status=pago_previo.status_code)
 
     # ── Monto ─────────────────────────────────────────────────────────────────
     try:
@@ -9251,24 +9266,14 @@ def cuentaporcobrar_registrar_pago(request):
     cliente_nombre = (payload.get('cliente_nombre') or '').strip()
     cliente_telefono = _telefono_solo_digitos(payload.get('cliente_telefono'))
 
-    # ── UUID — OBLIGATORIO desde el frontend ──────────────────────────────────
-    # El UUID debe generarse en el cliente ANTES de enviar el form.
-    # Si el backend lo genera, la idempotencia no funciona porque cada
-    # reenvío produce un UUID diferente → pago duplicado.
-    uuid_pago = (payload.get('uuid_pago') or '').strip()
-    if not uuid_pago:
-        return JsonResponse(
-            {'success': False, 'error': 'uuid_pago es requerido. Debe generarse en el frontend antes de enviar.'},
-            status=400
-        )
-
     # =========================================================================
     # CASO 1 — Pago a una factura específica
     # =========================================================================
     if factura_id:
         with transaction.atomic():
+            # Bloqueo preventivo de la fila para evitar condiciones de carrera en el saldo
             factura = get_object_or_404(
-                Factura.objects.exclude(
+                Factura.objects.select_for_update().exclude(
                     estado='pagada').prefetch_related('pagos_cxc'),
                 id=factura_id
             )
@@ -9303,7 +9308,6 @@ def cuentaporcobrar_registrar_pago(request):
                     }
                 )
             except IntegrityError:
-                # Dos requests simultáneos con el mismo UUID: el segundo llega aquí
                 pago_registrado = PagoCuentaCobrar.objects.get(
                     uuid_pago=uuid_pago)
                 creado = False
@@ -9314,14 +9318,24 @@ def cuentaporcobrar_registrar_pago(request):
                     f"{reverse('cuentaporcobrar_comprobante_pdf')}?pagos={pago_registrado.id}"
                     if pago_registrado.id else ''
                 )
-                return JsonResponse({
+                response_data = {
                     'success':          True,
                     'mensaje':          'Pago ya registrado previamente.',
                     'pago_id':          pago_registrado.id,
                     'uuid_pago':        str(pago_registrado.uuid_pago),
                     'comprobante_url':  comprobante_url,
                     'reimpresion':      True,
-                })
+                }
+                # Persistir respuesta en IdempotencyKey para futuros reintentos
+                IdempotencyKey.objects.update_or_create(
+                    key=uuid_pago,
+                    defaults={
+                        'response_data': response_data,
+                        'status_code': 200,
+                        'expires_at': timezone.now() + timedelta(hours=24)
+                    }
+                )
+                return JsonResponse(response_data)
 
             # ── Pago nuevo — sincronizar saldo y cerrar factura si aplica ────
             comprobante_url = (
@@ -9333,30 +9347,33 @@ def cuentaporcobrar_registrar_pago(request):
                 factura.estado = 'pagada'
                 factura.metodo_pago = metodo_pago
                 factura.save(update_fields=['estado', 'metodo_pago'])
-
-                # Sincronizar movimientos financieros
                 _sincronizar_movimientos_factura(factura)
 
-            # Registrar ingreso financiero por pago de CxC
+            # Registrar ingreso financiero
             MovimientoFinanciero.objects.create(
-                tipo="INGRESO",
-                origen="PAGO_CXC",
-                monto=monto,
-                fecha_operacion=fecha_pago,
-                factura=factura,
-                pago_cxc=pago_registrado,
-                metodo_pago=metodo_pago,
-                creado_por=request.user if request.user.is_authenticated else None,
-                descripcion=f"Pago CxC factura {factura.numero_factura}. Comprobante: {pago_registrado.numero_comprobante}",
+                tipo="INGRESO", origen="PAGO_CXC", monto=monto,
+                fecha_operacion=fecha_pago, factura=factura, pago_cxc=pago_registrado,
+                metodo_pago=metodo_pago, creado_por=request.user if request.user.is_authenticated else None,
+                descripcion=f"Pago CxC factura {factura.numero_factura}.",
                 referencia=pago_registrado.numero_comprobante or "",
             )
 
-            return JsonResponse({
+            response_data = {
                 'success':             True,
                 'mensaje':             'Pago registrado correctamente.',
                 'comprobante_url':     comprobante_url,
                 'numero_comprobante':  pago_registrado.numero_comprobante,
-            })
+            }
+            # Persistir respuesta exitosa
+            IdempotencyKey.objects.update_or_create(
+                key=uuid_pago,
+                defaults={
+                    'response_data': response_data,
+                    'status_code': 200,
+                    'expires_at': timezone.now() + timedelta(hours=24)
+                }
+            )
+            return JsonResponse(response_data)
 
     # =========================================================================
     # CASO 2 — Pago distribuido por cliente
@@ -9369,56 +9386,23 @@ def cuentaporcobrar_registrar_pago(request):
 
     if not pago_completo:
         return JsonResponse(
-            {
-                'success': False,
-                'error':   'Seleccione una factura específica o active el pago completo de la deuda.'
-            },
+            {'success': False, 'error': 'Active el pago completo de la deuda.'},
             status=400
         )
 
     # ── Buscar facturas pendientes del cliente ─────────────────────────────
-    facturas_no_pagadas = (
-        Factura.objects
-        .exclude(estado='pagada')
-        .prefetch_related('pagos_cxc')
-        .order_by('fecha_factura')
-    )
+    facturas_no_pagadas = Factura.objects.exclude(estado='pagada').order_by('fecha_factura')
     facturas_cliente = []
-
-    for factura in facturas_no_pagadas:
-        tel_factura = _telefono_solo_digitos(factura.telefono_cliente)
-        nombre_factura = (factura.nombre_cliente or '').strip().lower()
-
-        coincide = False
-        if cliente_telefono and tel_factura and cliente_telefono == tel_factura:
-            coincide = True
-        elif cliente_nombre and nombre_factura and cliente_nombre.lower() == nombre_factura:
-            coincide = True
-
-        if coincide:
-            facturas_cliente.append(factura)
+    for f in facturas_no_pagadas:
+        tel_factura = _telefono_solo_digitos(f.telefono_cliente)
+        if (cliente_telefono and tel_factura == cliente_telefono) or \
+           (cliente_nombre and (f.nombre_cliente or '').strip().lower() == cliente_nombre.lower()):
+            facturas_cliente.append(f)
 
     if not facturas_cliente:
-        return JsonResponse(
-            {'success': False,
-                'error': 'No se encontraron facturas pendientes para ese cliente.'},
-            status=404
-        )
+        return JsonResponse({'success': False, 'error': 'No hay facturas pendientes.'}, status=404)
 
-    saldo_total_cliente = sum(
-        (_saldo_factura_pendiente(f) for f in facturas_cliente),
-        Decimal('0.00')
-    )
-    if monto > saldo_total_cliente:
-        return JsonResponse(
-            {
-                'success': False,
-                'error':   f'El monto excede el saldo pendiente total del cliente (RD$ {saldo_total_cliente}).'
-            },
-            status=400
-        )
-
-    # ── Distribuir el pago entre las facturas ─────────────────────────────
+    # ── Distribuir el pago ────────────────────────────────────────────────
     restante = monto
     aplicado_total = Decimal('0.00')
     pagos_creados_ids = []
@@ -9426,39 +9410,30 @@ def cuentaporcobrar_registrar_pago(request):
     hubo_reimpresion = False
 
     with transaction.atomic():
-        for factura in facturas_cliente:
-            if restante <= 0:
-                break
-
-            cuenta = _sincronizar_cuenta_por_cobrar(factura)
+        # Bloquear todas las facturas del cliente para asegurar consistencia del lote
+        facturas_lock = Factura.objects.select_for_update().filter(id__in=[f.id for f in facturas_cliente])
+        
+        for factura in facturas_lock:
+            if restante <= 0: break
+            
             saldo_actual = _saldo_factura_pendiente(factura)
-            if saldo_actual <= 0:
-                continue
+            if saldo_actual <= 0: continue
 
             monto_aplicar = saldo_actual if saldo_actual <= restante else restante
+            uuid_pago_factura = str(uuid.uuid5(uuid.UUID(uuid_pago), str(factura.id)))
 
-            # UUID único por factura dentro del pago distribuido
-            # uuid_pago_factura = f"{uuid_pago}-{factura.id}"
-            uuid_pago_factura = str(uuid.uuid5(
-                uuid.UUID(uuid_pago), str(factura.id)))
-            # ── Idempotencia con get_or_create ───────────────────────────
             try:
                 pago_obj, creado = PagoCuentaCobrar.objects.get_or_create(
                     uuid_pago=uuid_pago_factura,
                     defaults={
-                        'cuenta_por_cobrar': cuenta,
-                        'factura':           factura,
-                        'monto':             monto_aplicar,
-                        'fecha_pago':        fecha_pago,
-                        'metodo_pago':       metodo_pago,
-                        'referencia':        referencia,
-                        'notas':             notas,
-                        'registrado_por':    request.user if request.user.is_authenticated else None,
+                        'cuenta_por_cobrar': _sincronizar_cuenta_por_cobrar(factura),
+                        'factura': factura, 'monto': monto_aplicar, 'fecha_pago': fecha_pago,
+                        'metodo_pago': metodo_pago, 'referencia': referencia, 'notas': notas,
+                        'registrado_por': request.user if request.user.is_authenticated else None,
                     }
                 )
             except IntegrityError:
-                pago_obj = PagoCuentaCobrar.objects.get(
-                    uuid_pago=uuid_pago_factura)
+                pago_obj = PagoCuentaCobrar.objects.get(uuid_pago=uuid_pago_factura)
                 creado = False
 
             pagos_creados_ids.append(str(pago_obj.id))
@@ -9466,66 +9441,49 @@ def cuentaporcobrar_registrar_pago(request):
 
             if creado:
                 aplicado_total += monto_aplicar
-                # Registrar ingreso financiero por este pago parcial distribuido
                 MovimientoFinanciero.objects.create(
-                    tipo="INGRESO",
-                    origen="PAGO_CXC",
-                    monto=monto_aplicar,
-                    fecha_operacion=fecha_pago,
-                    factura=factura,
-                    pago_cxc=pago_obj,
-                    metodo_pago=metodo_pago,
-                    creado_por=request.user if request.user.is_authenticated else None,
-                    descripcion=f"Pago CxC distribuido factura {factura.numero_factura}. Comprobante: {pago_obj.numero_comprobante}",
+                    tipo="INGRESO", origen="PAGO_CXC", monto=monto_aplicar,
+                    fecha_operacion=fecha_pago, factura=factura, pago_cxc=pago_obj,
+                    metodo_pago=metodo_pago, creado_por=request.user if request.user.is_authenticated else None,
+                    descripcion=f"Pago CxC distribuido factura {factura.numero_factura}.",
                     referencia=pago_obj.numero_comprobante or "",
                 )
             else:
                 hubo_reimpresion = True
 
             restante -= monto_aplicar
-
             _sincronizar_cuenta_por_cobrar(factura)
             if _saldo_factura_pendiente(factura) <= 0:
                 factura.estado = 'pagada'
-                factura.metodo_pago = metodo_pago
-                factura.save(update_fields=['estado', 'metodo_pago'])
-
-                # Sincronizar movimientos financieros
+                factura.save(update_fields=['estado'])
                 _sincronizar_movimientos_factura(factura)
 
     # ── Respuesta del pago distribuido ────────────────────────────────────
-    comprobante_url = (
-        f"{reverse('cuentaporcobrar_comprobante_pdf')}?pagos={','.join(pagos_creados_ids)}"
-        if pagos_creados_ids else ''
+    comprobante_url = f"{reverse('cuentaporcobrar_comprobante_pdf')}?pagos={','.join(pagos_creados_ids)}" if pagos_creados_ids else ''
+    
+    if aplicado_total <= 0 and hubo_reimpresion:
+        response_data = {
+            'success': True, 'mensaje': 'Pago ya registrado previamente.',
+            'reimpresion': True, 'comprobante_url': comprobante_url,
+        }
+    elif aplicado_total <= 0:
+        return JsonResponse({'success': False, 'error': 'No se pudo aplicar el pago.'}, status=400)
+    else:
+        response_data = {
+            'success': True, 'mensaje': f'Pago aplicado. Monto: RD$ {aplicado_total}',
+            'comprobante_url': comprobante_url,
+        }
+
+    # Persistir respuesta distribuida
+    IdempotencyKey.objects.update_or_create(
+        key=uuid_pago,
+        defaults={
+            'response_data': response_data,
+            'status_code': 200,
+            'expires_at': timezone.now() + timedelta(hours=24)
+        }
     )
-    numeros_comprobante = [
-        p.numero_comprobante for p in pagos_creados if p.numero_comprobante
-    ]
-
-    # Todos los pagos ya existían → reimpresión total
-    if aplicado_total <= 0 and hubo_reimpresion and pagos_creados_ids:
-        return JsonResponse({
-            'success':              True,
-            'mensaje':              'Pago ya registrado previamente.',
-            'reimpresion':          True,
-            'comprobante_url':      comprobante_url,
-            'numeros_comprobante':  numeros_comprobante,
-        })
-
-    # No se pudo aplicar nada y no había registros previos → error real
-    if aplicado_total <= 0:
-        return JsonResponse(
-            {'success': False, 'error': 'No fue posible aplicar el pago.'},
-            status=400
-        )
-
-    return JsonResponse({
-        'success':               True,
-        'mensaje':               f'Pago aplicado correctamente. Monto aplicado: RD$ {aplicado_total}',
-        'restante_no_aplicado':  float(restante),
-        'comprobante_url':       comprobante_url,
-        'numeros_comprobante':   numeros_comprobante,
-    })
+    return JsonResponse(response_data)
 
 
 @login_required
