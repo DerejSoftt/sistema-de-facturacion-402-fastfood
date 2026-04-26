@@ -5576,7 +5576,7 @@ def generar_pdf_cuadre_caja(request):
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f"inline; filename=\"cuadre_caja_{ahora_local.strftime('%Y%m%d_%H%M')}.pdf\""
     return response
-    return response
+  
 
 
 @login_required
