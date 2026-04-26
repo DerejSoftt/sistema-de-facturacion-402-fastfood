@@ -4102,541 +4102,765 @@ def calcular_costo_real_facturas(facturas_queryset, include_stats=False):
 
 @login_required
 def dashbort(request):
+    def calcular_cambio_porcentual(actual, anterior):
+        actual_val = float(actual or 0)
+        anterior_val = float(anterior or 0)
 
-    # ── Helpers internos ───────────────────────────────────────────────────
-    def _pct(actual, anterior):
-        a, b = float(actual or 0), float(anterior or 0)
-        if b > 0:
-            return ((a - b) / b) * 100
-        return 100.0 if a > 0 else 0.0
+        if anterior_val > 0:
+            return ((actual_val - anterior_val) / anterior_val) * 100
+        if actual_val > 0:
+            return 100.0
+        return 0.0
 
-    def _trend(val):
-        return {
-            'value':  round(val, 1),
-            'icon':   'up' if val > 0 else 'down' if val < 0 else 'neutral',
-            'class':  'trend-up' if val > 0 else 'trend-down' if val < 0 else 'trend-neutral',
-        }
+    def obtener_cantidad_precio_item(item):
+        """Lee cantidad/precio soportando claves en ingles y espanol."""
+        cantidad_raw = item.get('quantity', item.get('cantidad', 0))
+        precio_raw = item.get('price', item.get('precio', 0))
 
-    # ── Tiempo (forzado a RD) ─────────────────────────────────────────────
-    tz_rd = pytz.timezone('America/Santo_Domingo')
-    ahora_local = timezone.now().astimezone(tz_rd)
+        try:
+            cantidad = float(cantidad_raw or 0)
+        except (TypeError, ValueError):
+            cantidad = 0.0
+
+        try:
+            precio = float(precio_raw or 0)
+        except (TypeError, ValueError):
+            precio = 0.0
+
+        return cantidad, precio
+
+    # Obtener hora local actual
+    ahora_local = timezone.localtime()
     hoy_local = ahora_local.date()
+    hora_actual = ahora_local.time()
     dashboard_debug = bool(settings.DEBUG and request.GET.get('debug') == '1')
 
-    def _aware_rd(fecha, hora):
-        return timezone.make_aware(datetime.combine(fecha, hora), tz_rd)
-
-    # ── Cache (Reducido para desarrollo/debug) ──────────────────────────────
+    # Cache del render inicial del dashboard para evitar recalculo pesado en cada carga.
     if not dashboard_debug:
-        bucket = f"{ahora_local.strftime('%Y%m%d%H%M')}{(ahora_local.second // 15) * 15:02d}"
-        cache_key = f"dashbort:v4:{request.user.id}:{bucket}"
-        # Comentado temporalmente para asegurar que el usuario vea los cambios
-        # cached = cache.get(cache_key)
-        # if cached is not None:
-        #     return render(request, 'facturacion/dashbort.html', cached)
+        minute_bucket = (ahora_local.minute // 5) * 5
+        cache_bucket = f"{ahora_local.strftime('%Y%m%d%H')}{minute_bucket:02d}"
+        cache_key = f"dashbort:context:v2:user:{request.user.id}:{cache_bucket}"
+        cached_context = cache.get(cache_key)
+        if cached_context is not None:
+            return render(request, 'facturacion/dashbort.html', cached_context)
 
-    # ── Definición del día operativo: 6:00 AM → 5:59:59 AM día siguiente ──
-    # Esta lógica es fija y no cambia — siempre el mismo rango para cuadre.
-    if ahora_local.hour >= 2:
-        inicio_dia = _aware_rd(hoy_local, time(2, 0, 0))
-        fin_dia = _aware_rd(hoy_local + timedelta(days=1), time(1, 59, 59))
+    # DEFINICIÓN DEL "DÍA": De 6:00 AM a 5:59 AM del día siguiente
+    if ahora_local.hour >= 6:
+        # Si son las 6:00 AM o más tarde, el día actual comenzó hoy a las 6:00 AM
+        inicio_dia = timezone.make_aware(
+            datetime.combine(hoy_local, datetime(2000, 1, 1, 6, 0, 0).time())
+        )
+        fin_dia = timezone.make_aware(
+            datetime.combine(hoy_local + timedelta(days=1),
+                             datetime(2000, 1, 1, 5, 59, 59).time())
+        )
     else:
-        inicio_dia = _aware_rd(hoy_local - timedelta(days=1), time(2, 0, 0))
-        fin_dia = _aware_rd(hoy_local, time(1, 59, 59))
+        # Si es antes de las 6:00 AM, estamos en el día que comenzó ayer a las 6:00 AM
+        inicio_dia = timezone.make_aware(
+            datetime.combine(hoy_local - timedelta(days=1),
+                             datetime(2000, 1, 1, 6, 0, 0).time())
+        )
+        fin_dia = timezone.make_aware(
+            datetime.combine(hoy_local, datetime(2000, 1, 1, 5, 59, 59).time())
+        )
 
+    # Obtener rango visual para mostrar (para información)
+    rango_dia_inicio = timezone.localtime(inicio_dia)
+    rango_dia_fin = timezone.localtime(fin_dia)
+
+    # 1. VENTA DEL DÍA - Facturas del "día" según nueva definición (6 AM a 5:59 AM)
+    facturas_hoy = Factura.objects.filter(
+        fecha_factura__gte=inicio_dia,
+        fecha_factura__lte=fin_dia,
+        estado='pagada'
+    )
+
+    venta_dia_contado = facturas_hoy.aggregate(total_dia=Sum('total'))[
+        'total_dia'] or Decimal('0.00')
+
+    # Filtrar pagos CxC usando el mismo rango UTC que el PDF
+    import pytz
+    inicio_dia_utc = inicio_dia.astimezone(pytz.UTC)
+    fin_dia_utc = fin_dia.astimezone(pytz.UTC)
+    pagos_credito_dia_qs = PagoCuentaCobrar.objects.filter(
+        fecha_pago__gte=inicio_dia_utc,
+        fecha_pago__lte=fin_dia_utc
+    )
+    pagos_credito_dia = pagos_credito_dia_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    total_pagos_hoy = pagos_credito_dia_qs.count()
+
+    venta_dia = venta_dia_contado + pagos_credito_dia
+
+    # 2. VENTA DEL MES - Esto se mantiene igual (mes calendario)
+    primer_dia_mes = hoy_local.replace(day=1)
+    inicio_mes = timezone.make_aware(
+        datetime.combine(primer_dia_mes, datetime.min.time())
+    )
+
+    # El fin del mes es el último día del mes actual a las 23:59:59
+    if hoy_local.month == 12:
+        ultimo_dia_mes = hoy_local.replace(day=31)
+    else:
+        ultimo_dia_mes = hoy_local.replace(
+            month=hoy_local.month + 1, day=1) - timedelta(days=1)
+
+    fin_mes = timezone.make_aware(
+        datetime.combine(ultimo_dia_mes, datetime.max.time())
+    )
+
+    facturas_mes = Factura.objects.filter(
+        fecha_factura__gte=inicio_mes,
+        fecha_factura__lte=fin_mes,
+        estado='pagada'
+    )
+
+    venta_mes_contado = facturas_mes.aggregate(total_mes=Sum('total'))[
+        'total_mes'] or Decimal('0.00')
+
+    pagos_credito_mes_qs = PagoCuentaCobrar.objects.filter(
+        fecha_pago__gte=inicio_mes,
+        fecha_pago__lte=fin_mes
+    )
+    pagos_credito_mes = pagos_credito_mes_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    total_pagos_mes = pagos_credito_mes_qs.count()
+
+    venta_mes = venta_mes_contado + pagos_credito_mes
+
+    # Ventas del día anterior (mismo rango 6 AM - 5:59 AM)
     inicio_dia_anterior = inicio_dia - timedelta(days=1)
     fin_dia_anterior = fin_dia - timedelta(days=1)
+    venta_dia_anterior_contado = Factura.objects.filter(
+        fecha_factura__gte=inicio_dia_anterior,
+        fecha_factura__lte=fin_dia_anterior,
+        estado='pagada'
+    ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
-    # ── Mes actual (calendario) ────────────────────────────────────────────
-    primer_dia_mes = hoy_local.replace(day=1)
-    if hoy_local.month == 12:
-        primer_dia_mes_siguiente = hoy_local.replace(
-            year=hoy_local.year + 1, month=1, day=1)
-    else:
-        primer_dia_mes_siguiente = hoy_local.replace(
-            month=hoy_local.month + 1, day=1)
+    pagos_credito_dia_anterior = PagoCuentaCobrar.objects.filter(
+        fecha_pago__gte=inicio_dia_anterior,
+        fecha_pago__lte=fin_dia_anterior
+    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
-    inicio_mes = _aware_rd(primer_dia_mes, time(0, 0, 0))
-    fin_mes = _aware_rd(primer_dia_mes_siguiente, time(0, 0, 0))
-    # Nota: usamos __lt fin_mes (exclusive) en todas las queries del mes
+    venta_dia_anterior = venta_dia_anterior_contado + pagos_credito_dia_anterior
 
-    # ── Mes anterior ───────────────────────────────────────────────────────
-    ultimo_dia_mes_pasado = primer_dia_mes - timedelta(days=1)
-    primer_dia_mes_pasado = ultimo_dia_mes_pasado.replace(day=1)
-    inicio_mes_pasado = _aware_rd(primer_dia_mes_pasado, time(0, 0, 0))
-    fin_mes_pasado = inicio_mes  # exclusive upper bound
+    # Ventas del mes anterior
+    mes_pasado = hoy_local.replace(day=1) - timedelta(days=1)
+    inicio_mes_pasado = mes_pasado.replace(day=1)
+    fin_mes_pasado = mes_pasado
 
-    # ── Resúmenes de caja (fuente: MovimientoFinanciero) ───────────────────
-    r_dia = _resumen_movimientos_caja(inicio_dia,      fin_dia)
-    r_dia_ant = _resumen_movimientos_caja(
-        inicio_dia_anterior, fin_dia_anterior)
-    r_mes = _resumen_movimientos_caja(inicio_mes,      fin_mes)
-    r_mes_ant = _resumen_movimientos_caja(inicio_mes_pasado, fin_mes_pasado)
-
-    venta_dia = r_dia['caja_neta']
-    venta_dia_anterior = r_dia_ant['caja_neta']
-    venta_mes = r_mes['caja_neta']
-    venta_mes_pasado = r_mes_ant['caja_neta']
-    gastos_totales = r_mes['egresos_total']
-    gastos_mes_pasado = r_mes_ant['egresos_total']
-    ganancias_netas = r_mes['caja_neta']
-    ganancias_pasadas = r_mes_ant['caja_neta']
-
-    # ── Cards — conteos consolidados en UNA sola query (no 6) ──────────────
-    # OPTIMIZACIÓN: Antes: 6 queries de .count()
-    #               Después: 2 queries .aggregate() con Case/When
-    from django.db.models import Count, Case, When
-
-    conteos_hoy = MovimientoFinanciero.objects.filter(
-        fecha_operacion__gte=inicio_dia,
-        fecha_operacion__lt=fin_dia,
-        estado__in=['ACTIVO', 'INACTIVO'],
-    ).aggregate(
-        total_facturas=Count(
-            Case(When(tipo='INGRESO', origen='VENTA', then=1))),
-        total_pagos=Count(
-            Case(When(tipo='INGRESO', origen='PAGO_CXC', then=1))),
-        total_egresos=Count(
-            Case(When(tipo='EGRESO', origen__in=['DEVOLUCION', 'ANULACION'], then=1))),
+    inicio_mes_pasado_time = timezone.make_aware(
+        datetime.combine(inicio_mes_pasado, datetime.min.time())
+    )
+    fin_mes_pasado_time = timezone.make_aware(
+        datetime.combine(fin_mes_pasado, datetime.max.time())
     )
 
-    conteos_mes = MovimientoFinanciero.objects.filter(
-        fecha_operacion__gte=inicio_mes,
-        fecha_operacion__lt=fin_mes,
-        estado__in=['ACTIVO', 'INACTIVO'],
-    ).aggregate(
-        total_facturas=Count(
-            Case(When(tipo='INGRESO', origen='VENTA', then=1))),
-        total_pagos=Count(
-            Case(When(tipo='INGRESO', origen='PAGO_CXC', then=1))),
-        total_egresos=Count(
-            Case(When(tipo='EGRESO', origen__in=['DEVOLUCION', 'ANULACION'], then=1))),
-    )
+    venta_mes_pasado_contado = Factura.objects.filter(
+        fecha_factura__gte=inicio_mes_pasado_time,
+        fecha_factura__lte=fin_mes_pasado_time,
+        estado='pagada'
+    ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
-    total_facturas_hoy = conteos_hoy['total_facturas']
-    total_facturas_mes = conteos_mes['total_facturas']
-    total_pagos_hoy = conteos_hoy['total_pagos']
-    total_pagos_mes = conteos_mes['total_pagos']
-    total_egresos_hoy = conteos_hoy['total_egresos']
-    total_egresos_mes = conteos_mes['total_egresos']
+    pagos_credito_mes_pasado = PagoCuentaCobrar.objects.filter(
+        fecha_pago__gte=inicio_mes_pasado_time,
+        fecha_pago__lte=fin_mes_pasado_time
+    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
-    # ── Pedidos ────────────────────────────────────────────────────────────
+    venta_mes_pasado = venta_mes_pasado_contado + pagos_credito_mes_pasado
+
+    # 3. PEDIDOS HOY - Usar misma definición de "día" (6 AM a 5:59 AM)
     total_pedidos = Pedido.objects.filter(
-        fecha_pedido__gte=inicio_dia, fecha_pedido__lt=fin_dia
+        fecha_pedido__gte=inicio_dia,
+        fecha_pedido__lte=fin_dia
     ).count()
+
     total_pedidos_ayer = Pedido.objects.filter(
-        fecha_pedido__gte=inicio_dia_anterior, fecha_pedido__lt=fin_dia_anterior
+        fecha_pedido__gte=inicio_dia_anterior,
+        fecha_pedido__lte=fin_dia_anterior
     ).count()
 
-    # ── Clientes activos del mes ───────────────────────────────────────────
-    # Contamos clientes del modelo Cliente que tienen facturas pagadas este mes.
-    # Fallback: nombres únicos en facturas si no hay modelo Cliente vinculado.
-    nuevos_clientes = Cliente.objects.filter(
-        fecha_registro__gte=inicio_mes,
-        fecha_registro__lt=fin_mes,
-        activo=True
-    ).count()
-    if nuevos_clientes == 0:
-        nuevos_clientes = (
-            Factura.objects
-            .filter(fecha_factura__gte=inicio_mes, fecha_factura__lt=fin_mes, estado='pagada')
-            .exclude(nombre_cliente='')
-            .values('nombre_cliente').distinct().count()
-        )
+    # 4. GASTOS TOTALES - Costos reales según items facturados
+    gastos_totales, costo_mes_stats = calcular_costo_real_facturas(
+        facturas_mes,
+        include_stats=True
+    )
+    facturas_mes_pasado_qs = Factura.objects.filter(
+        fecha_factura__gte=inicio_mes_pasado_time,
+        fecha_factura__lte=fin_mes_pasado_time,
+        estado='pagada'
+    )
+    gastos_totales_mes_pasado = calcular_costo_real_facturas(facturas_mes_pasado_qs)
 
-    nuevos_clientes_mes_pasado = Cliente.objects.filter(
-        fecha_registro__gte=inicio_mes_pasado,
-        fecha_registro__lt=fin_mes_pasado,
-        activo=True
-    ).count()
-    if nuevos_clientes_mes_pasado == 0:
-        nuevos_clientes_mes_pasado = (
-            Factura.objects
-            .filter(fecha_factura__gte=inicio_mes_pasado, fecha_factura__lt=fin_mes_pasado, estado='pagada')
-            .exclude(nombre_cliente='')
-            .values('nombre_cliente').distinct().count()
-        )
+    # 5. GANANCIAS NETAS
+    ganancias_netas = venta_mes - gastos_totales
+    ganancias_netas_mes_pasado = venta_mes_pasado - gastos_totales_mes_pasado
 
-    # ── Actividades recientes ──────────────────────────────────────────────
-    actividades_recientes = (
-        Factura.objects
-        .filter(estado__in=['pagada', 'parcialmente_devuelta'])
-        .order_by('-fecha_factura')
-        .only('numero_factura', 'fecha_factura', 'nombre_cliente', 'estado', 'total')[:5]
+    # 6. NUEVOS CLIENTES - Mes actual vs mes anterior
+    nuevos_clientes = Factura.objects.filter(
+        fecha_factura__gte=inicio_mes,
+        fecha_factura__lte=fin_mes,
+        estado='pagada'
+    ).exclude(nombre_cliente='').values('nombre_cliente').distinct().count()
+
+    nuevos_clientes_mes_pasado = Factura.objects.filter(
+        fecha_factura__gte=inicio_mes_pasado_time,
+        fecha_factura__lte=fin_mes_pasado_time,
+        estado='pagada'
+    ).exclude(nombre_cliente='').values('nombre_cliente').distinct().count()
+
+    # 7. ACTIVIDADES RECIENTES - Mantener igual (últimas 5 facturas sin filtrar por día)
+    actividades_recientes = Factura.objects.filter(
+        estado='pagada'
+    ).order_by('-fecha_factura')[:5]
+
+    # 8. PRODUCTOS MÁS VENDIDOS - Usar facturas del "día" (6 AM a 5:59 AM)
+    productos_vendidos = {}
+
+    for factura in facturas_hoy:  # Ahora usa facturas_hoy (definición del día)
+        try:
+            items = factura.get_items_detalle(enrich_from_db=False)
+            if items and isinstance(items, list):
+                for item in items:
+                    nombre = item.get('name', '').strip()
+                    if not nombre:
+                        nombre = item.get('nombre', '').strip()
+
+                    if not nombre:
+                        continue
+
+                    cantidad, precio = obtener_cantidad_precio_item(item)
+                    if cantidad <= 0:
+                        continue
+
+                    if nombre in productos_vendidos:
+                        productos_vendidos[nombre]['cantidad'] += cantidad
+                        productos_vendidos[nombre]['ingresos'] += Decimal(
+                            str(cantidad * precio))
+                    else:
+                        productos_vendidos[nombre] = {
+                            'nombre': nombre,
+                            'cantidad': cantidad,
+                            'ingresos': Decimal(str(cantidad * precio))
+                        }
+        except Exception as e:
+            print(
+                f"Error procesando items de factura {factura.numero_factura}: {e}")
+            continue
+
+    productos_top = sorted(
+        productos_vendidos.values(),
+        key=lambda x: x['cantidad'],
+        reverse=True
+    )[:5]
+
+    # Tendencia de top productos: comparar cantidad de hoy vs día anterior
+    productos_ayer = {}
+    facturas_ayer = Factura.objects.filter(
+        fecha_factura__gte=inicio_dia_anterior,
+        fecha_factura__lte=fin_dia_anterior,
+        estado='pagada'
     )
 
-    # ── Productos top del día (desde FacturaDetalle — sin iterar Python) ───
-    from django.db.models import Sum as _Sum, FloatField
-    from django.db.models.functions import Coalesce as _Coalesce
+    for factura in facturas_ayer:
+        try:
+            items = factura.get_items_detalle(enrich_from_db=False)
+            if items and isinstance(items, list):
+                for item in items:
+                    nombre = item.get('name', '').strip() or item.get('nombre', '').strip()
+                    if not nombre:
+                        continue
 
-    facturas_hoy_ids = list(
-        Factura.objects.filter(
-            fecha_factura__gte=inicio_dia,
-            fecha_factura__lt=fin_dia,
-            estado__in=['pagada', 'parcialmente_devuelta']
-        ).values_list('id', flat=True)
-    )
+                    cantidad, _ = obtener_cantidad_precio_item(item)
+                    if cantidad <= 0:
+                        continue
 
-    facturas_ayer_ids = list(
-        Factura.objects.filter(
-            fecha_factura__gte=inicio_dia_anterior,
-            fecha_factura__lt=fin_dia_anterior,
-            estado__in=['pagada', 'parcialmente_devuelta']
-        ).values_list('id', flat=True)
-    )
+                    productos_ayer[nombre] = productos_ayer.get(nombre, 0) + cantidad
+        except Exception:
+            continue
 
-    # Top hoy desde FacturaDetalle
-    productos_hoy_qs = (
-        FacturaDetalle.objects
-        .filter(factura_id__in=facturas_hoy_ids)
-        .values('nombre_producto')
-        .annotate(
-            cantidad_total=_Sum('cantidad'),
-            ingresos_total=_Sum('subtotal'),
-        )
-        .order_by('-cantidad_total')[:5]
-    )
+    for producto in productos_top:
+        anterior = float(productos_ayer.get(producto['nombre'], 0))
+        actual = float(producto['cantidad'])
+        cambio = calcular_cambio_porcentual(actual, anterior)
+        producto['trend_pct'] = round(abs(cambio), 1)
+        if cambio > 0:
+            producto['trend_class'] = 'trend-up'
+            producto['trend_icon'] = 'up'
+        elif cambio < 0:
+            producto['trend_class'] = 'trend-down'
+            producto['trend_icon'] = 'down'
+        else:
+            producto['trend_class'] = 'trend-neutral'
+            producto['trend_icon'] = 'neutral'
 
-    # Cantidades ayer para tendencia
-    productos_ayer_dict = {
-        row['nombre_producto']: float(row['cantidad_total'])
-        for row in (
-            FacturaDetalle.objects
-            .filter(factura_id__in=facturas_ayer_ids)
-            .values('nombre_producto')
-            .annotate(cantidad_total=_Sum('cantidad'))
-        )
-    }
-
-    productos_top = []
-    for row in productos_hoy_qs:
-        nombre = row['nombre_producto']
-        actual = float(row['cantidad_total'] or 0)
-        anterior = productos_ayer_dict.get(nombre, 0)
-        cambio = _pct(actual, anterior)
-        productos_top.append({
-            'nombre':      nombre,
-            'cantidad':    actual,
-            'ingresos':    float(row['ingresos_total'] or 0),
-            'trend_pct':   round(abs(cambio), 1),
-            'trend_icon':  'up' if cambio > 0 else 'down' if cambio < 0 else 'neutral',
-            'trend_class': 'trend-up' if cambio > 0 else 'trend-down' if cambio < 0 else 'trend-neutral',
-        })
-
-    # ── Gráfico ventas últimos 7 días (OPTIMIZADO: 1 query en lugar de 7) ──
-    fecha_hace_7 = _aware_rd(hoy_local - timedelta(days=6), time(2, 0, 0))
-
-    movimientos_7_dias = (
-        MovimientoFinanciero.objects
-        .filter(fecha_operacion__gte=fecha_hace_7, fecha_operacion__lt=fin_dia, estado='ACTIVO')
-        .annotate(fecha_dia=TruncDate('fecha_operacion'))
-        .values('fecha_dia')
-        .annotate(
-            ingresos=Coalesce(Sum(Case(When(tipo='INGRESO', then='monto'), default=Decimal(
-                '0.00'), output_field=DecimalField())), Decimal('0.00')),
-            egresos=Coalesce(Sum(Case(When(tipo='EGRESO', then='monto'), default=Decimal(
-                '0.00'), output_field=DecimalField())), Decimal('0.00')),
-        )
-        .order_by('fecha_dia')
-    )
-
-    neto_por_dia_7 = {row['fecha_dia']: row['ingresos'] -
-                      row['egresos'] for row in movimientos_7_dias}
-
+    # 9. DATOS PARA GRÁFICO DE VENTAS - Últimos 7 "días" (cada uno de 6 AM a 5:59 AM)
     ultimos_7_dias = []
     ventas_7_dias = []
+
     for i in range(6, -1, -1):
-        ref = hoy_local - timedelta(days=i)
-        neto = neto_por_dia_7.get(ref, Decimal('0.00'))
-        ultimos_7_dias.append('Hoy' if i == 0 else ref.strftime('%a'))
-        ventas_7_dias.append(float(neto))
+        # Para cada día en el gráfico, aplicar la misma lógica de 6 AM a 5:59 AM
+        dia_referencia = hoy_local - timedelta(days=i)
 
-    # ── Gráfico categorías del día (desde FacturaDetalle + Plato) ─────────
-    # Resolvemos categoría desde Plato por nombre (join eficiente en memoria)
-    plato_cat = {
-        nombre.strip().lower(): cat.strip().lower()
-        for nombre, cat in Plato.objects.values_list('nombre', 'categoria')
-        if nombre
-    }
-    producto_cat = {
-        nombre.strip().lower(): cat.strip().lower()
-        for nombre, cat in Producto.objects.values_list('nombre', 'categoria')
-        if nombre
-    }
-    CATEGORIA_LABELS = {
-        'entrada': 'Entrada', 'principal': 'Plato Principal',
-        'postre': 'Postre', 'bebida': 'Bebida', 'carne': 'Carne',
-        'verdura': 'Verdura', 'lacteo': 'Lácteo', 'rapida': 'Comida Rápida',
-        'especial': 'Especial', 'otro': 'Otro',
-    }
+        # Determinar rango para este día
+        if i == 0:
+            # Para hoy, usar los rangos ya calculados
+            dia_inicio = inicio_dia
+            dia_fin = fin_dia
+            dia_str = "Hoy"
+        else:
+            # Para días anteriores
+            dia_anterior = dia_referencia
+            # Crear rango de 6 AM a 5:59 AM del día siguiente
+            dia_inicio = timezone.make_aware(
+                datetime.combine(dia_anterior, datetime(
+                    2000, 1, 1, 6, 0, 0).time())
+            )
+            dia_fin = timezone.make_aware(
+                datetime.combine(dia_anterior + timedelta(days=1),
+                                 datetime(2000, 1, 1, 5, 59, 59).time())
+            )
+            dia_str = dia_anterior.strftime('%a')
 
-    detalles_hoy = (
-        FacturaDetalle.objects
-        .filter(factura_id__in=facturas_hoy_ids)
-        .values('nombre_producto')
-        .annotate(ingreso=_Sum('subtotal'))
-    )
+        venta_dia_grafico = Factura.objects.filter(
+            fecha_factura__gte=dia_inicio,
+            fecha_factura__lte=dia_fin,
+            estado='pagada'
+        ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
-    # Si no hay facturas hoy, usar el mes
-    if not facturas_hoy_ids:
-        facturas_mes_ids = list(
-            Factura.objects.filter(
-                fecha_factura__gte=inicio_mes,
-                fecha_factura__lt=fin_mes,
-                estado__in=['pagada', 'parcialmente_devuelta']
-            ).values_list('id', flat=True)
-        )
-        detalles_hoy = (
-            FacturaDetalle.objects
-            .filter(factura_id__in=facturas_mes_ids)
-            .values('nombre_producto')
-            .annotate(ingreso=_Sum('subtotal'))
-        )
+        pagos_credito_dia_grafico = PagoCuentaCobrar.objects.filter(
+            fecha_pago__gte=dia_inicio,
+            fecha_pago__lte=dia_fin
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
-    cat_acumulado = {}
-    for row in detalles_hoy:
-        nombre_lower = (row['nombre_producto'] or '').strip().lower()
-        cat = (
-            plato_cat.get(nombre_lower) or
-            producto_cat.get(nombre_lower) or
-            'otro'
-        )
-        cat_acumulado[cat] = cat_acumulado.get(cat, Decimal(
-            '0.00')) + (row['ingreso'] or Decimal('0.00'))
+        venta_dia_grafico += pagos_credito_dia_grafico
 
-    categorias_data = [CATEGORIA_LABELS.get(
-        c, c.title()) for c in cat_acumulado]
-    ventas_categorias_data = [float(v) for v in cat_acumulado.values()]
+        ultimos_7_dias.append(dia_str)
+        ventas_7_dias.append(float(venta_dia_grafico))
 
-    # ── Gráfico mensual (OPTIMIZADO: 1 query en lugar de 31) ─────────────────
-    movimientos_mes = (
-        MovimientoFinanciero.objects
-        .filter(fecha_operacion__gte=inicio_mes, fecha_operacion__lt=fin_mes, estado='ACTIVO')
-        .annotate(fecha_dia=TruncDate('fecha_operacion'))
-        .values('fecha_dia')
-        .annotate(
-            ingresos=Coalesce(Sum(Case(When(tipo='INGRESO', then='monto'), default=Decimal(
-                '0.00'), output_field=DecimalField())), Decimal('0.00')),
-            egresos=Coalesce(Sum(Case(When(tipo='EGRESO', then='monto'), default=Decimal(
-                '0.00'), output_field=DecimalField())), Decimal('0.00')),
-        )
-        .order_by('fecha_dia')
-    )
+    # 10. DATOS PARA GRÁFICO DE CATEGORÍAS - Mantener igual
+    categorias_data = []
+    ventas_categorias_data = []
 
-    neto_por_dia_mes = {row['fecha_dia']: row['ingresos'] -
-                        row['egresos'] for row in movimientos_mes}
+    try:
+        categoria_labels = {
+            'entrada': 'Entrada',
+            'principal': 'Plato Principal',
+            'postre': 'Postre',
+            'bebida': 'Bebida',
+            'carne': 'Carne',
+            'verdura': 'Verdura',
+            'lacteo': 'Lacteo',
+            'rapida': 'Comida Rapida',
+            'especial': 'Especial',
+            'otro': 'Otro',
+        }
 
+        categoria_aliases = {
+            'plato principal': 'principal',
+            'comida rapida': 'rapida',
+            'lácteo': 'lacteo',
+        }
+
+        categorias_validas = set(categoria_labels.keys())
+
+        producto_categoria_por_nombre = {
+            (nombre or '').strip().lower(): (categoria or '').strip().lower()
+            for nombre, categoria in Producto.objects.values_list('nombre', 'categoria')
+            if nombre
+        }
+        producto_categoria_por_id = {
+            int(pid): (categoria or '').strip().lower()
+            for pid, categoria in Producto.objects.values_list('id', 'categoria')
+        }
+        producto_categoria_por_codigo = {
+            (codigo or '').strip().lower(): (categoria or '').strip().lower()
+            for codigo, categoria in Producto.objects.values_list('codigo', 'categoria')
+            if codigo
+        }
+        plato_categoria_por_nombre = {
+            (nombre or '').strip().lower(): (categoria or '').strip().lower()
+            for nombre, categoria in Plato.objects.values_list('nombre', 'categoria')
+            if nombre
+        }
+        plato_categoria_por_id = {
+            int(pid): (categoria or '').strip().lower()
+            for pid, categoria in Plato.objects.values_list('id', 'categoria')
+        }
+        plato_categoria_por_codigo = {
+            (codigo or '').strip().lower(): (categoria or '').strip().lower()
+            for codigo, categoria in Plato.objects.values_list('codigo', 'categoria')
+            if codigo
+        }
+
+        def normalizar_categoria(valor):
+            categoria = (valor or '').strip().lower()
+            if not categoria:
+                return ''
+            categoria = categoria_aliases.get(categoria, categoria)
+            return categoria if categoria in categorias_validas else ''
+
+        def resolver_categoria_item(item):
+            categoria_directa = normalizar_categoria(item.get('categoria') or item.get('category'))
+            if categoria_directa:
+                return categoria_directa
+
+            def extraer_id_numerico(valor_id):
+                if valor_id is None:
+                    return None
+                if isinstance(valor_id, (int, float)):
+                    return int(valor_id)
+
+                valor_str = str(valor_id).strip().lower()
+                if not valor_str:
+                    return None
+
+                if valor_str.startswith('plato_'):
+                    valor_str = valor_str.replace('plato_', '', 1)
+                elif valor_str.startswith('bebida_'):
+                    valor_str = valor_str.replace('bebida_', '', 1)
+
+                try:
+                    return int(valor_str)
+                except (TypeError, ValueError):
+                    digitos = re.findall(r'\d+', valor_str)
+                    return int(digitos[0]) if digitos else None
+
+            producto_id = item.get('producto_id') or item.get('product_id') or item.get('id')
+            pid = extraer_id_numerico(producto_id)
+            if pid is not None:
+                categoria_por_id = normalizar_categoria(producto_categoria_por_id.get(pid))
+                if categoria_por_id:
+                    return categoria_por_id
+
+                categoria_plato_id = normalizar_categoria(plato_categoria_por_id.get(pid))
+                if categoria_plato_id:
+                    return categoria_plato_id
+
+            codigo_item = (item.get('codigo') or item.get('code') or '').strip().lower()
+            if codigo_item:
+                categoria_por_codigo = normalizar_categoria(producto_categoria_por_codigo.get(codigo_item))
+                if categoria_por_codigo:
+                    return categoria_por_codigo
+
+                categoria_plato_codigo = normalizar_categoria(plato_categoria_por_codigo.get(codigo_item))
+                if categoria_plato_codigo:
+                    return categoria_plato_codigo
+
+            tipo_item = (item.get('tipo_item') or item.get('tipo') or '').strip().lower()
+            if tipo_item == 'bebida' or bool(item.get('es_bebida')):
+                return 'bebida'
+
+            nombre_item = (item.get('name') or item.get('nombre') or '').strip().lower()
+            if nombre_item:
+                categoria_producto = normalizar_categoria(producto_categoria_por_nombre.get(nombre_item))
+                if categoria_producto:
+                    return categoria_producto
+
+                categoria_plato = normalizar_categoria(plato_categoria_por_nombre.get(nombre_item))
+                if categoria_plato:
+                    return categoria_plato
+
+            return 'otro'
+
+        def acumular_categorias(facturas_iterable, enrich_items):
+            acumulado = {}
+            for factura in facturas_iterable:
+                items = factura.get_items_detalle(enrich_from_db=enrich_items)
+                if not (items and isinstance(items, list)):
+                    continue
+
+                for item in items:
+                    categoria = resolver_categoria_item(item)
+                    cantidad, precio = obtener_cantidad_precio_item(item)
+                    acumulado[categoria] = acumulado.get(categoria, 0) + (cantidad * precio)
+            return acumulado
+
+        # Pase rapido por defecto
+        categorias_dict = acumular_categorias(facturas_hoy, enrich_items=False)
+
+        # Si no hay categorías hoy, intentar del mes
+        if not categorias_dict:
+            categorias_dict = acumular_categorias(facturas_mes, enrich_items=False)
+
+        # Fallback: si todo colapsa en "otro", reintentar enriqueciendo desde BD
+        if categorias_dict and set(categorias_dict.keys()) == {'otro'}:
+            categorias_dict_rapido = categorias_dict.copy()
+            categorias_dict = acumular_categorias(facturas_hoy, enrich_items=True)
+            if not categorias_dict:
+                categorias_dict = acumular_categorias(facturas_mes, enrich_items=True)
+
+            # Si aun viene solo "otro", conservar al menos el pase rapido
+            if not categorias_dict:
+                categorias_dict = categorias_dict_rapido
+        
+        # Si aún no hay datos, mantener listas vacías (sin datos reales)
+        if categorias_dict:
+            categorias_data = [categoria_labels.get(categoria, categoria.title()) for categoria in categorias_dict.keys()]
+            ventas_categorias_data = list(categorias_dict.values())
+        else:
+            categorias_data = []
+            ventas_categorias_data = []
+    except Exception as e:
+        print(f"Error en categorías: {e}")
+        categorias_data = []
+        ventas_categorias_data = []
+
+    # 11. DATOS PARA GRÁFICOS DE MES Y AÑO (DATOS REALES)
+    # Mensual: ventas por día del mes calendario actual (alineado con tarjeta de venta mensual)
     labels_mensuales = []
     proyeccion_mensual = []
+
     for dia in range(1, hoy_local.day + 1):
         fecha_dia = hoy_local.replace(day=dia)
-        neto = neto_por_dia_mes.get(fecha_dia, Decimal('0.00'))
+        inicio_dia_cal = timezone.make_aware(
+            datetime.combine(fecha_dia, datetime.min.time())
+        )
+        fin_dia_cal = timezone.make_aware(
+            datetime.combine(fecha_dia, datetime.max.time())
+        )
+
+        venta_dia_mes = Factura.objects.filter(
+            fecha_factura__gte=inicio_dia_cal,
+            fecha_factura__lte=fin_dia_cal,
+            estado='pagada'
+        ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+
+        pagos_credito_dia_mes = PagoCuentaCobrar.objects.filter(
+            fecha_pago__gte=inicio_dia_cal,
+            fecha_pago__lte=fin_dia_cal
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+
+        venta_dia_mes += pagos_credito_dia_mes
+
         labels_mensuales.append(fecha_dia.strftime('%d %b'))
-        proyeccion_mensual.append(float(neto))
-
-    # ── Gráfico anual (últimos 12 meses, desde MovimientoFinanciero) ───────
-    meses_ref = []
-    ref_mes = primer_dia_mes
-    for _ in range(12):
-        meses_ref.append(ref_mes)
-        ref_mes = (ref_mes - timedelta(days=1)).replace(day=1)
-    meses_ref.reverse()
-
-    inicio_12 = _aware_rd(meses_ref[0], time(0, 0, 0))
-    fin_12 = fin_mes  # hasta fin del mes actual
-
-    movimientos_12 = (
-        MovimientoFinanciero.objects
-        .filter(fecha_operacion__gte=inicio_12, fecha_operacion__lt=fin_12, estado='ACTIVO')
-        .annotate(
-            anio=Func(F('fecha_operacion'), function='YEAR',
-                      output_field=IntegerField()),
-            mes=Func(F('fecha_operacion'), function='MONTH',
-                     output_field=IntegerField()),
-        )
-        .values('anio', 'mes')
-        .annotate(
-            ingresos=Coalesce(Sum(Case(When(tipo='INGRESO', then=F('monto')),
-                                       default=Value(0), output_field=DecimalField(max_digits=18, decimal_places=2))), Decimal('0.00')),
-            egresos=Coalesce(Sum(Case(When(tipo='EGRESO',  then=F('monto')),
-                                      default=Value(0), output_field=DecimalField(max_digits=18, decimal_places=2))), Decimal('0.00')),
-        )
-    )
-    neto_por_mes = {
-        (row['anio'], row['mes']): row['ingresos'] - row['egresos']
-        for row in movimientos_12 if row.get('anio') and row.get('mes')
-    }
-    MESES_ESP = ['Ene', 'Feb', 'Mar', 'Abr', 'May',
-                 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
-    labels_anuales = [MESES_ESP[m.month - 1] for m in meses_ref]
-    proyeccion_anual = [float(neto_por_mes.get(
-        (m.year, m.month), Decimal('0.00'))) for m in meses_ref]
-
-    # ── Gráfico horario, método de pago, tipo de pedido (OPTIMIZADO: 2 queries en lugar de 1 full scan + bucle Python) ──
-    # Query 1: Agregación por hora
-    horarios_agg = (
-        MovimientoFinanciero.objects
-        .filter(fecha_operacion__gte=inicio_mes, fecha_operacion__lt=fin_mes,
-                tipo='INGRESO', estado='ACTIVO')
-        .annotate(hora=Extract('fecha_operacion', 'hour'))
-        .values('hora')
-        .annotate(total=Coalesce(Sum('monto'), Decimal('0.00')))
-    )
-
-    horario_totales = {'Mañana': Decimal('0'), 'Mediodía': Decimal(
-        '0'), 'Tarde': Decimal('0'), 'Noche': Decimal('0')}
-    for row in horarios_agg:
-        hora = row['hora'] or 0
-        monto = row['total'] or Decimal('0')
-        if 6 <= hora <= 11:
-            horario_totales['Mañana'] += monto
-        elif 12 <= hora <= 16:
-            horario_totales['Mediodía'] += monto
-        elif 17 <= hora <= 20:
-            horario_totales['Tarde'] += monto
+        proyeccion_mensual.append(float(venta_dia_mes))
+    
+    # Etiquetas para gráfico anual (últimos 12 meses)
+    labels_anuales = []
+    proyeccion_anual = []
+    
+    # Calcular ventas de los últimos 12 meses
+    for i in range(11, -1, -1):
+        # Calcular fecha del mes
+        fecha_mes = hoy_local.replace(day=1)
+        for _ in range(i):
+            # Retroceder un mes
+            fecha_mes = (fecha_mes.replace(day=1) - timedelta(days=1)).replace(day=1)
+        
+        # Calcular inicio y fin del mes
+        if fecha_mes.month == 12:
+            ultimo_dia = fecha_mes.replace(day=31)
         else:
-            horario_totales['Noche'] += monto
+            ultimo_dia = fecha_mes.replace(month=fecha_mes.month + 1, day=1) - timedelta(days=1)
+        
+        inicio_mes_grafico = timezone.make_aware(
+            datetime.combine(fecha_mes, datetime.min.time())
+        )
+        fin_mes_grafico = timezone.make_aware(
+            datetime.combine(ultimo_dia, datetime.max.time())
+        )
+        
+        # Obtener ventas de este mes
+        venta_mes_grafico = Factura.objects.filter(
+            fecha_factura__gte=inicio_mes_grafico,
+            fecha_factura__lte=fin_mes_grafico,
+            estado='pagada'
+        ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
-    # Query 2: Agregación por método de pago (directo en la query)
-    metodo_agg = (
-        MovimientoFinanciero.objects
-        .filter(fecha_operacion__gte=inicio_mes, fecha_operacion__lt=fin_mes,
-                tipo='INGRESO', estado='ACTIVO')
-        .values('metodo_pago')
-        .annotate(total=Coalesce(Sum('monto'), Decimal('0.00')))
-    )
+        pagos_credito_mes_grafico = PagoCuentaCobrar.objects.filter(
+            fecha_pago__gte=inicio_mes_grafico,
+            fecha_pago__lte=fin_mes_grafico
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
-    metodo_totales = {'efectivo': Decimal('0'), 'tarjeta': Decimal(
-        '0'), 'transferencia': Decimal('0')}
-    for row in metodo_agg:
-        metodo = (row['metodo_pago'] or '').lower().strip()
+        venta_mes_grafico += pagos_credito_mes_grafico
+        
+        # Nombre del mes en español
+        meses_esp = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
+                     'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+        
+        labels_anuales.append(meses_esp[fecha_mes.month - 1])
+        proyeccion_anual.append(float(venta_mes_grafico))
+    
+    # 12. DATOS REALES PARA GRÁFICO DE HORARIO Y MÉTODO DE PAGO
+    # Se usa el mes actual para tener una muestra más estable.
+    horario_labels = ['Mañana', 'Mediodía', 'Tarde', 'Noche']
+    horario_totales = {
+        'Mañana': Decimal('0.00'),
+        'Mediodía': Decimal('0.00'),
+        'Tarde': Decimal('0.00'),
+        'Noche': Decimal('0.00'),
+    }
+
+    metodo_labels = ['Efectivo', 'Tarjeta', 'Transferencia']
+    metodo_totales = {
+        'efectivo': Decimal('0.00'),
+        'tarjeta': Decimal('0.00'),
+        'transferencia': Decimal('0.00'),
+    }
+    tipos_pedido_labels = ['Mesa', 'Delivery', 'Llevar']
+    tipos_pedido_totales = {
+        'mesa': Decimal('0.00'),
+        'delivery': Decimal('0.00'),
+        'llevar': Decimal('0.00'),
+    }
+
+    for factura in facturas_mes:
+        fecha_local_factura = timezone.localtime(factura.fecha_factura)
+        hora = fecha_local_factura.hour
+
+        if 6 <= hora <= 11:
+            horario_totales['Mañana'] += factura.total
+        elif 12 <= hora <= 16:
+            horario_totales['Mediodía'] += factura.total
+        elif 17 <= hora <= 20:
+            horario_totales['Tarde'] += factura.total
+        else:
+            horario_totales['Noche'] += factura.total
+
+        metodo = (factura.metodo_pago or '').lower().strip()
         if metodo in metodo_totales:
-            metodo_totales[metodo] += row['total'] or Decimal('0')
+            metodo_totales[metodo] += factura.total
 
-    # Query 3: Agregación por tipo de pedido (join con factura)
-    tipo_pedido_agg = (
-        MovimientoFinanciero.objects
-        .filter(fecha_operacion__gte=inicio_mes, fecha_operacion__lt=fin_mes,
-                tipo='INGRESO', estado='ACTIVO')
-        .values('factura__tipo_pedido')
-        .annotate(total=Coalesce(Sum('monto'), Decimal('0.00')))
-    )
+        tipo_pedido = (factura.tipo_pedido or '').lower().strip()
+        if tipo_pedido in tipos_pedido_totales:
+            tipos_pedido_totales[tipo_pedido] += factura.total
 
-    tipo_pedido_totales = {'mesa': Decimal(
-        '0'), 'delivery': Decimal('0'), 'llevar': Decimal('0')}
-    for row in tipo_pedido_agg:
-        tp = (row['factura__tipo_pedido'] or '').lower().strip()
-        if tp in tipo_pedido_totales:
-            tipo_pedido_totales[tp] += row['total'] or Decimal('0')
+    # Sumar pagos de cuentas por cobrar al grafico por metodo de pago del mes.
+    for pago_cxc in pagos_credito_mes_qs:
+        metodo_pago_cxc = (pago_cxc.metodo_pago or '').lower().strip()
+        if metodo_pago_cxc in metodo_totales:
+            metodo_totales[metodo_pago_cxc] += pago_cxc.monto
 
-    # ── Costos (para stats de debug) ───────────────────────────────────────
-    facturas_mes_qs = Factura.objects.filter(
-        fecha_factura__gte=inicio_mes,
-        fecha_factura__lt=fin_mes,
-        estado__in=['pagada', 'parcialmente_devuelta']
-    )
-    _, costo_mes_stats = calcular_costo_real_facturas(
-        facturas_mes_qs, include_stats=True)
+    ventas_horarios_data = [float(horario_totales[label]) for label in horario_labels]
+    ventas_metodos_data = [
+        float(metodo_totales['efectivo']),
+        float(metodo_totales['tarjeta']),
+        float(metodo_totales['transferencia'])
+    ]
+    ventas_tipos_pedido_data = [
+        float(tipos_pedido_totales['mesa']),
+        float(tipos_pedido_totales['delivery']),
+        float(tipos_pedido_totales['llevar'])
+    ]
 
-    # ── Trends ─────────────────────────────────────────────────────────────
-    t_dia = _trend(_pct(venta_dia,         venta_dia_anterior))
-    t_mes = _trend(_pct(venta_mes,          venta_mes_pasado))
-    t_gastos = _trend(_pct(gastos_totales,     gastos_mes_pasado))
-    t_ganancias = _trend(_pct(ganancias_netas,    ganancias_pasadas))
-    t_pedidos = _trend(_pct(total_pedidos,      total_pedidos_ayer))
-    t_clientes = _trend(_pct(nuevos_clientes,    nuevos_clientes_mes_pasado))
+    # Datos de depuración: solo cuando DEBUG está activo
+    if dashboard_debug:
+        facturas_hoy_todas = Factura.objects.filter(
+            fecha_factura__gte=inicio_dia,
+            fecha_factura__lte=fin_dia
+        ).order_by('-fecha_factura')
 
-    # ── Rango visual para la card de cuadre ────────────────────────────────
-    rango_dia_inicio = timezone.localtime(
-        inicio_dia).strftime('%d/%m/%Y %H:%M')
-    rango_dia_fin = timezone.localtime(fin_dia).strftime('%d/%m/%Y %H:%M')
+        todas_facturas = Factura.objects.filter(
+            estado='pagada'
+        ).order_by('-fecha_factura')[:10]
+
+        total_facturas_db = Factura.objects.count()
+        total_facturas_pagadas_db = Factura.objects.filter(estado='pagada').count()
+
+        primera_factura = Factura.objects.order_by('fecha_factura').first()
+        ultima_factura = Factura.objects.order_by('-fecha_factura').first()
+
+        facturas_mes_pasado = Factura.objects.filter(
+            fecha_factura__gte=inicio_mes_pasado_time,
+            fecha_factura__lte=fin_mes_pasado_time,
+            estado='pagada'
+        ).count()
+    else:
+        facturas_hoy_todas = Factura.objects.none()
+        todas_facturas = Factura.objects.none()
+        total_facturas_db = 0
+        total_facturas_pagadas_db = 0
+        primera_factura = None
+        ultima_factura = None
+        facturas_mes_pasado = 0
+
+    trend_venta_dia = calcular_cambio_porcentual(venta_dia, venta_dia_anterior)
+    trend_venta_mes = calcular_cambio_porcentual(venta_mes, venta_mes_pasado)
+    trend_gastos = calcular_cambio_porcentual(gastos_totales, gastos_totales_mes_pasado)
+    trend_ganancias = calcular_cambio_porcentual(ganancias_netas, ganancias_netas_mes_pasado)
+    trend_pedidos = calcular_cambio_porcentual(total_pedidos, total_pedidos_ayer)
+    trend_clientes = calcular_cambio_porcentual(nuevos_clientes, nuevos_clientes_mes_pasado)
 
     context = {
-        # Cards principales
-        'venta_dia':        venta_dia,
-        'venta_mes':        venta_mes,
-        'gastos_totales':   gastos_totales,
-        'ganancias_netas':  ganancias_netas,
-        'total_pedidos':    total_pedidos,
-        'nuevos_clientes':  nuevos_clientes,
-
-        # Subtítulos de cards
-        'total_facturas_hoy':  total_facturas_hoy,
-        'total_facturas_mes':  total_facturas_mes,
-        'total_pagos_hoy':     total_pagos_hoy,
-        'total_pagos_mes':     total_pagos_mes,
-        'total_egresos_hoy':   total_egresos_hoy,
-        'total_egresos_mes':   total_egresos_mes,
-
-        # Rango del día operativo (siempre igual)
-        'rango_dia_inicio':  rango_dia_inicio,
-        'rango_dia_fin':     rango_dia_fin,
-        'definicion_dia':    '6:00 AM — 5:59 AM (día siguiente)',
-
-        # Actividades
-        'actividades':     actividades_recientes,
-        'productos_top':   productos_top,
-
-        # Gráficos
-        'dias_grafico':                 json.dumps(ultimos_7_dias),
-        'ventas_grafico':               json.dumps(ventas_7_dias),
-        'categorias_grafico':           json.dumps(categorias_data),
-        'ventas_categorias_grafico':    json.dumps(ventas_categorias_data),
-        'labels_mensuales_json':        json.dumps(labels_mensuales),
-        'proyeccion_mensual_json':      json.dumps(proyeccion_mensual),
-        'labels_anuales_json':          json.dumps(labels_anuales),
-        'proyeccion_anual_json':        json.dumps(proyeccion_anual),
-        'horarios_grafico':             json.dumps(['Mañana', 'Mediodía', 'Tarde', 'Noche']),
-        'ventas_horarios_grafico':      json.dumps([float(horario_totales[k]) for k in ['Mañana', 'Mediodía', 'Tarde', 'Noche']]),
-        'metodos_pago_grafico':         json.dumps(['Efectivo', 'Tarjeta', 'Transferencia']),
-        'ventas_metodos_pago_grafico':  json.dumps([float(metodo_totales['efectivo']), float(metodo_totales['tarjeta']), float(metodo_totales['transferencia'])]),
-        'tipos_pedido_grafico':         json.dumps(['Mesa', 'Delivery', 'Llevar']),
-        'ventas_tipos_pedido_grafico':  json.dumps([float(tipo_pedido_totales['mesa']), float(tipo_pedido_totales['delivery']), float(tipo_pedido_totales['llevar'])]),
-
-        # Trends
-        'trend_venta_dia':       t_dia['value'],
-        'trend_venta_dia_icon':  t_dia['icon'],
-        'trend_venta_dia_class': t_dia['class'],
-        'trend_venta_mes':       t_mes['value'],
-        'trend_venta_mes_icon':  t_mes['icon'],
-        'trend_venta_mes_class': t_mes['class'],
-        'trend_gastos':          t_gastos['value'],
-        'trend_gastos_icon':     t_gastos['icon'],
-        'trend_gastos_class':    t_gastos['class'],
-        'trend_ganancias':       t_ganancias['value'],
-        'trend_ganancias_icon':  t_ganancias['icon'],
-        'trend_ganancias_class': t_ganancias['class'],
-        'trend_pedidos':         t_pedidos['value'],
-        'trend_pedidos_icon':    t_pedidos['icon'],
-        'trend_pedidos_class':   t_pedidos['class'],
-        'trend_clientes':        t_clientes['value'],
-        'trend_clientes_icon':   t_clientes['icon'],
-        'trend_clientes_class':  t_clientes['class'],
-
-        # Debug / stats
-        'fecha_actual':             ahora_local.strftime('%A, %d de %B de %Y'),
-        'hora_actual':              ahora_local.strftime('%I:%M:%S'),
-        'hoy':                      hoy_local,
-        'now_utc':                  timezone.now(),
-        'venta_mes_pasado':         venta_mes_pasado,
-        'mes_pasado_nombre':        primer_dia_mes_pasado.strftime('%B %Y'),
-        'costos_items_validos':     costo_mes_stats['items_validos'],
-        'costos_items_mapeados':    costo_mes_stats['items_mapeados'],
-        'costos_items_no_mapeados': costo_mes_stats['items_no_mapeados'],
-        'dashboard_debug':          dashboard_debug,
-
-        # Datos crudos para diagnóstico en template
-        'datos_semana_raw':    list(zip(ultimos_7_dias, ventas_7_dias)),
+        'venta_dia': venta_dia,
+        'venta_mes': venta_mes,
+        'total_pedidos': total_pedidos,
+        'gastos_totales': gastos_totales,
+        'ganancias_netas': ganancias_netas,
+        'nuevos_clientes': nuevos_clientes,
+        'actividades': actividades_recientes,
+        'productos_top': productos_top,
+        'dias_grafico': json.dumps(ultimos_7_dias),
+        'ventas_grafico': json.dumps(ventas_7_dias),
+        'categorias_grafico': json.dumps(categorias_data),
+        'ventas_categorias_grafico': json.dumps(ventas_categorias_data),
+        'labels_mensuales_json': json.dumps(labels_mensuales),
+        'proyeccion_mensual_json': json.dumps(proyeccion_mensual),
+        'labels_anuales_json': json.dumps(labels_anuales),
+        'proyeccion_anual_json': json.dumps(proyeccion_anual),
+        'horarios_grafico': json.dumps(horario_labels),
+        'ventas_horarios_grafico': json.dumps(ventas_horarios_data),
+        'metodos_pago_grafico': json.dumps(metodo_labels),
+        'ventas_metodos_pago_grafico': json.dumps(ventas_metodos_data),
+        'tipos_pedido_grafico': json.dumps(tipos_pedido_labels),
+        'ventas_tipos_pedido_grafico': json.dumps(ventas_tipos_pedido_data),
+        'fecha_actual': ahora_local.strftime('%A, %d de %B de %Y'),
+        'hora_actual': ahora_local.strftime('%I:%M:%S'),
+        'hoy': hoy_local,
+        'now_utc': timezone.now(),
+        'total_facturas_hoy': facturas_hoy.count(),
+        'total_facturas_mes': facturas_mes.count(),
+        'total_pagos_hoy': total_pagos_hoy,
+        'total_pagos_mes': total_pagos_mes,
+        'facturas_hoy_todas': facturas_hoy_todas,
+        'todas_facturas': todas_facturas,
+        
+        # Información adicional para depuración
+        'rango_dia_inicio': rango_dia_inicio.strftime('%d/%m/%Y %H:%M'),
+        'rango_dia_fin': rango_dia_fin.strftime('%d/%m/%Y %H:%M'),
+        'definicion_dia': '6:00 AM - 5:59 AM (día siguiente)',
+        
+        # DATOS DE VERIFICACIÓN PARA MOSTRAR DIRECTAMENTE EN EL DASHBOARD
+        'total_facturas_db': total_facturas_db,
+        'total_facturas_pagadas_db': total_facturas_pagadas_db,
+        'primera_factura_fecha': primera_factura.fecha_factura.strftime('%d/%m/%Y') if primera_factura else 'No hay facturas',
+        'ultima_factura_fecha': ultima_factura.fecha_factura.strftime('%d/%m/%Y') if ultima_factura else 'No hay facturas',
+        'facturas_mes_pasado': facturas_mes_pasado,
+        'venta_mes_pasado': venta_mes_pasado,
+        'mes_pasado_nombre': inicio_mes_pasado.strftime('%B %Y'),
+        
+        # DATOS CRUDOS PARA DIAGNÓSTICO
+        'datos_semana_raw': list(zip(ultimos_7_dias, ventas_7_dias)),
         'datos_categorias_raw': list(zip(categorias_data, ventas_categorias_data)),
-        'datos_mensual_raw':   list(zip(labels_mensuales, proyeccion_mensual)),
-        'datos_anual_raw':     list(zip(labels_anuales, proyeccion_anual)),
+        'datos_mensual_raw': list(zip(labels_mensuales, proyeccion_mensual)),
+        'datos_anual_raw': list(zip(labels_anuales, proyeccion_anual)),
+        'trend_venta_dia': round(abs(trend_venta_dia), 1),
+        'trend_venta_dia_icon': 'up' if trend_venta_dia > 0 else 'down' if trend_venta_dia < 0 else 'neutral',
+        'trend_venta_dia_class': 'trend-up' if trend_venta_dia > 0 else 'trend-down' if trend_venta_dia < 0 else 'trend-neutral',
+        'trend_venta_mes': round(abs(trend_venta_mes), 1),
+        'trend_venta_mes_icon': 'up' if trend_venta_mes > 0 else 'down' if trend_venta_mes < 0 else 'neutral',
+        'trend_venta_mes_class': 'trend-up' if trend_venta_mes > 0 else 'trend-down' if trend_venta_mes < 0 else 'trend-neutral',
+        'trend_gastos': round(abs(trend_gastos), 1),
+        'trend_gastos_icon': 'up' if trend_gastos > 0 else 'down' if trend_gastos < 0 else 'neutral',
+        'trend_gastos_class': 'trend-down' if trend_gastos > 0 else 'trend-up' if trend_gastos < 0 else 'trend-neutral',
+        'trend_ganancias': round(abs(trend_ganancias), 1),
+        'trend_ganancias_icon': 'up' if trend_ganancias > 0 else 'down' if trend_ganancias < 0 else 'neutral',
+        'trend_ganancias_class': 'trend-up' if trend_ganancias > 0 else 'trend-down' if trend_ganancias < 0 else 'trend-neutral',
+        'trend_pedidos': round(abs(trend_pedidos), 1),
+        'trend_pedidos_icon': 'up' if trend_pedidos > 0 else 'down' if trend_pedidos < 0 else 'neutral',
+        'trend_pedidos_class': 'trend-up' if trend_pedidos > 0 else 'trend-down' if trend_pedidos < 0 else 'trend-neutral',
+        'trend_clientes': round(abs(trend_clientes), 1),
+        'trend_clientes_icon': 'up' if trend_clientes > 0 else 'down' if trend_clientes < 0 else 'neutral',
+        'trend_clientes_class': 'trend-up' if trend_clientes > 0 else 'trend-down' if trend_clientes < 0 else 'trend-neutral',
+        'costos_items_validos': costo_mes_stats['items_validos'],
+        'costos_items_mapeados': costo_mes_stats['items_mapeados'],
+        'costos_items_no_mapeados': costo_mes_stats['items_no_mapeados'],
+        'dashboard_debug': dashboard_debug,
     }
 
     if not dashboard_debug:
-        cache.set(cache_key, context, 60)
+        cache.set(cache_key, context, 300)
 
     return render(request, 'facturacion/dashbort.html', context)
-
 
 @login_required
 def dashboard_stats(request):
