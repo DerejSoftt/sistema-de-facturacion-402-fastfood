@@ -4126,13 +4126,14 @@ def dashbort(request):
     def _aware_rd(fecha, hora):
         return timezone.make_aware(datetime.combine(fecha, hora), tz_rd)
 
-    # ── Cache ──────────────────────────────────────────────────────────────
+    # ── Cache (Reducido para desarrollo/debug) ──────────────────────────────
     if not dashboard_debug:
-        bucket = f"{ahora_local.strftime('%Y%m%d%H')}{(ahora_local.minute // 5) * 5:02d}"
-        cache_key = f"dashbort:v3:{request.user.id}:{bucket}"
-        cached = cache.get(cache_key)
-        if cached is not None:
-            return render(request, 'facturacion/dashbort.html', cached)
+        bucket = f"{ahora_local.strftime('%Y%m%d%H%M')}{(ahora_local.second // 15) * 15:02d}"
+        cache_key = f"dashbort:v4:{request.user.id}:{bucket}"
+        # Comentado temporalmente para asegurar que el usuario vea los cambios
+        # cached = cache.get(cache_key)
+        # if cached is not None:
+        #     return render(request, 'facturacion/dashbort.html', cached)
 
     # ── Definición del día operativo: 6:00 AM → 5:59:59 AM día siguiente ──
     # Esta lógica es fija y no cambia — siempre el mismo rango para cuadre.
@@ -4658,11 +4659,11 @@ def dashboard_stats(request):
         else:
             bucket = f"{ahora_local.strftime('%Y%m%d%H%M')}{(ahora_local.second // 15) * 15:02d}"
 
-        cache_key = f"dashboard_stats:v3:{scope}:{request.user.id}:{bucket}"
-        if not dashboard_debug:
-            cached = cache.get(cache_key)
-            if cached is not None:
-                return JsonResponse(cached)
+        cache_key = f"dashboard_stats:v4:{scope}:{request.user.id}:{bucket}"
+        # if not dashboard_debug:
+        #     cached = cache.get(cache_key)
+        #     if cached is not None:
+        #         return JsonResponse(cached)
 
         # ── Helpers ────────────────────────────────────────────────────────
         def _pct(actual, anterior):
@@ -8209,13 +8210,15 @@ def _resumen_movimientos_caja(inicio, fin):
     from django.utils import timezone
     from decimal import Decimal
 
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    
     if timezone.is_naive(inicio):
-        inicio = timezone.make_aware(inicio, timezone.get_current_timezone())
+        inicio = tz_rd.localize(inicio)
     if timezone.is_naive(fin):
-        fin = timezone.make_aware(fin, timezone.get_current_timezone())
+        fin = tz_rd.localize(fin)
 
-    inicio = timezone.localtime(inicio)
-    fin = timezone.localtime(fin)
+    inicio = inicio.astimezone(tz_rd)
+    fin = fin.astimezone(tz_rd)
 
     # ── Query única con Case/When — 1 round-trip al DB ────────────────────
     _Z = Decimal('0.00')
@@ -9199,12 +9202,13 @@ def cuentaporcobrar_registrar_pago(request):
     # ── Fecha de pago ─────────────────────────────────────────────────────────
     fecha_pago_raw = str(payload.get('fecha_pago') or '').strip()
     fecha_pago = None
-    tz_actual = timezone.get_current_timezone()
-    ahora_local = timezone.localtime(timezone.now(), tz_actual)
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    ahora_local = timezone.now().astimezone(tz_rd)
+    
     if fecha_pago_raw:
         try:
             fecha_sola = datetime.strptime(fecha_pago_raw, '%Y-%m-%d').date()
-            fecha_pago = datetime.combine(fecha_sola, ahora_local.time())
+            fecha_pago = tz_rd.localize(datetime.combine(fecha_sola, ahora_local.time()))
         except Exception:
             return JsonResponse(
                 {'success': False, 'error': 'Fecha de pago inválida.'},
