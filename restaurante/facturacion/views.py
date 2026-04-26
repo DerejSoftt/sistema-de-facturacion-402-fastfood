@@ -5612,9 +5612,9 @@ def generar_pdf_ticket_dia(request):
   
 
 
-# @login_required
-# def generar_pdf_ticket_dia(request):
-#     return generar_pdf_cuadre_caja(request)
+@login_required
+def generar_pdf_ticket_dia(request):
+    return generar_pdf_cuadre_caja(request)
 
 # ==========================================================================================================
 #                         PRODUCTOS VENDIDOS EN EL DÍA Y REPORTE DE PRODUCTOS VENDIDOS
