@@ -171,12 +171,19 @@ def inicializar_permisos():
         ('access_gestion_pedidos', 'Puede acceder al módulo de gestión de pedidos'),
     ]
 
+    # Comprobar si ya existen los permisos para evitar el loop y queries individuales
+    existentes = set(Permission.objects.filter(
+        codename__in=[p[0] for p in permisos_personalizados],
+        content_type=content_type
+    ).values_list('codename', flat=True))
+
     for codename, name in permisos_personalizados:
-        Permission.objects.get_or_create(
-            codename=codename,
-            name=name,
-            content_type=content_type
-        )
+        if codename not in existentes:
+            Permission.objects.create(
+                codename=codename,
+                name=name,
+                content_type=content_type
+            )
 
 
 @csrf_exempt
@@ -3774,7 +3781,8 @@ def roles(request):
     inicializar_permisos()
 
     # Obtener todos los usuarios
-    users = User.objects.all()
+    # Obtener todos los usuarios con sus grupos precargados para evitar N+1
+    users = User.objects.prefetch_related('groups').all()
 
     # Crear grupos por defecto si no existen
     grupos_por_defecto = [
@@ -3786,8 +3794,13 @@ def roles(request):
         ('Usuario Normal', 'Acceso a inventario, facturación y pedidos'),
     ]
 
+    # Comprobar grupos existentes de una vez
+    nombres_grupos = [g[0] for g in grupos_por_defecto]
+    grupos_existentes = set(Group.objects.filter(name__in=nombres_grupos).values_list('name', flat=True))
+
     for nombre, descripcion in grupos_por_defecto:
-        Group.objects.get_or_create(name=nombre)
+        if nombre not in grupos_existentes:
+            Group.objects.create(name=nombre)
 
     # Obtener todos los grupos para mostrar en el formulario
     groups = Group.objects.all()
@@ -3856,6 +3869,10 @@ def roles(request):
                 messages.error(request, f'Error al crear usuario: {str(e)}')
 
             return redirect('roles')
+
+    # Pre-calcular el grupo principal para cada usuario para evitar .first() en el template (que genera queries extras)
+    for u in users:
+        u.primary_group = u.groups.all()[0] if u.groups.all() else None
 
     context = {
         'users': users,

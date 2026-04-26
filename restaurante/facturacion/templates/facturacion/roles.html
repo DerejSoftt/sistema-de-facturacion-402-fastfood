@@ -910,7 +910,7 @@
                                                     title="Editar usuario"
                                                     data-id="{{ user.id }}"
                                                     data-username="{{ user.username }}"
-                                                    data-group="{{ user.groups.first.id|default:'' }}"
+                                                    data-group="{{ user.primary_group.id|default:'' }}"
                                                     data-active="{{ user.is_active|yesno:'active,inactive' }}"
                                                     onclick="openEditModal(this.dataset.id, this.dataset.username, this.dataset.group, this.dataset.active)">
                                                     <i class="fas fa-edit"></i>
