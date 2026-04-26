@@ -9503,9 +9503,9 @@ def cuentaporcobrar_registrar_pago(request):
         fecha_pago = ahora_local
 
     if timezone.is_naive(fecha_pago):
-        fecha_pago = timezone.make_aware(fecha_pago, tz_actual)
+        fecha_pago = timezone.make_aware(fecha_pago, tz_rd)
     else:
-        fecha_pago = timezone.localtime(fecha_pago, tz_actual)
+        fecha_pago = timezone.localtime(fecha_pago, tz_rd)
 
     # ── Método de pago ────────────────────────────────────────────────────────
     metodo_pago = (payload.get('metodo_pago') or 'efectivo').strip()
