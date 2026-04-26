@@ -5425,7 +5425,8 @@ def generar_pdf_cuadre_caja(request):
     # Periodo Operativo: 5:00 PM (17:00) a 5:59 AM (próximo día)
     from datetime import time
     if ahora_local.hour >= 17:  # 5 PM en adelante
-        inicio_dia = tz_rd.localize(datetime.combine(hoy_local, time(17, 0, 0)))
+        inicio_dia = tz_rd.localize(
+            datetime.combine(hoy_local, time(17, 0, 0)))
         fin_dia = tz_rd.localize(datetime.combine(
             hoy_local + timedelta(days=1), time(5, 59, 59)))
     else:  # Antes de 5 PM
