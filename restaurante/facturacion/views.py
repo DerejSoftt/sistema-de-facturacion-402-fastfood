@@ -1016,7 +1016,7 @@ def crear_pedido(request):
                 # Buscar la bebida en Producto
                 try:
                     bebida = Producto.objects.get(
-                        id=bebida_id, categoria='bebida')
+                        id=bebida_id, categoria__in=['bebida', 'trago'])
 
                     # 🔥 DEBUG: Mostrar información de la bebida encontrada
                     print(f"  - Bebida encontrada: {bebida.nombre}")
@@ -1063,7 +1063,7 @@ def crear_pedido(request):
                         codigo_bebida = item.get('codigo', '')
                         if codigo_bebida:
                             bebida = Producto.objects.get(
-                                codigo=codigo_bebida, categoria='bebida')
+                                codigo=codigo_bebida, categoria__in=['bebida', 'trago'])
 
                             print(
                                 f"  - Bebida encontrada por código: {bebida.nombre} ({codigo_bebida})")
@@ -1693,7 +1693,7 @@ def actualizar_inventario_bebidas(items, operacion='restar'):
                     prod_id = int(item_id_str.replace('bebida_', '', 1))
 
                 producto = Producto.objects.filter(
-                    id=prod_id, categoria='bebida').first()
+                    id=prod_id, categoria__in=['bebida', 'trago']).first()
 
                 if producto:
                     try:
@@ -1757,7 +1757,7 @@ def actualizar_inventario_bebidas(items, operacion='restar'):
         elif item_id_str.isdigit():
             producto = Producto.objects.filter(
                 id=int(item_id_str),
-                categoria='bebida'
+                categoria__in=['bebida', 'trago']
             ).first()
 
             if producto:
@@ -1810,10 +1810,10 @@ def actualizar_inventario_bebidas(items, operacion='restar'):
         elif item_name:
             producto = Producto.objects.filter(
                 nombre__iexact=item_name,
-                categoria='bebida'
+                categoria__in=['bebida', 'trago']
             ).first() or Producto.objects.filter(
                 nombre__icontains=item_name,
-                categoria='bebida'
+                categoria__in=['bebida', 'trago']
             ).first()
 
             if producto:
@@ -2428,7 +2428,7 @@ def verificar_stock_multiples(request):
                 try:
                     prod_id = int(item_id.split('-')[1])
                     producto = Producto.objects.filter(
-                        id=prod_id, categoria='bebida').first()
+                        id=prod_id, categoria__in=['bebida', 'trago']).first()
 
                     if producto:
                         cantidad_decimal = Decimal(str(cantidad))
@@ -2449,7 +2449,7 @@ def verificar_stock_multiples(request):
             elif item_name:
                 producto = Producto.objects.filter(
                     nombre__icontains=item_name,
-                    categoria='bebida'
+                    categoria__in=['bebida', 'trago']
                 ).first()
 
                 if producto:
@@ -2493,7 +2493,7 @@ def verificar_stock(request, producto_id):
 
         # Buscar el producto por ID y que sea de categoría bebida
         producto = Producto.objects.filter(
-            id=producto_id, categoria='bebida').first()
+            id=producto_id, categoria__in=['bebida', 'trago']).first()
 
         if not producto:
             return JsonResponse({
@@ -2537,7 +2537,7 @@ def platos_disponibles(request):
         # Si se solicita bebidas o todos
         if tipo in ['bebida', 'todos']:
             # Filtrar productos de categoría bebida
-            productos = Producto.objects.filter(categoria='bebida')
+            productos = Producto.objects.filter(categoria__in=['bebida', 'trago'])
             if search:
                 productos = productos.filter(nombre__icontains=search)
 
@@ -3216,7 +3216,7 @@ def descontar_bebidas_inventario(pedido):
                 # Buscar el producto en el inventario por nombre y categoría bebida
                 productos = Producto.objects.filter(
                     nombre__icontains=nombre_producto,
-                    categoria='bebida'
+                    categoria__in=['bebida', 'trago']
                 )
 
                 if productos.exists():
@@ -3598,7 +3598,7 @@ def exportar_facturas(request):
 @csrf_exempt
 def salida(request):
     # Obtener productos excluyendo bebidas
-    productos = Producto.objects.exclude(categoria='bebida')
+    productos = Producto.objects.exclude(categoria__in=['bebida', 'trago'])
 
     # Preparar datos para la plantilla
     productos_list = []
@@ -3640,7 +3640,7 @@ def obtener_productos_salida(request):
     if request.method == 'GET':
         try:
             # Obtener productos excluyendo bebidas
-            productos = Producto.objects.exclude(categoria='bebida')
+            productos = Producto.objects.exclude(categoria__in=['bebida', 'trago'])
 
             # Formatear los datos para JSON
             productos_data = []
