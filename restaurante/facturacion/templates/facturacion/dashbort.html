@@ -1276,7 +1276,7 @@
                         <div class="debug-content" id="debugContent">
                             <p><strong>Fecha local del servidor:</strong> {{ fecha_actual }} {{ hora_actual }}</p>
                             <p><strong>Fecha de hoy para filtros:</strong> {{ hoy|date:"d-m-Y" }}</p>
-                            <p><strong>Venta del día calculada (facturas pagadas):</strong> RD${{
+                            <p><strong>Caja del día calculada (ingresos - egresos):</strong> RD${{
                                 venta_dia|floatformat:2|intcomma }}</p>
                             <p><strong>Total facturas hoy en base de datos:</strong> {{ total_facturas_hoy }}</p>
                             <p><strong>Total facturas del mes:</strong> {{ total_facturas_mes }}</p>
@@ -1305,13 +1305,13 @@
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td>Total Facturas Pagadas</td>
+                                        <td>Total Ingresos Registrados</td>
                                         <td>{{ total_facturas_pagadas_db }}</td>
                                         <td>
                                             {% if total_facturas_pagadas_db > 0 %}
                                             <span style="color: #4CAF50;">✓ OK</span>
                                             {% else %}
-                                            <span style="color: #ff416c;">✗ Sin facturas pagadas</span>
+                                            <span style="color: #ff416c;">✗ Sin ingresos registrados</span>
                                             {% endif %}
                                         </td>
                                     </tr>
@@ -1440,7 +1440,7 @@
                                 </tbody>
                                 <tfoot>
                                     <tr style="background-color: #e9ecef; font-weight: bold;">
-                                        <td colspan="3" style="text-align: right;">Suma total facturas pagadas hoy:</td>
+                                        <td colspan="3" style="text-align: right;">Suma total de caja neta hoy:</td>
                                         <td>RD${{ venta_dia|floatformat:2|intcomma }}</td>
                                         <td>
                                             {% if venta_dia > 0 %}
@@ -1483,9 +1483,8 @@
 
                             <div
                                 style="margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
-                                <p><strong>Nota:</strong> La venta del día solo incluye facturas con estado "pagada".
-                                </p>
-                                <p>Facturas con estado "pendiente" o "anulada" no se incluyen en las estadísticas.</p>
+                                <p><strong>Nota:</strong> La caja del día suma ventas contado y pagos de CxC, y resta devoluciones, excedentes y anulaciones.</p>
+                                <p>Las facturas pendientes siguen fuera del ingreso real hasta que se paguen.</p>
                             </div>
                         </div>
                     </div>
@@ -1506,9 +1505,9 @@
                                 </div>
                             </div>
                             <div class="stat-value" id="ventaDia">RD${{ venta_dia|floatformat:2|intcomma }}</div>
-                            <div class="stat-label">Venta del Día</div>
+                            <div class="stat-label">Caja del Día</div>
                             <div class="stat-detail" id="ventaDiaDetail">
-                                {{ total_facturas_hoy }} factura(s) • {{ total_pagos_hoy }} pago(s) hoy • Tendencia vs ayer
+                                {{ total_facturas_hoy }} factura(s) • {{ total_pagos_hoy }} pago(s) • {{ total_egresos_hoy }} egreso(s) hoy
                             </div>
                             <!-- Botones para generar PDF -->
                             <div class="pdf-buttons-container">
@@ -1538,8 +1537,8 @@
                                 </div>
                             </div>
                             <div class="stat-value" id="ventaMes">RD${{ venta_mes|floatformat:2|intcomma }}</div>
-                            <div class="stat-label">Venta del Mes</div>
-                            <div class="stat-detail" id="ventaMesDetail">{{ total_facturas_mes }} factura(s) • {{ total_pagos_mes }} pago(s) este mes • Tendencia vs mes anterior</div>
+                            <div class="stat-label">Ingresos del Mes</div>
+                            <div class="stat-detail" id="ventaMesDetail">{{ total_facturas_mes }} factura(s) • {{ total_pagos_mes }} pago(s) • {{ total_egresos_mes }} egreso(s) este mes</div>
                         </div>
 
                         <div class="stat-card gastos">
@@ -1556,8 +1555,8 @@
                             </div>
                             <div class="stat-value" id="gastosTotales">RD${{ gastos_totales|floatformat:2|intcomma }}
                             </div>
-                            <div class="stat-label">Gastos Totales</div>
-                            <div class="stat-detail">Costo real de insumos vendidos • Tendencia vs mes anterior • No mapeados: <span id="costosItemsNoMapeados">{{ costos_items_no_mapeados }}</span></div>
+                            <div class="stat-label">Egresos Totales</div>
+                            <div class="stat-detail">Devoluciones, excedentes y anulaciones • Tendencia vs mes anterior</div>
                         </div>
 
                         <div class="stat-card ganancias">
@@ -1574,8 +1573,8 @@
                             </div>
                             <div class="stat-value" id="gananciasNetas">RD${{ ganancias_netas|floatformat:2|intcomma }}
                             </div>
-                            <div class="stat-label">Ganancias Netas</div>
-                            <div class="stat-detail">Después de gastos • Tendencia vs mes anterior</div>
+                            <div class="stat-label">Caja Neta</div>
+                            <div class="stat-detail">Ingresos menos egresos • Tendencia vs mes anterior</div>
                         </div>
 
                         <div class="stat-card pedidos">
@@ -1900,7 +1899,7 @@
                     debugWarn('Los datos de ventas de la semana están vacíos o son cero');
                     // Mostrar mensaje al usuario
                     if (DASHBOARD_DEBUG) {
-                        showNotification('No hay datos de ventas para mostrar en el gráfico. Verifica que tengas facturas pagadas en el sistema.', 'info');
+                        showNotification('No hay datos de caja para mostrar en el gráfico. Verifica que existan ingresos o egresos registrados.', 'info');
                     }
                 }
 
@@ -1942,9 +1941,9 @@
             document.getElementById('nuevosClientes').textContent = data.nuevos_clientes;
             document.getElementById('costosItemsNoMapeados').textContent = data.costos_items_no_mapeados || 0;
             document.getElementById('ventaDiaDetail').textContent =
-                `${data.total_facturas_hoy || 0} factura(s) • ${data.total_pagos_hoy || 0} pago(s) hoy • Tendencia vs ayer`;
+                `${data.total_facturas_hoy || 0} factura(s) • ${data.total_pagos_hoy || 0} pago(s) • ${data.total_egresos_hoy || 0} egreso(s) hoy`;
             document.getElementById('ventaMesDetail').textContent =
-                `${data.total_facturas_mes || 0} factura(s) • ${data.total_pagos_mes || 0} pago(s) este mes • Tendencia vs mes anterior`;
+                `${data.total_facturas_mes || 0} factura(s) • ${data.total_pagos_mes || 0} pago(s) • ${data.total_egresos_mes || 0} egreso(s) este mes`;
 
             updateTrendBadge('trendVentaDia', 'trendVentaDiaIcon', 'trendVentaDiaValue', data.trend_venta_dia_class, data.trend_venta_dia_icon, data.trend_venta_dia);
             updateTrendBadge('trendVentaMes', 'trendVentaMesIcon', 'trendVentaMesValue', data.trend_venta_mes_class, data.trend_venta_mes_icon, data.trend_venta_mes);
@@ -2199,7 +2198,7 @@
                 console.log('4. El período de 6:00 AM a 5:59 AM no coincide con las fechas de facturas');
 
                 // Mostrar alerta al usuario
-                showNotification('No hay datos de ventas para mostrar. Verifica que tengas facturas pagadas en el sistema.', 'warning');
+                showNotification('No hay datos de caja para mostrar. Verifica que existan ingresos o egresos registrados.', 'warning');
             } else {
                 console.log('✅ Datos de semana OK');
             }

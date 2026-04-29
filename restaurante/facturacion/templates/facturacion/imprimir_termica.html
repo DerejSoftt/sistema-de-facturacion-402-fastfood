@@ -1,4 +1,5 @@
 {% load static %}
+{% load humanize %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -137,35 +138,15 @@
         <div class="info-row">
             <span>TIPO:</span>
             <span>
-                {% if factura.tipo_pedido == 'mesa' %}
-                    MESA
-                {% elif factura.tipo_pedido == 'delivery' %}
-                    DELIVERY
-                {% elif factura.tipo_pedido == 'llevar' %}
-                    PARA LLEVAR
+                {% if factura.cuenta_por_cobrar %}
+                    CRÉDITO
                 {% else %}
-                    {{ factura.tipo_pedido }}
+                    CONTADO
                 {% endif %}
             </span>
         </div>
-        {% if factura.numero_mesa_codigo %}
         <div class="info-row">
-            <span>
-                {% if factura.tipo_pedido == 'mesa' %}MESA:
-                {% elif factura.tipo_pedido == 'delivery' %}CÓDIGO:
-                {% elif factura.tipo_pedido == 'llevar' %}CÓDIGO:
-                {% else %}REF:
-                {% endif %}
-            </span>
-            <span>{{ factura.numero_mesa_codigo }}</span>
-        </div>
-        {% endif %}
-        <div class="info-row">
-            <span>ESTADO:</span>
-            <span>{{ factura.estado|upper }}</span>
-        </div>
-        <div class="info-row">
-            <span>PAGO:</span>
+            <span>MÉTODO:</span>
             <span>
                 {% if factura.metodo_pago == 'efectivo' %}EFECTIVO
                 {% elif factura.metodo_pago == 'tarjeta' %}TARJETA
@@ -174,6 +155,12 @@
                 {% endif %}
             </span>
         </div>
+        {% if factura.numero_mesa_codigo %}
+        <div class="info-row">
+            <span>PEDIDO:</span>
+            <span>{{ factura.numero_mesa_codigo }}</span>
+        </div>
+        {% endif %}
         <hr>
     </div>
     
@@ -213,8 +200,8 @@
             <tr>
                 <td class="item-name">{{ item.name|truncatechars:20 }}</td>
                 <td class="item-qty">{{ item.quantity }}</td>
-                <td class="item-price">{{ item.price|floatformat:2 }}</td>
-                <td class="item-total">{{ item.total|floatformat:2 }}</td>
+                <td class="item-price">{{ item.price|floatformat:2|intcomma }}</td>
+                <td class="item-total">{{ item.total|floatformat:2|intcomma }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -224,7 +211,7 @@
         <hr>
         <div class="total-row">
             <span>Subtotal:</span>
-            <span>RD${{ factura.subtotal|floatformat:2 }}</span>
+            <span>RD${{ factura.subtotal|floatformat:2|intcomma }}</span>
         </div>
         <!-- Mostrar IVA si es mayor a 0 -->
         {% if factura.iva > 0 %}
@@ -236,7 +223,7 @@
         {% if factura.envio > 0 %}
         <div class="total-row">
             <span>Envío:</span>
-            <span>RD${{ factura.envio|floatformat:2 }}</span>
+            <span>RD${{ factura.envio|floatformat:2|intcomma }}</span>
         </div>
 
         <div class="total-row grand-total">
@@ -245,7 +232,7 @@
         <div class="total-row" style="font-weight: bold; margin-top: 5px; padding-top: 5px; border-top: 2px solid #000;">
 
             <span>TOTAL:</span>
-            <span>RD${{ factura.subtotal|floatformat:2 }}</span>
+            <span>RD${{ factura.subtotal|floatformat:2|intcomma }}</span>
         </div>
     </div>
     
@@ -256,7 +243,6 @@
         <p>NOTAS: {{ factura.notas|truncatechars:60 }}</p>
         {% endif %}
         <hr>
-        <p>Factura generada electrónicamente</p>
         <p>No válida como comprobante de crédito fiscal</p>
         {% if factura.creado_por %}
         <p>Atendido por: {{ factura.creado_por.get_full_name|default:factura.creado_por.username }}</p>

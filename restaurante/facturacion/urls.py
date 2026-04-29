@@ -60,7 +60,6 @@ path('gestiondepedidos/verificar-stock-multiples/', views.verificar_stock_multip
      
    
    path('anulacionydevolucion', views.anulacionydevolucion, name='anulacionydevolucion'),
-   path('procesar-devolucion-total/', views.procesar_devolucion_total, name='procesar_devolucion_total'),
    path('procesar-devolucion-parcial/', views.procesar_devolucion_parcial, name='procesar_devolucion_parcial'),
     path('procesar-anulacion-factura/', views.procesar_anulacion_factura, name='procesar_anulacion_factura'),
     
@@ -79,5 +78,6 @@ path('gestiondepedidos/verificar-stock-multiples/', views.verificar_stock_multip
   path('api/tragos/', views.api_tragos, name='api_tragos'),
   path('estado-cuenta-cliente-pdf/', views.estado_cuenta_cliente_pdf, name='estado_cuenta_cliente_pdf'),
   path('gestion_reporte_clientes_pdf', views.reporte_clientes_pdf, name='reporte_clientes_pdf'),
+  path('devoluciones/resolver-excedente/', views.resolver_excedente_devolucion, name='resolver_excedente_devolucion'),
 
 ]

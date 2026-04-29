@@ -4,7 +4,6 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.lib import colors
 from decimal import Decimal
-from django.db.models import Sum
 from .models import Cliente, CuentaPorCobrar, PagoCuentaCobrar
 from django.core.paginator import Paginator
 from django.shortcuts import render, get_object_or_404
@@ -17,7 +16,6 @@ from django.db import models
 from django.db.models import Sum, Count, F, Q
 from django.http import HttpResponse, JsonResponse
 from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.units import mm
 from django.conf import settings
 from django.db.models import Sum, Max, Min
 from reportlab.lib.utils import ImageReader
@@ -38,15 +36,18 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 import json
-from .models import Producto, Plato, Pedido, Mesa, DeliveryConfig, HistorialEstadoPedido, DetalleItemPedido, Factura, Devolucion, Cliente, PagoCuentaCobrar, CuentaPorCobrar
+from .models import Producto, Plato, Pedido, Mesa, DeliveryConfig, HistorialEstadoPedido, DetalleItemPedido, Factura, Devolucion, DetalleDevolucion, Cliente, PagoCuentaCobrar, CuentaPorCobrar, FacturaDetalle, MovimientoFinanciero, SaldoAFavor, IdempotencyKey
 from django.core.paginator import Paginator
 from django.db.models import Sum, Count, Q, Exists, OuterRef
 from django.db.models.functions import Coalesce
-from django.db.models import DecimalField
+from django.db.models import DecimalField, IntegerField, DateField
+from django.db.models import Case, When, Value
+from django.db.models import Func
+from django.db.models.functions import TruncDate, Extract, TruncMonth
+from functools import lru_cache
 from decimal import Decimal
 from django.contrib import messages
-from datetime import date
-from datetime import datetime, timedelta
+from datetime import date, timedelta, datetime
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, DecimalField
@@ -66,11 +67,24 @@ import pytz
 from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.lib import colors
 from reportlab.lib.units import mm
-from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image,)
+from reportlab.platypus import (
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image,)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from django.db.models import Sum, Count, Q
-import io, os
-from datetime import date
+import io
+import os
+from datetime import date, time
+import uuid
+from decimal import Decimal
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
+from django.urls import reverse
+from django.db import transaction, IntegrityError
+from django.utils import timezone
+from datetime import datetime
+
 
 @csrf_exempt
 def index(request):
@@ -157,12 +171,19 @@ def inicializar_permisos():
         ('access_gestion_pedidos', 'Puede acceder al módulo de gestión de pedidos'),
     ]
 
+    # Comprobar si ya existen los permisos para evitar el loop y queries individuales
+    existentes = set(Permission.objects.filter(
+        codename__in=[p[0] for p in permisos_personalizados],
+        content_type=content_type
+    ).values_list('codename', flat=True))
+
     for codename, name in permisos_personalizados:
-        Permission.objects.get_or_create(
-            codename=codename,
-            name=name,
-            content_type=content_type
-        )
+        if codename not in existentes:
+            Permission.objects.create(
+                codename=codename,
+                name=name,
+                content_type=content_type
+            )
 
 
 @csrf_exempt
@@ -272,7 +293,8 @@ def api_tragos(request):
             cantidad=total_tragos,
             precio_compra=precio_compra
         )
-        producto.subtotal = Decimal(str(producto.cantidad)) * Decimal(str(producto.precio_compra))
+        producto.subtotal = Decimal(
+            str(producto.cantidad)) * Decimal(str(producto.precio_compra))
         producto.save()
         return JsonResponse({
             'success': True,
@@ -743,7 +765,7 @@ def pedidos(request):
 
         # 🔥 **BEBIDAS DE PRODUCTO**
         bebidas = Producto.objects.filter(
-            categoria='bebida',
+            categoria__in=['bebida', 'trago'],
             cantidad__gt=0  # Solo bebidas con stock
         ).order_by('nombre')
 
@@ -848,7 +870,6 @@ def pedidos(request):
         return render(request, 'facturacion/pedidos.html', context)
 
 
-
 def crear_pedido(request):
     """Vista para crear un nuevo pedido. Solo staff autenticado puede crear pedidos a crédito."""
     if request.method == 'POST':
@@ -856,8 +877,10 @@ def crear_pedido(request):
             # Obtener datos del formulario con valores por defecto
             tipo_pedido = request.POST.get('tipo_pedido')
             cart_items_json = request.POST.get('cart_items')
-            tipo_pago = (request.POST.get('tipo_pago', 'contado') or 'contado').strip().lower()
-            cliente_credito_id = (request.POST.get('cliente_credito_id', '') or '').strip()
+            tipo_pago = (request.POST.get('tipo_pago', 'contado')
+                         or 'contado').strip().lower()
+            cliente_credito_id = (request.POST.get(
+                'cliente_credito_id', '') or '').strip()
             cliente_credito = None
 
             if tipo_pago not in ['contado', 'credito']:
@@ -866,15 +889,19 @@ def crear_pedido(request):
             # RESTRICCIÓN DE SEGURIDAD: Solo staff autenticado puede crear pedidos a crédito
             if tipo_pago == 'credito':
                 if not request.user.is_authenticated or not request.user.is_staff:
-                    messages.error(request, 'Solo personal autorizado puede crear pedidos a crédito. Inicie sesión como staff.')
+                    messages.error(
+                        request, 'Solo personal autorizado puede crear pedidos a crédito. Inicie sesión como staff.')
                     return redirect('pedidos')
                 if not cliente_credito_id:
-                    messages.error(request, 'Para venta a crédito debes seleccionar un cliente')
+                    messages.error(
+                        request, 'Para venta a crédito debes seleccionar un cliente')
                     return redirect('pedidos')
                 try:
-                    cliente_credito = Cliente.objects.get(id=cliente_credito_id, activo=True)
+                    cliente_credito = Cliente.objects.get(
+                        id=cliente_credito_id, activo=True)
                 except Cliente.DoesNotExist:
-                    messages.error(request, 'El cliente seleccionado para crédito no es válido')
+                    messages.error(
+                        request, 'El cliente seleccionado para crédito no es válido')
                     return redirect('pedidos')
 
             print("=" * 80)
@@ -989,7 +1016,7 @@ def crear_pedido(request):
                 # Buscar la bebida en Producto
                 try:
                     bebida = Producto.objects.get(
-                        id=bebida_id, categoria='bebida')
+                        id=bebida_id, categoria__in=['bebida', 'trago'])
 
                     # 🔥 DEBUG: Mostrar información de la bebida encontrada
                     print(f"  - Bebida encontrada: {bebida.nombre}")
@@ -1036,7 +1063,7 @@ def crear_pedido(request):
                         codigo_bebida = item.get('codigo', '')
                         if codigo_bebida:
                             bebida = Producto.objects.get(
-                                codigo=codigo_bebida, categoria='bebida')
+                                codigo=codigo_bebida, categoria__in=['bebida', 'trago'])
 
                             print(
                                 f"  - Bebida encontrada por código: {bebida.nombre} ({codigo_bebida})")
@@ -1533,7 +1560,7 @@ def gestiondepedidos(request):
     pedidos_procesados = procesar_pedidos_para_template(page_obj)
 
     # Calcular estadísticas SOLO de pedidos NO pagados
-    ahora_local = timezone.localtime()
+    ahora_local = timezone.now().astimezone(pytz.timezone('America/Santo_Domingo'))
     inicio_dia = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
     fin_dia = inicio_dia + timedelta(days=1)
 
@@ -1582,6 +1609,17 @@ def gestiondepedidos(request):
         'user': request.user,
         'page_title': 'Gestión de Pedidos Activos',
         'pedidos': pedidos_procesados,
+        'clientes_credito_json': json.dumps([
+            {
+                'id': cliente.id,
+                'nombre': cliente.nombre_completo,
+                'cedula': cliente.cedula,
+                'telefono': cliente.telefono_principal,
+                'limite_credito': float(cliente.limite_credito or 0),
+                'dias_credito': int(cliente.dias_credito or 0),
+            }
+            for cliente in Cliente.objects.filter(activo=True).order_by('nombre_completo')
+        ]),
         'estadisticas': {
             # Solo pedidos activos (sin pagar)
             'total_pedidos': total_pedidos_activos,
@@ -1627,22 +1665,35 @@ def actualizar_inventario_bebidas(items, operacion='restar'):
         # Evitar ruido/errores: solo procesar items de bebidas.
         categoria_item = str(item.get('categoria', '') or '').lower()
         tipo_item = str(item.get('tipo', '') or '').lower()
-        es_bebida = bool(item.get('es_bebida')) or categoria_item == 'bebida' or tipo_item == 'bebida'
-        if isinstance(item_id, str) and item_id.startswith('plato_'):
+        item_id_str = str(item_id or '').strip()
+        item_id_upper = item_id_str.upper()
+
+        es_bebida = bool(item.get('es_bebida')
+                         ) or categoria_item == 'bebida' or tipo_item == 'bebida'
+        es_id_bebida = item_id_upper.startswith(
+            'PROD-') or item_id_str.startswith('bebida_')
+        es_id_plato = item_id_upper.startswith(
+            'PLATO-') or item_id_str.startswith('plato_')
+
+        if es_id_plato:
             es_bebida = False
-        if not es_bebida and not (isinstance(item_id, str) and item_id.startswith('PROD-')):
+
+        if not es_bebida and not es_id_bebida:
             continue
 
         print(
             f"  Procesando item: {item_name} (id: {item_id}, cantidad: {cantidad})")
 
-        # Verificar si es un producto de categoría bebida
-        # Caso 1: El ID empieza con "PROD-" (formato del frontend)
-        if isinstance(item_id, str) and item_id.startswith('PROD-'):
+        # Caso 1: El ID viene con prefijo de producto/bebida (PROD-123 o bebida_123)
+        if es_id_bebida:
             try:
-                prod_id = int(item_id.split('-')[1])
+                if item_id_upper.startswith('PROD-'):
+                    prod_id = int(item_id_str.split('-')[1])
+                else:
+                    prod_id = int(item_id_str.replace('bebida_', '', 1))
+
                 producto = Producto.objects.filter(
-                    id=prod_id, categoria='bebida').first()
+                    id=prod_id, categoria__in=['bebida', 'trago']).first()
 
                 if producto:
                     try:
@@ -1702,11 +1753,67 @@ def actualizar_inventario_bebidas(items, operacion='restar'):
             except (IndexError, ValueError) as e:
                 print(f"  ❌ Error al parsear ID {item_id}: {e}")
 
-        # Caso 2: Buscar por nombre si no tenemos ID
+        # Caso 2: Buscar por ID numérico directo
+        elif item_id_str.isdigit():
+            producto = Producto.objects.filter(
+                id=int(item_id_str),
+                categoria__in=['bebida', 'trago']
+            ).first()
+
+            if producto:
+                try:
+                    cantidad_decimal = Decimal(str(cantidad))
+                    stock_anterior = producto.cantidad
+
+                    if operacion == 'restar':
+                        producto.cantidad -= cantidad_decimal
+                        mensaje = f"Descontando {cantidad_decimal} de {producto.nombre}"
+
+                        if producto.cantidad <= 0:
+                            alertas.append({
+                                'tipo': 'advertencia',
+                                'producto': producto.nombre,
+                                'stock_anterior': float(stock_anterior),
+                                'stock_actual': float(producto.cantidad),
+                                'cantidad_solicitada': float(cantidad_decimal),
+                                'mensaje': f"¡ATENCIÓN! {producto.nombre} quedó con stock CERO o NEGATIVO. Stock actual: {producto.cantidad}"
+                            })
+                        elif producto.cantidad < 10:
+                            alertas.append({
+                                'tipo': 'bajo_stock',
+                                'producto': producto.nombre,
+                                'stock_actual': float(producto.cantidad),
+                                'mensaje': f"Stock bajo de {producto.nombre}. Quedan solo {producto.cantidad} unidades."
+                            })
+                    else:
+                        producto.cantidad += cantidad_decimal
+                        mensaje = f"Reponiendo {cantidad_decimal} a {producto.nombre}"
+
+                    producto.save()
+                    print(
+                        f"  ✅ {mensaje} (Stock anterior: {stock_anterior}, actual: {producto.cantidad})")
+
+                    productos_actualizados.append({
+                        'id': producto.id,
+                        'nombre': producto.nombre,
+                        'stock_anterior': float(stock_anterior),
+                        'stock_actual': float(producto.cantidad),
+                        'categoria': producto.categoria
+                    })
+                except Exception as e:
+                    print(f"  ❌ Error con cantidad: {e}")
+            else:
+                print(
+                    f"  ⚠️ No se encontró bebida con ID numérico: {item_id_str}")
+
+        # Caso 3: Buscar por nombre si no tenemos ID utilizable
         elif item_name:
             producto = Producto.objects.filter(
+                nombre__iexact=item_name,
+                categoria__in=['bebida', 'trago']
+            ).first() or Producto.objects.filter(
                 nombre__icontains=item_name,
-                categoria='bebida'
+                categoria__in=['bebida', 'trago']
             ).first()
 
             if producto:
@@ -1878,34 +1985,44 @@ def historial_pedidos_pagados(request):
 
     if fecha:
         # Filtro por rangos de fecha-hora en zona RD para evitar desfases por timezone.
-        inicio_hoy = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        inicio_hoy = ahora_local.replace(
+            hour=0, minute=0, second=0, microsecond=0)
         fin_hoy = inicio_hoy + timedelta(days=1)
         inicio_mes_actual = inicio_hoy.replace(day=1)
 
         if fecha == 'hoy':
-            facturas = facturas.filter(fecha_factura__gte=inicio_hoy, fecha_factura__lt=fin_hoy)
+            facturas = facturas.filter(
+                fecha_factura__gte=inicio_hoy, fecha_factura__lt=fin_hoy)
         elif fecha == 'ayer':
             inicio_ayer = inicio_hoy - timedelta(days=1)
-            facturas = facturas.filter(fecha_factura__gte=inicio_ayer, fecha_factura__lt=inicio_hoy)
+            facturas = facturas.filter(
+                fecha_factura__gte=inicio_ayer, fecha_factura__lt=inicio_hoy)
         elif fecha in ['ultimos_7_dias', 'semana']:
             inicio_7_dias = inicio_hoy - timedelta(days=6)
-            facturas = facturas.filter(fecha_factura__gte=inicio_7_dias, fecha_factura__lt=fin_hoy)
+            facturas = facturas.filter(
+                fecha_factura__gte=inicio_7_dias, fecha_factura__lt=fin_hoy)
         elif fecha == 'ultimos_30_dias':
             inicio_30_dias = inicio_hoy - timedelta(days=29)
-            facturas = facturas.filter(fecha_factura__gte=inicio_30_dias, fecha_factura__lt=fin_hoy)
+            facturas = facturas.filter(
+                fecha_factura__gte=inicio_30_dias, fecha_factura__lt=fin_hoy)
         elif fecha in ['este_mes', 'mes']:
-            facturas = facturas.filter(fecha_factura__gte=inicio_mes_actual, fecha_factura__lt=fin_hoy)
+            facturas = facturas.filter(
+                fecha_factura__gte=inicio_mes_actual, fecha_factura__lt=fin_hoy)
         elif fecha == 'mes_pasado':
             fin_mes_pasado = inicio_mes_actual
             ultimo_dia_mes_pasado = inicio_mes_actual - timedelta(days=1)
             inicio_mes_pasado = ultimo_dia_mes_pasado.replace(day=1)
-            facturas = facturas.filter(fecha_factura__gte=inicio_mes_pasado, fecha_factura__lt=fin_mes_pasado)
+            facturas = facturas.filter(
+                fecha_factura__gte=inicio_mes_pasado, fecha_factura__lt=fin_mes_pasado)
         elif fecha == 'este_anio':
             inicio_anio = inicio_hoy.replace(month=1, day=1)
-            facturas = facturas.filter(fecha_factura__gte=inicio_anio, fecha_factura__lt=fin_hoy)
+            facturas = facturas.filter(
+                fecha_factura__gte=inicio_anio, fecha_factura__lt=fin_hoy)
         elif fecha == 'semana_actual':
-            inicio_semana = (inicio_hoy - timedelta(days=ahora_local.weekday()))
-            facturas = facturas.filter(fecha_factura__gte=inicio_semana, fecha_factura__lt=fin_hoy)
+            inicio_semana = (
+                inicio_hoy - timedelta(days=ahora_local.weekday()))
+            facturas = facturas.filter(
+                fecha_factura__gte=inicio_semana, fecha_factura__lt=fin_hoy)
 
     # Paginación de 50 facturas por página
     paginator = Paginator(facturas, 50)
@@ -1927,7 +2044,8 @@ def historial_pedidos_pagados(request):
                 'delivery': 'Domicilio',
                 'llevar': 'Recoger en Local',
             }
-            tipo_pedido_display = tipos.get(factura.tipo_pedido, factura.tipo_pedido.title() if factura.tipo_pedido else 'No definido')
+            tipo_pedido_display = tipos.get(factura.tipo_pedido, factura.tipo_pedido.title(
+            ) if factura.tipo_pedido else 'No definido')
 
         pedido_procesado = {
             'id': pedido_asociado.id if pedido_asociado else '',
@@ -1952,11 +2070,14 @@ def historial_pedidos_pagados(request):
 
     facturas_pagadas = facturas.filter(estado='pagada')
     total_facturas_emitidas = facturas.count()
-    ingresos_totales = facturas_pagadas.aggregate(total=Sum('total'))['total'] or 0
+    ingresos_totales = facturas_pagadas.aggregate(total=Sum('total'))[
+        'total'] or 0
 
     # Ingresos del mes actual en zona horaria RD (solo facturas pagadas)
-    inicio_mes_rd = ahora_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    inicio_hoy_rd = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    inicio_mes_rd = ahora_local.replace(
+        day=1, hour=0, minute=0, second=0, microsecond=0)
+    inicio_hoy_rd = ahora_local.replace(
+        hour=0, minute=0, second=0, microsecond=0)
     fin_hoy_rd = inicio_hoy_rd + timedelta(days=1)
     ingresos_mes_actual = facturas_base.filter(
         estado='pagada',
@@ -2017,6 +2138,7 @@ def detalle_pedido(request, pedido_id):
         'nombre_cliente': nombre_cliente,
         'telefono_cliente': pedido.telefono_cliente or '',
         'direccion_entrega': pedido.direccion_entrega or '',
+        'codigo_delivery': pedido.codigo_delivery or '',
         'mesa_numero': pedido.mesa.numero_display if pedido.mesa else '',
         'items': items,  # Asegúrate de que esto incluya todos los campos necesarios
         'subtotal': float(pedido.subtotal),
@@ -2053,14 +2175,16 @@ def cambiar_estado_pedido(request, pedido_id):
             items_actuales = []
 
         alertas_totales = []
+        reposicion_detalle = []
 
         # Si el estado cambia a CANCELADO, reponer bebidas del inventario
         if nuevo_estado == 'cancelado' and pedido.estado != 'cancelado':
             print(
                 f"🔄 Cancelando pedido {pedido.codigo_pedido} - Reponiendo bebidas...")
-            alertas, _ = actualizar_inventario_bebidas(
+            alertas, productos_actualizados = actualizar_inventario_bebidas(
                 items_actuales, operacion='sumar')
             alertas_totales.extend(alertas)
+            reposicion_detalle.extend(productos_actualizados)
 
         # Si el estado cambia de CANCELADO a otro, descontar bebidas
         elif pedido.estado == 'cancelado' and nuevo_estado != 'cancelado':
@@ -2128,7 +2252,8 @@ def cambiar_estado_pedido(request, pedido_id):
 
             return precio_decimal * cantidad_decimal
 
-        subtotal = sum((calcular_total_item(item) for item in items_actuales), Decimal('0.00'))
+        subtotal = sum((calcular_total_item(item)
+                       for item in items_actuales), Decimal('0.00'))
         total = subtotal + Decimal(str(pedido.envio or 0))
 
         pedido.subtotal = subtotal
@@ -2171,6 +2296,9 @@ def cambiar_estado_pedido(request, pedido_id):
             respuesta['alertas'] = alertas_totales
             print(f"⚠️ Se generaron {len(alertas_totales)} alertas de stock")
 
+        if reposicion_detalle:
+            respuesta['reposicion_detalle'] = reposicion_detalle
+
         return JsonResponse(respuesta)
 
     except Exception as e:
@@ -2203,6 +2331,7 @@ def eliminar_pedido(request, pedido_id):
         tiene_factura_pagada = pedido.facturas.filter(estado='pagada').exists()
 
         alertas_totales = []
+        reposicion_detalle = []
 
         if eliminar_vista:
             # Eliminar permanentemente de la base de datos
@@ -2212,9 +2341,10 @@ def eliminar_pedido(request, pedido_id):
             if not tiene_factura_pagada:
                 print(
                     f"🔄 Eliminando pedido {codigo_pedido} - Reponiendo bebidas...")
-                alertas, _ = actualizar_inventario_bebidas(
+                alertas, productos_actualizados = actualizar_inventario_bebidas(
                     items, operacion='sumar')
                 alertas_totales.extend(alertas)
+                reposicion_detalle.extend(productos_actualizados)
 
             # Verificar si tiene facturas antes de eliminar
             if pedido.facturas.exists():
@@ -2242,9 +2372,10 @@ def eliminar_pedido(request, pedido_id):
             if not tiene_factura_pagada:
                 print(
                     f"🔄 Cancelando pedido {pedido.codigo_pedido} - Reponiendo bebidas...")
-                alertas, _ = actualizar_inventario_bebidas(
+                alertas, productos_actualizados = actualizar_inventario_bebidas(
                     items, operacion='sumar')
                 alertas_totales.extend(alertas)
+                reposicion_detalle.extend(productos_actualizados)
 
             # LIBERAR MESA solo si NO tiene factura pagada
             if pedido.mesa and not tiene_factura_pagada:
@@ -2264,6 +2395,9 @@ def eliminar_pedido(request, pedido_id):
         if alertas_totales:
             respuesta['alertas'] = alertas_totales
             print(f"⚠️ Se generaron {len(alertas_totales)} alertas de stock")
+
+        if reposicion_detalle:
+            respuesta['reposicion_detalle'] = reposicion_detalle
 
         return JsonResponse(respuesta)
 
@@ -2294,7 +2428,7 @@ def verificar_stock_multiples(request):
                 try:
                     prod_id = int(item_id.split('-')[1])
                     producto = Producto.objects.filter(
-                        id=prod_id, categoria='bebida').first()
+                        id=prod_id, categoria__in=['bebida', 'trago']).first()
 
                     if producto:
                         cantidad_decimal = Decimal(str(cantidad))
@@ -2315,7 +2449,7 @@ def verificar_stock_multiples(request):
             elif item_name:
                 producto = Producto.objects.filter(
                     nombre__icontains=item_name,
-                    categoria='bebida'
+                    categoria__in=['bebida', 'trago']
                 ).first()
 
                 if producto:
@@ -2359,7 +2493,7 @@ def verificar_stock(request, producto_id):
 
         # Buscar el producto por ID y que sea de categoría bebida
         producto = Producto.objects.filter(
-            id=producto_id, categoria='bebida').first()
+            id=producto_id, categoria__in=['bebida', 'trago']).first()
 
         if not producto:
             return JsonResponse({
@@ -2403,7 +2537,7 @@ def platos_disponibles(request):
         # Si se solicita bebidas o todos
         if tipo in ['bebida', 'todos']:
             # Filtrar productos de categoría bebida
-            productos = Producto.objects.filter(categoria='bebida')
+            productos = Producto.objects.filter(categoria__in=['bebida', 'trago'])
             if search:
                 productos = productos.filter(nombre__icontains=search)
 
@@ -2470,6 +2604,13 @@ def editar_pedido(request, pedido_id):
         nombre_cliente = request.POST.get('nombre_cliente')
         telefono_cliente = request.POST.get('telefono_cliente')
         notas = request.POST.get('notas')
+        tipo_pago = (request.POST.get('tipo_pago', 'contado')
+                     or 'contado').strip().lower()
+        cliente_credito_id = (request.POST.get(
+            'cliente_credito_id', '') or '').strip()
+
+        if tipo_pago not in ['contado', 'credito']:
+            tipo_pago = 'contado'
 
         if not nuevos_items_json:
             return JsonResponse({'error': 'No se proporcionaron items'}, status=400)
@@ -2593,13 +2734,36 @@ def editar_pedido(request, pedido_id):
                         [item_diferencia], operacion='sumar')
                     alertas_totales.extend(alertas)
 
-        # Actualizar información del cliente si se proporciona
-        if nombre_cliente:
-            pedido.nombre_cliente = nombre_cliente
-        if telefono_cliente:
-            pedido.telefono_cliente = telefono_cliente
+        # Actualizar información del cliente según tipo de pago
+        cliente_credito = None
+        if tipo_pago == 'credito':
+            if not cliente_credito_id:
+                return JsonResponse({'error': 'Para venta a crédito debes seleccionar un cliente'}, status=400)
+            try:
+                cliente_credito = Cliente.objects.get(
+                    id=cliente_credito_id, activo=True)
+            except Cliente.DoesNotExist:
+                return JsonResponse({'error': 'El cliente seleccionado para crédito no es válido'}, status=400)
+
+            pedido.nombre_cliente = cliente_credito.nombre_completo
+            pedido.telefono_cliente = cliente_credito.telefono_principal or ''
+            pedido.notas = f"TIPO_PAGO_PEDIDO=credito;CLIENTE_CREDITO_ID={cliente_credito.id}"
+        else:
+            # Contado por defecto: para pedidos de mesa mantener referencia de mesa.
+            if pedido.tipo_pedido == 'mesa' and pedido.mesa:
+                pedido.nombre_cliente = f"Mesa {pedido.mesa.numero_display}"
+                pedido.telefono_cliente = ''
+            else:
+                if nombre_cliente is not None:
+                    pedido.nombre_cliente = nombre_cliente
+                if telefono_cliente is not None:
+                    pedido.telefono_cliente = telefono_cliente
+            pedido.notas = "TIPO_PAGO_PEDIDO=contado"
+
         if notas is not None:
-            pedido.notas = notas
+            notas_limpias = (notas or '').strip()
+            if notas_limpias:
+                pedido.notas = f"{pedido.notas};{notas_limpias}"
 
         # Actualizar items del pedido
         pedido.items = json.dumps(nuevos_items)
@@ -2680,7 +2844,8 @@ def facturacion(request):
             estado__in=['pendiente', 'confirmado', 'preparacion',
                         'listo', 'entregado', 'completado']
         ).exclude(
-            id__in=pedidos_con_factura_activa_ids  # EXCLUIR pedidos con facturas ya creadas (incluye crédito)
+            # EXCLUIR pedidos con facturas ya creadas (incluye crédito)
+            id__in=pedidos_con_factura_activa_ids
         ).select_related('mesa').order_by('-fecha_pedido')
 
         # Obtener facturas PENDIENTES (las pagadas NO se muestran)
@@ -2757,7 +2922,8 @@ def facturacion(request):
 
         # Preparar facturas para estadísticas (todas, incluyendo pagadas)
         facturas_json = []
-        todas_facturas = Factura.objects.select_related('pedido').all().order_by('-fecha_factura')
+        todas_facturas = Factura.objects.select_related(
+            'pedido').all().order_by('-fecha_factura')
         for factura in todas_facturas:
             try:
                 factura_dict = {
@@ -2847,8 +3013,10 @@ def crear_factura(request):
 
             if pedido_es_credito and 'CLIENTE_CREDITO_ID=' in notas_pedido:
                 try:
-                    cliente_id_str = notas_pedido.split('CLIENTE_CREDITO_ID=')[-1].split(';')[0].strip()
-                    cliente_credito = Cliente.objects.filter(id=int(cliente_id_str), activo=True).first()
+                    cliente_id_str = notas_pedido.split(
+                        'CLIENTE_CREDITO_ID=')[-1].split(';')[0].strip()
+                    cliente_credito = Cliente.objects.filter(
+                        id=int(cliente_id_str), activo=True).first()
                 except (ValueError, TypeError):
                     cliente_credito = None
 
@@ -2859,13 +3027,16 @@ def crear_factura(request):
                 except (ValueError, TypeError):
                     return Decimal(default)
 
-            subtotal = _to_decimal(request.POST.get('subtotal', pedido.subtotal), '0.00')
+            subtotal = _to_decimal(request.POST.get(
+                'subtotal', pedido.subtotal), '0.00')
             # Obtener el valor real de envío si es delivery, si no, dejar en 0
             if pedido.tipo_pedido == 'delivery':
-                envio = _to_decimal(request.POST.get('envio', pedido.envio), '0.00')
+                envio = _to_decimal(request.POST.get(
+                    'envio', pedido.envio), '0.00')
             else:
                 envio = Decimal('0.00')
-            iva = Decimal('0.00')  # Establecer IVA a 0 ya que no lo estamos usando
+            # Establecer IVA a 0 ya que no lo estamos usando
+            iva = Decimal('0.00')
 
             # Calcular el total correctamente
             # Si hay descuento, tomarlo en cuenta (si no existe, usar 0)
@@ -2918,11 +3089,64 @@ def crear_factura(request):
             if pedido.tipo_pedido == 'delivery':
                 factura.direccion_entrega = pedido.direccion_entrega
 
-            # Guardar la factura
-            factura.save()
+            # Guardar la factura y crear FacturaDetalle en la misma transacción
+            with transaction.atomic():
+                factura.save()
+
+                # Crear detalles relacionales para cada item
+                detalles = []
+                for item in items:
+                    nombre = (
+                        item.get('name') or item.get('nombre') or
+                        item.get('product') or item.get(
+                            'producto') or 'Sin nombre'
+                    )
+                    try:
+                        cantidad = Decimal(
+                            str(item.get('quantity') or item.get('cantidad') or 1))
+                    except Exception:
+                        cantidad = Decimal('1')
+
+                    try:
+                        precio = Decimal(
+                            str(item.get('price') or item.get('precio') or 0))
+                    except Exception:
+                        precio = Decimal('0')
+
+                    try:
+                        subtotal_item = Decimal(
+                            str(item.get('total') or item.get('subtotal') or 0))
+                        if subtotal_item == 0:
+                            subtotal_item = cantidad * precio
+                    except Exception:
+                        subtotal_item = cantidad * precio
+
+                    detalles.append(FacturaDetalle(
+                        factura=factura,
+                        nombre_producto=nombre,
+                        cantidad=cantidad,
+                        precio_unitario=precio,
+                        subtotal=subtotal_item,
+                    ))
+
+                if detalles:
+                    FacturaDetalle.objects.bulk_create(detalles)
 
             if pedido_es_credito:
                 _sincronizar_cuenta_por_cobrar(factura, cliente_credito)
+            else:
+                # Factura de contado: el dinero entra en este momento
+                MovimientoFinanciero.objects.create(
+                    tipo="INGRESO",
+                    origen="VENTA",
+                    referencia='VENTA_CONTADO',
+                    monto=factura.total,
+                    fecha_operacion=factura.fecha_factura,
+                    factura=factura,
+                    metodo_pago=factura.metodo_pago,
+                    creado_por=request.user,
+                    descripcion=f"Venta factura {factura.numero_factura}",
+                )
 
             # IMPORTANTE: Actualizar estado del pedido a 'completado'
             pedido.estado = 'completado'
@@ -2992,7 +3216,7 @@ def descontar_bebidas_inventario(pedido):
                 # Buscar el producto en el inventario por nombre y categoría bebida
                 productos = Producto.objects.filter(
                     nombre__icontains=nombre_producto,
-                    categoria='bebida'
+                    categoria__in=['bebida', 'trago']
                 )
 
                 if productos.exists():
@@ -3022,7 +3246,8 @@ def descontar_bebidas_inventario(pedido):
             print(
                 f"✅ Total bebidas descontadas del inventario: {', '.join(bebidas_descontadas)}")
         else:
-            print("ℹ️ No se encontraron bebidas para descontar en este pedido")
+            print(
+                "ℹ️ No se descontaron bebidas en este paso (posiblemente ya descontadas al crear el pedido)")
 
     except Exception as e:
         print(f"❌ Error al descontar bebidas del inventario: {e}")
@@ -3047,6 +3272,22 @@ def marcar_factura_pagada(request, factura_id):
         # Marcar como pagada
         factura.estado = 'pagada'
         factura.save()
+
+        # Sincronizar movimientos financieros
+        _sincronizar_movimientos_factura(factura)
+
+        # Registrar ingreso financiero — esta factura era de crédito (estado pendiente → pagada)
+        MovimientoFinanciero.objects.create(
+            tipo="INGRESO",
+            origen="VENTA",
+            referencia='VENTA_CREDITO',
+            monto=factura.total,
+            fecha_operacion=timezone.now(),
+            factura=factura,
+            metodo_pago=factura.metodo_pago,
+            creado_por=request.user,
+            descripcion=f"Pago de factura {factura.numero_factura}",
+        )
 
         # Actualizar estado del pedido a completado
         if factura.pedido:
@@ -3327,7 +3568,7 @@ def imprimir_factura_termica(request, factura_id):
         'items': items_normalizados,  # Usar los items normalizados
         'empresa': {
             'nombre': '402 FASTFOOD',
-            'direccion': 'Av. Principal 30 DE MAYO',
+            'direccion': 'Av. Principal 30 DE MAYO FRENTE A LA BOMBA',
             'telefono': '849-362-1791',
             'ruc': ''
         }
@@ -3357,7 +3598,7 @@ def exportar_facturas(request):
 @csrf_exempt
 def salida(request):
     # Obtener productos excluyendo bebidas
-    productos = Producto.objects.exclude(categoria='bebida')
+    productos = Producto.objects.exclude(categoria__in=['bebida', 'trago'])
 
     # Preparar datos para la plantilla
     productos_list = []
@@ -3399,7 +3640,7 @@ def obtener_productos_salida(request):
     if request.method == 'GET':
         try:
             # Obtener productos excluyendo bebidas
-            productos = Producto.objects.exclude(categoria='bebida')
+            productos = Producto.objects.exclude(categoria__in=['bebida', 'trago'])
 
             # Formatear los datos para JSON
             productos_data = []
@@ -3540,7 +3781,8 @@ def roles(request):
     inicializar_permisos()
 
     # Obtener todos los usuarios
-    users = User.objects.all()
+    # Obtener todos los usuarios con sus grupos precargados para evitar N+1
+    users = User.objects.prefetch_related('groups').all()
 
     # Crear grupos por defecto si no existen
     grupos_por_defecto = [
@@ -3552,8 +3794,14 @@ def roles(request):
         ('Usuario Normal', 'Acceso a inventario, facturación y pedidos'),
     ]
 
+    # Comprobar grupos existentes de una vez
+    nombres_grupos = [g[0] for g in grupos_por_defecto]
+    grupos_existentes = set(Group.objects.filter(
+        name__in=nombres_grupos).values_list('name', flat=True))
+
     for nombre, descripcion in grupos_por_defecto:
-        Group.objects.get_or_create(name=nombre)
+        if nombre not in grupos_existentes:
+            Group.objects.create(name=nombre)
 
     # Obtener todos los grupos para mostrar en el formulario
     groups = Group.objects.all()
@@ -3622,6 +3870,10 @@ def roles(request):
                 messages.error(request, f'Error al crear usuario: {str(e)}')
 
             return redirect('roles')
+
+    # Pre-calcular el grupo principal para cada usuario para evitar .first() en el template (que genera queries extras)
+    for u in users:
+        u.primary_group = u.groups.all()[0] if u.groups.all() else None
 
     context = {
         'users': users,
@@ -3780,7 +4032,8 @@ def calcular_costo_real_facturas(facturas_queryset, include_stats=False):
         'items_no_mapeados': 0,
     }
 
-    productos = Producto.objects.only('id', 'codigo', 'nombre', 'precio_compra')
+    productos = Producto.objects.only(
+        'id', 'codigo', 'nombre', 'precio_compra')
     productos_por_id = {producto.id: producto for producto in productos}
     productos_por_codigo = {
         (producto.codigo or '').strip().lower(): producto
@@ -3816,7 +4069,8 @@ def calcular_costo_real_facturas(facturas_queryset, include_stats=False):
 
             producto_db = None
 
-            producto_id = item.get('producto_id') or item.get('product_id') or item.get('id')
+            producto_id = item.get('producto_id') or item.get(
+                'product_id') or item.get('id')
             if producto_id is not None:
                 try:
                     producto_db = productos_por_id.get(int(producto_id))
@@ -3824,12 +4078,14 @@ def calcular_costo_real_facturas(facturas_queryset, include_stats=False):
                     producto_db = None
 
             if not producto_db:
-                codigo = str(item.get('codigo') or item.get('code') or '').strip().lower()
+                codigo = str(item.get('codigo') or item.get(
+                    'code') or '').strip().lower()
                 if codigo:
                     producto_db = productos_por_codigo.get(codigo)
 
             if not producto_db:
-                nombre = str(item.get('name') or item.get('nombre') or '').strip().lower()
+                nombre = str(item.get('name') or item.get(
+                    'nombre') or '').strip().lower()
                 if nombre:
                     producto_db = productos_por_nombre.get(nombre)
 
@@ -3931,7 +4187,8 @@ def dashbort(request):
         fecha_pago__gte=inicio_dia_utc,
         fecha_pago__lte=fin_dia_utc
     )
-    pagos_credito_dia = pagos_credito_dia_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    pagos_credito_dia = pagos_credito_dia_qs.aggregate(
+        total=Sum('monto'))['total'] or Decimal('0.00')
     total_pagos_hoy = pagos_credito_dia_qs.count()
 
     venta_dia = venta_dia_contado + pagos_credito_dia
@@ -3966,7 +4223,8 @@ def dashbort(request):
         fecha_pago__gte=inicio_mes,
         fecha_pago__lte=fin_mes
     )
-    pagos_credito_mes = pagos_credito_mes_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    pagos_credito_mes = pagos_credito_mes_qs.aggregate(
+        total=Sum('monto'))['total'] or Decimal('0.00')
     total_pagos_mes = pagos_credito_mes_qs.count()
 
     venta_mes = venta_mes_contado + pagos_credito_mes
@@ -4033,7 +4291,8 @@ def dashbort(request):
         fecha_factura__lte=fin_mes_pasado_time,
         estado='pagada'
     )
-    gastos_totales_mes_pasado = calcular_costo_real_facturas(facturas_mes_pasado_qs)
+    gastos_totales_mes_pasado = calcular_costo_real_facturas(
+        facturas_mes_pasado_qs)
 
     # 5. GANANCIAS NETAS
     ganancias_netas = venta_mes - gastos_totales
@@ -4110,7 +4369,8 @@ def dashbort(request):
             items = factura.get_items_detalle(enrich_from_db=False)
             if items and isinstance(items, list):
                 for item in items:
-                    nombre = item.get('name', '').strip() or item.get('nombre', '').strip()
+                    nombre = item.get('name', '').strip(
+                    ) or item.get('nombre', '').strip()
                     if not nombre:
                         continue
 
@@ -4118,7 +4378,8 @@ def dashbort(request):
                     if cantidad <= 0:
                         continue
 
-                    productos_ayer[nombre] = productos_ayer.get(nombre, 0) + cantidad
+                    productos_ayer[nombre] = productos_ayer.get(
+                        nombre, 0) + cantidad
         except Exception:
             continue
 
@@ -4244,7 +4505,8 @@ def dashbort(request):
             return categoria if categoria in categorias_validas else ''
 
         def resolver_categoria_item(item):
-            categoria_directa = normalizar_categoria(item.get('categoria') or item.get('category'))
+            categoria_directa = normalizar_categoria(
+                item.get('categoria') or item.get('category'))
             if categoria_directa:
                 return categoria_directa
 
@@ -4269,38 +4531,48 @@ def dashbort(request):
                     digitos = re.findall(r'\d+', valor_str)
                     return int(digitos[0]) if digitos else None
 
-            producto_id = item.get('producto_id') or item.get('product_id') or item.get('id')
+            producto_id = item.get('producto_id') or item.get(
+                'product_id') or item.get('id')
             pid = extraer_id_numerico(producto_id)
             if pid is not None:
-                categoria_por_id = normalizar_categoria(producto_categoria_por_id.get(pid))
+                categoria_por_id = normalizar_categoria(
+                    producto_categoria_por_id.get(pid))
                 if categoria_por_id:
                     return categoria_por_id
 
-                categoria_plato_id = normalizar_categoria(plato_categoria_por_id.get(pid))
+                categoria_plato_id = normalizar_categoria(
+                    plato_categoria_por_id.get(pid))
                 if categoria_plato_id:
                     return categoria_plato_id
 
-            codigo_item = (item.get('codigo') or item.get('code') or '').strip().lower()
+            codigo_item = (item.get('codigo') or item.get(
+                'code') or '').strip().lower()
             if codigo_item:
-                categoria_por_codigo = normalizar_categoria(producto_categoria_por_codigo.get(codigo_item))
+                categoria_por_codigo = normalizar_categoria(
+                    producto_categoria_por_codigo.get(codigo_item))
                 if categoria_por_codigo:
                     return categoria_por_codigo
 
-                categoria_plato_codigo = normalizar_categoria(plato_categoria_por_codigo.get(codigo_item))
+                categoria_plato_codigo = normalizar_categoria(
+                    plato_categoria_por_codigo.get(codigo_item))
                 if categoria_plato_codigo:
                     return categoria_plato_codigo
 
-            tipo_item = (item.get('tipo_item') or item.get('tipo') or '').strip().lower()
+            tipo_item = (item.get('tipo_item') or item.get(
+                'tipo') or '').strip().lower()
             if tipo_item == 'bebida' or bool(item.get('es_bebida')):
                 return 'bebida'
 
-            nombre_item = (item.get('name') or item.get('nombre') or '').strip().lower()
+            nombre_item = (item.get('name') or item.get(
+                'nombre') or '').strip().lower()
             if nombre_item:
-                categoria_producto = normalizar_categoria(producto_categoria_por_nombre.get(nombre_item))
+                categoria_producto = normalizar_categoria(
+                    producto_categoria_por_nombre.get(nombre_item))
                 if categoria_producto:
                     return categoria_producto
 
-                categoria_plato = normalizar_categoria(plato_categoria_por_nombre.get(nombre_item))
+                categoria_plato = normalizar_categoria(
+                    plato_categoria_por_nombre.get(nombre_item))
                 if categoria_plato:
                     return categoria_plato
 
@@ -4316,7 +4588,8 @@ def dashbort(request):
                 for item in items:
                     categoria = resolver_categoria_item(item)
                     cantidad, precio = obtener_cantidad_precio_item(item)
-                    acumulado[categoria] = acumulado.get(categoria, 0) + (cantidad * precio)
+                    acumulado[categoria] = acumulado.get(
+                        categoria, 0) + (cantidad * precio)
             return acumulado
 
         # Pase rapido por defecto
@@ -4324,22 +4597,26 @@ def dashbort(request):
 
         # Si no hay categorías hoy, intentar del mes
         if not categorias_dict:
-            categorias_dict = acumular_categorias(facturas_mes, enrich_items=False)
+            categorias_dict = acumular_categorias(
+                facturas_mes, enrich_items=False)
 
         # Fallback: si todo colapsa en "otro", reintentar enriqueciendo desde BD
         if categorias_dict and set(categorias_dict.keys()) == {'otro'}:
             categorias_dict_rapido = categorias_dict.copy()
-            categorias_dict = acumular_categorias(facturas_hoy, enrich_items=True)
+            categorias_dict = acumular_categorias(
+                facturas_hoy, enrich_items=True)
             if not categorias_dict:
-                categorias_dict = acumular_categorias(facturas_mes, enrich_items=True)
+                categorias_dict = acumular_categorias(
+                    facturas_mes, enrich_items=True)
 
             # Si aun viene solo "otro", conservar al menos el pase rapido
             if not categorias_dict:
                 categorias_dict = categorias_dict_rapido
-        
+
         # Si aún no hay datos, mantener listas vacías (sin datos reales)
         if categorias_dict:
-            categorias_data = [categoria_labels.get(categoria, categoria.title()) for categoria in categorias_dict.keys()]
+            categorias_data = [categoria_labels.get(
+                categoria, categoria.title()) for categoria in categorias_dict.keys()]
             ventas_categorias_data = list(categorias_dict.values())
         else:
             categorias_data = []
@@ -4378,32 +4655,34 @@ def dashbort(request):
 
         labels_mensuales.append(fecha_dia.strftime('%d %b'))
         proyeccion_mensual.append(float(venta_dia_mes))
-    
+
     # Etiquetas para gráfico anual (últimos 12 meses)
     labels_anuales = []
     proyeccion_anual = []
-    
+
     # Calcular ventas de los últimos 12 meses
     for i in range(11, -1, -1):
         # Calcular fecha del mes
         fecha_mes = hoy_local.replace(day=1)
         for _ in range(i):
             # Retroceder un mes
-            fecha_mes = (fecha_mes.replace(day=1) - timedelta(days=1)).replace(day=1)
-        
+            fecha_mes = (fecha_mes.replace(day=1) -
+                         timedelta(days=1)).replace(day=1)
+
         # Calcular inicio y fin del mes
         if fecha_mes.month == 12:
             ultimo_dia = fecha_mes.replace(day=31)
         else:
-            ultimo_dia = fecha_mes.replace(month=fecha_mes.month + 1, day=1) - timedelta(days=1)
-        
+            ultimo_dia = fecha_mes.replace(
+                month=fecha_mes.month + 1, day=1) - timedelta(days=1)
+
         inicio_mes_grafico = timezone.make_aware(
             datetime.combine(fecha_mes, datetime.min.time())
         )
         fin_mes_grafico = timezone.make_aware(
             datetime.combine(ultimo_dia, datetime.max.time())
         )
-        
+
         # Obtener ventas de este mes
         venta_mes_grafico = Factura.objects.filter(
             fecha_factura__gte=inicio_mes_grafico,
@@ -4417,14 +4696,14 @@ def dashbort(request):
         ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
 
         venta_mes_grafico += pagos_credito_mes_grafico
-        
+
         # Nombre del mes en español
-        meses_esp = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 
+        meses_esp = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
                      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
-        
+
         labels_anuales.append(meses_esp[fecha_mes.month - 1])
         proyeccion_anual.append(float(venta_mes_grafico))
-    
+
     # 12. DATOS REALES PARA GRÁFICO DE HORARIO Y MÉTODO DE PAGO
     # Se usa el mes actual para tener una muestra más estable.
     horario_labels = ['Mañana', 'Mediodía', 'Tarde', 'Noche']
@@ -4475,7 +4754,8 @@ def dashbort(request):
         if metodo_pago_cxc in metodo_totales:
             metodo_totales[metodo_pago_cxc] += pago_cxc.monto
 
-    ventas_horarios_data = [float(horario_totales[label]) for label in horario_labels]
+    ventas_horarios_data = [float(horario_totales[label])
+                            for label in horario_labels]
     ventas_metodos_data = [
         float(metodo_totales['efectivo']),
         float(metodo_totales['tarjeta']),
@@ -4499,7 +4779,8 @@ def dashbort(request):
         ).order_by('-fecha_factura')[:10]
 
         total_facturas_db = Factura.objects.count()
-        total_facturas_pagadas_db = Factura.objects.filter(estado='pagada').count()
+        total_facturas_pagadas_db = Factura.objects.filter(
+            estado='pagada').count()
 
         primera_factura = Factura.objects.order_by('fecha_factura').first()
         ultima_factura = Factura.objects.order_by('-fecha_factura').first()
@@ -4520,10 +4801,14 @@ def dashbort(request):
 
     trend_venta_dia = calcular_cambio_porcentual(venta_dia, venta_dia_anterior)
     trend_venta_mes = calcular_cambio_porcentual(venta_mes, venta_mes_pasado)
-    trend_gastos = calcular_cambio_porcentual(gastos_totales, gastos_totales_mes_pasado)
-    trend_ganancias = calcular_cambio_porcentual(ganancias_netas, ganancias_netas_mes_pasado)
-    trend_pedidos = calcular_cambio_porcentual(total_pedidos, total_pedidos_ayer)
-    trend_clientes = calcular_cambio_porcentual(nuevos_clientes, nuevos_clientes_mes_pasado)
+    trend_gastos = calcular_cambio_porcentual(
+        gastos_totales, gastos_totales_mes_pasado)
+    trend_ganancias = calcular_cambio_porcentual(
+        ganancias_netas, ganancias_netas_mes_pasado)
+    trend_pedidos = calcular_cambio_porcentual(
+        total_pedidos, total_pedidos_ayer)
+    trend_clientes = calcular_cambio_porcentual(
+        nuevos_clientes, nuevos_clientes_mes_pasado)
 
     context = {
         'venta_dia': venta_dia,
@@ -4558,12 +4843,12 @@ def dashbort(request):
         'total_pagos_mes': total_pagos_mes,
         'facturas_hoy_todas': facturas_hoy_todas,
         'todas_facturas': todas_facturas,
-        
+
         # Información adicional para depuración
         'rango_dia_inicio': rango_dia_inicio.strftime('%d/%m/%Y %H:%M'),
         'rango_dia_fin': rango_dia_fin.strftime('%d/%m/%Y %H:%M'),
         'definicion_dia': '6:00 AM - 5:59 AM (día siguiente)',
-        
+
         # DATOS DE VERIFICACIÓN PARA MOSTRAR DIRECTAMENTE EN EL DASHBOARD
         'total_facturas_db': total_facturas_db,
         'total_facturas_pagadas_db': total_facturas_pagadas_db,
@@ -4572,7 +4857,7 @@ def dashbort(request):
         'facturas_mes_pasado': facturas_mes_pasado,
         'venta_mes_pasado': venta_mes_pasado,
         'mes_pasado_nombre': inicio_mes_pasado.strftime('%B %Y'),
-        
+
         # DATOS CRUDOS PARA DIAGNÓSTICO
         'datos_semana_raw': list(zip(ultimos_7_dias, ventas_7_dias)),
         'datos_categorias_raw': list(zip(categorias_data, ventas_categorias_data)),
@@ -4610,211 +4895,168 @@ def dashbort(request):
 
 @login_required
 def dashboard_stats(request):
-    """Vista API para obtener estadísticas en formato JSON"""
+    """Vista API JSON para actualización en tiempo real del dashboard."""
     try:
         scope = (request.GET.get('scope') or 'full').strip().lower()
-        if scope not in ('summary', 'full'):
-            scope = 'full'
         full_refresh = scope == 'full'
+        dashboard_debug = bool(
+            settings.DEBUG and request.GET.get('debug') == '1')
 
-        # Cache por ventanas alineadas con el frontend.
-        # Summary: ventana corta para mantener frescura.
-        # Full: ventana de 5 minutos para evitar recalculo pesado continuo.
-        now_local = timezone.localtime()
-        if full_refresh:
-            minute_bucket = (now_local.minute // 5) * 5
-            cache_bucket = f"{now_local.strftime('%Y%m%d%H')}{minute_bucket:02d}"
-        else:
-            second_bucket = (now_local.second // 15) * 15
-            cache_bucket = f"{now_local.strftime('%Y%m%d%H%M')}{second_bucket:02d}"
-
-        cache_key = f"dashboard_stats:{scope}:{cache_bucket}"
-        cached_payload = cache.get(cache_key)
-        if cached_payload is not None:
-            return JsonResponse(cached_payload)
-
-        def calcular_cambio_porcentual(actual, anterior):
-            actual_val = float(actual or 0)
-            anterior_val = float(anterior or 0)
-            if anterior_val > 0:
-                return ((actual_val - anterior_val) / anterior_val) * 100
-            if actual_val > 0:
-                return 100.0
-            return 0.0
-
-        def obtener_cantidad_precio_item(item):
-            cantidad_raw = item.get('quantity', item.get('cantidad', 0))
-            precio_raw = item.get('price', item.get('precio', 0))
-
-            try:
-                cantidad = float(cantidad_raw or 0)
-            except (TypeError, ValueError):
-                cantidad = 0.0
-
-            try:
-                precio = float(precio_raw or 0)
-            except (TypeError, ValueError):
-                precio = 0.0
-
-            return cantidad, precio
-
-        # Obtener hora local actual
-        ahora_local = timezone.localtime()
+        # ── Cache ──────────────────────────────────────────────────────────
+        tz_rd = pytz.timezone('America/Santo_Domingo')
+        ahora_local = timezone.now().astimezone(tz_rd)
         hoy_local = ahora_local.date()
 
-        # DEFINICIÓN DEL "DÍA": De 6:00 AM a 5:59 AM del día siguiente
-        if ahora_local.hour >= 6:
-            inicio_dia = timezone.make_aware(
-                datetime.combine(hoy_local, datetime(
-                    2000, 1, 1, 6, 0, 0).time())
-            )
-            fin_dia = timezone.make_aware(
-                datetime.combine(hoy_local + timedelta(days=1),
-                                 datetime(2000, 1, 1, 5, 59, 59).time())
-            )
+        def _aware_rd(fecha, hora):
+            return timezone.make_aware(datetime.combine(fecha, hora), tz_rd)
+        if full_refresh:
+            bucket = f"{ahora_local.strftime('%Y%m%d%H')}{(ahora_local.minute // 5) * 5:02d}"
         else:
-            inicio_dia = timezone.make_aware(
-                datetime.combine(hoy_local - timedelta(days=1),
-                                 datetime(2000, 1, 1, 6, 0, 0).time())
-            )
-            fin_dia = timezone.make_aware(
-                datetime.combine(hoy_local, datetime(
-                    2000, 1, 1, 5, 59, 59).time())
-            )
+            bucket = f"{ahora_local.strftime('%Y%m%d%H%M')}{(ahora_local.second // 15) * 15:02d}"
 
-        # 1. VENTA DEL DÍA
-        facturas_hoy = Factura.objects.filter(
-            fecha_factura__gte=inicio_dia,
-            fecha_factura__lte=fin_dia,
-            estado='pagada'
-        )
+        cache_key = f"dashboard_stats:v4:{scope}:{request.user.id}:{bucket}"
+        # if not dashboard_debug:
+        #     cached = cache.get(cache_key)
+        #     if cached is not None:
+        #         return JsonResponse(cached)
 
-        venta_dia_contado = facturas_hoy.aggregate(total_dia=Sum('total'))[
-            'total_dia'] or Decimal('0.00')
+        # ── Helpers ────────────────────────────────────────────────────────
+        def _pct(actual, anterior):
+            a, b = float(actual or 0), float(anterior or 0)
+            if b > 0:
+                return ((a - b) / b) * 100
+            return 100.0 if a > 0 else 0.0
 
-        dia_negocio_actual = inicio_dia.date()
-        # Usar el mismo rango UTC que el PDF para pagos hoy
-        inicio_dia_utc = inicio_dia.astimezone(pytz.UTC)
-        fin_dia_utc = fin_dia.astimezone(pytz.UTC)
-        pagos_credito_dia_qs = PagoCuentaCobrar.objects.filter(
-            fecha_pago__gte=inicio_dia_utc,
-            fecha_pago__lte=fin_dia_utc
-        )
-        pagos_credito_dia = pagos_credito_dia_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-        total_pagos_hoy = pagos_credito_dia_qs.count()
+        def _trend(val):
+            return {
+                'value':  round(val, 1),
+                'icon':   'up' if val > 0 else 'down' if val < 0 else 'neutral',
+                'class':  'trend-up' if val > 0 else 'trend-down' if val < 0 else 'trend-neutral',
+            }
 
-        venta_dia = venta_dia_contado + pagos_credito_dia
+        # ── Rangos de tiempo ───────────────────────────────────────────────
+        # Período Operativo: 5:00 PM (17:00) a 5:59 AM (próximo día)
+        if ahora_local.hour >= 17:  # 5 PM en adelante
+            inicio_dia = _aware_rd(hoy_local, time(17, 0, 0))
+            fin_dia = _aware_rd(hoy_local + timedelta(days=1), time(5, 59, 59))
+        else:  # Antes de 5 PM
+            inicio_dia = _aware_rd(
+                hoy_local - timedelta(days=1), time(17, 0, 0))
+            fin_dia = _aware_rd(hoy_local, time(5, 59, 59))
 
-        # 2. VENTA DEL MES
-        primer_dia_mes = hoy_local.replace(day=1)
-        inicio_mes = timezone.make_aware(
-            datetime.combine(primer_dia_mes, datetime.min.time()))
-
-        if hoy_local.month == 12:
-            ultimo_dia_mes = hoy_local.replace(day=31)
-        else:
-            ultimo_dia_mes = hoy_local.replace(
-                month=hoy_local.month + 1, day=1) - timedelta(days=1)
-
-        fin_mes = timezone.make_aware(datetime.combine(
-            ultimo_dia_mes, datetime.max.time()))
-
-        facturas_mes = Factura.objects.filter(
-            fecha_factura__gte=inicio_mes,
-            fecha_factura__lte=fin_mes,
-            estado='pagada'
-        )
-
-        venta_mes_contado = facturas_mes.aggregate(total_mes=Sum('total'))[
-            'total_mes'] or Decimal('0.00')
-
-        pagos_credito_mes_qs = PagoCuentaCobrar.objects.filter(
-            fecha_pago__gte=inicio_mes,
-            fecha_pago__lte=fin_mes
-        )
-        pagos_credito_mes = pagos_credito_mes_qs.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-        total_pagos_mes = pagos_credito_mes_qs.count()
-
-        venta_mes = venta_mes_contado + pagos_credito_mes
-
-        # Ventas del día anterior
         inicio_dia_anterior = inicio_dia - timedelta(days=1)
         fin_dia_anterior = fin_dia - timedelta(days=1)
-        venta_dia_anterior_contado = Factura.objects.filter(
-            fecha_factura__gte=inicio_dia_anterior,
-            fecha_factura__lte=fin_dia_anterior,
-            estado='pagada'
-        ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
-        pagos_credito_dia_anterior = PagoCuentaCobrar.objects.filter(
-            fecha_pago__gte=inicio_dia_anterior,
-            fecha_pago__lte=fin_dia_anterior
-        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+        primer_dia_mes = hoy_local.replace(day=1)
+        if hoy_local.month == 12:
+            primer_dia_mes_siguiente = hoy_local.replace(
+                year=hoy_local.year + 1, month=1, day=1)
+        else:
+            primer_dia_mes_siguiente = hoy_local.replace(
+                month=hoy_local.month + 1, day=1)
 
-        venta_dia_anterior = venta_dia_anterior_contado + pagos_credito_dia_anterior
+        inicio_mes = _aware_rd(primer_dia_mes, time(0, 0, 0))
+        fin_mes = _aware_rd(primer_dia_mes_siguiente, time(0, 0, 0))
 
-        # Ventas del mes anterior
-        mes_pasado = hoy_local.replace(day=1) - timedelta(days=1)
-        inicio_mes_pasado = mes_pasado.replace(day=1)
-        fin_mes_pasado = mes_pasado
+        ultimo_dia_mes_pasado = primer_dia_mes - timedelta(days=1)
+        primer_dia_mes_pasado = ultimo_dia_mes_pasado.replace(day=1)
+        inicio_mes_pasado = _aware_rd(primer_dia_mes_pasado, time(0, 0, 0))
+        fin_mes_pasado = inicio_mes
 
-        inicio_mes_pasado_time = timezone.make_aware(
-            datetime.combine(inicio_mes_pasado, datetime.min.time())
+        # ── Resúmenes de caja ──────────────────────────────────────────────
+        r_dia = _resumen_movimientos_caja(inicio_dia,     fin_dia)
+        r_dia_ant = _resumen_movimientos_caja(
+            inicio_dia_anterior, fin_dia_anterior)
+        r_mes = _resumen_movimientos_caja(inicio_mes,     fin_mes)
+        r_mes_ant = _resumen_movimientos_caja(
+            inicio_mes_pasado, fin_mes_pasado)
+
+        venta_dia = r_dia['caja_neta']
+        venta_dia_ant = r_dia_ant['caja_neta']
+        venta_mes = r_mes['caja_neta']
+        venta_mes_ant = r_mes_ant['caja_neta']
+        gastos_totales = r_mes['egresos_total']
+        gastos_ant = r_mes_ant['egresos_total']
+        ganancias_netas = r_mes['caja_neta']
+        ganancias_ant = r_mes_ant['caja_neta']
+
+        # Cards conteos consolidados en UNA sola query (no 6)
+        conteos_hoy = MovimientoFinanciero.objects.filter(
+            fecha_operacion__gte=inicio_dia,
+            fecha_operacion__lt=fin_dia,
+            estado__in=['ACTIVO', 'INACTIVO'],
+        ).aggregate(
+            total_facturas=Count(
+                Case(When(tipo='INGRESO', origen='VENTA', then=1))),
+            total_pagos=Count(
+                Case(When(tipo='INGRESO', origen='PAGO_CXC', then=1))),
+            total_egresos=Count(
+                Case(When(tipo='EGRESO', origen__in=['DEVOLUCION', 'ANULACION'], then=1))),
         )
-        fin_mes_pasado_time = timezone.make_aware(
-            datetime.combine(fin_mes_pasado, datetime.max.time())
+        conteos_mes = MovimientoFinanciero.objects.filter(
+            fecha_operacion__gte=inicio_mes,
+            fecha_operacion__lt=fin_mes,
+            estado__in=['ACTIVO', 'INACTIVO'],
+        ).aggregate(
+            total_facturas=Count(
+                Case(When(tipo='INGRESO', origen='VENTA', then=1))),
+            total_pagos=Count(
+                Case(When(tipo='INGRESO', origen='PAGO_CXC', then=1))),
+            total_egresos=Count(
+                Case(When(tipo='EGRESO', origen__in=['DEVOLUCION', 'ANULACION'], then=1))),
         )
 
-        facturas_mes_pasado_qs = Factura.objects.filter(
-            fecha_factura__gte=inicio_mes_pasado_time,
-            fecha_factura__lte=fin_mes_pasado_time,
-            estado='pagada'
-        )
+        total_facturas_hoy = conteos_hoy['total_facturas']
+        total_facturas_mes = conteos_mes['total_facturas']
+        total_pagos_hoy = conteos_hoy['total_pagos']
+        total_pagos_mes = conteos_mes['total_pagos']
+        total_egresos_hoy = conteos_hoy['total_egresos']
+        total_egresos_mes = conteos_mes['total_egresos']
 
-        venta_mes_pasado_contado = facturas_mes_pasado_qs.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-
-        pagos_credito_mes_pasado = PagoCuentaCobrar.objects.filter(
-            fecha_pago__gte=inicio_mes_pasado_time,
-            fecha_pago__lte=fin_mes_pasado_time
-        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-
-        venta_mes_pasado = venta_mes_pasado_contado + pagos_credito_mes_pasado
-
-        # 3. PEDIDOS HOY
+        # Pedidos
         total_pedidos = Pedido.objects.filter(
-            fecha_pedido__gte=inicio_dia,
-            fecha_pedido__lte=fin_dia
-        ).count()
-
+            fecha_pedido__gte=inicio_dia, fecha_pedido__lt=fin_dia).count()
         total_pedidos_ayer = Pedido.objects.filter(
-            fecha_pedido__gte=inicio_dia_anterior,
-            fecha_pedido__lte=fin_dia_anterior
-        ).count()
+            fecha_pedido__gte=inicio_dia_anterior, fecha_pedido__lt=fin_dia_anterior).count()
 
-        # 4. GASTOS TOTALES (costos reales)
-        gastos_totales, costo_mes_stats = calcular_costo_real_facturas(
-            facturas_mes,
-            include_stats=True
-        )
-        gastos_totales_mes_pasado = calcular_costo_real_facturas(facturas_mes_pasado_qs)
+        # Clientes
+        nuevos_clientes = Cliente.objects.filter(
+            fecha_registro__gte=inicio_mes, fecha_registro__lt=fin_mes, activo=True).count()
+        if nuevos_clientes == 0:
+            nuevos_clientes = Factura.objects.filter(fecha_factura__gte=inicio_mes, fecha_factura__lt=fin_mes, estado='pagada').exclude(
+                nombre_cliente='').values('nombre_cliente').distinct().count()
 
-        # 5. GANANCIAS NETAS
-        ganancias_netas = venta_mes - gastos_totales
-        ganancias_netas_mes_pasado = venta_mes_pasado - gastos_totales_mes_pasado
+        nuevos_clientes_ant = Cliente.objects.filter(
+            fecha_registro__gte=inicio_mes_pasado, fecha_registro__lt=fin_mes_pasado, activo=True).count()
+        if nuevos_clientes_ant == 0:
+            nuevos_clientes_ant = Factura.objects.filter(fecha_factura__gte=inicio_mes_pasado, fecha_factura__lt=fin_mes_pasado, estado='pagada').exclude(
+                nombre_cliente='').values('nombre_cliente').distinct().count()
 
-        # 6. NUEVOS CLIENTES (MES ACTUAL)
-        nuevos_clientes = Factura.objects.filter(
-            fecha_factura__gte=inicio_mes,
-            fecha_factura__lte=fin_mes,
-            estado='pagada'
-        ).exclude(nombre_cliente='').values('nombre_cliente').distinct().count()
+        # Trends
+        t_dia = _trend(_pct(venta_dia, venta_dia_ant))
+        t_mes = _trend(_pct(venta_mes, venta_mes_ant))
+        t_gastos = _trend(_pct(gastos_totales, gastos_ant))
+        t_ganancias = _trend(_pct(ganancias_netas, ganancias_ant))
+        t_pedidos = _trend(_pct(total_pedidos, total_pedidos_ayer))
+        t_clientes = _trend(_pct(nuevos_clientes, nuevos_clientes_ant))
 
-        nuevos_clientes_mes_pasado = Factura.objects.filter(
-            fecha_factura__gte=inicio_mes_pasado_time,
-            fecha_factura__lte=fin_mes_pasado_time,
-            estado='pagada'
-        ).exclude(nombre_cliente='').values('nombre_cliente').distinct().count()
+        # Actividades recientes
+        actividades_recientes = Factura.objects.filter(
+            estado__in=['pagada', 'parcialmente_devuelta']
+        ).order_by('-fecha_factura').only('numero_factura', 'fecha_factura', 'nombre_cliente', 'estado', 'total')[:5]
 
+        actividades_json = [
+            {
+                'numero_factura': f.numero_factura,
+                'fecha':  timezone.localtime(f.fecha_factura).strftime('%d/%m/%Y %H:%M'),
+                'cliente': f.nombre_cliente or 'No especificado',
+                'estado':  f.estado,
+                'total':   float(f.total or 0),
+            }
+            for f in actividades_recientes
+        ]
+
+        # ── Solo en full_refresh: gráficos y productos top ─────────────────
         productos_top_json = []
         ultimos_7_dias = []
         ventas_7_dias = []
@@ -4824,864 +5066,610 @@ def dashboard_stats(request):
         proyeccion_mensual = []
         labels_anuales = []
         proyeccion_anual = []
-        horario_labels = ['Mañana', 'Mediodía', 'Tarde', 'Noche']
         ventas_horarios_data = [0, 0, 0, 0]
-        metodo_labels = ['Efectivo', 'Tarjeta', 'Transferencia']
         ventas_metodos_data = [0, 0, 0]
-        tipos_pedido_labels = ['Mesa', 'Delivery', 'Llevar']
         ventas_tipos_pedido_data = [0, 0, 0]
 
         if full_refresh:
-            # 7. PRODUCTOS TOP + TENDENCIA
-            productos_vendidos = {}
-            for factura in facturas_hoy:
-                try:
-                    items = factura.get_items_detalle(enrich_from_db=False)
-                    if items and isinstance(items, list):
-                        for item in items:
-                            nombre = item.get('name', '').strip() or item.get('nombre', '').strip()
-                            if not nombre:
-                                continue
+            from django.db.models import Sum as _Sum
 
-                            cantidad, precio = obtener_cantidad_precio_item(item)
-                            if cantidad <= 0:
-                                continue
+            # Productos top desde FacturaDetalle
+            fac_hoy_ids = list(Factura.objects.filter(
+                fecha_factura__gte=inicio_dia, fecha_factura__lt=fin_dia,
+                estado__in=['pagada', 'parcialmente_devuelta']
+            ).values_list('id', flat=True))
 
-                            if nombre in productos_vendidos:
-                                productos_vendidos[nombre]['cantidad'] += cantidad
-                                productos_vendidos[nombre]['ingresos'] += Decimal(str(cantidad * precio))
-                            else:
-                                productos_vendidos[nombre] = {
-                                    'nombre': nombre,
-                                    'cantidad': cantidad,
-                                    'ingresos': Decimal(str(cantidad * precio))
-                                }
-                except Exception:
-                    continue
+            fac_ayer_ids = list(Factura.objects.filter(
+                fecha_factura__gte=inicio_dia_anterior, fecha_factura__lt=fin_dia_anterior,
+                estado__in=['pagada', 'parcialmente_devuelta']
+            ).values_list('id', flat=True))
 
-            productos_top = sorted(
-                productos_vendidos.values(),
-                key=lambda x: x['cantidad'],
-                reverse=True
-            )[:5]
-
-            productos_ayer = {}
-            facturas_ayer = Factura.objects.filter(
-                fecha_factura__gte=inicio_dia_anterior,
-                fecha_factura__lte=fin_dia_anterior,
-                estado='pagada'
+            top_hoy = (
+                FacturaDetalle.objects.filter(factura_id__in=fac_hoy_ids)
+                .values('nombre_producto')
+                .annotate(cant=_Sum('cantidad'), ing=_Sum('subtotal'))
+                .order_by('-cant')[:5]
             )
-
-            for factura in facturas_ayer:
-                try:
-                    items = factura.get_items_detalle(enrich_from_db=False)
-                    if items and isinstance(items, list):
-                        for item in items:
-                            nombre = item.get('name', '').strip() or item.get('nombre', '').strip()
-                            if not nombre:
-                                continue
-
-                            cantidad, _ = obtener_cantidad_precio_item(item)
-                            if cantidad <= 0:
-                                continue
-
-                            productos_ayer[nombre] = productos_ayer.get(nombre, 0) + cantidad
-                except Exception:
-                    continue
-
-            for producto in productos_top:
-                anterior = float(productos_ayer.get(producto['nombre'], 0))
-                actual = float(producto['cantidad'])
-                cambio = calcular_cambio_porcentual(actual, anterior)
-
-                trend_icon = 'up' if cambio > 0 else 'down' if cambio < 0 else 'neutral'
-                trend_class = 'trend-up' if cambio > 0 else 'trend-down' if cambio < 0 else 'trend-neutral'
-
+            ayer_dict = {
+                row['nombre_producto']: float(row['cant'] or 0)
+                for row in FacturaDetalle.objects.filter(factura_id__in=fac_ayer_ids)
+                .values('nombre_producto').annotate(cant=_Sum('cantidad'))
+            }
+            for row in top_hoy:
+                nombre = row['nombre_producto']
+                actual = float(row['cant'] or 0)
+                anterior = ayer_dict.get(nombre, 0)
+                cambio = _pct(actual, anterior)
                 productos_top_json.append({
-                    'nombre': producto['nombre'],
-                    'cantidad': float(producto['cantidad']),
-                    'ingresos': float(producto['ingresos']),
-                    'trend_pct': round(abs(cambio), 1),
-                    'trend_icon': trend_icon,
-                    'trend_class': trend_class,
+                    'nombre':      nombre,
+                    'cantidad':    actual,
+                    'ingresos':    float(row['ing'] or 0),
+                    'trend_pct':   round(abs(cambio), 1),
+                    'trend_icon':  'up' if cambio > 0 else 'down' if cambio < 0 else 'neutral',
+                    'trend_class': 'trend-up' if cambio > 0 else 'trend-down' if cambio < 0 else 'trend-neutral',
                 })
 
-            # 8. GRAFICO VENTAS SEMANA
+            # Gráfico 7 días
             for i in range(6, -1, -1):
-                dia_referencia = hoy_local - timedelta(days=i)
+                ref = hoy_local - timedelta(days=i)
+                di = _aware_rd(ref, time(17, 0, 0))
+                df = _aware_rd(ref + timedelta(days=1), time(5, 59, 59))
+                neto = _resumen_movimientos_caja(di, df)['caja_neta']
+                ultimos_7_dias.append('Hoy' if i == 0 else ref.strftime('%a'))
+                ventas_7_dias.append(float(neto))
 
-                if i == 0:
-                    dia_inicio = inicio_dia
-                    dia_fin = fin_dia
-                    dia_str = 'Hoy'
-                else:
-                    dia_inicio = timezone.make_aware(
-                        datetime.combine(dia_referencia, datetime(2000, 1, 1, 6, 0, 0).time())
-                    )
-                    dia_fin = timezone.make_aware(
-                        datetime.combine(dia_referencia + timedelta(days=1), datetime(2000, 1, 1, 5, 59, 59).time())
-                    )
-                    dia_str = dia_referencia.strftime('%a')
+            # Categorías desde FacturaDetalle
+            plato_cat = {n.strip().lower(): c.strip().lower()
+                         for n, c in Plato.objects.values_list('nombre', 'categoria') if n}
+            prod_cat = {n.strip().lower(): c.strip().lower(
+            ) for n, c in Producto.objects.values_list('nombre', 'categoria') if n}
+            CLABELS = {'entrada': 'Entrada', 'principal': 'Plato Principal', 'postre': 'Postre', 'bebida': 'Bebida', 'carne': 'Carne',
+                       'verdura': 'Verdura', 'lacteo': 'Lácteo', 'rapida': 'Comida Rápida', 'especial': 'Especial', 'otro': 'Otro'}
 
-                venta_dia_grafico = Factura.objects.filter(
-                    fecha_factura__gte=dia_inicio,
-                    fecha_factura__lte=dia_fin,
-                    estado='pagada'
-                ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
+            src_ids = fac_hoy_ids or list(Factura.objects.filter(fecha_factura__gte=inicio_mes, fecha_factura__lt=fin_mes, estado__in=[
+                                          'pagada', 'parcialmente_devuelta']).values_list('id', flat=True))
+            cat_acc = {}
+            for row in FacturaDetalle.objects.filter(factura_id__in=src_ids).values('nombre_producto').annotate(ing=_Sum('subtotal')):
+                nl = (row['nombre_producto'] or '').strip().lower()
+                cat = plato_cat.get(nl) or prod_cat.get(nl) or 'otro'
+                cat_acc[cat] = cat_acc.get(cat, 0) + float(row['ing'] or 0)
+            categorias_data = [CLABELS.get(c, c.title()) for c in cat_acc]
+            ventas_categorias_data = list(cat_acc.values())
 
-                pagos_credito_dia_grafico = PagoCuentaCobrar.objects.filter(
-                    fecha_pago__gte=dia_inicio,
-                    fecha_pago__lte=dia_fin
-                ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+            # Gráfico mensual con la MISMA lógica que la card mensual
+            for d in range(1, hoy_local.day + 1):
+                fd = hoy_local.replace(day=d)
+                di = _aware_rd(fd, time(0, 0, 0))
+                df = _aware_rd(fd + timedelta(days=1), time(0, 0, 0))
+                neto = _resumen_movimientos_caja(di, df)['caja_neta']
+                labels_mensuales.append(fd.strftime('%d %b'))
+                proyeccion_mensual.append(float(neto))
 
-                venta_dia_grafico += pagos_credito_dia_grafico
-
-                ultimos_7_dias.append(dia_str)
-                ventas_7_dias.append(float(venta_dia_grafico))
-
-            # 9. GRAFICO CATEGORIAS
-            categoria_labels = {
-                'entrada': 'Entrada',
-                'principal': 'Plato Principal',
-                'postre': 'Postre',
-                'bebida': 'Bebida',
-                'carne': 'Carne',
-                'verdura': 'Verdura',
-                'lacteo': 'Lacteo',
-                'rapida': 'Comida Rapida',
-                'especial': 'Especial',
-                'otro': 'Otro',
-            }
-
-            categoria_aliases = {
-                'plato principal': 'principal',
-                'comida rapida': 'rapida',
-                'lácteo': 'lacteo',
-            }
-
-            categorias_validas = set(categoria_labels.keys())
-
-            producto_categoria_por_nombre = {
-                (nombre or '').strip().lower(): (categoria or '').strip().lower()
-                for nombre, categoria in Producto.objects.values_list('nombre', 'categoria')
-                if nombre
-            }
-            producto_categoria_por_id = {
-                int(pid): (categoria or '').strip().lower()
-                for pid, categoria in Producto.objects.values_list('id', 'categoria')
-            }
-            producto_categoria_por_codigo = {
-                (codigo or '').strip().lower(): (categoria or '').strip().lower()
-                for codigo, categoria in Producto.objects.values_list('codigo', 'categoria')
-                if codigo
-            }
-            plato_categoria_por_nombre = {
-                (nombre or '').strip().lower(): (categoria or '').strip().lower()
-                for nombre, categoria in Plato.objects.values_list('nombre', 'categoria')
-                if nombre
-            }
-            plato_categoria_por_id = {
-                int(pid): (categoria or '').strip().lower()
-                for pid, categoria in Plato.objects.values_list('id', 'categoria')
-            }
-            plato_categoria_por_codigo = {
-                (codigo or '').strip().lower(): (categoria or '').strip().lower()
-                for codigo, categoria in Plato.objects.values_list('codigo', 'categoria')
-                if codigo
-            }
-
-            def normalizar_categoria(valor):
-                categoria = (valor or '').strip().lower()
-                if not categoria:
-                    return ''
-                categoria = categoria_aliases.get(categoria, categoria)
-                return categoria if categoria in categorias_validas else ''
-
-            def resolver_categoria_item(item):
-                categoria_directa = normalizar_categoria(item.get('categoria') or item.get('category'))
-                if categoria_directa:
-                    return categoria_directa
-
-                def extraer_id_numerico(valor_id):
-                    if valor_id is None:
-                        return None
-                    if isinstance(valor_id, (int, float)):
-                        return int(valor_id)
-
-                    valor_str = str(valor_id).strip().lower()
-                    if not valor_str:
-                        return None
-
-                    if valor_str.startswith('plato_'):
-                        valor_str = valor_str.replace('plato_', '', 1)
-                    elif valor_str.startswith('bebida_'):
-                        valor_str = valor_str.replace('bebida_', '', 1)
-
-                    try:
-                        return int(valor_str)
-                    except (TypeError, ValueError):
-                        digitos = re.findall(r'\d+', valor_str)
-                        return int(digitos[0]) if digitos else None
-
-                producto_id = item.get('producto_id') or item.get('product_id') or item.get('id')
-                pid = extraer_id_numerico(producto_id)
-                if pid is not None:
-                    categoria_por_id = normalizar_categoria(producto_categoria_por_id.get(pid))
-                    if categoria_por_id:
-                        return categoria_por_id
-
-                    categoria_plato_id = normalizar_categoria(plato_categoria_por_id.get(pid))
-                    if categoria_plato_id:
-                        return categoria_plato_id
-
-                codigo_item = (item.get('codigo') or item.get('code') or '').strip().lower()
-                if codigo_item:
-                    categoria_por_codigo = normalizar_categoria(producto_categoria_por_codigo.get(codigo_item))
-                    if categoria_por_codigo:
-                        return categoria_por_codigo
-
-                    categoria_plato_codigo = normalizar_categoria(plato_categoria_por_codigo.get(codigo_item))
-                    if categoria_plato_codigo:
-                        return categoria_plato_codigo
-
-                tipo_item = (item.get('tipo_item') or item.get('tipo') or '').strip().lower()
-                if tipo_item == 'bebida' or bool(item.get('es_bebida')):
-                    return 'bebida'
-
-                nombre_item = (item.get('name') or item.get('nombre') or '').strip().lower()
-                if nombre_item:
-                    categoria_producto = normalizar_categoria(producto_categoria_por_nombre.get(nombre_item))
-                    if categoria_producto:
-                        return categoria_producto
-
-                    categoria_plato = normalizar_categoria(plato_categoria_por_nombre.get(nombre_item))
-                    if categoria_plato:
-                        return categoria_plato
-
-                return 'otro'
-
-            def acumular_categorias(facturas_iterable, enrich_items):
-                acumulado = {}
-                for factura in facturas_iterable:
-                    items = factura.get_items_detalle(enrich_from_db=enrich_items)
-                    if not (items and isinstance(items, list)):
-                        continue
-
-                    for item in items:
-                        categoria = resolver_categoria_item(item)
-                        cantidad, precio = obtener_cantidad_precio_item(item)
-                        acumulado[categoria] = acumulado.get(categoria, 0) + (cantidad * precio)
-                return acumulado
-
-            categorias_dict = acumular_categorias(facturas_hoy, enrich_items=False)
-
-            if not categorias_dict:
-                categorias_dict = acumular_categorias(facturas_mes, enrich_items=False)
-
-            if categorias_dict and set(categorias_dict.keys()) == {'otro'}:
-                categorias_dict_rapido = categorias_dict.copy()
-                categorias_dict = acumular_categorias(facturas_hoy, enrich_items=True)
-                if not categorias_dict:
-                    categorias_dict = acumular_categorias(facturas_mes, enrich_items=True)
-
-                if not categorias_dict:
-                    categorias_dict = categorias_dict_rapido
-
-            categorias_data = [categoria_labels.get(categoria, categoria.title()) for categoria in categorias_dict.keys()] if categorias_dict else []
-            ventas_categorias_data = list(categorias_dict.values()) if categorias_dict else []
-
-            # 10. GRAFICOS MES Y ANIO
-            for dia in range(1, hoy_local.day + 1):
-                fecha_dia = hoy_local.replace(day=dia)
-                inicio_dia_cal = timezone.make_aware(
-                    datetime.combine(fecha_dia, datetime.min.time())
+            # Gráfico anual
+            meses_ref = []
+            rm = primer_dia_mes
+            for _ in range(12):
+                meses_ref.append(rm)
+                rm = (rm - timedelta(days=1)).replace(day=1)
+            meses_ref.reverse()
+            inicio_12 = _aware_rd(meses_ref[0], time(0, 0, 0))
+            mov_12 = (
+                MovimientoFinanciero.objects
+                .filter(fecha_operacion__gte=inicio_12, fecha_operacion__lt=fin_mes, estado='ACTIVO')
+                .annotate(anio=Func(F('fecha_operacion'), function='YEAR', output_field=IntegerField()), mes=Func(F('fecha_operacion'), function='MONTH', output_field=IntegerField()))
+                .values('anio', 'mes')
+                .annotate(
+                    ing=Coalesce(Sum(Case(When(tipo='INGRESO', then=F('monto')), default=Value(
+                        0), output_field=DecimalField(max_digits=18, decimal_places=2))), Decimal('0.00')),
+                    egr=Coalesce(Sum(Case(When(tipo='EGRESO',  then=F('monto')), default=Value(
+                        0), output_field=DecimalField(max_digits=18, decimal_places=2))), Decimal('0.00')),
                 )
-                fin_dia_cal = timezone.make_aware(
-                    datetime.combine(fecha_dia, datetime.max.time())
-                )
+            )
+            neto_mes = {(r['anio'], r['mes']): r['ing'] - r['egr']
+                        for r in mov_12 if r.get('anio') and r.get('mes')}
+            MESP = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+                    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+            labels_anuales = [MESP[m.month - 1] for m in meses_ref]
+            proyeccion_anual = [
+                float(neto_mes.get((m.year, m.month), Decimal('0.00'))) for m in meses_ref]
 
-                venta_dia_mes = Factura.objects.filter(
-                    fecha_factura__gte=inicio_dia_cal,
-                    fecha_factura__lte=fin_dia_cal,
-                    estado='pagada'
-                ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-
-                pagos_credito_dia_mes = PagoCuentaCobrar.objects.filter(
-                    fecha_pago__gte=inicio_dia_cal,
-                    fecha_pago__lte=fin_dia_cal
-                ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-
-                venta_dia_mes += pagos_credito_dia_mes
-
-                labels_mensuales.append(fecha_dia.strftime('%d %b'))
-                proyeccion_mensual.append(float(venta_dia_mes))
-
-            meses_esp = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
-
-            for i in range(11, -1, -1):
-                fecha_mes = hoy_local.replace(day=1)
-                for _ in range(i):
-                    fecha_mes = (fecha_mes.replace(day=1) - timedelta(days=1)).replace(day=1)
-
-                if fecha_mes.month == 12:
-                    ultimo_dia = fecha_mes.replace(day=31)
-                else:
-                    ultimo_dia = fecha_mes.replace(month=fecha_mes.month + 1, day=1) - timedelta(days=1)
-
-                inicio_mes_grafico = timezone.make_aware(datetime.combine(fecha_mes, datetime.min.time()))
-                fin_mes_grafico = timezone.make_aware(datetime.combine(ultimo_dia, datetime.max.time()))
-
-                venta_mes_grafico = Factura.objects.filter(
-                    fecha_factura__gte=inicio_mes_grafico,
-                    fecha_factura__lte=fin_mes_grafico,
-                    estado='pagada'
-                ).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
-
-                pagos_credito_mes_grafico = PagoCuentaCobrar.objects.filter(
-                    fecha_pago__gte=inicio_mes_grafico,
-                    fecha_pago__lte=fin_mes_grafico
-                ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-
-                venta_mes_grafico += pagos_credito_mes_grafico
-
-                labels_anuales.append(meses_esp[fecha_mes.month - 1])
-                proyeccion_anual.append(float(venta_mes_grafico))
-
-        # 12. ACTIVIDAD RECIENTE SERIALIZADA PARA REFRESCO AJAX
-        actividades_recientes = Factura.objects.filter(
-            estado='pagada'
-        ).order_by('-fecha_factura')[:5]
-        actividades_json = [
-            {
-                'numero_factura': factura.numero_factura,
-                'fecha': timezone.localtime(factura.fecha_factura).strftime('%d/%m/%Y %H:%M'),
-                'cliente': factura.nombre_cliente or 'No especificado',
-                'estado': factura.estado,
-                'total': float(factura.total or 0),
-            }
-            for factura in actividades_recientes
-        ]
-
-        # 11. GRAFICO HORARIO Y METODO
-        if full_refresh:
-            horario_totales = {
-                'Mañana': Decimal('0.00'),
-                'Mediodía': Decimal('0.00'),
-                'Tarde': Decimal('0.00'),
-                'Noche': Decimal('0.00'),
-            }
-
-            metodo_totales = {
-                'efectivo': Decimal('0.00'),
-                'tarjeta': Decimal('0.00'),
-                'transferencia': Decimal('0.00'),
-            }
-
-            tipos_pedido_totales = {
-                'mesa': Decimal('0.00'),
-                'delivery': Decimal('0.00'),
-                'llevar': Decimal('0.00'),
-            }
-
-            for factura in facturas_mes:
-                fecha_local_factura = timezone.localtime(factura.fecha_factura)
-                hora = fecha_local_factura.hour
-
+            # Horario, método, tipo de pedido
+            ht = {'Mañana': 0.0, 'Mediodía': 0.0, 'Tarde': 0.0, 'Noche': 0.0}
+            mt = {'efectivo': 0.0, 'tarjeta': 0.0, 'transferencia': 0.0}
+            tt = {'mesa': 0.0, 'delivery': 0.0, 'llevar': 0.0}
+            for mov in MovimientoFinanciero.objects.filter(
+                fecha_operacion__gte=inicio_mes, fecha_operacion__lt=fin_mes,
+                tipo='INGRESO', estado='ACTIVO'
+            ).select_related('factura').only('fecha_operacion', 'monto', 'metodo_pago', 'factura__tipo_pedido'):
+                hora = timezone.localtime(mov.fecha_operacion).hour
+                monto = float(mov.monto or 0)
                 if 6 <= hora <= 11:
-                    horario_totales['Mañana'] += factura.total
+                    ht['Mañana'] += monto
                 elif 12 <= hora <= 16:
-                    horario_totales['Mediodía'] += factura.total
+                    ht['Mediodía'] += monto
                 elif 17 <= hora <= 20:
-                    horario_totales['Tarde'] += factura.total
+                    ht['Tarde'] += monto
                 else:
-                    horario_totales['Noche'] += factura.total
+                    ht['Noche'] += monto
+                m = (mov.metodo_pago or '').lower().strip()
+                if m in mt:
+                    mt[m] += monto
+                tp = ((mov.factura.tipo_pedido if mov.factura else '')
+                      or '').lower().strip()
+                if tp in tt:
+                    tt[tp] += monto
 
-                metodo = (factura.metodo_pago or '').lower().strip()
-                if metodo in metodo_totales:
-                    metodo_totales[metodo] += factura.total
-
-                tipo_pedido = (factura.tipo_pedido or '').lower().strip()
-                if tipo_pedido in tipos_pedido_totales:
-                    tipos_pedido_totales[tipo_pedido] += factura.total
-
-            # Sumar pagos de cuentas por cobrar al grafico por metodo de pago del mes.
-            for pago_cxc in pagos_credito_mes_qs:
-                metodo_pago_cxc = (pago_cxc.metodo_pago or '').lower().strip()
-                if metodo_pago_cxc in metodo_totales:
-                    metodo_totales[metodo_pago_cxc] += pago_cxc.monto
-
-            ventas_horarios_data = [float(horario_totales[label]) for label in horario_labels]
-            ventas_metodos_data = [
-                float(metodo_totales['efectivo']),
-                float(metodo_totales['tarjeta']),
-                float(metodo_totales['transferencia'])
-            ]
+            ventas_horarios_data = [ht['Mañana'],
+                                    ht['Mediodía'], ht['Tarde'], ht['Noche']]
+            ventas_metodos_data = [mt['efectivo'],
+                                   mt['tarjeta'], mt['transferencia']]
             ventas_tipos_pedido_data = [
-                float(tipos_pedido_totales['mesa']),
-                float(tipos_pedido_totales['delivery']),
-                float(tipos_pedido_totales['llevar'])
-            ]
+                tt['mesa'], tt['delivery'], tt['llevar']]
 
-        trend_venta_dia = calcular_cambio_porcentual(venta_dia, venta_dia_anterior)
-        trend_venta_mes = calcular_cambio_porcentual(venta_mes, venta_mes_pasado)
-        trend_gastos = calcular_cambio_porcentual(gastos_totales, gastos_totales_mes_pasado)
-        trend_ganancias = calcular_cambio_porcentual(ganancias_netas, ganancias_netas_mes_pasado)
-        trend_pedidos = calcular_cambio_porcentual(total_pedidos, total_pedidos_ayer)
-        trend_clientes = calcular_cambio_porcentual(nuevos_clientes, nuevos_clientes_mes_pasado)
+        # Costos
+        _, costo_stats = calcular_costo_real_facturas(
+            Factura.objects.filter(fecha_factura__gte=inicio_mes, fecha_factura__lt=fin_mes, estado__in=[
+                                   'pagada', 'parcialmente_devuelta']),
+            include_stats=True
+        )
 
-        # Retornar datos como JSON
         payload = {
-            'venta_dia': float(venta_dia),
-            'venta_mes': float(venta_mes),
-            'total_pedidos': total_pedidos,
-            'gastos_totales': float(gastos_totales),
+            'status': 'success',
+            # Cards
+            'venta_dia':       float(venta_dia),
+            'venta_mes':       float(venta_mes),
+            'gastos_totales':  float(gastos_totales),
             'ganancias_netas': float(ganancias_netas),
+            'total_pedidos':   total_pedidos,
             'nuevos_clientes': nuevos_clientes,
-            'trend_venta_dia': round(abs(trend_venta_dia), 1),
-            'trend_venta_dia_icon': 'up' if trend_venta_dia > 0 else 'down' if trend_venta_dia < 0 else 'neutral',
-            'trend_venta_dia_class': 'trend-up' if trend_venta_dia > 0 else 'trend-down' if trend_venta_dia < 0 else 'trend-neutral',
-            'trend_venta_mes': round(abs(trend_venta_mes), 1),
-            'trend_venta_mes_icon': 'up' if trend_venta_mes > 0 else 'down' if trend_venta_mes < 0 else 'neutral',
-            'trend_venta_mes_class': 'trend-up' if trend_venta_mes > 0 else 'trend-down' if trend_venta_mes < 0 else 'trend-neutral',
-            'trend_gastos': round(abs(trend_gastos), 1),
-            'trend_gastos_icon': 'up' if trend_gastos > 0 else 'down' if trend_gastos < 0 else 'neutral',
-            'trend_gastos_class': 'trend-down' if trend_gastos > 0 else 'trend-up' if trend_gastos < 0 else 'trend-neutral',
-            'trend_ganancias': round(abs(trend_ganancias), 1),
-            'trend_ganancias_icon': 'up' if trend_ganancias > 0 else 'down' if trend_ganancias < 0 else 'neutral',
-            'trend_ganancias_class': 'trend-up' if trend_ganancias > 0 else 'trend-down' if trend_ganancias < 0 else 'trend-neutral',
-            'trend_pedidos': round(abs(trend_pedidos), 1),
-            'trend_pedidos_icon': 'up' if trend_pedidos > 0 else 'down' if trend_pedidos < 0 else 'neutral',
-            'trend_pedidos_class': 'trend-up' if trend_pedidos > 0 else 'trend-down' if trend_pedidos < 0 else 'trend-neutral',
-            'trend_clientes': round(abs(trend_clientes), 1),
-            'trend_clientes_icon': 'up' if trend_clientes > 0 else 'down' if trend_clientes < 0 else 'neutral',
-            'trend_clientes_class': 'trend-up' if trend_clientes > 0 else 'trend-down' if trend_clientes < 0 else 'trend-neutral',
-            'productos_top': productos_top_json,
-            'dias_grafico': ultimos_7_dias,
-            'ventas_grafico': ventas_7_dias,
-            'labels_mensuales': labels_mensuales,
-            'proyeccion_mensual': proyeccion_mensual,
-            'labels_anuales': labels_anuales,
-            'proyeccion_anual': proyeccion_anual,
-            'categorias_grafico': categorias_data,
-            'ventas_categorias_grafico': ventas_categorias_data,
-            'horarios_grafico': horario_labels,
-            'ventas_horarios_grafico': ventas_horarios_data,
-            'metodos_pago_grafico': metodo_labels,
+            # Subtítulos
+            'total_facturas_hoy': total_facturas_hoy,
+            'total_facturas_mes': total_facturas_mes,
+            'total_pagos_hoy':    total_pagos_hoy,
+            'total_pagos_mes':    total_pagos_mes,
+            'total_egresos_hoy':  total_egresos_hoy,
+            'total_egresos_mes':  total_egresos_mes,
+            # Trends
+            'trend_venta_dia':       t_dia['value'],  'trend_venta_dia_icon':  t_dia['icon'],  'trend_venta_dia_class':  t_dia['class'],
+            'trend_venta_mes':       t_mes['value'],  'trend_venta_mes_icon':  t_mes['icon'],  'trend_venta_mes_class':  t_mes['class'],
+            'trend_gastos':          t_gastos['value'],   'trend_gastos_icon':     t_gastos['icon'],   'trend_gastos_class':     t_gastos['class'],
+            'trend_ganancias':       t_ganancias['value'], 'trend_ganancias_icon':  t_ganancias['icon'], 'trend_ganancias_class':  t_ganancias['class'],
+            'trend_pedidos':         t_pedidos['value'],   'trend_pedidos_icon':    t_pedidos['icon'],   'trend_pedidos_class':    t_pedidos['class'],
+            'trend_clientes':        t_clientes['value'],  'trend_clientes_icon':   t_clientes['icon'],  'trend_clientes_class':   t_clientes['class'],
+            # Gráficos
+            'dias_grafico':               ultimos_7_dias,
+            'ventas_grafico':             ventas_7_dias,
+            'categorias_grafico':         categorias_data,
+            'ventas_categorias_grafico':  ventas_categorias_data,
+            'labels_mensuales':           labels_mensuales,
+            'proyeccion_mensual':         proyeccion_mensual,
+            'labels_anuales':             labels_anuales,
+            'proyeccion_anual':           proyeccion_anual,
+            'horarios_grafico':           ['Mañana', 'Mediodía', 'Tarde', 'Noche'],
+            'ventas_horarios_grafico':    ventas_horarios_data,
+            'metodos_pago_grafico':       ['Efectivo', 'Tarjeta', 'Transferencia'],
             'ventas_metodos_pago_grafico': ventas_metodos_data,
-            'tipos_pedido_grafico': tipos_pedido_labels,
+            'tipos_pedido_grafico':       ['Mesa', 'Delivery', 'Llevar'],
             'ventas_tipos_pedido_grafico': ventas_tipos_pedido_data,
-            'fecha_actual': ahora_local.strftime('%A, %d de %B de %Y'),
-            'hora_actual': ahora_local.strftime('%H:%M:%S'),
-            'total_facturas_hoy': facturas_hoy.count(),
-            'total_facturas_mes': facturas_mes.count(),
-            'total_pagos_hoy': total_pagos_hoy,
-            'total_pagos_mes': total_pagos_mes,
-            'costos_items_validos': costo_mes_stats['items_validos'],
-            'costos_items_mapeados': costo_mes_stats['items_mapeados'],
-            'costos_items_no_mapeados': costo_mes_stats['items_no_mapeados'],
+            # Actividades
             'actividades': actividades_json,
-            'status': 'success'
+            'productos_top': productos_top_json,
+            # Meta
+            'fecha_actual': ahora_local.strftime('%A, %d de %B de %Y'),
+            'hora_actual':  ahora_local.strftime('%H:%M:%S'),
+            'costos_items_validos':     costo_stats['items_validos'],
+            'costos_items_mapeados':    costo_stats['items_mapeados'],
+            'costos_items_no_mapeados': costo_stats['items_no_mapeados'],
         }
 
         cache_timeout = 300 if full_refresh else 20
-        cache.set(cache_key, payload, cache_timeout)
+        if not dashboard_debug:
+            cache.set(cache_key, payload, cache_timeout)
+
         return JsonResponse(payload)
 
     except Exception as e:
-        return JsonResponse({
-            'status': 'error',
-            'message': str(e)
-        })
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
+# ==========================================================================================================
+#                                GENERAL PDF CUADRE DE CAJA
+# ==========================================================================================================
 
 
-@login_required
-def generar_pdf_ticket_dia(request):
-    """Generar PDF del ticket de venta del día para impresora 80mm"""
-    # Obtener hora local actual - forzar zona horaria de República Dominicana
-    import pytz
+def _ticket_nueva_pagina(c, alto_pagina):
+    c.showPage()
+    c.setFont("Helvetica", 8)
+    return alto_pagina - 10 * mm
+
+
+def _ticket_hora_12h(fecha, tz_rd):
+    if not fecha:
+        return "--:--"
+    if timezone.is_naive(fecha):
+        fecha = timezone.make_aware(fecha, timezone.utc)
+    fecha = fecha.astimezone(tz_rd)
+    return fecha.strftime('%I:%M')
+
+
+def _ticket_ref_corta(valor):
+    valor = str(valor or "-")
+    return "..." + valor[-8:] if len(valor) > 8 else valor
+
+
+def _ticket_cliente_corto(valor):
+    texto = str(valor or "CLIENTE")
+    return texto[:10] + "." if len(texto) > 10 else texto
+
+
+def draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, titulo, rows, total):
+    if y < 35 * mm:
+        y = _ticket_nueva_pagina(c, alto_pagina)
+
+    c.setFont("Helvetica-Bold", 9)
+    c.drawCentredString(ancho_pagina / 2, y, titulo)
+    y -= 5 * mm
+
+    if not rows:
+        c.setFont("Helvetica-Oblique", 7)
+        c.drawString(5 * mm, y, "(Sin registros)")
+        y -= 4 * mm
+        c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+        y -= 6 * mm
+        return y
+
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "FACTURA")
+    c.drawString(30 * mm, y, "HORA")
+    c.drawString(42 * mm, y, "CLIENTE")
+    c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
+    y -= 4 * mm
+
+    c.setFont("Helvetica", 7)
+    for row in rows:
+        if y < 20 * mm:
+            y = _ticket_nueva_pagina(c, alto_pagina)
+            c.setFont("Helvetica-Bold", 8)
+            c.drawString(5 * mm, y, "FACTURA")
+            c.drawString(30 * mm, y, "HORA")
+            c.drawString(42 * mm, y, "CLIENTE")
+            c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
+            y -= 4 * mm
+            c.setFont("Helvetica", 7)
+
+        c.drawString(5 * mm, y, f"#{_ticket_ref_corta(row['factura'])}")
+        c.drawString(30 * mm, y, row['hora'])
+
+        cliente_label = row['cliente']
+        if row.get('anulada'):
+            cliente_label = f"(ANUL) {cliente_label}"
+
+        c.drawString(42 * mm, y, _ticket_cliente_corto(cliente_label))
+        c.drawRightString(ancho_pagina - 5 * mm, y, f"{row['monto']:,.2f}")
+        y -= 3.5 * mm
+
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "TOTAL:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD$ {total:,.2f}")
+    y -= 4 * mm
+    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+    y -= 6 * mm
+    return y
+
+
+def draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina, titulo, rows, total):
+    if y < 35 * mm:
+        y = _ticket_nueva_pagina(c, alto_pagina)
+
+    c.setFont("Helvetica-Bold", 9)
+    c.drawCentredString(ancho_pagina / 2, y, titulo)
+    y -= 5 * mm
+
+    if not rows:
+        c.setFont("Helvetica-Oblique", 7)
+        c.drawString(5 * mm, y, "(Sin registros)")
+        y -= 4 * mm
+        c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+        y -= 6 * mm
+        return y
+
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "COMP.")
+    c.drawString(22 * mm, y, "HORA")
+    c.drawString(32 * mm, y, "CLIENTE")
+    c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
+    y -= 4 * mm
+
+    c.setFont("Helvetica", 7)
+    for row in rows:
+        if y < 20 * mm:
+            y = _ticket_nueva_pagina(c, alto_pagina)
+            c.setFont("Helvetica-Bold", 8)
+            c.drawString(5 * mm, y, "COMP.")
+            c.drawString(22 * mm, y, "HORA")
+            c.drawString(32 * mm, y, "CLIENTE")
+            c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
+            y -= 4 * mm
+            c.setFont("Helvetica", 7)
+
+        c.drawString(5 * mm, y, f"#{_ticket_ref_corta(row['comp'])}")
+        c.drawString(22 * mm, y, row['hora'])
+
+        cliente_label = row['cliente']
+        if row.get('anulada'):
+            cliente_label = f"(ANUL) {cliente_label}"
+
+        c.drawString(32 * mm, y, _ticket_cliente_corto(cliente_label))
+        c.drawRightString(ancho_pagina - 5 * mm, y, f"{row['monto']:,.2f}")
+        y -= 3.5 * mm
+
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(5 * mm, y, "TOTAL:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD$ {total:,.2f}")
+    y -= 4 * mm
+    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+    y -= 6 * mm
+    return y
+
+
+def generar_pdf_cuadre_caja(request):
+    """
+    Genera un PDF de cuadre de caja (tipo ticket) con diseño seccionado.
+    Garantiza que se muestren TODOS los movimientos para trazabilidad.
+    """
     tz_rd = pytz.timezone('America/Santo_Domingo')
     ahora_local = timezone.now().astimezone(tz_rd)
     hoy_local = ahora_local.date()
 
-    # DEFINICIÓN DEL "DÍA": De 6:00 AM a 5:59 AM del día siguiente
-    if ahora_local.hour >= 6:
-        # Si son las 6:00 AM o más tarde, el día actual comenzó hoy a las 6:00 AM
-        inicio_dia = timezone.make_aware(
-            datetime.combine(hoy_local, datetime(2000, 1, 1, 6, 0, 0).time())
-        )
-        fin_dia = timezone.make_aware(
-            datetime.combine(hoy_local + timedelta(days=1),
-                             datetime(2000, 1, 1, 5, 59, 59).time())
-        )
-        periodo_texto = f"{hoy_local.strftime('%d/%m/%Y')} 06:00 - {(hoy_local + timedelta(days=1)).strftime('%d/%m/%Y')} 05:59"
-        periodo_corto = f"{hoy_local.strftime('%d/%m')} 06:00 a {(hoy_local + timedelta(days=1)).strftime('%d/%m')} 06:00"
-    else:
-        # Si es antes de las 6:00 AM, estamos en el día que comenzó ayer a las 6:00 AM
-        inicio_dia = timezone.make_aware(
-            datetime.combine(hoy_local - timedelta(days=1),
-                             datetime(2000, 1, 1, 6, 0, 0).time())
-        )
-        fin_dia = timezone.make_aware(
-            datetime.combine(hoy_local, datetime(2000, 1, 1, 5, 59, 59).time())
-        )
-        periodo_texto = f"{(hoy_local - timedelta(days=1)).strftime('%d/%m/%Y')} 06:00 - {hoy_local.strftime('%d/%m/%Y')} 05:59"
-        periodo_corto = f"{(hoy_local - timedelta(days=1)).strftime('%d/%m')} 06:00 a {hoy_local.strftime('%d/%m')} 06:00"
+    # Periodo Operativo: 5:00 PM (17:00) a 5:59 AM (próximo día)
+    from datetime import time
+    if ahora_local.hour >= 17:  # 5 PM en adelante
+        inicio_dia = tz_rd.localize(
+            datetime.combine(hoy_local, time(17, 0, 0)))
+        fin_dia = tz_rd.localize(datetime.combine(
+            hoy_local + timedelta(days=1), time(5, 59, 59)))
+    else:  # Antes de 5 PM
+        inicio_dia = tz_rd.localize(datetime.combine(
+            hoy_local - timedelta(days=1), time(17, 0, 0)))
+        fin_dia = tz_rd.localize(datetime.combine(hoy_local, time(5, 59, 59)))
 
-    # Obtener facturas del período
-    facturas_hoy = Factura.objects.filter(
+    periodo_texto = f"{inicio_dia.strftime('%d/%m/%Y %I:%M %p')} - {fin_dia.strftime('%d/%m/%Y %I:%M %p')}"
+
+    # Recopilar todos los movimientos financieros activos e inactivos
+    movimientos_qs = MovimientoFinanciero.objects.filter(
+        fecha_operacion__gte=inicio_dia,
+        fecha_operacion__lt=fin_dia,
+        estado__in=['ACTIVO', 'INACTIVO'],
+    ).select_related('factura', 'pago_cxc', 'devolucion').order_by('fecha_operacion')
+
+    # Facturas creadas hoy
+    facturas_hoy_qs = Factura.objects.filter(
         fecha_factura__gte=inicio_dia,
-        fecha_factura__lte=fin_dia,
-        estado='pagada'
-    ).order_by('fecha_factura')
+        fecha_factura__lt=fin_dia
+    ).select_related('cuenta_por_cobrar')
 
-    venta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))[
-        'total_dia'] or Decimal('0.00')
+    # --- CLASIFICACIÓN PARA LAS TABLAS ---
+    # Filtro para MovimientoFinanciero (usa factura__)
+    credito_mov_q = Q(factura__cuenta_por_cobrar__isnull=False) | Q(
+        factura__pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
 
-    # Crear un buffer para el PDF
+    # Filtro para Factura (usa campos directos)
+    credito_fac_q = Q(cuenta_por_cobrar__isnull=False) | Q(
+        pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
+
+    # Secciones
+    ventas_contado_data = []
+    for mov in movimientos_qs.filter(tipo='INGRESO', origen='VENTA').exclude(credito_mov_q):
+        f = mov.factura
+        ventas_contado_data.append({
+            'factura': f.numero_factura if f else mov.referencia,
+            'hora': mov.fecha_operacion.astimezone(tz_rd).strftime('%I:%M %p'),
+            'cliente': (f.nombre_cliente if f else 'CLIENTE') or 'CLIENTE',
+            'monto': mov.monto,
+            'anulada': mov.estado == 'INACTIVO'
+        })
+
+    ventas_credito_data = []
+    for fac in facturas_hoy_qs.filter(credito_fac_q):
+        ventas_credito_data.append({
+            'factura': fac.numero_factura,
+            'hora': fac.fecha_factura.astimezone(tz_rd).strftime('%I:%M %p'),
+            'cliente': fac.nombre_cliente or 'CLIENTE',
+            'monto': fac.total,
+            'anulada': fac.estado == 'anulada'
+        })
+
+    pagos_data = []
+    for mov in movimientos_qs.filter(tipo='INGRESO', origen='PAGO_CXC'):
+        p = mov.pago_cxc
+        cliente = "CLIENTE"
+        if p and p.cuenta_por_cobrar:
+            cliente = p.cuenta_por_cobrar.cliente.nombre_completo
+
+        pagos_data.append({
+            'comp': p.numero_comprobante if p else mov.referencia,
+            'hora': mov.fecha_operacion.astimezone(tz_rd).strftime('%I:%M %p'),
+            'cliente': cliente,
+            'monto': mov.monto,
+            'anulada': mov.estado == 'INACTIVO'
+        })
+
+    devoluciones_data = []
+    for mov in movimientos_qs.filter(tipo='EGRESO', origen='DEVOLUCION').exclude(referencia='EXCEDENTE_DEVOLUCION'):
+        f = mov.factura
+        devoluciones_data.append({
+            'factura': f.numero_factura if f else mov.referencia,
+            'hora': mov.fecha_operacion.astimezone(tz_rd).strftime('%I:%M %p'),
+            'cliente': (f.nombre_cliente if f else 'CLIENTE') or 'CLIENTE',
+            'monto': -mov.monto,
+        })
+
+    anulaciones_data = []
+    for mov in movimientos_qs.filter(tipo='EGRESO', origen='ANULACION'):
+        f = mov.factura
+        anulaciones_data.append({
+            'factura': f.numero_factura if f else mov.referencia,
+            'hora': mov.fecha_operacion.astimezone(tz_rd).strftime('%I:%M %p'),
+            'cliente': (f.nombre_cliente if f else 'CLIENTE') or 'CLIENTE',
+            'monto': -mov.monto,
+        })
+
+    excedentes_data = []
+    for mov in movimientos_qs.filter(tipo='EGRESO', origen='DEVOLUCION', referencia='EXCEDENTE_DEVOLUCION'):
+        f = mov.factura
+        excedentes_data.append({
+            'comp': f.numero_factura if f else mov.referencia,
+            'hora': mov.fecha_operacion.astimezone(tz_rd).strftime('%I:%M %p'),
+            'cliente': (f.nombre_cliente if f else 'CLIENTE') or 'CLIENTE',
+            'monto': -mov.monto,
+        })
+
+    ajustes_data = []
+    for mov in movimientos_qs.filter(origen='AJUSTE'):
+        ajustes_data.append({
+            'factura': mov.referencia or 'AJUSTE',
+            'hora': mov.fecha_operacion.astimezone(tz_rd).strftime('%I:%M %p'),
+            'cliente': (mov.comentario or 'Ajuste manual')[:20],
+            'monto': mov.monto if mov.tipo == 'INGRESO' else -mov.monto,
+        })
+
+    # Totales para el resumen
+    total_ventas_contado = sum(x['monto']
+                               for x in ventas_contado_data if not x['anulada'])
+    total_ventas_credito = sum(x['monto']
+                               for x in ventas_credito_data if not x['anulada'])
+    total_pagos = sum(x['monto'] for x in pagos_data if not x['anulada'])
+    total_devoluciones = sum(x['monto'] for x in devoluciones_data)
+    total_anulaciones = sum(x['monto'] for x in anulaciones_data)
+    total_excedentes = sum(x['monto'] for x in excedentes_data)
+    total_ajustes = sum(x['monto'] for x in ajustes_data)
+
+    total_ingresos = total_ventas_contado + total_pagos + \
+        sum(x['monto'] for x in ajustes_data if x['monto'] > 0)
+    total_egresos = abs(total_devoluciones) + abs(total_anulaciones) + abs(
+        total_excedentes) + abs(sum(x['monto'] for x in ajustes_data if x['monto'] < 0))
+    caja_neta = total_ingresos - total_egresos
+
+    # --- GENERAR PDF ---
     buffer = io.BytesIO()
-
-    # Configurar el tamaño de la página para impresora térmica 80mm
-    ancho_pagina = 80 * mm  # 226.77 puntos
-    alto_pagina = 297 * mm  # Alto estándar para ticket continuo
-
-    # Crear el documento PDF con tamaño personalizado
+    ancho_pagina = 80 * mm
+    alto_pagina = 297 * mm  # Usar varias páginas si es necesario para ticket limpio
     c = canvas.Canvas(buffer, pagesize=(ancho_pagina, alto_pagina))
+    y = alto_pagina - 10 * mm
 
-    # Configurar fuentes y estilos para impresora térmica
-    c.setFont("Helvetica", 8)
-
-    # Coordenadas iniciales (de arriba hacia abajo)
-    y = alto_pagina - 10 * mm  # Comenzar 10mm desde el borde superior
-
-    # 1. ENCABEZADO DEL RESTAURANTE CON LOGO
-    # Intentar cargar el logo
-    try:
-        logo_path = os.path.join(
-            settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
-        if not os.path.exists(logo_path):
-            # Intentar ruta alternativa
-            logo_path = os.path.join(
-                settings.BASE_DIR, 'static', 'img', 'fastfood.png')
-
-        if os.path.exists(logo_path):
-            # Dibujar logo centrado (pequeño: 15mm x 15mm)
-            logo_size = 15 * mm
-            logo_x = (ancho_pagina - logo_size) / 2
-            c.drawImage(logo_path, logo_x, y - logo_size, width=logo_size,
-                        height=logo_size, preserveAspectRatio=True, mask='auto')
-            y -= (logo_size + 3 * mm)
-    except Exception as e:
-        # Si falla la carga del logo, continuar sin él
-        pass
-
+    # Header
     c.setFont("Helvetica-Bold", 12)
-    c.drawCentredString(ancho_pagina / 2, y, "404 FASTFOOD")
+    c.drawCentredString(ancho_pagina / 2, y, "402 FASTFOOD")
     y -= 6 * mm
-
-    c.setFont("Helvetica", 9)
-    c.drawCentredString(ancho_pagina / 2, y, "REPORTE DE CUADRE DE VENTAS")
-    y -= 5 * mm
-
-    # Línea separadora
-    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-    y -= 4 * mm
-
-    # 2. PERÍODO DE REPORTE (con nueva definición)
-    c.setFont("Helvetica-Bold", 9)
-    c.drawCentredString(ancho_pagina / 2, y, "PERÍODO DE REPORTE")
-    y -= 4 * mm
-
-    c.setFont("Helvetica", 8)
-    c.drawCentredString(ancho_pagina / 2, y, periodo_corto)
-    y -= 4 * mm
-
-    c.drawCentredString(ancho_pagina / 2, y, "(De 6:00 AM a 5:59 AM)")
-    y -= 6 * mm
-
-    # 3. FECHA Y HORA DE GENERACIÓN
-    c.setFont("Helvetica", 8)
-    c.drawString(5 * mm, y, f"Generado:")
-    c.drawRightString(ancho_pagina - 5 * mm, y,
-                      ahora_local.strftime('%d/%m/%Y %I:%M'))
-    y -= 4 * mm
-
-    # Línea separadora
-    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-    y -= 4 * mm
-
-    # 4. RESUMEN DE VENTAS
     c.setFont("Helvetica-Bold", 10)
-    c.drawCentredString(ancho_pagina / 2, y, "RESUMEN DE VENTAS")
-    y -= 4 * mm
-
+    c.drawCentredString(ancho_pagina / 2, y, "CUADRE DE CAJA")
+    y -= 5 * mm
     c.setFont("Helvetica", 8)
-    c.drawString(5 * mm, y, f"Total de Facturas:")
-    c.setFont("Helvetica-Bold", 12)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"{facturas_hoy.count()}")
+    c.drawString(
+        5 * mm, y, f"Fecha: {ahora_local.strftime('%d/%m/%Y %I:%M %p')}")
     y -= 4 * mm
-
-    # Línea separadora punteada
-    c.setDash(1, 2)
+    c.setFont("Helvetica-Bold", 7)
+    c.drawString(5 * mm, y, f"Periodo: {periodo_texto}")
+    y -= 5 * mm
     c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-    c.setDash()
-    y -= 6 * mm
-
-    # 5. DETALLE DE FACTURAS (si hay)
-    if facturas_hoy.exists():
-        c.setFont("Helvetica-Bold", 9)
-        c.drawCentredString(ancho_pagina / 2, y, "DETALLE DE FACTURAS")
-        y -= 5 * mm
-
-        # Encabezado de tabla
-        c.setFont("Helvetica-Bold", 8)
-        c.drawString(5 * mm, y, "FACTURA")
-        c.drawString(30 * mm, y, "HORA")
-        c.drawString(42 * mm, y, "CLIENTE")
-        c.drawRightString(ancho_pagina - 5 * mm, y, "TOTAL")
-        y -= 4 * mm
-
-        c.setFont("Helvetica", 7)
-        for factura in facturas_hoy:
-            # Verificar si hay espacio en la página
-            if y < 25 * mm:  # Si queda poco espacio
-                c.showPage()
-                c.setFont("Helvetica", 8)
-                y = alto_pagina - 10 * mm
-                # Reimprimir encabezado de tabla
-                c.setFont("Helvetica-Bold", 8)
-                c.drawString(5 * mm, y, "FACTURA")
-                c.drawString(30 * mm, y, "HORA")
-                c.drawString(42 * mm, y, "CLIENTE")
-                c.drawRightString(ancho_pagina - 5 * mm, y, "TOTAL")
-                y -= 4 * mm
-                c.setFont("Helvetica", 7)
-
-            # Número de factura (mostrar solo los últimos 8 dígitos)
-            num_factura = factura.numero_factura
-            if len(num_factura) > 8:
-                num_factura = "..." + num_factura[-8:]
-            c.drawString(5 * mm, y, f"#{num_factura}")
-
-            # Hora (siempre convertir igual que pagos)
-            hora_factura = factura.fecha_factura
-            if timezone.is_naive(hora_factura):
-                hora_factura = timezone.make_aware(hora_factura, timezone.utc)
-            hora_factura = hora_factura.astimezone(tz_rd)
-            c.drawString(30 * mm, y, hora_factura.strftime('%I:%M %p'))
-
-            # Cliente (truncar si es muy largo)
-            cliente = factura.nombre_cliente or "CLIENTE"
-            if len(cliente) > 10:
-                cliente = cliente[:10] + "."
-            c.drawString(42 * mm, y, cliente)
-
-            # Total de la factura
-            c.drawRightString(ancho_pagina - 5 * mm, y,
-                              f"${factura.total:,.2f}")
-            y -= 3.5 * mm
-
-        # Línea separadora después de la lista
-        c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-        y -= 8 * mm
-
-
-    # 6. PAGOS DE CUENTAS POR COBRAR (CXC)
-    from .models import PagoCuentaCobrar
-    pagos_cxc = PagoCuentaCobrar.objects.filter(
-        fecha_pago__gte=inicio_dia,
-        fecha_pago__lte=fin_dia
-    ).order_by('fecha_pago')
-    total_cxc = pagos_cxc.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-
-    # Mostrar sección de pagos CXC si existen
-    if pagos_cxc.exists():
-        c.setFont("Helvetica-Bold", 9)
-        c.drawCentredString(ancho_pagina / 2, y, "PAGOS DE CUENTAS POR COBRAR")
-        y -= 5 * mm
-
-        # Encabezado de tabla
-        c.setFont("Helvetica-Bold", 8)
-        c.drawString(5 * mm, y, "COMP.")
-        c.drawString(22 * mm, y, "HORA")
-        c.drawString(32 * mm, y, "CLIENTE")
-        c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
-        y -= 4 * mm
-
-        c.setFont("Helvetica", 7)
-        for pago in pagos_cxc:
-            if y < 25 * mm:
-                c.showPage()
-                c.setFont("Helvetica", 8)
-                y = alto_pagina - 10 * mm
-                c.setFont("Helvetica-Bold", 8)
-                c.drawString(5 * mm, y, "COMP.")
-                c.drawString(22 * mm, y, "HORA")
-                c.drawString(32 * mm, y, "CLIENTE")
-                c.drawRightString(ancho_pagina - 5 * mm, y, "MONTO")
-                y -= 4 * mm
-                c.setFont("Helvetica", 7)
-
-            # Comprobante (últimos 8 dígitos)
-            comp = pago.numero_comprobante or "-"
-            if len(comp) > 8:
-                comp = "..." + comp[-8:]
-            c.drawString(5 * mm, y, f"#{comp}")
-
-            # Hora (idéntico a facturas)
-            fecha_pago = pago.fecha_pago
-            hora_str = '--:--'
-            if isinstance(fecha_pago, datetime):
-                import pytz
-                tz_rd = pytz.timezone('America/Santo_Domingo')
-                if timezone.is_naive(fecha_pago):
-                    fecha_pago = timezone.make_aware(fecha_pago, pytz.UTC)
-                fecha_pago = fecha_pago.astimezone(tz_rd)
-                hora_str = fecha_pago.strftime('%I:%M')
-            c.drawString(22 * mm, y, hora_str)
-
-            # Cliente (truncar si es muy largo)
-            cliente_obj = pago.cuenta_por_cobrar.cliente if pago.cuenta_por_cobrar and hasattr(pago.cuenta_por_cobrar, 'cliente') else None
-            if cliente_obj:
-                # Buscar campo de nombre más representativo
-                nombre_cliente = getattr(cliente_obj, 'razon_social', None) or getattr(cliente_obj, 'nombre_completo', None) or str(cliente_obj)
-            else:
-                nombre_cliente = "CLIENTE"
-            if len(nombre_cliente) > 10:
-                nombre_cliente = nombre_cliente[:10] + "."
-            c.drawString(32 * mm, y, nombre_cliente)
-
-            # Monto
-            c.drawRightString(ancho_pagina - 5 * mm, y, f"${pago.monto:,.2f}")
-            y -= 3.5 * mm
-
-        # Línea separadora después de la lista
-        c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-        y -= 8 * mm
-
-    # 7. TOTAL EN CAJA (Facturas + CXC)
-    total_en_caja = venta_dia + total_cxc
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(5 * mm, y, "TOTAL EN CAJA:")
-    c.setFont("Helvetica-Bold", 14)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"${total_en_caja:,.2f}")
-    y -= 8 * mm
-
-    # Línea doble para énfasis
-    c.setLineWidth(0.8)
-    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-    y -= 1.5 * mm
-    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
-    c.setLineWidth(1)
-    y -= 6 * mm
-
-
-
-    # 7. RESUMEN DE TOTALES (nuevo orden y negrita)
-    c.setFont("Helvetica", 8)
-    c.drawCentredString(ancho_pagina / 2, y, "RESUMEN DE TOTALES")
-    y -= 4 * mm
-
-    # Calcular total vendido a crédito y cantidad de facturas a crédito (cuentas por cobrar pendientes creadas ese día)
-    from .models import CuentaPorCobrar
-    cuentas_credito = CuentaPorCobrar.objects.filter(
-        fecha_creacion__gte=inicio_dia,
-        fecha_creacion__lte=fin_dia,
-        estado='pendiente'
-    )
-    total_credito = cuentas_credito.aggregate(total=Sum('monto_original'))['total'] or Decimal('0.00')
-    cantidad_credito = cuentas_credito.count()
-
-    # Cantidad de Facturas
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(5 * mm, y, "Cantidad de Facturas:")
-    c.setFont("Helvetica", 8)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"{facturas_hoy.count()}")
-    y -= 3.5 * mm
-
-    # Total de Facturas
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(5 * mm, y, "Total de Facturas:")
-    c.setFont("Helvetica", 8)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${venta_dia:,.2f}")
-    y -= 3.5 * mm
-
-    # Cantidad de Factura a Crédito
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(5 * mm, y, "Cantidad de Factura a Crédito:")
-    c.setFont("Helvetica", 8)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"{cantidad_credito}")
-    y -= 3.5 * mm
-
-    # Total vendido a crédito
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(5 * mm, y, "Total vendido a crédito:")
-    c.setFont("Helvetica", 8)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_credito:,.2f}")
-    y -= 3.5 * mm
-
-    # Cantidad de Pagos
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(5 * mm, y, "Cantidad de Pagos:")
-    c.setFont("Helvetica", 8)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"{pagos_cxc.count()}")
-    y -= 3.5 * mm
-
-    # Total de Pagos
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(5 * mm, y, "Total de Pagos:")
-    c.setFont("Helvetica", 8)
-    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD${total_cxc:,.2f}")
-    y -= 4 * mm
-
-    # 8. PIE DE PÁGINA
-    c.setFont("Helvetica", 8)
-    c.drawCentredString(ancho_pagina / 2, y, "*** GRACIAS POR SU VISITA ***")
-    y -= 3 * mm
-
-    c.setFont("Helvetica", 7)
-    c.drawCentredString(ancho_pagina / 2, y,
-                        "Sistema de Gestión de Restaurantes")
-    y -= 3 * mm
-
-    c.drawCentredString(ancho_pagina / 2, y, "www.mirestaurante.com")
     y -= 5 * mm
 
-    # Guardar el PDF
+    # Resumen Inicial
+    c.setFont("Helvetica-Bold", 9)
+    c.drawCentredString(ancho_pagina / 2, y, "RESUMEN")
+    y -= 5 * mm
+    c.setFont("Helvetica", 8)
+    res_items = [
+        ("Ventas Contado", total_ventas_contado),
+        ("Ventas Crédito", total_ventas_credito),
+        ("Pagos Recibidos", total_pagos),
+        ("Devoluciones", total_devoluciones),
+        ("Anulaciones", total_anulaciones),
+        ("Ajustes", total_ajustes),
+    ]
+    for label, val in res_items:
+        c.drawString(7 * mm, y, f"{label}:")
+        c.drawRightString(ancho_pagina - 7 * mm, y, f"RD$ {val:,.2f}")
+        y -= 3.5 * mm
+    y -= 3 * mm
+    c.line(5 * mm, y, ancho_pagina - 5 * mm, y)
+    y -= 5 * mm
+
+    # Tablas Seccionadas
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "VENTAS CONTADO",
+                              ventas_contado_data, sum(x['monto'] for x in ventas_contado_data))
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina, "VENTAS CRÉDITO",
+                              ventas_credito_data, sum(x['monto'] for x in ventas_credito_data))
+    y = draw_tabla_movimientos(c, y, ancho_pagina, alto_pagina,
+                               "PAGOS CXC", pagos_data, sum(x['monto'] for x in pagos_data))
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina,
+                              "DEVOLUCIONES", devoluciones_data, total_devoluciones)
+    y = draw_tabla_documentos(c, y, ancho_pagina, alto_pagina,
+                              "ANULACIONES", anulaciones_data, total_anulaciones)
+    y = draw_tabla_movimientos(
+        c, y, ancho_pagina, alto_pagina, "EXCEDENTES", excedentes_data, total_excedentes)
+    y = draw_tabla_documentos(
+        c, y, ancho_pagina, alto_pagina, "OTROS AJUSTES", ajustes_data, total_ajustes)
+
+    # Balance Final
+    if y < 40 * mm:
+        y = _ticket_nueva_pagina(c, alto_pagina)
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(5 * mm, y, "TOTAL INGRESOS:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD$ {total_ingresos:,.2f}")
+    y -= 5 * mm
+    c.drawString(5 * mm, y, "TOTAL EGRESOS:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD$ {total_egresos:,.2f}")
+    y -= 7 * mm
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(5 * mm, y, "TOTAL EN CAJA:")
+    c.drawRightString(ancho_pagina - 5 * mm, y, f"RD$ {caja_neta:,.2f}")
+    y -= 10 * mm
+    c.setFont("Helvetica", 8)
+    c.drawCentredString(ancho_pagina / 2, y, "*** FIN DEL REPORTE ***")
+
     c.save()
-
-    # Obtener el valor del buffer y devolver como respuesta HTTP
     buffer.seek(0)
-
-    # Configurar respuesta HTTP
     response = HttpResponse(buffer, content_type='application/pdf')
-    filename = f"reporte_ventas_{ahora_local.strftime('%Y%m%d_%H%M')}.pdf"
-    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    response[
+        'Content-Disposition'] = f"inline; filename=\"cuadre_caja_{ahora_local.strftime('%Y%m%d_%H%M')}.pdf\""
     return response
+
+
+@login_required
+def generar_pdf_ticket_dia(request):
+    return generar_pdf_cuadre_caja(request)
+
+# ==========================================================================================================
+#                         PRODUCTOS VENDIDOS EN EL DÍA Y REPORTE DE PRODUCTOS VENDIDOS
+# ==========================================================================================================
 
 
 @login_required
 def productos_vendidos_dia(request):
     """Vista para mostrar los productos vendidos en el día"""
     # Obtener hora local actual
-    ahora_local = timezone.localtime()
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    ahora_local = timezone.now().astimezone(tz_rd)
     hoy_local = ahora_local.date()
 
-    # DEFINICIÓN DEL "DÍA": De 6:00 AM a 5:59 AM del día siguiente
-    if ahora_local.hour >= 6:
+    # DEFINICIÓN DEL "DÍA": De 5:00 PM a 5:59 AM del día siguiente
+    if ahora_local.hour >= 17:
         inicio_dia = timezone.make_aware(
-            datetime.combine(hoy_local, datetime(2000, 1, 1, 6, 0, 0).time())
+            datetime.combine(hoy_local, time(17, 0, 0))
         )
         fin_dia = timezone.make_aware(
             datetime.combine(hoy_local + timedelta(days=1),
-                             datetime(2000, 1, 1, 5, 59, 59).time())
+                             time(5, 59, 59))
         )
     else:
         inicio_dia = timezone.make_aware(
             datetime.combine(hoy_local - timedelta(days=1),
-                             datetime(2000, 1, 1, 6, 0, 0).time())
+                             time(17, 0, 0))
         )
         fin_dia = timezone.make_aware(
-            datetime.combine(hoy_local, datetime(2000, 1, 1, 5, 59, 59).time())
+            datetime.combine(hoy_local, time(5, 59, 59))
         )
 
     # Obtener facturas del período
@@ -5743,8 +5731,12 @@ def productos_vendidos_dia(request):
     total_ventas = sum([p['ingresos'] for p in productos_dia_detalle])
 
     # Obtener venta del día
-    venta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))[
+    venta_bruta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))[
         'total_dia'] or Decimal('0.00')
+    total_devuelto_dia = facturas_hoy.aggregate(
+        total_devuelto=Sum('devoluciones__monto_devuelto')
+    )['total_devuelto'] or Decimal('0.00')
+    venta_dia = venta_bruta_dia - total_devuelto_dia
 
     context = {
         'productos_dia_detalle': productos_dia_detalle,
@@ -5762,11 +5754,6 @@ def productos_vendidos_dia(request):
     return render(request, 'facturacion/productos_vendidos_dia.html', context)
 
 
-# Para PDF
-
-# Importar modelos
-
-
 @login_required
 def reporte_productos_vendidos(request):
     """Vista para mostrar reporte de productos vendidos"""
@@ -5776,11 +5763,12 @@ def reporte_productos_vendidos(request):
 
     # Si no se especifican fechas, usar el día actual (de 6:00 a 5:59 del día siguiente)
     if not fecha_inicio or not fecha_fin:
-        ahora_local = timezone.localtime()
+        tz_rd = pytz.timezone('America/Santo_Domingo')
+        ahora_local = timezone.now().astimezone(tz_rd)
         hoy_local = ahora_local.date()
 
         # DEFINICIÓN DEL "DÍA": De 6:00 AM a 5:59 AM del día siguiente
-        if ahora_local.hour >= 6:
+        if ahora_local.hour >= 2:
             fecha_inicio = hoy_local
             fecha_fin = hoy_local + timedelta(days=1)
         else:
@@ -5804,10 +5792,11 @@ def reporte_productos_vendidos(request):
 
     except (ValueError, TypeError):
         # Si hay error en el formato, usar día actual
-        ahora_local = timezone.localtime()
+        tz_rd = pytz.timezone('America/Santo_Domingo')
+        ahora_local = timezone.now().astimezone(tz_rd)
         hoy_local = ahora_local.date()
 
-        if ahora_local.hour >= 6:
+        if ahora_local.hour >= 2:
             fecha_inicio_obj = hoy_local
             fecha_fin_obj = hoy_local + timedelta(days=1)
         else:
@@ -5973,10 +5962,11 @@ def reporte_productos_vendidos_json(request):
 
     # Configurar fechas
     if not fecha_inicio or not fecha_fin:
-        ahora_local = timezone.localtime()
+        tz_rd = pytz.timezone('America/Santo_Domingo')
+        ahora_local = timezone.now().astimezone(tz_rd)
         hoy_local = ahora_local.date()
 
-        if ahora_local.hour >= 6:
+        if ahora_local.hour >= 2:
             fecha_inicio_obj = hoy_local
             fecha_fin_obj = hoy_local + timedelta(days=1)
         else:
@@ -6085,7 +6075,8 @@ def detalle_producto_vendido(request, producto_nombre):
 
     # Configurar fechas por defecto (últimos 30 días)
     if not fecha_inicio or not fecha_fin:
-        fecha_fin_obj = timezone.localtime().date()
+        fecha_fin_obj = timezone.now().astimezone(
+            pytz.timezone('America/Santo_Domingo')).date()
         fecha_inicio_obj = fecha_fin_obj - timedelta(days=30)
     else:
         fecha_inicio_obj = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
@@ -6192,10 +6183,11 @@ def generar_reporte_productos_excel(request):
 
     # Configurar fechas
     if not fecha_inicio or not fecha_fin:
-        ahora_local = timezone.localtime()
+        tz_rd = pytz.timezone('America/Santo_Domingo')
+        ahora_local = timezone.now().astimezone(tz_rd)
         hoy_local = ahora_local.date()
 
-        if ahora_local.hour >= 6:
+        if ahora_local.hour >= 2:
             fecha_inicio_obj = hoy_local
             fecha_fin_obj = hoy_local + timedelta(days=1)
         else:
@@ -6285,7 +6277,7 @@ def generar_reporte_productos_excel(request):
     writer.writerow(
         [f'Período: {fecha_inicio_obj.strftime("%d/%m/%Y")} 06:00 - {fecha_fin_obj.strftime("%d/%m/%Y")} 05:59'])
     writer.writerow(
-        [f'Generado: {timezone.localtime().strftime("%d/%m/%Y %H:%M:%S")}'])
+        [f'Generado: {timezone.now().astimezone(pytz.timezone("America/Santo_Domingo")).strftime("%d/%m/%Y %H:%M:%S")}'])
     writer.writerow([])
 
     # Escribir encabezados de datos
@@ -6322,123 +6314,179 @@ def generar_reporte_productos_excel(request):
 def generar_pdf_productos_dia_a4(request):
     """Generar PDF de productos vendidos en el día en formato A4"""
     # Obtener hora local actual
-    ahora_local = timezone.localtime()
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    ahora_local = timezone.now().astimezone(tz_rd)
     hoy_local = ahora_local.date()
 
-    # DEFINICIÓN DEL "DÍA": De 6:00 AM a 5:59 AM del día siguiente
-    if ahora_local.hour >= 6:
+    # DEFINICIÓN DEL "DÍA": De 5:00 PM a 5:59 AM del día siguiente
+    if ahora_local.hour >= 17:
         inicio_dia = timezone.make_aware(
-            datetime.combine(hoy_local, datetime(2000, 1, 1, 6, 0, 0).time())
+            datetime.combine(hoy_local, time(17, 0, 0))
         )
         fin_dia = timezone.make_aware(
             datetime.combine(hoy_local + timedelta(days=1),
-                             datetime(2000, 1, 1, 5, 59, 59).time())
+                             time(5, 59, 59))
         )
-        periodo_texto = f"{hoy_local.strftime('%d/%m/%Y')} 06:00 - {(hoy_local + timedelta(days=1)).strftime('%d/%m/%Y')} 05:59"
-        periodo_corto = f"{hoy_local.strftime('%d/%m')} 06:00 a {(hoy_local + timedelta(days=1)).strftime('%d/%m')} 06:00"
+        periodo_texto = f"{hoy_local.strftime('%d/%m/%Y')} 17:00 - {(hoy_local + timedelta(days=1)).strftime('%d/%m/%Y')} 05:59"
+        periodo_corto = f"{hoy_local.strftime('%d/%m')} 17:00 a {(hoy_local + timedelta(days=1)).strftime('%d/%m')} 06:00"
     else:
         inicio_dia = timezone.make_aware(
             datetime.combine(hoy_local - timedelta(days=1),
-                             datetime(2000, 1, 1, 6, 0, 0).time())
+                             time(17, 0, 0))
         )
         fin_dia = timezone.make_aware(
-            datetime.combine(hoy_local, datetime(2000, 1, 1, 5, 59, 59).time())
+            datetime.combine(hoy_local, time(5, 59, 59))
         )
-        periodo_texto = f"{(hoy_local - timedelta(days=1)).strftime('%d/%m/%Y')} 06:00 - {hoy_local.strftime('%d/%m/%Y')} 05:59"
-        periodo_corto = f"{(hoy_local - timedelta(days=1)).strftime('%d/%m')} 06:00 a {hoy_local.strftime('%d/%m')} 06:00"
+        periodo_texto = f"{(hoy_local - timedelta(days=1)).strftime('%d/%m/%Y')} 17:00 - {hoy_local.strftime('%d/%m/%Y')} 05:59"
+        periodo_corto = f"{(hoy_local - timedelta(days=1)).strftime('%d/%m')} 17:00 a {hoy_local.strftime('%d/%m')} 06:00"
 
     # Obtener facturas del período
     facturas_hoy = Factura.objects.filter(
         fecha_factura__gte=inicio_dia,
         fecha_factura__lte=fin_dia,
-        estado='pagada'
-    )
+        estado__in=['pagada', 'parcialmente_devuelta']
+    ).prefetch_related('detalles')
 
-    venta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))[
+    venta_bruta_dia = facturas_hoy.aggregate(total_dia=Sum('total'))[
         'total_dia'] or Decimal('0.00')
+
+    total_devuelto_dia = facturas_hoy.aggregate(
+        total_devuelto=Sum('devoluciones__monto_devuelto')
+    )['total_devuelto'] or Decimal('0.00')
+
+    venta_dia = venta_bruta_dia - total_devuelto_dia
 
     print(
         f"🔍 DEBUG: Encontradas {facturas_hoy.count()} facturas en el período")
-    print(f"🔍 DEBUG: Venta total del día: ${venta_dia}")
+    print(f"🔍 DEBUG: Venta bruta del día: ${venta_bruta_dia}")
+    print(f"🔍 DEBUG: Total devuelto del día: ${total_devuelto_dia}")
 
-    # Obtener productos vendidos en el día
+    # Obtener productos vendidos en el día (neto: venta - devolución)
     productos_vendidos = {}
 
     for factura in facturas_hoy:
         try:
-            items = factura.get_items_detalle()
-            print(
-                f"🔍 DEBUG: Factura {factura.numero_factura} tiene {len(items)} items")
+            vendidos_por_producto = {}
 
-            if items and isinstance(items, list):
-                for item in items:
-                    # DEBUG: Imprimir todas las claves del item
-                    print(f"  📦 Item keys: {item.keys()}")
+            def _acumular_vendido(nombre, cantidad, ingresos):
+                nombre = str(nombre or '').strip()
+                if not nombre or nombre.lower() == 'desconocido':
+                    return
+                cantidad = float(cantidad or 0)
+                if cantidad <= 0:
+                    return
 
-                    # Obtener nombre del producto - probar todas las posibles claves
-                    nombre = item.get('nombre', '').strip()
-                    if not nombre:
-                        nombre = item.get('name', '').strip()
-                    if not nombre:
-                        nombre = item.get('producto', '').strip()
-                    if not nombre:
-                        nombre = item.get('product', '').strip()
+                key = nombre.lower()
+                ingresos = Decimal(str(ingresos or 0))
+                if key not in vendidos_por_producto:
+                    vendidos_por_producto[key] = {
+                        'nombre': nombre,
+                        'cantidad': 0.0,
+                        'ingresos': Decimal('0.00'),
+                    }
+                vendidos_por_producto[key]['cantidad'] += cantidad
+                vendidos_por_producto[key]['ingresos'] += ingresos
 
-                    print(f"  🔍 Nombre encontrado: '{nombre}'")
-
-                    if not nombre or nombre.lower() == 'desconocido':
-                        print(f"  ⚠️  Nombre vacío o 'Desconocido', saltando...")
-                        continue
-
-                    # Obtener cantidad - probar todas las posibles claves
-                    cantidad = 0
-                    cantidad_keys = ['cantidad', 'quantity', 'qty']
-                    for key in cantidad_keys:
-                        if key in item:
-                            try:
-                                cantidad = float(item[key])
-                                print(f"  🔍 Cantidad de '{key}': {cantidad}")
-                                break
-                            except (ValueError, TypeError):
-                                pass
-
-                    if cantidad <= 0:
-                        print(
-                            f"  ⚠️  Cantidad inválida ({cantidad}), saltando...")
-                        continue
-
-                    # Obtener precio - probar todas las posibles claves
-                    precio = 0
-                    precio_keys = ['precio', 'price', 'unit_price']
-                    for key in precio_keys:
-                        if key in item:
-                            try:
-                                precio = float(item[key])
-                                print(f"  🔍 Precio de '{key}': {precio}")
-                                break
-                            except (ValueError, TypeError):
-                                pass
-
-                    # Calcular ingresos
-                    ingresos = Decimal(str(cantidad * precio))
-
-                    print(f"  ✅ Procesado: {nombre} x{cantidad} = ${ingresos}")
-
-                    if nombre in productos_vendidos:
-                        productos_vendidos[nombre]['cantidad'] += cantidad
-                        productos_vendidos[nombre]['ingresos'] += ingresos
-                        productos_vendidos[nombre]['precio_unitario'] = productos_vendidos[nombre]['ingresos'] / Decimal(
-                            str(productos_vendidos[nombre]['cantidad']))
-                    else:
-                        productos_vendidos[nombre] = {
-                            'nombre': nombre,
-                            'cantidad': cantidad,
-                            'precio_unitario': Decimal(str(precio)),
-                            'ingresos': ingresos
-                        }
-            else:
+            detalles_reales = list(factura.detalles.all())
+            if detalles_reales:
                 print(
-                    f"⚠️  Factura {factura.numero_factura} no tiene items o no es una lista")
+                    f"🔍 DEBUG: Factura {factura.numero_factura} usando detalle real ({len(detalles_reales)} items)")
+                for detalle in detalles_reales:
+                    cantidad = float(detalle.cantidad or 0)
+                    precio = Decimal(str(detalle.precio_unitario or 0))
+                    subtotal_detalle = detalle.subtotal if detalle.subtotal is not None else (
+                        Decimal(str(cantidad)) * precio)
+                    _acumular_vendido(detalle.nombre_producto,
+                                      cantidad, subtotal_detalle)
+            else:
+                items = factura.get_items_detalle(enrich_from_db=False)
+                print(
+                    f"🔍 DEBUG: Factura {factura.numero_factura} sin detalle real; usando JSON ({len(items)} items)")
+                if items and isinstance(items, list):
+                    for item in items:
+                        nombre = item.get('nombre', '').strip() or item.get('name', '').strip(
+                        ) or item.get('producto', '').strip() or item.get('product', '').strip()
+
+                        cantidad = 0
+                        for key_cantidad in ('cantidad', 'quantity', 'qty'):
+                            if key_cantidad in item:
+                                try:
+                                    cantidad = float(item[key_cantidad])
+                                    break
+                                except (ValueError, TypeError):
+                                    pass
+
+                        precio = 0
+                        for key_precio in ('precio', 'price', 'unit_price'):
+                            if key_precio in item:
+                                try:
+                                    precio = float(item[key_precio])
+                                    break
+                                except (ValueError, TypeError):
+                                    pass
+
+                        _acumular_vendido(nombre, cantidad,
+                                          Decimal(str(cantidad * precio)))
+
+            # Devoluciones por producto de la misma factura
+            devueltos_por_producto = {}
+            devoluciones = factura.devoluciones.prefetch_related(
+                'detalles').all()
+            for devolucion in devoluciones:
+                detalles_dev = list(devolucion.detalles.all())
+                if detalles_dev:
+                    for det_dev in detalles_dev:
+                        nombre_dev = str(
+                            det_dev.nombre_producto or '').strip().lower()
+                        if not nombre_dev:
+                            continue
+                        devueltos_por_producto[nombre_dev] = devueltos_por_producto.get(
+                            nombre_dev, 0.0) + float(det_dev.cantidad or 0)
+                    continue
+
+                # Fallback legacy JSON de devolución
+                if devolucion.productos_devueltos:
+                    for prod_dev in devolucion.productos_devueltos:
+                        nombre_dev = str(prod_dev.get(
+                            'nombre', '')).strip().lower()
+                        if not nombre_dev:
+                            continue
+                        devueltos_por_producto[nombre_dev] = devueltos_por_producto.get(
+                            nombre_dev, 0.0) + float(prod_dev.get('cantidad', 0) or 0)
+
+            # Aplicar deducción neta por producto
+            for key_prod, data_vendida in vendidos_por_producto.items():
+                cantidad_vendida = float(data_vendida['cantidad'] or 0)
+                if cantidad_vendida <= 0:
+                    continue
+
+                cantidad_devuelta = float(
+                    devueltos_por_producto.get(key_prod, 0) or 0)
+                cantidad_neta = max(cantidad_vendida - cantidad_devuelta, 0.0)
+                if cantidad_neta <= 0:
+                    continue
+
+                ingresos_vendidos = Decimal(str(data_vendida['ingresos'] or 0))
+                precio_promedio = (ingresos_vendidos / Decimal(str(cantidad_vendida))
+                                   ) if cantidad_vendida > 0 else Decimal('0.00')
+                ingresos_netos = precio_promedio * Decimal(str(cantidad_neta))
+
+                nombre_mostrar = data_vendida['nombre']
+                if nombre_mostrar in productos_vendidos:
+                    productos_vendidos[nombre_mostrar]['cantidad'] += cantidad_neta
+                    productos_vendidos[nombre_mostrar]['ingresos'] += ingresos_netos
+                    productos_vendidos[nombre_mostrar]['precio_unitario'] = (
+                        productos_vendidos[nombre_mostrar]['ingresos'] /
+                        Decimal(
+                            str(productos_vendidos[nombre_mostrar]['cantidad']))
+                    )
+                else:
+                    productos_vendidos[nombre_mostrar] = {
+                        'nombre': nombre_mostrar,
+                        'cantidad': cantidad_neta,
+                        'precio_unitario': precio_promedio,
+                        'ingresos': ingresos_netos,
+                    }
 
         except Exception as e:
             print(
@@ -6636,13 +6684,13 @@ def generar_pdf_productos_dia_a4(request):
     response.write(pdf)
 
     return response
-# views.py - Actualiza la función anulacionydevolucion
 
 
-# ============================================================
-# FUNCIONES DE GESTIÓN DE STOCK - SOLO BEBIDAS
-# ============================================================
+# ========================================================================================================
+#                           FUNCIONES DE GESTIÓN DE STOCK - SOLO BEBIDAS
+# ========================================================================================================
 
+@login_required
 @login_required
 def anulacionydevolucion(request):
     """Vista principal para anulación y devolución de facturas"""
@@ -6709,128 +6757,6 @@ def anulacionydevolucion(request):
                 f"✅ Productos disponibles para devolver: {len(productos_disponibles)}")
             print(
                 f"💰 Total devuelto: ${resumen_devoluciones['total_devuelto']}")
-
-    except Exception as e:
-        messages.error(request, f'Error: {str(e)}')
-        import traceback
-        traceback.print_exc()
-
-    context = {
-        'factura': factura,
-        'items': items,
-        'items_json': items_json,
-        'productos_devueltos_json': productos_devueltos_json,
-        'productos_disponibles_json': productos_disponibles_json,
-    }
-
-    return render(request, 'facturacion/anulacionydevolucion.html', context)
-
-
-@login_required
-def anulacionydevolucion(request):
-    """Vista principal para anulación y devolución de facturas"""
-    factura = None
-    items = []
-    items_json = '[]'
-    productos_devueltos_json = '[]'
-    productos_disponibles_json = '[]'
-
-    numero_factura = request.GET.get('numero_factura', '').strip()
-    ultima_factura = request.GET.get('ultima') == 'true'
-
-    try:
-        if ultima_factura:
-            factura = Factura.objects.order_by('-fecha_creacion').first()
-            if factura:
-                messages.success(
-                    request, f'Última factura cargada: {factura.numero_factura}')
-                # Depuración directa
-                print(f"\n{'='*60}")
-                print(f"DEBUG - Factura: {factura.numero_factura}")
-                print(f"Tipo de items: {type(factura.items)}")
-                if isinstance(factura.items, str):
-                    print(f"Es una cadena. Longitud: {len(factura.items)}")
-                    print(f"Primeros 300 caracteres: {factura.items[:300]}")
-                elif isinstance(factura.items, dict):
-                    print(
-                        f"Es un diccionario. Claves: {list(factura.items.keys())}")
-                elif isinstance(factura.items, list):
-                    print(f"Es una lista. Longitud: {len(factura.items)}")
-                print(f"{'='*60}")
-            else:
-                messages.error(request, 'No hay facturas registradas')
-
-        elif numero_factura:
-            factura = Factura.objects.filter(
-                numero_factura__iexact=numero_factura).first()
-            if not factura:
-                factura = Factura.objects.filter(
-                    numero_factura__icontains=numero_factura).first()
-
-            if factura:
-                messages.success(
-                    request, f'Factura {factura.numero_factura} encontrada')
-                # Depuración directa
-                print(f"\n{'='*60}")
-                print(f"DEBUG - Factura: {factura.numero_factura}")
-                print(f"Tipo de items: {type(factura.items)}")
-                if isinstance(factura.items, str):
-                    print(f"Es una cadena. Longitud: {len(factura.items)}")
-                    print(f"Primeros 300 caracteres: {factura.items[:300]}")
-                elif isinstance(factura.items, dict):
-                    print(
-                        f"Es un diccionario. Claves: {list(factura.items.keys())}")
-                elif isinstance(factura.items, list):
-                    print(f"Es una lista. Longitud: {len(factura.items)}")
-                print(f"{'='*60}")
-            else:
-                messages.error(
-                    request, f'Factura {numero_factura} no encontrada')
-
-        if factura:
-            print(f"\n📄 FACTURA ENCONTRADA: {factura.numero_factura}")
-            print(f"📦 Campo 'items' tipo: {type(factura.items)}")
-
-            # DEPURACIÓN DETALLADA
-            if isinstance(factura.items, str):
-                print(f"🔍 Contenido de items (string):")
-                print(factura.items[:500])
-            elif isinstance(factura.items, list):
-                print(
-                    f"🔍 Contenido de items (lista con {len(factura.items)} elementos):")
-                for i, item in enumerate(factura.items[:3]):  # Muestra solo 3
-                    print(f"   Item {i}: {item}")
-
-            # Obtener items detallados
-            items = factura.get_items_detalle()
-            print(f"\n✅ Items normalizados: {len(items)}")
-
-            # Mostrar primeros 5 items para depuración
-            for i, item in enumerate(items[:5]):
-                print(f"  {i+1}. {item.get('nombre', 'Sin nombre')} - Cant: {item.get('cantidad', 0)} - Precio: ${item.get('precio', 0)} - Cat: '{item.get('categoria', '')}'")
-
-            items_json = json.dumps(items, cls=DjangoJSONEncoder)
-
-            # Obtener productos disponibles para devolución
-            productos_disponibles = factura.get_productos_disponibles_devolucion()
-            productos_disponibles_json = json.dumps(
-                productos_disponibles, cls=DjangoJSONEncoder)
-            print(
-                f"✅ Productos disponibles para devolver: {len(productos_disponibles)}")
-
-            # Obtener todas las devoluciones para el historial
-            devoluciones = factura.devoluciones.all()
-            todos_productos_devueltos = []
-
-            for devolucion in devoluciones:
-                if devolucion.productos_devueltos:
-                    todos_productos_devueltos.extend(
-                        devolucion.productos_devueltos)
-
-            productos_devueltos_json = json.dumps(
-                todos_productos_devueltos, cls=DjangoJSONEncoder)
-            print(
-                f"✅ Productos ya devueltos: {len(todos_productos_devueltos)}")
 
     except Exception as e:
         messages.error(request, f'Error: {str(e)}')
@@ -6950,9 +6876,9 @@ def disminuir_stock_producto(identificador, cantidad):
         traceback.print_exc()
         return False
 
-# ============================================================
-# NORMALIZACIÓN DE ITEMS
-# ============================================================
+# =========================================================================================================
+#                                   NORMALIZACIÓN DE ITEMS
+# =========================================================================================================
 
 
 def normalizar_items_factura(factura):
@@ -7033,257 +6959,494 @@ def buscar_item_por_nombre(items, nombre_buscar):
             return item
 
     return None
-# ============================================================
-# VISTA PRINCIPAL
-# ============================================================
 
 
-# ============================================================
-# DEVOLUCIÓN TOTAL
-# ============================================================
-
+# ========================================================================================================
+#                                        DEVOLUCIÓN TOTAL
+# ========================================================================================================
 @login_required
 def procesar_devolucion_total(request):
-    """Procesar devolución total de una factura"""
-    if request.method == 'POST':
-        numero_factura = request.POST.get('numero_factura')
-
-        if not numero_factura:
-            messages.error(request, 'Número de factura requerido')
-            return redirect('anulacionydevolucion')
-
-        try:
-            factura = get_object_or_404(Factura, numero_factura=numero_factura)
-
-            if factura.estado != 'pagada':
-                messages.error(
-                    request,
-                    f'La factura debe estar pagada para procesar devolución. Estado actual: {factura.get_estado_display()}'
-                )
-                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
-
-            with transaction.atomic():
-                # Usar el método del modelo para obtener items
-                items = factura.get_items_detalle()
-                productos_devueltos = []
-                monto_total_devuelto = 0
-                bebidas_repuestas = 0
-
-                print(f"\n🔄 PROCESANDO DEVOLUCIÓN TOTAL")
-
-                for item in items:
-                    codigo = item.get('codigo', '')
-                    nombre = item.get('nombre', '')
-                    cantidad = item.get('cantidad', 0)
-                    precio = item.get('precio', 0)
-                    categoria = item.get('categoria', '')
-
-                    print(f"\n📦 Procesando item: {nombre}")
-                    print(f"   Código: '{codigo}'")
-                    print(f"   Categoría: '{categoria}'")
-                    print(f"   Cantidad: {cantidad}")
-
-                    # REPONER stock para bebidas
-                    if categoria.lower() == 'bebida':
-                        # Usar código si está disponible, sino usar nombre
-                        identificador = codigo if codigo and codigo.strip() else nombre
-                        print(
-                            f"   🍺 ES BEBIDA - Reponiendo stock con identificador: '{identificador}'")
-
-                        if reponer_stock_producto(identificador, cantidad):
-                            bebidas_repuestas += 1
-                            print(f"   ✅ Stock repuesto exitosamente")
-                        else:
-                            print(f"   ⚠️  No se pudo reponer stock")
-                    else:
-                        print(f"   ℹ️  No es bebida - no se repone stock")
-
-                    monto_total_devuelto += precio * cantidad
-                    productos_devueltos.append({
-                        'producto_id': item.get('producto_id'),
-                        'codigo': codigo,
-                        'nombre': nombre,
-                        'cantidad': cantidad,
-                        'precio_unitario': precio,
-                        'subtotal': precio * cantidad,
-                        'categoria': categoria
-                    })
-
-                # Crear registro de devolución
-                Devolucion.objects.create(
-                    factura=factura,
-                    tipo_devolucion='total',
-                    productos_devueltos=productos_devueltos,
-                    monto_devuelto=monto_total_devuelto,
-                    motivo='Devolución total procesada desde el sistema',
-                    procesado_por=request.user
-                )
-
-                factura.estado = 'totalmente_devuelta'
-                factura.fecha_devolucion = timezone.now()
-                factura.save()
-
-                print(f"\n✅ DEVOLUCIÓN TOTAL COMPLETADA")
-                print(f"   Bebidas repuestas: {bebidas_repuestas}")
-                print(f"   Monto devuelto: ${monto_total_devuelto:.2f}")
-
-                messages.success(
-                    request,
-                    f'✅ Devolución total procesada. Monto: ${monto_total_devuelto:.2f}. Bebidas repuestas: {bebidas_repuestas}'
-                )
-
-                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
-
-        except Exception as e:
-            messages.error(
-                request, f'❌ Error al procesar devolución: {str(e)}')
-            import traceback
-            traceback.print_exc()
-            return redirect('anulacionydevolucion')
-
+    """Funcionalidad deshabilitada: la devolución total fue eliminada."""
+    messages.warning(
+        request, 'La opción de devolución total fue eliminada. Usa devolución parcial o anulación de factura.')
     return redirect('anulacionydevolucion')
 
-# ============================================================
-# DEVOLUCIÓN PARCIAL
-# ============================================================
+# ========================================================================================================
+#                                               DEVOLUCIÓN PARCIAL
+# ========================================================================================================
 
 
 @login_required
 def procesar_devolucion_parcial(request):
-    """Procesar devolución parcial con validación mejorada"""
-    if request.method == 'POST':
-        numero_factura = request.POST.get('numero_factura')
-        productos_json = request.POST.get('productos_devueltos', '[]')
+    """
+    Procesa la devolución parcial de productos de una factura.
 
-        if not numero_factura:
-            messages.error(request, 'Número de factura requerido')
-            return redirect('anulacionydevolucion')
+    Devuelve JSON en todos los casos (el frontend usa fetch).
 
+    Flujo:
+      1. Valida productos y cantidades.
+      2. Repone stock de bebidas.
+      3. Crea Devolucion + DetalleDevolucion.
+      4. Ajusta CxC si es crédito.
+      5. Actualiza estado de la factura.
+
+        Casos de respuesta:
+            - Contado              → {"ok": true, "mensaje": "..."} y registra EGRESO automático
+            - Crédito con excedente→ {"requiere_decision": true, "tipo": "excedente", "excedente": X,       "devolucion_id": N}
+            - Crédito sin excedente→ {"ok": true, "mensaje": "..."}
+      - Error                → {"error": "..."}  (status 400)
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        # Compatibilidad: si el frontend envió form-encoded en lugar de JSON
+        body = request.POST
+
+    numero_factura = body.get('numero_factura', '')
+    productos_json = body.get('productos_devueltos', '[]')
+
+    if not numero_factura:
+        return JsonResponse({'error': 'Número de factura requerido'}, status=400)
+
+    try:
+        factura = get_object_or_404(Factura, numero_factura=numero_factura)
+    except Exception:
+        return JsonResponse({'error': f'Factura {numero_factura} no encontrada'}, status=400)
+
+    if factura.estado not in ['pagada', 'pendiente', 'parcialmente_devuelta']:
+        return JsonResponse(
+            {'error': f'Estado inválido para devolución: {factura.get_estado_display()}'},
+            status=400
+        )
+
+    # Parsear productos si llegaron como string
+    if isinstance(productos_json, str):
         try:
-            factura = get_object_or_404(Factura, numero_factura=numero_factura)
+            productos_devueltos = json.loads(productos_json)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Formato inválido de productos'}, status=400)
+    else:
+        productos_devueltos = productos_json
 
-            if factura.estado not in ['pagada', 'parcialmente_devuelta']:
-                messages.error(
-                    request,
-                    f'Estado inválido para devolución: {factura.get_estado_display()}'
-                )
-                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+    if not isinstance(productos_devueltos, list) or not productos_devueltos:
+        return JsonResponse({'error': 'Debes seleccionar al menos un producto'}, status=400)
 
-            try:
-                productos_devueltos = json.loads(productos_json)
-            except json.JSONDecodeError:
-                messages.error(request, 'Formato inválido de productos devueltos')
-                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+    try:
+        with transaction.atomic():
+            factura = Factura.objects.select_for_update().get(numero_factura=numero_factura)
 
-            if not isinstance(productos_devueltos, list) or not productos_devueltos:
-                messages.error(request, 'Debes seleccionar productos')
-                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+            items_factura = factura.get_items_detalle()
+            productos_procesados = []
+            monto_total_devuelto = Decimal('0.00')
+            bebidas_repuestas = 0
 
-            with transaction.atomic():
-                items_factura = factura.get_items_detalle()
-                productos_procesados = []
-                monto_total_devuelto = Decimal('0.00')
-                bebidas_repuestas = 0
+            # ── Validar y calcular cada producto devuelto ──────────────────
+            for producto_data in productos_devueltos:
+                producto_nombre = producto_data.get('nombre', '')
+                producto_id = producto_data.get('producto_id')
+                producto_codigo = str(producto_data.get('codigo', '')).strip()
+                cantidad_devolver = float(producto_data.get('cantidad', 0))
+                categoria = producto_data.get('categoria', '')
 
-                print(f"\n🔄 PROCESANDO DEVOLUCIÓN PARCIAL")
-
-                for producto_data in productos_devueltos:
-                    producto_nombre = producto_data.get('nombre', '')
-                    cantidad_devolver = float(producto_data.get('cantidad', 0))
-                    categoria = producto_data.get('categoria', '')
-
-                    # Buscar en items de factura
+                # Buscar item en factura: id > codigo > nombre
+                item_factura = None
+                if producto_id not in (None, '', 'null'):
+                    item_factura = next(
+                        (i for i in items_factura
+                         if str(i.get('producto_id', '')) == str(producto_id)),
+                        None
+                    )
+                if not item_factura and producto_codigo:
+                    item_factura = next(
+                        (i for i in items_factura
+                         if str(i.get('codigo', '')).strip().lower() == producto_codigo.lower()),
+                        None
+                    )
+                if not item_factura:
                     item_factura = buscar_item_por_nombre(
                         items_factura, producto_nombre)
-                    if not item_factura:
-                        messages.error(
-                            request, f'Producto {producto_nombre} no encontrado')
-                        return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
 
-                    cantidad_original = float(item_factura.get('cantidad', 0))
-                    cantidad_ya_devuelta = factura.get_cantidad_ya_devuelta(
-                        producto_nombre)
-                    cantidad_disponible = cantidad_original - cantidad_ya_devuelta
+                if not item_factura:
+                    return JsonResponse(
+                        {'error': f'Producto "{producto_nombre}" no encontrado en la factura'},
+                        status=400
+                    )
 
-                    # VALIDACIÓN CRÍTICA
-                    if cantidad_devolver > cantidad_disponible:
-                        messages.error(
-                            request,
-                            f'❌ {producto_nombre}: Intentas devolver {cantidad_devolver} pero solo hay {cantidad_disponible} disponible (ya devuelto: {cantidad_ya_devuelta})'
-                        )
-                        return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+                cantidad_original = float(item_factura.get('cantidad', 0))
+                cantidad_ya_devuelta = factura.get_cantidad_ya_devuelta(
+                    producto_nombre)
+                cantidad_disponible = cantidad_original - cantidad_ya_devuelta
 
-                    precio = Decimal(str(item_factura.get('precio', 0)))
-                    subtotal = precio * Decimal(str(cantidad_devolver))
-                    codigo = item_factura.get('codigo', '')
+                if cantidad_devolver > cantidad_disponible:
+                    return JsonResponse(
+                        {'error': (
+                            f'"{producto_nombre}": intentas devolver {cantidad_devolver} '
+                            f'pero solo hay {cantidad_disponible:.0f} disponible '
+                            f'(ya devuelto: {cantidad_ya_devuelta:.0f})'
+                        )},
+                        status=400
+                    )
 
-                    print(f"\n📦 {producto_nombre}")
-                    print(
-                        f"   Devolver: {cantidad_devolver} de {cantidad_disponible} disponibles")
-                    print(f"   Código: '{codigo}', Categoría: '{categoria}'")
+                precio = Decimal(str(item_factura.get('precio', 0)))
+                subtotal = precio * Decimal(str(cantidad_devolver))
+                codigo = item_factura.get('codigo', '')
+                producto_id_resuelto = item_factura.get('producto_id')
 
-                    # Reponer stock para bebidas
-                    if categoria.lower() == 'bebida':
-                        identificador = codigo if codigo and codigo.strip() else producto_nombre
-                        print(f"   🍺 Reponiendo con: '{identificador}'")
+                if not producto_id_resuelto:
+                    if codigo:
+                        pm = Producto.objects.filter(
+                            codigo__iexact=codigo.strip()).first()
+                        if pm:
+                            producto_id_resuelto = pm.id
+                    if not producto_id_resuelto and producto_nombre:
+                        pm = Producto.objects.filter(
+                            nombre__iexact=producto_nombre.strip()).first()
+                        if pm:
+                            producto_id_resuelto = pm.id
 
-                        if reponer_stock_producto(identificador, cantidad_devolver):
-                            bebidas_repuestas += 1
-                            print(f"   ✅ Stock repuesto")
-                        else:
-                            print(f"   ⚠️  Advertencia: No se pudo reponer stock")
+                # Reponer stock solo para bebidas
+                if categoria.lower() == 'bebida':
+                    identificador = codigo if codigo and codigo.strip() else producto_nombre
+                    if reponer_stock_producto(identificador, cantidad_devolver):
+                        bebidas_repuestas += 1
 
-                    monto_total_devuelto += subtotal
-                    productos_procesados.append({
-                        'producto_id': item_factura.get('producto_id'),
-                        'codigo': codigo,
-                        'nombre': producto_nombre,
-                        'cantidad': cantidad_devolver,
-                        'precio_unitario': float(precio),
-                        'subtotal': float(subtotal),
-                        'categoria': categoria
-                    })
+                monto_total_devuelto += subtotal
+                productos_procesados.append({
+                    'producto_id':    producto_id_resuelto,
+                    'codigo':         codigo,
+                    'nombre':         producto_nombre,
+                    'cantidad':       cantidad_devolver,
+                    'precio':         float(precio),
+                    'precio_unitario': float(precio),
+                    'subtotal':       float(subtotal),
+                    'categoria':      categoria,
+                })
 
-                # Crear registro de devolución
-                Devolucion.objects.create(
+            # ── Detectar tipo de venta ─────────────────────────────────────
+            notas_pedido = (
+                factura.pedido.notas or '') if factura.pedido else ''
+            # hasattr(factura, 'cuenta_por_cobrar') siempre es True en Django
+            # porque el descriptor existe aunque no haya CxC. Usar try/except.
+            _tiene_cxc = False
+            try:
+                _ = factura.cuenta_por_cobrar
+                _tiene_cxc = True
+            except Exception:
+                _tiene_cxc = False
+            es_credito = (
+                ('TIPO_PAGO_PEDIDO=credito' in notas_pedido)
+                or _tiene_cxc
+                or factura.pagos_cxc.exists()
+            )
+
+            # ── CONTADO: límite al monto efectivamente cobrado ─────────────
+            if not es_credito:
+                # En contado normalmente no existen pagos CxC, por lo que
+                # get_total_pagado() sería 0 y bloquearía devoluciones válidas.
+                total_pagado = (
+                    factura.get_total_neto()
+                    if hasattr(factura, 'get_total_neto')
+                    else Decimal(str(factura.total or 0))
+                )
+                ya_devuelto = factura.get_total_devuelto()
+                monto_maximo = max(total_pagado - ya_devuelto, Decimal('0.00'))
+
+                if monto_maximo <= Decimal('0.00'):
+                    return JsonResponse(
+                        {'error': 'No hay monto disponible para devolver. El total ya fue devuelto.'},
+                        status=400
+                    )
+                if monto_total_devuelto > monto_maximo:
+                    monto_total_devuelto = monto_maximo
+
+            # ── Crear Devolucion + DetalleDevolucion ───────────────────────
+            devolucion = Devolucion.objects.create(
+                factura=factura,
+                tipo_devolucion='parcial',
+                productos_devueltos=productos_procesados,
+                monto_devuelto=monto_total_devuelto,
+                motivo='Devolución parcial procesada',
+                procesado_por=request.user,
+            )
+
+            for producto in productos_procesados:
+                DetalleDevolucion.objects.create(
+                    devolucion=devolucion,
+                    nombre_producto=str(producto.get('nombre') or 'Producto'),
+                    cantidad=Decimal(str(producto.get('cantidad', 0) or 0)),
+                    precio_unitario=Decimal(
+                        str(producto.get('precio_unitario', producto.get('precio', 0)) or 0)),
+                    monto=Decimal(str(producto.get('subtotal', 0) or 0)),
+                )
+
+            # ── Ajustar CxC si es crédito ──────────────────────────────────
+            if es_credito and _tiene_cxc:
+                cxc = factura.cuenta_por_cobrar
+                if cxc.estado not in ('pagada', 'anulada'):
+                    nuevo_saldo = max(
+                        cxc.saldo_pendiente - monto_total_devuelto,
+                        Decimal('0.00')
+                    )
+                    cxc.saldo_pendiente = nuevo_saldo
+                    cxc.estado = 'pagada' if nuevo_saldo <= Decimal(
+                        '0.00') else 'parcial'
+                    cxc.save(update_fields=['saldo_pendiente', 'estado'])
+
+            # ── Actualizar estado de la factura ────────────────────────────
+            if factura.estado in ['pagada', 'pendiente']:
+                factura.estado = 'parcialmente_devuelta'
+
+            if not factura.get_productos_disponibles_devolucion():
+                factura.estado = 'totalmente_devuelta'
+
+            factura.fecha_devolucion = timezone.now()
+            factura.save()
+
+            # Sincronizar movimientos financieros (para marcar INACTIVO si totalmente devuelta)
+            _sincronizar_movimientos_factura(factura)
+
+            # ── DECISIÓN FINANCIERA ────────────────────────────────────────
+            # CONTADO: sale dinero de caja y se devuelven los productos.
+            if not es_credito:
+                MovimientoFinanciero.objects.create(
+                    tipo='EGRESO',
+                    origen='DEVOLUCION',
+                    monto=monto_total_devuelto,
+                    fecha_operacion=timezone.now(),
                     factura=factura,
-                    tipo_devolucion='parcial',
-                    productos_devueltos=productos_procesados,
-                    monto_devuelto=monto_total_devuelto,
-                    motivo='Devolución parcial procesada',
-                    procesado_por=request.user
+                    devolucion=devolucion,
+                    metodo_pago=factura.metodo_pago,
+                    creado_por=request.user,
+                    descripcion=(
+                        f'Devolución de contado con egreso automático. '
+                        f'Factura: {factura.numero_factura}. '
+                        f'Monto: RD${monto_total_devuelto:.2f}.'
+                    ),
+                    referencia='DEVOLUCION_CONTADO_AUTOMATICA',
                 )
 
-                # Actualizar estado de factura
-                if factura.estado == 'pagada':
-                    factura.estado = 'parcialmente_devuelta'
+                return JsonResponse({
+                    'ok': True,
+                    'mensaje': (
+                        f'Devolución de contado procesada correctamente. '
+                        f'Se devolvió dinero por RD${monto_total_devuelto:.2f}. '
+                        f'Bebidas repuestas: {bebidas_repuestas}.'
+                    ),
+                    'numero_factura': factura.numero_factura,
+                    'bebidas_repuestas': bebidas_repuestas,
+                })
 
-                # Verificar si ya se devolvió todo
-                productos_disponibles = factura.get_productos_disponibles_devolucion()
-                if not productos_disponibles:
-                    factura.estado = 'totalmente_devuelta'
+            # CRÉDITO: calcular balance post-devolución
+            balance = factura.balance()
 
-                factura.fecha_devolucion = timezone.now()
-                factura.save()
+            if balance < Decimal('0.00'):
+                # Excedente: el cliente pagó más de lo que debe tras la devolución.
+                # El frontend pedirá la decisión (devolver dinero o saldo a favor).
+                cliente_para_saldo = None
+                try:
+                    if factura.cuenta_por_cobrar.cliente:
+                        cliente_para_saldo = factura.cuenta_por_cobrar.cliente
+                except Exception:
+                    pass
+                if not cliente_para_saldo:
+                    for cliente in Cliente.objects.all():
+                        if _cliente_coincide_con_factura(cliente, factura):
+                            cliente_para_saldo = cliente
+                            break
 
-                print(f"\n✅ DEVOLUCIÓN COMPLETADA")
-                print(f"   Bebidas repuestas: {bebidas_repuestas}")
-                print(f"   Monto: ${monto_total_devuelto}")
+                return JsonResponse({
+                    'requiere_decision': True,
+                    'tipo':             'excedente',
+                    'excedente':        float(abs(balance)),
+                    'devolucion_id':    devolucion.id,
+                    'factura_id':       factura.id,
+                    'puede_usar_saldo': bool(cliente_para_saldo),
+                    'bebidas_repuestas': bebidas_repuestas,
+                })
 
-                messages.success(
-                    request,
-                    f'✅ Devolución procesada: ${monto_total_devuelto:.2f}. Bebidas repuestas: {bebidas_repuestas}'
+            # CRÉDITO SIN EXCEDENTE: la deuda bajó, no sale dinero de caja.
+            # Se registra como AJUSTE para trazabilidad pero NO afecta el flujo de caja.
+            MovimientoFinanciero.objects.create(
+                tipo='EGRESO',
+                origen='AJUSTE',
+                monto=monto_total_devuelto,
+                fecha_operacion=timezone.now(),
+                factura=factura,
+                devolucion=devolucion,
+                metodo_pago=getattr(factura, 'metodo_pago', None),
+                creado_por=request.user,
+                descripcion=(
+                    f'Devolución de productos en venta a crédito. '
+                    f'Deuda reducida en RD${monto_total_devuelto:.2f}. '
+                    f'No representa salida de caja. '
+                    f'Factura: {factura.numero_factura}.'
+                ),
+                referencia='DEVOLUCION_CREDITO_AJUSTE',
+            )
+
+            return JsonResponse({
+                'ok':      True,
+                'mensaje': (
+                    f'Devolución procesada correctamente. '
+                    f'Monto ajustado en deuda: RD${monto_total_devuelto:.2f}. '
+                    f'Bebidas repuestas: {bebidas_repuestas}.'
+                ),
+                'numero_factura': factura.numero_factura,
+                'bebidas_repuestas': bebidas_repuestas,
+            })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': f'Error interno: {str(e)}'}, status=500)
+
+# ============================================================
+# RESOLVER EXCEDENTE DE DEVOLUCIÓN
+# ============================================================
+
+
+@login_required
+@require_POST
+def resolver_excedente_devolucion(request):
+    """
+    Segunda fase del flujo de devolución: ejecuta la decisión financiera
+    cuando la devolución generó dinero a favor del cliente.
+
+    Recibe JSON:
+        factura_id    (int)   — ID de la factura
+        devolucion_id (int)   — ID de la Devolucion ya creada
+        accion        (str)   — 'devolver' | 'saldo'
+        tipo          (str)   — 'contado'  | 'excedente'
+        monto         (float) — solo requerido cuando tipo == 'contado'
+
+    Acciones:
+        devolver → crea MovimientoFinanciero EGRESO (sale dinero de caja)
+        saldo    → crea SaldoAFavor (queda pendiente para el cliente)
+    """
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Body JSON inválido'}, status=400)
+
+    factura_id = body.get('factura_id')
+    devolucion_id = body.get('devolucion_id')
+    accion = body.get('accion', '')
+    tipo = body.get('tipo', '')
+
+    # ── Validaciones básicas ───────────────────────────────────────────────
+    if not factura_id or not devolucion_id:
+        return JsonResponse({'error': 'factura_id y devolucion_id son requeridos'}, status=400)
+
+    if accion not in ('devolver', 'saldo'):
+        return JsonResponse({'error': 'Acción inválida. Usa "devolver" o "saldo"'}, status=400)
+
+    if tipo not in ('contado', 'excedente'):
+        return JsonResponse({'error': 'Tipo inválido. Usa "contado" o "excedente"'}, status=400)
+
+    try:
+        with transaction.atomic():
+            factura = Factura.objects.select_for_update().get(id=factura_id)
+            devolucion = Devolucion.objects.get(
+                id=devolucion_id, factura=factura)
+
+            # ── Calcular monto a mover ─────────────────────────────────────
+            if tipo == 'contado':
+                # Para contado el monto viene explícito porque balance() no aplica
+                monto_raw = body.get('monto')
+                if monto_raw is None:
+                    return JsonResponse(
+                        {'error': 'monto es requerido para tipo contado'},
+                        status=400
+                    )
+                monto = Decimal(str(monto_raw))
+                if monto <= Decimal('0.00'):
+                    return JsonResponse({'error': 'El monto debe ser mayor a cero'}, status=400)
+                referencia = 'DEVOLUCION_CONTADO'
+
+            else:  # excedente
+                balance = factura.balance()
+                if balance >= Decimal('0.00'):
+                    return JsonResponse(
+                        {'error': 'No hay excedente en esta factura'},
+                        status=400
+                    )
+                monto = abs(balance)
+                referencia = 'EXCEDENTE_DEVOLUCION'
+
+            # ── Ejecutar acción elegida por el usuario ─────────────────────
+            if accion == 'devolver':
+                # Sale dinero de caja
+                movimiento = MovimientoFinanciero.objects.create(
+                    tipo='EGRESO',
+                    origen='DEVOLUCION',
+                    monto=monto,
+                    fecha_operacion=timezone.now(),
+                    factura=factura,
+                    devolucion=devolucion,
+                    metodo_pago=factura.metodo_pago,
+                    creado_por=request.user,
+                    descripcion=(
+                        f'Devolución de dinero al cliente. '
+                        f'Factura: {factura.numero_factura}. '
+                        f'Tipo: {tipo}. Monto: RD${monto}.'
+                    ),
+                    referencia=referencia,
                 )
+                mensaje = f'Egreso de RD${monto:.2f} registrado en caja.'
 
-                return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
+            else:  # saldo
+                # El dinero queda a favor del cliente, sin salir de caja
+                cliente_saldo = None
+                if hasattr(factura, 'cuenta_por_cobrar') and factura.cuenta_por_cobrar.cliente:
+                    cliente_saldo = factura.cuenta_por_cobrar.cliente
+                else:
+                    for cliente in Cliente.objects.all():
+                        if _cliente_coincide_con_factura(cliente, factura):
+                            cliente_saldo = cliente
+                            break
 
-        except Exception as e:
-            messages.error(request, f'❌ Error: {str(e)}')
-            import traceback
-            traceback.print_exc()
-            return redirect('anulacionydevolucion')
+                if not cliente_saldo:
+                    return JsonResponse(
+                        {
+                            'error': (
+                                'No se puede registrar saldo a favor porque la factura no tiene '
+                                'cliente vinculado. Usa "devolver" o vincula un cliente primero.'
+                            )
+                        },
+                        status=400
+                    )
 
-    return redirect('anulacionydevolucion')
+                SaldoAFavor.objects.create(
+                    cliente=cliente_saldo,
+                    factura_origen=factura,
+                    devolucion=devolucion,
+                    monto=monto,
+                    motivo=(
+                        'Devolución en efectivo convertida en saldo a favor'
+                        if tipo == 'contado'
+                        else 'Excedente por devolución en crédito'
+                    ),
+                    creado_por=request.user,
+                )
+                mensaje = f'Saldo a favor de RD${monto:.2f} registrado para el cliente.'
+
+            return JsonResponse({
+                'ok':             True,
+                'mensaje':        mensaje,
+                'numero_factura': factura.numero_factura,
+            })
+
+    except Factura.DoesNotExist:
+        return JsonResponse({'error': 'Factura no encontrada'}, status=404)
+    except Devolucion.DoesNotExist:
+        return JsonResponse({'error': 'Devolución no encontrada o no pertenece a esta factura'}, status=404)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': f'Error interno: {str(e)}'}, status=500)
 
 # ============================================================
 # ANULACIÓN DE FACTURA
@@ -7292,7 +7455,7 @@ def procesar_devolucion_parcial(request):
 
 @login_required
 def procesar_anulacion_factura(request):
-    """Procesar anulación de una factura (disminuir stock de bebidas)"""
+    """Procesar anulación de una factura con reposición de inventario y ajuste de pagos."""
     if request.method == 'POST':
         numero_factura = request.POST.get('numero_factura')
         motivo = request.POST.get('motivo', '')
@@ -7314,11 +7477,28 @@ def procesar_anulacion_factura(request):
             with transaction.atomic():
                 # Usar el método del modelo para obtener items
                 items = factura.get_items_detalle()
-                bebidas_disminuidas = 0
+                bebidas_repuestas = 0
+
+                notas_pedido = (
+                    factura.pedido.notas or '') if factura.pedido else ''
+                _tiene_cxc = False
+                try:
+                    _ = factura.cuenta_por_cobrar
+                    _tiene_cxc = True
+                except Exception:
+                    _tiene_cxc = False
+                es_credito = (
+                    ('TIPO_PAGO_PEDIDO=credito' in notas_pedido)
+                    or _tiene_cxc
+                    or factura.pagos_cxc.exists()
+                )
+
+                monto_devuelto = Decimal('0.00')
+                pagos_eliminados = 0
 
                 print(f"\n❌ PROCESANDO ANULACIÓN DE FACTURA")
 
-                # DISMINUIR stock para productos bebida
+                # REPONER stock para productos bebida
                 for item in items:
                     nombre = item.get('nombre', '')
                     codigo = item.get('codigo', '')
@@ -7333,23 +7513,137 @@ def procesar_anulacion_factura(request):
                         # Usar código si está disponible, sino usar nombre
                         identificador = codigo if codigo and codigo.strip() else nombre
                         print(
-                            f"   🍺 ES BEBIDA - Disminuyendo stock con: '{identificador}'")
+                            f"   🍺 ES BEBIDA - Reponiendo stock con: '{identificador}'")
 
-                        if disminuir_stock_producto(identificador, cantidad):
-                            bebidas_disminuidas += 1
-                            print(f"   ✅ Stock disminuido exitosamente")
+                        if reponer_stock_producto(identificador, cantidad):
+                            bebidas_repuestas += 1
+                            print(f"   ✅ Stock repuesto exitosamente")
+
+                # Ajustes financieros según tipo de venta
+                if es_credito:
+                    pagos_qs = factura.pagos_cxc.all()
+                    monto_devuelto = pagos_qs.aggregate(total=Sum('monto'))[
+                        'total'] or Decimal('0.00')
+                    pagos_eliminados = pagos_qs.count()
+                    if pagos_eliminados:
+                        pagos_qs.delete()
+
+                    try:
+                        cuenta = factura.cuenta_por_cobrar
+                        cuenta.estado = 'anulada'
+                        cuenta.saldo_pendiente = Decimal('0.00')
+                        cuenta.save(update_fields=[
+                                    'estado', 'saldo_pendiente'])
+                    except Exception:
+                        pass
+                else:
+                    # En contado se devuelve el total de la factura
+                    monto_devuelto = Decimal(str(factura.total or 0))
+
+                # Registrar devolución total por anulación y guardar detalle por renglón.
+                devolucion = Devolucion.objects.create(
+                    factura=factura,
+                    tipo_devolucion='total',
+                    productos_devueltos=items,
+                    monto_devuelto=monto_devuelto,
+                    motivo=motivo or 'Anulación de factura',
+                    procesado_por=request.user
+                )
+
+                for item in items:
+                    cantidad = Decimal(str(item.get('cantidad', 0) or 0))
+                    precio_unitario = Decimal(str(item.get('precio', 0) or 0))
+                    monto = cantidad * precio_unitario
+
+                    DetalleDevolucion.objects.create(
+                        devolucion=devolucion,
+                        nombre_producto=str(item.get('nombre') or 'Producto'),
+                        cantidad=cantidad,
+                        precio_unitario=precio_unitario,
+                        monto=monto,
+                    )
 
                 factura.estado = 'anulada'
                 factura.motivo_anulacion = motivo
+                factura.fecha_anulacion = timezone.now()
+                factura.usuario_anulacion = request.user
                 factura.fecha_devolucion = timezone.now()
-                factura.save()
+                factura.save(update_fields=[
+                    'estado',
+                    'motivo_anulacion',
+                    'fecha_anulacion',
+                    'usuario_anulacion',
+                    'fecha_devolucion',
+                ])
+
+                # Sincronizar movimientos financieros (marca INACTIVO los originales)
+                _sincronizar_movimientos_factura(factura)
+
+                # Registrar egreso financiero por anulación.
+                # REGLA: solo se genera un egreso real de caja si hubo un ingreso
+                # real previo. Anular una factura "pendiente" (nunca cobrada) no
+                # mueve dinero, por lo que NO debe registrarse ningún egreso.
+                #
+                #  · Contado  → verificar que exista un MovimientoFinanciero de
+                #               INGRESO/VENTA vinculado a esta factura.
+                #  · Crédito  → el egreso equivale a los pagos CxC eliminados;
+                #               solo aplica si efectivamente se eliminaron pagos.
+                if monto_devuelto > 0:
+                    _registrar_egreso = False
+
+                    if es_credito:
+                        # Solo si se eliminaron pagos ya cobrados
+                        _registrar_egreso = pagos_eliminados > 0
+                    else:
+                        # Contado: solo si la factura tenía un ingreso registrado
+                        # (es decir, ya había sido cobrada antes de la anulación)
+                        _registrar_egreso = MovimientoFinanciero.objects.filter(
+                            factura=factura,
+                            tipo='INGRESO',
+                            origen='VENTA',
+                        ).exists()
+
+                    if _registrar_egreso:
+                        referencia_anulacion = 'ANULACION_CREDITO' if es_credito else 'ANULACION_CONTADO'
+                        MovimientoFinanciero.objects.create(
+                            tipo="EGRESO",
+                            origen="ANULACION",
+                            referencia=referencia_anulacion,
+                            monto=monto_devuelto,
+                            fecha_operacion=timezone.now(),
+                            factura=factura,
+                            devolucion=devolucion,
+                            metodo_pago=factura.metodo_pago,
+                            creado_por=request.user,
+                            descripcion=(
+                                f"Anulación factura {factura.numero_factura}. "
+                                f"Motivo: {motivo or 'Sin motivo'}. "
+                                + (f"Pagos CxC eliminados: {pagos_eliminados}." if es_credito else "")
+                            ),
+                        )
+
+                # Cerrar el ciclo en este mismo flujo: evitar que reaparezca en gestión/facturación.
+                if factura.pedido:
+                    factura.pedido.estado = 'cancelado'
+                    factura.pedido.save(update_fields=['estado'])
+                    if factura.pedido.mesa:
+                        factura.pedido.mesa.estado = 'disponible'
+                        factura.pedido.mesa.save(update_fields=['estado'])
 
                 print(f"\n✅ ANULACIÓN COMPLETADA")
-                print(f"   Bebidas ajustadas: {bebidas_disminuidas}")
+                print(f"   Bebidas repuestas: {bebidas_repuestas}")
+                print(f"   Monto devuelto: {monto_devuelto}")
+                if es_credito:
+                    print(f"   Pagos CxC eliminados: {pagos_eliminados}")
 
                 messages.success(
                     request,
-                    f'✅ Factura {factura.numero_factura} anulada. Bebidas ajustadas: {bebidas_disminuidas}'
+                    (
+                        f'✅ Factura {factura.numero_factura} anulada. '
+                        f'Bebidas repuestas: {bebidas_repuestas}. '
+                        f'Monto devuelto: ${monto_devuelto:.2f}.'
+                        + (f' Pagos eliminados: {pagos_eliminados}.' if es_credito else '')
+                    )
                 )
 
                 return redirect(f'{reverse("anulacionydevolucion")}?numero_factura={factura.numero_factura}')
@@ -7363,9 +7657,9 @@ def procesar_anulacion_factura(request):
     return redirect('anulacionydevolucion')
 
 
-
-
-
+# ==========================================================================================================
+#
+# ==========================================================================================================
 def gestiondeclientes(request):
     """Vista para gestión/listado de clientes con filtros y paginación."""
     tz_rd = pytz.timezone('America/Santo_Domingo')
@@ -7394,20 +7688,25 @@ def gestiondeclientes(request):
 
     if fecha:
         # Filtro por rangos de fecha-hora en zona RD para evitar desfases por timezone.
-        inicio_hoy = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        inicio_hoy = ahora_local.replace(
+            hour=0, minute=0, second=0, microsecond=0)
         fin_hoy = inicio_hoy + timedelta(days=1)
         inicio_mes_actual = inicio_hoy.replace(day=1)
 
         if fecha == 'hoy':
-            clientes_qs = clientes_qs.filter(fecha_registro__gte=inicio_hoy, fecha_registro__lt=fin_hoy)
+            clientes_qs = clientes_qs.filter(
+                fecha_registro__gte=inicio_hoy, fecha_registro__lt=fin_hoy)
         elif fecha == 'ayer':
             inicio_ayer = inicio_hoy - timedelta(days=1)
-            clientes_qs = clientes_qs.filter(fecha_registro__gte=inicio_ayer, fecha_registro__lt=inicio_hoy)
+            clientes_qs = clientes_qs.filter(
+                fecha_registro__gte=inicio_ayer, fecha_registro__lt=inicio_hoy)
         elif fecha in ['semana', 'semana_actual']:
             inicio_semana = inicio_hoy - timedelta(days=ahora_local.weekday())
-            clientes_qs = clientes_qs.filter(fecha_registro__gte=inicio_semana, fecha_registro__lt=fin_hoy)
+            clientes_qs = clientes_qs.filter(
+                fecha_registro__gte=inicio_semana, fecha_registro__lt=fin_hoy)
         elif fecha in ['mes', 'este_mes']:
-            clientes_qs = clientes_qs.filter(fecha_registro__gte=inicio_mes_actual, fecha_registro__lt=fin_hoy)
+            clientes_qs = clientes_qs.filter(
+                fecha_registro__gte=inicio_mes_actual, fecha_registro__lt=fin_hoy)
 
     sort_map = {
         'nombre': 'nombre_completo',
@@ -7418,16 +7717,19 @@ def gestiondeclientes(request):
         'credito_desc': '-limite_credito',
         'credito_asc': 'limite_credito',
     }
-    clientes_qs = clientes_qs.order_by(sort_map.get(sort_by, 'nombre_completo'))
+    clientes_qs = clientes_qs.order_by(
+        sort_map.get(sort_by, 'nombre_completo'))
 
-    facturas_pendientes = list(Factura.objects.filter(estado='pendiente').prefetch_related('pagos_cxc'))
+    facturas_pendientes = list(Factura.objects.filter(
+        estado='pendiente').prefetch_related('pagos_cxc'))
 
     # Filtros que dependen de cálculo de saldo real.
     if credito in ('agotado', 'excedido'):
         clientes_filtrados = []
         for cliente in clientes_qs:
             limite = cliente.limite_credito or Decimal('0.00')
-            saldo_actual = _calcular_saldo_credito_cliente(cliente, facturas_pendientes)
+            saldo_actual = _calcular_saldo_credito_cliente(
+                cliente, facturas_pendientes)
             saldo_disponible = limite - saldo_actual
 
             # Reutilizable por la tabla sin recalcular durante el render de la página.
@@ -7449,7 +7751,8 @@ def gestiondeclientes(request):
 
     for cliente in page_obj.object_list:
         limite = cliente.limite_credito or Decimal('0.00')
-        saldo_actual = _calcular_saldo_credito_cliente(cliente, facturas_pendientes)
+        saldo_actual = _calcular_saldo_credito_cliente(
+            cliente, facturas_pendientes)
         cliente.saldo_actual = saldo_actual
         cliente.saldo_disponible = limite - saldo_actual
 
@@ -7485,7 +7788,7 @@ def _estadisticas_clientes():
     return {
         'total_clientes': Cliente.objects.count(),
         'clientes_activos': Cliente.objects.filter(activo=True).count(),
-       'credito_total': Cliente.objects.aggregate(total=Coalesce(Sum('limite_credito'), Decimal('0.00'), output_field=DecimalField()))['total'],
+        'credito_total': Cliente.objects.aggregate(total=Coalesce(Sum('limite_credito'), Decimal('0.00'), output_field=DecimalField()))['total'],
         'clientes_hoy': Cliente.objects.filter(fecha_registro__gte=inicio_hoy, fecha_registro__lt=fin_hoy).count(),
     }
 
@@ -7494,6 +7797,11 @@ def _cliente_json(cliente):
     limite_credito = cliente.limite_credito or Decimal('0.00')
     saldo_actual = _calcular_saldo_credito_cliente(cliente)
     saldo_disponible = limite_credito - saldo_actual
+    dinero_fondo = SaldoAFavor.objects.filter(
+        cliente=cliente,
+        estado='pendiente',
+        activo=True
+    ).aggregate(total=Sum('monto')).get('total') or Decimal('0.00')
 
     return {
         'id': cliente.id,
@@ -7510,6 +7818,7 @@ def _cliente_json(cliente):
         'activo': cliente.activo,
         'saldo_actual': float(saldo_actual),
         'saldo_disponible': float(saldo_disponible),
+        'dinero_fondo': float(dinero_fondo),
         'fecha_registro': cliente.fecha_registro.isoformat() if cliente.fecha_registro else None,
         'fecha_actualizacion': cliente.fecha_actualizacion.isoformat() if cliente.fecha_actualizacion else None,
         'usuario_registro': (cliente.registrado_por.username if getattr(cliente, 'registrado_por', None) else 'Sistema'),
@@ -7536,16 +7845,20 @@ def editar_cliente(request, cliente_id):
         cedula = (request.POST.get('cedula') or '').strip()
         nombre_completo = (request.POST.get('nombre_completo') or '').strip()
         direccion = (request.POST.get('direccion') or '').strip()
-        telefono_principal = (request.POST.get('telefono_principal') or '').strip()
-        telefono_alternativo = (request.POST.get('telefono_alternativo') or '').strip()
-        limite_credito_str = (request.POST.get('limite_credito') or '0').strip()
+        telefono_principal = (request.POST.get(
+            'telefono_principal') or '').strip()
+        telefono_alternativo = (request.POST.get(
+            'telefono_alternativo') or '').strip()
+        limite_credito_str = (request.POST.get(
+            'limite_credito') or '0').strip()
         dias_credito_str = (request.POST.get('dias_credito') or '30').strip()
         notas_credito = (request.POST.get('notas_credito') or '').strip()
         activo_str = (request.POST.get('activo') or 'true').strip().lower()
 
         cedula_limpia = ''.join(filter(str.isdigit, cedula))
         tel_principal_limpio = ''.join(filter(str.isdigit, telefono_principal))
-        tel_alt_limpio = ''.join(filter(str.isdigit, telefono_alternativo)) if telefono_alternativo else ''
+        tel_alt_limpio = ''.join(
+            filter(str.isdigit, telefono_alternativo)) if telefono_alternativo else ''
 
         if len(cedula_limpia) != 11:
             return JsonResponse({'success': False, 'error': 'La cédula debe tener exactamente 11 dígitos'})
@@ -7622,7 +7935,8 @@ def historial_cliente(request, cliente_id):
 
     cliente = get_object_or_404(Cliente, pk=cliente_id)
 
-    filtros = Q(nombre_cliente__iexact=cliente.nombre_completo) | Q(telefono_cliente=cliente.telefono_principal)
+    filtros = Q(nombre_cliente__iexact=cliente.nombre_completo) | Q(
+        telefono_cliente=cliente.telefono_principal)
     if cliente.telefono_alternativo:
         filtros |= Q(telefono_cliente=cliente.telefono_alternativo)
 
@@ -7662,30 +7976,30 @@ def reporte_clientes_pdf(request):
     """
 
     # ── Paleta ────────────────────────────────────────────────────────────────
-    GRIS_OSCURO  = colors.HexColor('#2C3E50')
-    GRIS_MEDIO   = colors.HexColor('#5D6D7E')
-    GRIS_CLARO   = colors.HexColor('#ECF0F1')
-    GRIS_BORDE   = colors.HexColor('#BDC3C7')
-    ACENTO       = colors.HexColor('#4A90A4')
+    GRIS_OSCURO = colors.HexColor('#2C3E50')
+    GRIS_MEDIO = colors.HexColor('#5D6D7E')
+    GRIS_CLARO = colors.HexColor('#ECF0F1')
+    GRIS_BORDE = colors.HexColor('#BDC3C7')
+    ACENTO = colors.HexColor('#4A90A4')
     ACENTO_CLARO = colors.HexColor('#EAF4F7')
-    VERDE        = colors.HexColor('#27AE60')
-    VERDE_CLR    = colors.HexColor('#EAFAF1')
-    ROJO         = colors.HexColor('#C0392B')
-    ROJO_CLR     = colors.HexColor('#FDEDEC')
-    AMARILLO     = colors.HexColor('#D4A017')
+    VERDE = colors.HexColor('#27AE60')
+    VERDE_CLR = colors.HexColor('#EAFAF1')
+    ROJO = colors.HexColor('#C0392B')
+    ROJO_CLR = colors.HexColor('#FDEDEC')
+    AMARILLO = colors.HexColor('#D4A017')
     AMARILLO_CLR = colors.HexColor('#FEF9E7')
-    BLANCO       = colors.white
+    BLANCO = colors.white
 
     # ── Filtros ───────────────────────────────────────────────────────────────
-    search  = request.GET.get('search',  '').strip()
-    estado  = request.GET.get('estado',  '')
+    search = request.GET.get('search',  '').strip()
+    estado = request.GET.get('estado',  '')
     credito = request.GET.get('credito', '')
 
     qs = Cliente.objects.all().order_by('nombre_completo')
     if search:
         qs = qs.filter(
             Q(nombre_completo__icontains=search) |
-            Q(cedula__icontains=search)           |
+            Q(cedula__icontains=search) |
             Q(telefono_principal__icontains=search)
         )
     if estado == 'activo':
@@ -7701,10 +8015,10 @@ def reporte_clientes_pdf(request):
 
     # ── Estadísticas ──────────────────────────────────────────────────────────
     total_clientes = len(clientes)
-    activos        = sum(1 for c in clientes if c.activo)
-    inactivos      = total_clientes - activos
-    con_credito    = sum(1 for c in clientes if float(c.limite_credito or 0) > 0)
-    credito_total  = sum(float(c.limite_credito or 0) for c in clientes)
+    activos = sum(1 for c in clientes if c.activo)
+    inactivos = total_clientes - activos
+    con_credito = sum(1 for c in clientes if float(c.limite_credito or 0) > 0)
+    credito_total = sum(float(c.limite_credito or 0) for c in clientes)
 
     # ── Buffer y documento ────────────────────────────────────────────────────
     buffer = io.BytesIO()
@@ -7721,24 +8035,29 @@ def reporte_clientes_pdf(request):
         base = kw.pop('parent', styles['Normal'])
         return ParagraphStyle(name, parent=base, **kw)
 
-    bold_sty   = sty('ecB',  fontName='Helvetica-Bold', fontSize=9)
-    cell_sty   = sty('ecC',  fontSize=8,  leading=11)
-    cell_b_sty = sty('ecCB', fontSize=8,  leading=11, fontName='Helvetica-Bold', textColor=GRIS_OSCURO)
+    bold_sty = sty('ecB',  fontName='Helvetica-Bold', fontSize=9)
+    cell_sty = sty('ecC',  fontSize=8,  leading=11)
+    cell_b_sty = sty('ecCB', fontSize=8,  leading=11,
+                     fontName='Helvetica-Bold', textColor=GRIS_OSCURO)
     cell_d_sty = sty('ecCD', fontSize=8,  leading=11, textColor=GRIS_OSCURO)
-    hdr_sty    = sty('ecH',  fontSize=8,  leading=10, fontName='Helvetica-Bold', alignment=1, textColor=BLANCO)
-    small_sty  = sty('ecSM', fontSize=8)
+    hdr_sty = sty('ecH',  fontSize=8,  leading=10,
+                  fontName='Helvetica-Bold', alignment=1, textColor=BLANCO)
+    small_sty = sty('ecSM', fontSize=8)
 
     story = []
 
     # ── Logo ──────────────────────────────────────────────────────────────────
     try:
-        logo_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        logo_path = os.path.join(
+            settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
         if not os.path.exists(logo_path):
-            logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+            logo_path = os.path.join(
+                settings.BASE_DIR, 'static', 'img', 'fastfood.png')
         if os.path.exists(logo_path):
             logo = Image(logo_path, width=30*mm, height=30*mm)
             logo_table = Table([[logo]], colWidths=[doc.width])
-            logo_table.setStyle(TableStyle([('ALIGN', (0,0), (0,0), 'CENTER')]))
+            logo_table.setStyle(TableStyle(
+                [('ALIGN', (0, 0), (0, 0), 'CENTER')]))
             story.append(logo_table)
             story.append(Spacer(1, 4))
     except Exception:
@@ -7760,13 +8079,13 @@ def reporte_clientes_pdf(request):
     ]]
     thdr = Table(hdr_data, colWidths=[ancho*0.27, ancho*0.46, ancho*0.27])
     thdr.setStyle(TableStyle([
-        ('BACKGROUND',    (0,0), (-1,0), GRIS_OSCURO),
-        ('VALIGN',        (0,0), (-1,0), 'MIDDLE'),
-        ('TOPPADDING',    (0,0), (-1,0), 12),
-        ('BOTTOMPADDING', (0,0), (-1,0), 12),
-        ('LEFTPADDING',   (0,0), (0,0),  10),
-        ('RIGHTPADDING',  (-1,0),(-1,0), 10),
-        ('LINEAFTER',     (0,0), (0,0),  4, ACENTO),
+        ('BACKGROUND',    (0, 0), (-1, 0), GRIS_OSCURO),
+        ('VALIGN',        (0, 0), (-1, 0), 'MIDDLE'),
+        ('TOPPADDING',    (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('LEFTPADDING',   (0, 0), (0, 0),  10),
+        ('RIGHTPADDING',  (-1, 0), (-1, 0), 10),
+        ('LINEAFTER',     (0, 0), (0, 0),  4, ACENTO),
     ]))
     story.append(thdr)
     story.append(Spacer(1, 7))
@@ -7776,39 +8095,43 @@ def reporte_clientes_pdf(request):
     # ══════════════════════════════════════════════════════════════════════════
     card_defs = [
         ('TOTAL\nCLIENTES',    str(total_clientes),          GRIS_OSCURO, GRIS_CLARO),
-        ('ACTIVOS',            str(activos),                  VERDE,       VERDE_CLR),
+        ('ACTIVOS',            str(activos),
+         VERDE,       VERDE_CLR),
         ('INACTIVOS',          str(inactivos),                ROJO,        ROJO_CLR),
-        ('CON\nCRÉDITO',      str(con_credito),              ACENTO,      ACENTO_CLARO),
-        ('CRÉDITO\nOTORGADO', f'RD$ {credito_total:,.0f}',  AMARILLO,    AMARILLO_CLR),
+        ('CON\nCRÉDITO',      str(con_credito),
+         ACENTO,      ACENTO_CLARO),
+        ('CRÉDITO\nOTORGADO',
+         f'RD$ {credito_total:,.0f}',  AMARILLO,    AMARILLO_CLR),
     ]
     card_w = ancho / 5
     card_cells = []
-    card_bgs   = []
+    card_bgs = []
     for lbl, val, vc, bg in card_defs:
         inner = Table(
             [[Paragraph(lbl, sty(f'ecCL{lbl[:3]}', fontSize=7, fontName='Helvetica-Bold',
-                                  textColor=GRIS_MEDIO, alignment=1, leading=9))],
+                                 textColor=GRIS_MEDIO, alignment=1, leading=9))],
              [Paragraph(val, sty(f'ecCV{lbl[:3]}', fontSize=15, fontName='Helvetica-Bold',
-                                  textColor=vc, alignment=1))]],
+                                 textColor=vc, alignment=1))]],
             colWidths=[card_w - 4*mm],
         )
         inner.setStyle(TableStyle([
-            ('TOPPADDING',    (0,0), (-1,-1), 7),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 7),
+            ('TOPPADDING',    (0, 0), (-1, -1), 7),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
         ]))
         card_cells.append(inner)
         card_bgs.append(bg)
 
     tcards = Table([card_cells], colWidths=[card_w]*5)
     card_ts = [
-        ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING',    (0,0), (-1,-1), 0),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-        ('LEFTPADDING',   (0,0), (-1,-1), 2),
-        ('RIGHTPADDING',  (0,0), (-1,-1), 2),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',    (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 2),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 2),
     ]
     for i, bg in enumerate(card_bgs):
-        card_ts += [('BACKGROUND', (i,0),(i,0), bg), ('BOX', (i,0),(i,0), 0.5, GRIS_BORDE)]
+        card_ts += [('BACKGROUND', (i, 0), (i, 0), bg),
+                    ('BOX', (i, 0), (i, 0), 0.5, GRIS_BORDE)]
     tcards.setStyle(TableStyle(card_ts))
     story.append(tcards)
     story.append(Spacer(1, 11))
@@ -7828,23 +8151,23 @@ def reporte_clientes_pdf(request):
 
         # Límite crédito (sin redundar días plazo)
         if float(c.limite_credito or 0) > 0:
-            cred_txt   = f'RD$ {float(c.limite_credito):,.2f}'
+            cred_txt = f'RD$ {float(c.limite_credito):,.2f}'
             cred_color = ACENTO
         else:
-            cred_txt   = 'Sin crédito'
+            cred_txt = 'Sin crédito'
             cred_color = GRIS_MEDIO
 
         # Días
         if int(c.dias_credito or 0) > 0:
-            dias_txt   = f'{c.dias_credito}d.'
+            dias_txt = f'{c.dias_credito}d.'
             dias_color = ACENTO
         else:
-            dias_txt   = 'Cont.'
+            dias_txt = 'Cont.'
             dias_color = GRIS_MEDIO
 
         # Estado
-        est_txt   = 'Activo'  if c.activo else 'Inactivo'
-        est_color = VERDE     if c.activo else ROJO
+        est_txt = 'Activo' if c.activo else 'Inactivo'
+        est_color = VERDE if c.activo else ROJO
 
         # Teléfono(s)
         tel_txt = c.telefono_principal or '-'
@@ -7867,8 +8190,10 @@ def reporte_clientes_pdf(request):
             Paragraph(est_txt,  sty(f'ecE{ri}',  fontSize=8, fontName='Helvetica-Bold',
                                     textColor=est_color,  alignment=1)),
             Paragraph(
-                c.fecha_registro.strftime('%d/%m/%Y') if c.fecha_registro else '-',
-                sty(f'ecR{ri}', fontSize=6.5, alignment=1, textColor=GRIS_MEDIO)
+                c.fecha_registro.strftime(
+                    '%d/%m/%Y') if c.fecha_registro else '-',
+                sty(f'ecR{ri}', fontSize=6.5,
+                    alignment=1, textColor=GRIS_MEDIO)
             ),
         ]
         data.append(fila)
@@ -7879,19 +8204,19 @@ def reporte_clientes_pdf(request):
             bg_row = ROJO_CLR if idx % 2 == 0 else colors.HexColor('#FDF2F0')
 
         row_styles += [
-            ('BACKGROUND', (0,ri), (-1,ri), bg_row),
-            ('LINEBELOW',  (0,ri), (-1,ri), 0.3, GRIS_BORDE),
+            ('BACKGROUND', (0, ri), (-1, ri), bg_row),
+            ('LINEBELOW',  (0, ri), (-1, ri), 0.3, GRIS_BORDE),
         ]
 
     tclientes = Table(data, colWidths=CW, repeatRows=1)
     tclientes.setStyle(TableStyle([
-        ('BACKGROUND',    (0,0), (-1,0), GRIS_OSCURO),
-        ('ALIGN',         (0,0), (-1,0), 'CENTER'),
-        ('VALIGN',        (0,0), (-1,-1),'MIDDLE'),
-        ('TOPPADDING',    (0,0), (-1,-1), 5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-        ('LEFTPADDING',   (0,0), (-1,-1), 3),
-        ('RIGHTPADDING',  (0,0), (-1,-1), 3),
+        ('BACKGROUND',    (0, 0), (-1, 0), GRIS_OSCURO),
+        ('ALIGN',         (0, 0), (-1, 0), 'CENTER'),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',    (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 3),
     ] + row_styles))
 
     story.append(Paragraph('<b>LISTADO DE CLIENTES</b>', bold_sty))
@@ -7916,9 +8241,9 @@ def reporte_clientes_pdf(request):
     ]]
     tpie = Table(pie_data, colWidths=[ancho*0.33]*3)
     tpie.setStyle(TableStyle([
-        ('LINEABOVE',     (0,0), (-1,0), 0.5, GRIS_BORDE),
-        ('TOPPADDING',    (0,0), (-1,0), 6),
-        ('VALIGN',        (0,0), (-1,0), 'MIDDLE'),
+        ('LINEABOVE',     (0, 0), (-1, 0), 0.5, GRIS_BORDE),
+        ('TOPPADDING',    (0, 0), (-1, 0), 6),
+        ('VALIGN',        (0, 0), (-1, 0), 'MIDDLE'),
     ]))
     story.append(tpie)
     story.append(Spacer(1, 5))
@@ -7942,8 +8267,6 @@ def reporte_clientes_pdf(request):
     return response
 
 
-
-
 def registrodeclientes(request):
     """Vista para el registro de clientes"""
     # Si es POST y es AJAX
@@ -7953,35 +8276,37 @@ def registrodeclientes(request):
             cedula = request.POST.get('cedula', '').strip()
             nombre_completo = request.POST.get('nombre_completo', '').strip()
             direccion = request.POST.get('direccion', '').strip()
-            telefono_principal = request.POST.get('telefono_principal', '').strip()
-            telefono_alternativo = request.POST.get('telefono_alternativo', '').strip()
-            
+            telefono_principal = request.POST.get(
+                'telefono_principal', '').strip()
+            telefono_alternativo = request.POST.get(
+                'telefono_alternativo', '').strip()
+
             # Obtener valores numéricos
             limite_credito = request.POST.get('limite_credito', '0')
             dias_credito = request.POST.get('dias_credito', '30')
-            
+
             # Convertir a tipos correctos
             try:
                 limite_credito_decimal = Decimal(limite_credito)
             except:
                 limite_credito_decimal = Decimal('0.00')
-            
+
             try:
                 dias_credito_int = int(dias_credito)
             except:
                 dias_credito_int = 30
-                
+
             notas_credito = request.POST.get('notas_credito', '').strip()
-            
+
             # === VALIDACIONES DEL BACKEND ===
-            
+
             # Validar cédula
             if not cedula:
                 return JsonResponse({
                     'success': False,
                     'error': 'La cédula es requerida'
                 })
-            
+
             # Limpiar cédula (solo números)
             cedula_limpia = ''.join(filter(str.isdigit, cedula))
             if len(cedula_limpia) != 11:
@@ -7989,32 +8314,34 @@ def registrodeclientes(request):
                     'success': False,
                     'error': 'La cédula debe tener exactamente 11 dígitos'
                 })
-            
+
             # Validar nombre
             if not nombre_completo or len(nombre_completo) < 5:
                 return JsonResponse({
                     'success': False,
                     'error': 'El nombre debe tener al menos 5 caracteres'
                 })
-            
+
             # Validar dirección
             if not direccion or len(direccion) < 10:
                 return JsonResponse({
                     'success': False,
                     'error': 'La dirección debe tener al menos 10 caracteres'
                 })
-            
+
             # Validar teléfono principal
-            telefono_principal_limpio = ''.join(filter(str.isdigit, telefono_principal))
+            telefono_principal_limpio = ''.join(
+                filter(str.isdigit, telefono_principal))
             if not telefono_principal_limpio or len(telefono_principal_limpio) != 10:
                 return JsonResponse({
                     'success': False,
                     'error': 'El teléfono principal debe tener 10 dígitos'
                 })
-            
+
             # Validar teléfono alternativo si existe
             if telefono_alternativo:
-                telefono_alt_limpio = ''.join(filter(str.isdigit, telefono_alternativo))
+                telefono_alt_limpio = ''.join(
+                    filter(str.isdigit, telefono_alternativo))
                 if telefono_alt_limpio and len(telefono_alt_limpio) != 10:
                     return JsonResponse({
                         'success': False,
@@ -8023,40 +8350,40 @@ def registrodeclientes(request):
                 telefono_alternativo = telefono_alt_limpio
             else:
                 telefono_alternativo = None
-            
+
             # Validar límite de crédito
             if limite_credito_decimal < 0:
                 return JsonResponse({
                     'success': False,
                     'error': 'El límite de crédito no puede ser negativo'
                 })
-            
+
             if limite_credito_decimal > 1000000:
                 return JsonResponse({
                     'success': False,
                     'error': 'El límite de crédito máximo es $1,000,000'
                 })
-            
+
             # Validar días de crédito
             if dias_credito_int < 0:
                 return JsonResponse({
                     'success': False,
                     'error': 'Los días de crédito no pueden ser negativos'
                 })
-            
+
             if dias_credito_int > 365:
                 return JsonResponse({
                     'success': False,
                     'error': 'Los días de crédito máximo son 365'
                 })
-            
+
             # Verificar si la cédula ya existe
             if Cliente.objects.filter(cedula=cedula_limpia).exists():
                 return JsonResponse({
                     'success': False,
                     'error': f'Ya existe un cliente con la cédula {cedula_limpia}'
                 })
-            
+
             # === CREAR CLIENTE ===
             cliente = Cliente.objects.create(
                 cedula=cedula_limpia,
@@ -8069,7 +8396,7 @@ def registrodeclientes(request):
                 notas_credito=notas_credito if notas_credito else None,
                 registrado_por=request.user if request.user.is_authenticated else None
             )
-            
+
             # Respuesta exitosa
             return JsonResponse({
                 'success': True,
@@ -8082,7 +8409,7 @@ def registrodeclientes(request):
                     'dias_credito': cliente.dias_credito
                 }
             })
-            
+
         except IntegrityError as e:
             return JsonResponse({
                 'success': False,
@@ -8093,7 +8420,7 @@ def registrodeclientes(request):
                 'success': False,
                 'error': f'Error inesperado: {str(e)}'
             })
-    
+
     # Si es GET, mostrar el formulario
     return render(request, 'facturacion/registrodeclientes.html')
 
@@ -8124,12 +8451,279 @@ def _cliente_coincide_con_factura(cliente, factura):
     return bool(nombre_cliente and nombre_factura and nombre_cliente == nombre_factura)
 
 
+def _factura_es_credito(factura):
+    """Determina si una factura pertenece al flujo de crédito."""
+    notas_pedido = (factura.pedido.notas or '') if getattr(
+        factura, 'pedido', None) else ''
+    return (
+        ('TIPO_PAGO_PEDIDO=credito' in notas_pedido)
+        or hasattr(factura, 'cuenta_por_cobrar')
+        or factura.pagos_cxc.exists()
+    )
+
+
+def _calcular_saldo_factura_cxc(factura):
+    """Saldo real de una factura: ventas - devoluciones - pagos, con piso en cero."""
+    total_factura = factura.get_total_neto() if hasattr(
+        factura, 'get_total_neto') else Decimal(str(factura.total or 0))
+    total_pagado = PagoCuentaCobrar.objects.filter(
+        factura=factura
+    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    total_devuelto = factura.get_total_devuelto() if hasattr(
+        factura, 'get_total_devuelto') else Decimal('0.00')
+
+    saldo = total_factura - total_devuelto - total_pagado
+    return saldo if saldo > Decimal('0.00') else Decimal('0.00')
+
+
+def _resumen_movimientos_caja(inicio, fin):
+    """
+    Resume el movimiento real de caja en un rango de fechas.
+    Fuente única de verdad: MovimientoFinanciero.
+
+    PERFORMANCE MEJORADO (v2):
+    - Eliminada query secundaria de crédito usando __contains (full table scan)
+    - Ahora usa el campo tipo_pago en Factura para detectar crédito (indexado)
+    - Reducción de 2 queries a 1 para resumen de caja
+    - Llamada 4 veces por request → de ~12-16 queries a 4
+    """
+    from django.db.models import Sum, Count, Case, When, IntegerField, Q, Exists, OuterRef
+    from django.db.models import DecimalField as DField
+    from django.db.models.functions import Coalesce
+    from django.utils import timezone
+    from decimal import Decimal
+
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+
+    if timezone.is_naive(inicio):
+        inicio = tz_rd.localize(inicio)
+    if timezone.is_naive(fin):
+        fin = tz_rd.localize(fin)
+
+    inicio = inicio.astimezone(tz_rd)
+    fin = fin.astimezone(tz_rd)
+
+    # ── Query única con Case/When — 1 round-trip al DB ────────────────────
+    _Z = Decimal('0.00')
+    _D = DField()
+    _I = IntegerField()
+
+    # ─ NUEVO: usar tipo_pago en Factura para distinguir crédito (indexado)
+    agg = MovimientoFinanciero.objects.filter(
+        fecha_operacion__gte=inicio,
+        fecha_operacion__lt=fin,
+        estado='ACTIVO',
+    ).aggregate(
+        # INGRESO/VENTA contado — usa tipo_pago indexado
+        _iv_contado_total=Coalesce(Sum(Case(
+            When(tipo='INGRESO', origen='VENTA',
+                 factura__tipo_pago='contado', then='monto'),
+            default=_Z, output_field=_D,
+        )), _Z),
+        _iv_contado_count=Coalesce(Sum(Case(
+            When(tipo='INGRESO', origen='VENTA',
+                 factura__tipo_pago='contado', then=1),
+            default=0, output_field=_I,
+        )), 0),
+        # INGRESO/VENTA crédito — usa tipo_pago indexado
+        _iv_credito_total=Coalesce(Sum(Case(
+            When(tipo='INGRESO', origen='VENTA',
+                 factura__tipo_pago='credito', then='monto'),
+            default=_Z, output_field=_D,
+        )), _Z),
+        _iv_credito_count=Coalesce(Sum(Case(
+            When(tipo='INGRESO', origen='VENTA',
+                 factura__tipo_pago='credito', then=1),
+            default=0, output_field=_I,
+        )), 0),
+        # INGRESO/PAGO_CXC
+        _ip_total=Coalesce(Sum(Case(
+            When(tipo='INGRESO', origen='PAGO_CXC', then='monto'),
+            default=_Z, output_field=_D,
+        )), _Z),
+        _ip_count=Coalesce(Sum(Case(
+            When(tipo='INGRESO', origen='PAGO_CXC', then=1),
+            default=0, output_field=_I,
+        )), 0),
+        # EGRESO/DEVOLUCION contado (excluye excedente)
+        _edc_total=Coalesce(Sum(Case(
+            When(tipo='EGRESO', origen='DEVOLUCION', then=Case(
+                When(referencia='EXCEDENTE_DEVOLUCION', then=_Z),
+                default='monto', output_field=_D,
+            )),
+            default=_Z, output_field=_D,
+        )), _Z),
+        _edc_count=Coalesce(Sum(Case(
+            When(tipo='EGRESO', origen='DEVOLUCION', then=Case(
+                When(referencia='EXCEDENTE_DEVOLUCION', then=0),
+                default=1, output_field=_I,
+            )),
+            default=0, output_field=_I,
+        )), 0),
+        # EGRESO/DEVOLUCION excedente
+        _ede_total=Coalesce(Sum(Case(
+            When(tipo='EGRESO', origen='DEVOLUCION',
+                 referencia='EXCEDENTE_DEVOLUCION', then='monto'),
+            default=_Z, output_field=_D,
+        )), _Z),
+        _ede_count=Coalesce(Sum(Case(
+            When(tipo='EGRESO', origen='DEVOLUCION',
+                 referencia='EXCEDENTE_DEVOLUCION', then=1),
+            default=0, output_field=_I,
+        )), 0),
+        # EGRESO/ANULACION
+        _ea_total=Coalesce(Sum(Case(
+            When(tipo='EGRESO', origen='ANULACION', then='monto'),
+            default=_Z, output_field=_D,
+        )), _Z),
+        _ea_count=Coalesce(Sum(Case(
+            When(tipo='EGRESO', origen='ANULACION', then=1),
+            default=0, output_field=_I,
+        )), 0),
+    )
+
+    # ── Derivar totales ────────────────────────────────────────────────────
+    ingreso_venta_contado_total = agg['_iv_contado_total']
+    ingreso_venta_contado_count = agg['_iv_contado_count']
+    ingreso_venta_credito_total = agg['_iv_credito_total']
+    ingreso_venta_credito_count = agg['_iv_credito_count']
+    ingreso_venta_total = ingreso_venta_contado_total + ingreso_venta_credito_total
+    ingreso_venta_count = ingreso_venta_contado_count + ingreso_venta_credito_count
+
+    ingreso_pagos_total = agg['_ip_total']
+    ingreso_pagos_count = agg['_ip_count']
+    egreso_dev_contado_total = agg['_edc_total']
+    egreso_dev_contado_count = agg['_edc_count']
+    egreso_dev_excedente_total = agg['_ede_total']
+    egreso_dev_excedente_count = agg['_ede_count']
+    egreso_anulacion_total = agg['_ea_total']
+    egreso_anulacion_count = agg['_ea_count']
+
+    egreso_dev_total = egreso_dev_contado_total + egreso_dev_excedente_total
+    egreso_dev_count = egreso_dev_contado_count + egreso_dev_excedente_count
+
+    ingresos_total = ingreso_venta_total + ingreso_pagos_total
+    egresos_total = egreso_dev_total + egreso_anulacion_total
+    caja_neta = ingresos_total - egresos_total
+
+    # ── Datos de documentos (para PDF cuadre) — query a Factura ───────────
+    facturas_periodo = Factura.objects.filter(
+        fecha_factura__gte=inicio,
+        fecha_factura__lt=fin,
+    )
+    doc_agg = facturas_periodo.aggregate(
+        contado_pagadas=Coalesce(Sum(Case(
+            When(tipo_pago='contado', estado__in=[
+                 'pagada', 'parcialmente_devuelta'], then='total'),
+            default=_Z, output_field=_D,
+        )), _Z),
+        credito_pagadas=Coalesce(Sum(Case(
+            When(tipo_pago='credito', estado__in=[
+                 'pagada', 'parcialmente_devuelta'], then='total'),
+            default=_Z, output_field=_D,
+        )), _Z),
+        anuladas=Coalesce(Sum(Case(
+            When(estado='anulada', then='total'),
+            default=_Z, output_field=_D,
+        )), _Z),
+        devueltas=Coalesce(Sum(Case(
+            When(estado__in=['parcialmente_devuelta',
+                 'totalmente_devuelta'], then='total'),
+            default=_Z, output_field=_D,
+        )), _Z),
+    )
+
+    return {
+        # ── Para cards del dashboard ───────────────────────────────────────
+        'caja_neta':                            caja_neta,
+        'ingresos_total':                       ingresos_total,
+        'egresos_total':                        egresos_total,
+        'ingreso_venta_total':                  ingreso_venta_total,
+        'ingreso_pagos_total':                  ingreso_pagos_total,
+        'egreso_devoluciones_total':            egreso_dev_total,
+        'egreso_devoluciones_contado_total':    egreso_dev_contado_total,
+        'egreso_devoluciones_excedente_total':  egreso_dev_excedente_total,
+        'egreso_anulaciones_total':             egreso_anulacion_total,
+        # ── Conteos (para subtítulo de cards) ─────────────────────────────
+        'ingreso_venta_count':                  ingreso_venta_count,
+        'ingreso_pagos_count':                  ingreso_pagos_count,
+        'egreso_devoluciones_contado_count':    egreso_dev_contado_count,
+        'egreso_devoluciones_excedente_count':  egreso_dev_excedente_count,
+        'egreso_devoluciones_count':            egreso_dev_count,
+        'egreso_anulaciones_count':             egreso_anulacion_count,
+        # ── Para PDF de cuadre (datos de documentos) ──────────────────────
+        'total_ventas_contado_doc':             doc_agg['contado_pagadas'],
+        'total_ventas_credito_doc':             doc_agg['credito_pagadas'],
+        'total_anulaciones_doc':                doc_agg['anuladas'],
+        'total_devoluciones_doc':               doc_agg['devueltas'],
+    }
+
+
+def _sincronizar_movimientos_factura(factura):
+    """
+    Sincroniza los MovimientoFinanciero con el estado actual de la factura.
+
+    Reglas:
+    - Si factura es 'anulada' o 'totalmente_devuelta': marca movimientos INACTIVOS
+    - Si factura es 'pagada' o 'parcialmente_devuelta': marca movimientos ACTIVOS
+    - Si cambió el monto: actualiza cantidad en movimiento de VENTA
+    """
+    if not factura or not hasattr(factura, 'id'):
+        return
+
+    movimientos = MovimientoFinanciero.objects.filter(factura=factura)
+
+    if factura.estado in ['anulada', 'totalmente_devuelta']:
+        # Marcar como inactivos para excluir del dashboard
+        movimientos.update(estado='INACTIVO')
+    else:
+        # Para facturas activas (pagada, parcialmente_devuelta, pendiente):
+        # Solo reactivar los que estén INACTIVO — nunca tocar el monto,
+        # porque cada movimiento ya tiene su monto correcto (venta, pago, devolución, etc.)
+        movimientos.filter(estado='INACTIVO').update(estado='ACTIVO')
+
+
+def _resumen_movimientos_caja_cached(inicio, fin):
+    return _resumen_movimientos_caja(inicio, fin)
+
+
+def _facturas_que_cuentan_en_cards(queryset):
+    """
+    Facturas que deben contarse en las cards del dashboard.
+
+    SOLO incluyen:
+    - Ventas a CONTADO estado 'pagada'
+    - Ventas a CONTADO estado 'parcialmente_devuelta'
+
+    EXCLUYEN:
+    - Todas las ventas a CRÉDITO (sin importar estado)
+    - Facturas anuladas
+    - Facturas totalmente devueltas
+    """
+    from django.db.models import Q
+
+    # Excluir anuladas y totalmente devueltas
+    qs = queryset.exclude(estado__in=['anulada', 'totalmente_devuelta'])
+
+    # Filtrar solo pagadas o parcialmente devueltas
+    qs = qs.filter(estado__in=['pagada', 'parcialmente_devuelta'])
+
+    # Excluir facturas de CRÉDITO (tienen CuentaPorCobrar vinculada)
+    qs = qs.exclude(cuenta_por_cobrar__isnull=False)
+
+    # Excluir facturas donde el pedido tiene TIPO_PAGO_PEDIDO=credito en notas
+    qs = qs.exclude(pedido__notas__contains='TIPO_PAGO_PEDIDO=credito')
+
+    return qs
+
+
 def _calcular_saldo_credito_cliente(cliente, facturas_pendientes=None):
     """Saldo usado por el cliente: CxC vinculadas + pendientes coincidentes no vinculadas."""
     saldo = Decimal('0.00')
     facturas_contabilizadas = set()
 
-    cuentas_cliente = CuentaPorCobrar.objects.filter(cliente=cliente).select_related('factura').prefetch_related('factura__pagos_cxc')
+    cuentas_cliente = CuentaPorCobrar.objects.filter(cliente=cliente).select_related(
+        'factura').prefetch_related('factura__pagos_cxc')
     for cuenta in cuentas_cliente:
         factura = cuenta.factura
         if not factura:
@@ -8138,7 +8732,11 @@ def _calcular_saldo_credito_cliente(cliente, facturas_pendientes=None):
         saldo += _saldo_factura_pendiente(factura)
 
     if facturas_pendientes is None:
-        facturas_pendientes = list(Factura.objects.filter(estado='pendiente').prefetch_related('pagos_cxc'))
+        facturas_pendientes = list(
+            Factura.objects.filter(
+                estado__in=['pendiente', 'parcialmente_devuelta']
+            ).prefetch_related('pagos_cxc', 'devoluciones')
+        )
 
     for factura in facturas_pendientes:
         if factura.id in facturas_contabilizadas:
@@ -8152,18 +8750,21 @@ def _calcular_saldo_credito_cliente(cliente, facturas_pendientes=None):
 
 def _saldo_factura_pendiente(factura):
     # Calcular desde DB para evitar datos stale cuando hay prefetch de pagos.
-    total_pagado = PagoCuentaCobrar.objects.filter(
-        factura=factura
-    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    total_factura = Decimal(str(factura.total or 0))
-    saldo = total_factura - total_pagado
-    return saldo if saldo > 0 else Decimal('0.00')
+    if factura.estado in ['anulada', 'totalmente_devuelta']:
+        return Decimal('0.00')
+
+    # CxC solo aplica para ventas a crédito.
+    if not _factura_es_credito(factura):
+        return Decimal('0.00')
+
+    return _calcular_saldo_factura_cxc(factura)
 
 
 def _calcular_fechas_cxc(factura, cliente_match=None):
     tz_rd = pytz.timezone('America/Santo_Domingo')
     fecha_base = factura.fecha_factura or timezone.now()
-    fecha_emision = timezone.localtime(fecha_base, tz_rd).date() if timezone.is_aware(fecha_base) else fecha_base.date()
+    fecha_emision = timezone.localtime(fecha_base, tz_rd).date(
+    ) if timezone.is_aware(fecha_base) else fecha_base.date()
 
     dias_credito = 30
     if cliente_match and cliente_match.dias_credito is not None:
@@ -8174,8 +8775,14 @@ def _calcular_fechas_cxc(factura, cliente_match=None):
 
 
 def _sincronizar_cuenta_por_cobrar(factura, cliente_match=None):
-    fecha_emision, fecha_vencimiento = _calcular_fechas_cxc(factura, cliente_match)
-    total_factura = Decimal(str(factura.total or 0))
+    # No crear/sincronizar CxC para contado.
+    if not _factura_es_credito(factura):
+        return None
+
+    fecha_emision, fecha_vencimiento = _calcular_fechas_cxc(
+        factura, cliente_match)
+    total_factura = factura.get_total_neto() if hasattr(
+        factura, 'get_total_neto') else Decimal(str(factura.total or 0))
 
     defaults = {
         'cliente': cliente_match,
@@ -8186,16 +8793,15 @@ def _sincronizar_cuenta_por_cobrar(factura, cliente_match=None):
         'estado': 'pendiente',
         'notas': factura.notas or '',
     }
-    cuenta, created = CuentaPorCobrar.objects.get_or_create(factura=factura, defaults=defaults)
+    cuenta, created = CuentaPorCobrar.objects.get_or_create(
+        factura=factura, defaults=defaults)
 
-    total_pagado = PagoCuentaCobrar.objects.filter(
-        factura=factura
-    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    saldo = total_factura - total_pagado
-    saldo = saldo if saldo > 0 else Decimal('0.00')
+    saldo = _calcular_saldo_factura_cxc(factura)
 
     hoy = timezone.localdate()
-    if saldo <= 0:
+    if factura.estado == 'anulada':
+        estado = 'anulada'
+    elif saldo <= 0:
         estado = 'pagada'
     elif saldo < total_factura:
         estado = 'vencida' if cuenta.fecha_vencimiento < hoy else 'parcial'
@@ -8226,7 +8832,8 @@ def _sincronizar_cuenta_por_cobrar(factura, cliente_match=None):
         cambios.append('notas')
 
     if cambios:
-        cuenta.save(update_fields=sorted(set(cambios + ['fecha_actualizacion'])))
+        cuenta.save(update_fields=sorted(
+            set(cambios + ['fecha_actualizacion'])))
     elif created:
         cuenta.save()
 
@@ -8253,8 +8860,13 @@ def _armar_clientes_cuentas_por_cobrar():
         if nombre_key and nombre_key not in cliente_por_nombre:
             cliente_por_nombre[nombre_key] = cliente
 
-    # Asegura que las facturas pendientes tengan su registro CxC sincronizado.
-    for factura in Factura.objects.filter(estado='pendiente').prefetch_related('pagos_cxc'):
+    # Asegura sincronización de facturas con deuda activa y devoluciones parciales.
+    for factura in Factura.objects.filter(
+        estado__in=['pendiente', 'parcialmente_devuelta']
+    ).prefetch_related('pagos_cxc', 'devoluciones'):
+        if not _factura_es_credito(factura):
+            continue
+
         nombre_factura = (factura.nombre_cliente or '').strip()
         telefono_factura = _telefono_solo_digitos(factura.telefono_cliente)
 
@@ -8267,12 +8879,18 @@ def _armar_clientes_cuentas_por_cobrar():
         _sincronizar_cuenta_por_cobrar(factura, cliente_match)
 
     # Para la tabla: todas las cuentas
-    cuentas = CuentaPorCobrar.objects.select_related('factura', 'cliente').prefetch_related('factura__pagos_cxc').order_by('fecha_emision', 'id')
+    cuentas = CuentaPorCobrar.objects.select_related('factura', 'cliente').prefetch_related(
+        'factura__pagos_cxc',
+        'factura__devoluciones',
+    ).order_by('fecha_emision', 'id')
 
     agrupados = {}
     for cuenta in cuentas:
         factura = cuenta.factura
-        saldo = cuenta.saldo_pendiente or Decimal('0.00')
+        if not factura or not _factura_es_credito(factura):
+            continue
+
+        saldo = _saldo_factura_pendiente(factura)
 
         nombre_factura = (factura.nombre_cliente or '').strip()
         telefono_factura = _telefono_solo_digitos(factura.telefono_cliente)
@@ -8291,8 +8909,10 @@ def _armar_clientes_cuentas_por_cobrar():
             group_key = f"fac:{factura.id}"
 
         if group_key not in agrupados:
-            nombre_ui = (cliente_match.nombre_completo if cliente_match else nombre_factura) or 'Cliente no identificado'
-            telefono_ui = (cliente_match.telefono_principal if cliente_match else factura.telefono_cliente) or ''
+            nombre_ui = (
+                cliente_match.nombre_completo if cliente_match else nombre_factura) or 'Cliente no identificado'
+            telefono_ui = (
+                cliente_match.telefono_principal if cliente_match else factura.telefono_cliente) or ''
             agrupados[group_key] = {
                 'group_key': group_key,
                 'cedula': cliente_match.cedula if cliente_match else 'N/A',
@@ -8310,6 +8930,72 @@ def _armar_clientes_cuentas_por_cobrar():
         fecha_vencimiento = cuenta.fecha_vencimiento
         dias_vencimiento = (fecha_vencimiento - hoy_local).days
 
+        productos_originales = []
+        for item in factura.get_items_detalle():
+            cantidad_item = Decimal(str(item.get('cantidad', 0)))
+            precio_item = Decimal(str(item.get('precio', 0)))
+            subtotal_item = Decimal(
+                str(item.get('subtotal', cantidad_item * precio_item)))
+            productos_originales.append({
+                'nombre': item.get('nombre', 'Producto'),
+                'codigo': item.get('codigo', ''),
+                'categoria': item.get('categoria', ''),
+                'cantidad': float(cantidad_item),
+                'precio_unitario': float(precio_item),
+                'subtotal': float(subtotal_item),
+            })
+
+        productos_devueltos_map = {}
+        for devolucion in factura.devoluciones.prefetch_related('detalles'):
+            detalles = list(devolucion.detalles.all())
+            if detalles:
+                for detalle in detalles:
+                    nombre = (
+                        detalle.nombre_producto or '').strip() or 'Producto'
+                    key = nombre.lower()
+                    cantidad = Decimal(str(detalle.cantidad or 0))
+                    precio = Decimal(str(detalle.precio_unitario or 0))
+                    subtotal = Decimal(
+                        str(detalle.monto or (cantidad * precio)))
+                    if key not in productos_devueltos_map:
+                        productos_devueltos_map[key] = {
+                            'nombre': nombre,
+                            'cantidad': Decimal('0.00'),
+                            'precio_unitario': precio,
+                            'subtotal': Decimal('0.00'),
+                        }
+                    productos_devueltos_map[key]['cantidad'] += cantidad
+                    productos_devueltos_map[key]['subtotal'] += subtotal
+                continue
+
+            for item in (devolucion.productos_devueltos or []):
+                nombre = str(item.get('nombre') or '').strip() or 'Producto'
+                key = nombre.lower()
+                cantidad = Decimal(str(item.get('cantidad', 0)))
+                precio = Decimal(
+                    str(item.get('precio_unitario', item.get('precio', 0))))
+                subtotal = Decimal(
+                    str(item.get('subtotal', cantidad * precio)))
+                if key not in productos_devueltos_map:
+                    productos_devueltos_map[key] = {
+                        'nombre': nombre,
+                        'cantidad': Decimal('0.00'),
+                        'precio_unitario': precio,
+                        'subtotal': Decimal('0.00'),
+                    }
+                productos_devueltos_map[key]['cantidad'] += cantidad
+                productos_devueltos_map[key]['subtotal'] += subtotal
+
+        productos_devueltos = [
+            {
+                'nombre': data['nombre'],
+                'cantidad': float(data['cantidad']),
+                'precio_unitario': float(data['precio_unitario']),
+                'subtotal': float(data['subtotal']),
+            }
+            for data in productos_devueltos_map.values()
+        ]
+
         agrupados[group_key]['facturas'].append({
             'id': factura.id,
             'numero': factura.numero_factura,
@@ -8320,13 +9006,17 @@ def _armar_clientes_cuentas_por_cobrar():
             'monto_total': float(factura.total or Decimal('0.00')),
             'saldo_pendiente': float(saldo),
             'estado_cuenta': cuenta.estado,
+            'estado_factura': factura.estado,
             'concepto': factura.notas or f"Factura {factura.numero_factura}",
             'descripcion': factura.notas or '',
             'notas': factura.notas or '',
+            'productos_originales': productos_originales,
+            'productos_devueltos': productos_devueltos,
         })
 
         for pago in factura.pagos_cxc.all():
-            metodo_label = dict(PagoCuentaCobrar.METODO_PAGO_CHOICES).get(pago.metodo_pago, pago.metodo_pago)
+            metodo_label = dict(PagoCuentaCobrar.METODO_PAGO_CHOICES).get(
+                pago.metodo_pago, pago.metodo_pago)
             agrupados[group_key]['historial_pagos'].append({
                 'fecha': pago.fecha_pago.isoformat(),
                 'monto': float(pago.monto),
@@ -8338,12 +9028,20 @@ def _armar_clientes_cuentas_por_cobrar():
 
     clientes_payload = []
     for idx, data in enumerate(agrupados.values(), start=1):
-        data['facturas'].sort(key=lambda x: x['fecha_emision'])
+        # Orden requerido en CxC: primero facturas con saldo pendiente, luego pagadas;
+        # dentro de cada grupo, las más nuevas arriba.
+        data['facturas'].sort(key=lambda x: x.get(
+            'fecha_emision') or '', reverse=True)
+        data['facturas'].sort(key=lambda x: float(
+            x.get('saldo_pendiente') or 0) <= 0)
         data['historial_pagos'].sort(key=lambda x: x['fecha'], reverse=True)
 
-        total_adeudado = sum(item['saldo_pendiente'] for item in data['facturas'])
-        facturas_vencidas = sum(1 for item in data['facturas'] if item['vencida'] and item['saldo_pendiente'] > 0)
-        deuda_vencida = sum(item['saldo_pendiente'] for item in data['facturas'] if item['vencida'] and item['saldo_pendiente'] > 0)
+        total_adeudado = sum(item['saldo_pendiente']
+                             for item in data['facturas'])
+        facturas_vencidas = sum(
+            1 for item in data['facturas'] if item['vencida'] and item['saldo_pendiente'] > 0)
+        deuda_vencida = sum(item['saldo_pendiente'] for item in data['facturas']
+                            if item['vencida'] and item['saldo_pendiente'] > 0)
 
         if total_adeudado >= 20000:
             nivel_deuda = 'alta'
@@ -8379,9 +9077,14 @@ def _armar_clientes_cuentas_por_cobrar():
 def cuentaporcobrar_datos(request):
     """Retorna datos reales para la tabla de cuentas por cobrar."""
     clientes = _armar_clientes_cuentas_por_cobrar()
-    # Card: solo pendientes y parciales
-    facturas_pendientes = CuentaPorCobrar.objects.filter(estado__in=['pendiente', 'parcial']).count()
-    clientes_con_deuda = CuentaPorCobrar.objects.filter(estado__in=['pendiente', 'parcial']).values('cliente_id').distinct().count()
+    facturas_pendientes = sum(
+        1
+        for cliente in clientes
+        for factura in cliente.get('facturas', [])
+        if float(factura.get('saldo_pendiente') or 0) > 0
+    )
+    clientes_con_deuda = sum(1 for cliente in clientes if float(
+        cliente.get('total_adeudado') or 0) > 0)
     return JsonResponse({'success': True, 'clientes': clientes, 'facturas_pendientes': facturas_pendientes, 'clientes_con_deuda': clientes_con_deuda})
 
 
@@ -8399,7 +9102,8 @@ def historial_pagos(request):
     page = int(request.GET.get('page', 1))
 
     # Consulta base: TODOS los pagos
-    pagos_base = PagoCuentaCobrar.objects.select_related('factura', 'cuenta_por_cobrar', 'registrado_por')
+    pagos_base = PagoCuentaCobrar.objects.select_related(
+        'factura', 'cuenta_por_cobrar', 'registrado_por')
     pagos = pagos_base.order_by('-fecha_pago')
 
     # Filtros
@@ -8412,34 +9116,44 @@ def historial_pagos(request):
     if metodo_pago:
         pagos = pagos.filter(metodo_pago=metodo_pago)
     if fecha:
-        inicio_hoy = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        inicio_hoy = ahora_local.replace(
+            hour=0, minute=0, second=0, microsecond=0)
         fin_hoy = inicio_hoy + timedelta(days=1)
         inicio_mes_actual = inicio_hoy.replace(day=1)
 
         if fecha == 'hoy':
-            pagos = pagos.filter(fecha_pago__gte=inicio_hoy, fecha_pago__lt=fin_hoy)
+            pagos = pagos.filter(fecha_pago__gte=inicio_hoy,
+                                 fecha_pago__lt=fin_hoy)
         elif fecha == 'ayer':
             inicio_ayer = inicio_hoy - timedelta(days=1)
-            pagos = pagos.filter(fecha_pago__gte=inicio_ayer, fecha_pago__lt=inicio_hoy)
+            pagos = pagos.filter(fecha_pago__gte=inicio_ayer,
+                                 fecha_pago__lt=inicio_hoy)
         elif fecha in ['ultimos_7_dias', 'semana']:
             inicio_7_dias = inicio_hoy - timedelta(days=6)
-            pagos = pagos.filter(fecha_pago__gte=inicio_7_dias, fecha_pago__lt=fin_hoy)
+            pagos = pagos.filter(
+                fecha_pago__gte=inicio_7_dias, fecha_pago__lt=fin_hoy)
         elif fecha == 'ultimos_30_dias':
             inicio_30_dias = inicio_hoy - timedelta(days=29)
-            pagos = pagos.filter(fecha_pago__gte=inicio_30_dias, fecha_pago__lt=fin_hoy)
+            pagos = pagos.filter(
+                fecha_pago__gte=inicio_30_dias, fecha_pago__lt=fin_hoy)
         elif fecha in ['este_mes', 'mes']:
-            pagos = pagos.filter(fecha_pago__gte=inicio_mes_actual, fecha_pago__lt=fin_hoy)
+            pagos = pagos.filter(
+                fecha_pago__gte=inicio_mes_actual, fecha_pago__lt=fin_hoy)
         elif fecha == 'mes_pasado':
             fin_mes_pasado = inicio_mes_actual
             ultimo_dia_mes_pasado = inicio_mes_actual - timedelta(days=1)
             inicio_mes_pasado = ultimo_dia_mes_pasado.replace(day=1)
-            pagos = pagos.filter(fecha_pago__gte=inicio_mes_pasado, fecha_pago__lt=fin_mes_pasado)
+            pagos = pagos.filter(
+                fecha_pago__gte=inicio_mes_pasado, fecha_pago__lt=fin_mes_pasado)
         elif fecha == 'este_anio':
             inicio_anio = inicio_hoy.replace(month=1, day=1)
-            pagos = pagos.filter(fecha_pago__gte=inicio_anio, fecha_pago__lt=fin_hoy)
+            pagos = pagos.filter(
+                fecha_pago__gte=inicio_anio, fecha_pago__lt=fin_hoy)
         elif fecha == 'semana_actual':
-            inicio_semana = (inicio_hoy - timedelta(days=ahora_local.weekday()))
-            pagos = pagos.filter(fecha_pago__gte=inicio_semana, fecha_pago__lt=fin_hoy)
+            inicio_semana = (
+                inicio_hoy - timedelta(days=ahora_local.weekday()))
+            pagos = pagos.filter(
+                fecha_pago__gte=inicio_semana, fecha_pago__lt=fin_hoy)
 
     # Paginación de 50 pagos por página
     paginator = Paginator(pagos, 50)
@@ -8469,14 +9183,19 @@ def historial_pagos(request):
 
     # Estadísticas
     total_pagos = pagos.count()
-    ingresos_totales = pagos.filter().aggregate(total=models.Sum('monto'))['total'] or 0
+    ingresos_totales = pagos.filter().aggregate(
+        total=models.Sum('monto'))['total'] or 0
 
     # Estadísticas mensuales y anuales (sobre TODOS los pagos, no solo filtrados)
-    inicio_mes_rd = ahora_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    inicio_hoy_rd = ahora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    inicio_mes_rd = ahora_local.replace(
+        day=1, hour=0, minute=0, second=0, microsecond=0)
+    inicio_hoy_rd = ahora_local.replace(
+        hour=0, minute=0, second=0, microsecond=0)
     fin_hoy_rd = inicio_hoy_rd + timedelta(days=1)
-    pagos_mes_actual = pagos_base.filter(fecha_pago__gte=inicio_mes_rd, fecha_pago__lt=fin_hoy_rd)
-    ingresos_mes_actual = pagos_mes_actual.aggregate(total=models.Sum('monto'))['total'] or 0
+    pagos_mes_actual = pagos_base.filter(
+        fecha_pago__gte=inicio_mes_rd, fecha_pago__lt=fin_hoy_rd)
+    ingresos_mes_actual = pagos_mes_actual.aggregate(
+        total=models.Sum('monto'))['total'] or 0
     total_pagos_mes = pagos_mes_actual.count()
 
     context = {
@@ -8507,7 +9226,8 @@ def cuentaporcobrar_comprobante_pdf(request):
         return HttpResponse('Debe indicar pagos para generar el comprobante.', status=400)
 
     try:
-        pago_ids = [int(pid.strip()) for pid in pagos_param.split(',') if pid.strip()]
+        pago_ids = [int(pid.strip())
+                    for pid in pagos_param.split(',') if pid.strip()]
     except ValueError:
         return HttpResponse('Formato de pagos invalido.', status=400)
 
@@ -8528,15 +9248,20 @@ def cuentaporcobrar_comprobante_pdf(request):
 
     total_factura_por_id = {}
     for pago in pagos:
-        total_factura_por_id[pago.factura_id] = Decimal(str(pago.factura.total or '0'))
+        total_factura_por_id[pago.factura_id] = Decimal(
+            str(pago.factura.total or '0'))
 
-    acumulado_por_factura = {factura_id: Decimal('0.00') for factura_id in factura_ids}
+    acumulado_por_factura = {factura_id: Decimal(
+        '0.00') for factura_id in factura_ids}
     resumen_por_pago = {}
     for pago_hist in pagos_facturas:
-        total_factura = total_factura_por_id.get(pago_hist.factura_id, Decimal('0.00'))
-        acumulado_por_factura[pago_hist.factura_id] += Decimal(str(pago_hist.monto or '0'))
+        total_factura = total_factura_por_id.get(
+            pago_hist.factura_id, Decimal('0.00'))
+        acumulado_por_factura[pago_hist.factura_id] += Decimal(
+            str(pago_hist.monto or '0'))
 
-        saldo_actual = total_factura - acumulado_por_factura[pago_hist.factura_id]
+        saldo_actual = total_factura - \
+            acumulado_por_factura[pago_hist.factura_id]
         if saldo_actual < Decimal('0.00'):
             saldo_actual = Decimal('0.00')
 
@@ -8554,12 +9279,13 @@ def cuentaporcobrar_comprobante_pdf(request):
     lineas_encabezado = 14
     lineas_por_pago = 13
     lineas_pie = 6
-    alto_ticket = (lineas_encabezado + (len(pagos) * lineas_por_pago) + lineas_pie) * alto_linea
+    alto_ticket = (lineas_encabezado + (len(pagos) *
+                   lineas_por_pago) + lineas_pie) * alto_linea
     if alto_ticket < (120 * mm):
         alto_ticket = 120 * mm
 
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'inline; filename="comprobante_cxc_{timezone.localtime().strftime("%Y%m%d_%H%M%S")}.pdf"'
+    response['Content-Disposition'] = f'inline; filename="comprobante_cxc_{timezone.now().astimezone(pytz.timezone("America/Santo_Domingo")).strftime("%Y%m%d_%H%M%S")}.pdf"'
 
     c = canvas.Canvas(response, pagesize=(ancho_ticket, alto_ticket))
     y = alto_ticket - 8 * mm
@@ -8585,14 +9311,17 @@ def cuentaporcobrar_comprobante_pdf(request):
     no_transaccion_general = pagos[0].id if pagos else 0
     # Encabezado del negocio con logo
     try:
-        logo_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+        logo_path = os.path.join(
+            settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
         if not os.path.exists(logo_path):
-            logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'fastfood.png')
+            logo_path = os.path.join(
+                settings.BASE_DIR, 'static', 'img', 'fastfood.png')
 
         if os.path.exists(logo_path):
             logo_size = 14 * mm
             logo_x = (ancho_ticket - logo_size) / 2
-            c.drawImage(logo_path, logo_x, y - logo_size, width=logo_size, height=logo_size, preserveAspectRatio=True, mask='auto')
+            c.drawImage(logo_path, logo_x, y - logo_size, width=logo_size,
+                        height=logo_size, preserveAspectRatio=True, mask='auto')
             y -= (logo_size + 2 * mm)
     except Exception:
         pass
@@ -8603,9 +9332,10 @@ def cuentaporcobrar_comprobante_pdf(request):
     c.setFont('Helvetica', 7)
     c.drawCentredString(ancho_ticket / 2, y, 'RNC: 00000000')
     y -= alto_linea
-    c.drawCentredString(ancho_ticket / 2, y, 'Direccion: Castanuelas, calle 30 de mayo')
+    c.drawCentredString(
+        ancho_ticket / 2, y, 'Direccion: Castanuelas, calle 30 de mayo frente a la bomba')
     y -= alto_linea
-    c.drawCentredString(ancho_ticket / 2, y, 'Telefono: 876-987-9876')
+    c.drawCentredString(ancho_ticket / 2, y, 'Telefono: 849-362-1791')
     y -= alto_linea
 
     c.line(5 * mm, y, ancho_ticket - 5 * mm, y)
@@ -8617,9 +9347,9 @@ def cuentaporcobrar_comprobante_pdf(request):
     _draw_label_value(y, 'Generado', ahora_local.strftime('%d/%m/%Y %I:%M %p'))
     y -= alto_linea
     c.setFont('Helvetica', 7)
-    c.drawRightString(ancho_ticket - 5 * mm, y, f'Recibo: #{no_transaccion_general}')
+    c.drawRightString(ancho_ticket - 5 * mm, y,
+                      f'Recibo: #{no_transaccion_general}')
     y -= alto_linea
-
 
     for pago in pagos:
         resumen_pago = resumen_por_pago.get(pago.id, {
@@ -8628,16 +9358,20 @@ def cuentaporcobrar_comprobante_pdf(request):
         })
         saldo_anterior = resumen_pago['saldo_anterior']
         saldo_actual = resumen_pago['saldo_actual']
-        tipo_comprobante = 'Factura saldada' if saldo_actual <= Decimal('0.00') else 'Abono'
+        tipo_comprobante = 'Factura saldada' if saldo_actual <= Decimal(
+            '0.00') else 'Abono'
 
         numero_comprobante = pago.numero_comprobante or f'CP-{pago.id}'
         numero_factura = pago.factura.numero_factura or f'FACT-{pago.factura_id}'
-        cliente_nombre = (pago.factura.nombre_cliente or 'Cliente general')[:34]
-        metodo = pago.get_metodo_pago_display() if hasattr(pago, 'get_metodo_pago_display') else (pago.metodo_pago or 'N/A')
+        cliente_nombre = (
+            pago.factura.nombre_cliente or 'Cliente general')[:34]
+        metodo = pago.get_metodo_pago_display() if hasattr(
+            pago, 'get_metodo_pago_display') else (pago.metodo_pago or 'N/A')
         referencia = (pago.referencia or 'N/A')[:34]
 
         if pago.registrado_por:
-            nombre_usuario = (pago.registrado_por.get_full_name() or pago.registrado_por.username or 'N/A').strip()
+            nombre_usuario = (pago.registrado_por.get_full_name(
+            ) or pago.registrado_por.username or 'N/A').strip()
         else:
             nombre_usuario = 'N/A'
 
@@ -8646,7 +9380,13 @@ def cuentaporcobrar_comprobante_pdf(request):
         _draw_label_value(y, 'Comprobante', numero_comprobante[:28])
         y -= alto_linea
 
-        _draw_label_value(y, 'Fecha pago', pago.fecha_pago.strftime('%d/%m/%Y'))
+        fecha_pago_local = pago.fecha_pago
+        if timezone.is_naive(fecha_pago_local):
+            fecha_pago_local = timezone.make_aware(
+                fecha_pago_local, timezone.get_current_timezone())
+        fecha_pago_local = timezone.localtime(fecha_pago_local, tz_rd)
+        _draw_label_value(
+            y, 'Fecha pago', fecha_pago_local.strftime('%d/%m/%Y'))
         y -= alto_linea
         _draw_label_value(y, 'Tipo', tipo_comprobante)
         y -= alto_linea
@@ -8665,7 +9405,11 @@ def cuentaporcobrar_comprobante_pdf(request):
         _draw_label_value(y, 'Referencia', referencia)
         y -= alto_linea
         _draw_label_value(y, 'Despachado por', nombre_usuario[:28])
-        y -= (alto_linea + 1 * mm)
+        y -= alto_linea
+
+        # ...no imprimir firma aquí...
+        y -= (alto_linea - 1 * mm)
+        y -= 1 * mm
 
     c.line(5 * mm, y, ancho_ticket - 5 * mm, y)
     y -= alto_linea
@@ -8676,6 +9420,23 @@ def cuentaporcobrar_comprobante_pdf(request):
 
     c.setFont('Helvetica-Oblique', 7)
     c.drawCentredString(ancho_ticket / 2, y, 'Gracias por su pago')
+    y -= alto_linea
+
+    # Firma UUID de pago (centrada, negro para impresora térmica, pequeña, debajo del mensaje de gracias)
+    uuid_firmas = [str(p.uuid_pago)
+                   for p in pagos if hasattr(p, 'uuid_pago') and p.uuid_pago]
+    if uuid_firmas:
+        c.setFont('Helvetica-Oblique', 6)
+        # Negro para que se vea en impresora térmica
+        c.setFillColorRGB(0, 0, 0)
+        if len(uuid_firmas) == 1:
+            c.drawCentredString(ancho_ticket / 2, y,
+                                f"Firma: {uuid_firmas[0]}")
+        else:
+            # Si hay varios pagos, concatenar UUIDs separados por espacio
+            c.drawCentredString(ancho_ticket / 2, y,
+                                "Firmas: " + " ".join(uuid_firmas))
+        y -= alto_linea
 
     c.showPage()
     c.save()
@@ -8683,217 +9444,321 @@ def cuentaporcobrar_comprobante_pdf(request):
 
 
 @login_required
+@csrf_exempt
 @require_POST
 def cuentaporcobrar_registrar_pago(request):
     """Registra pago por factura puntual o por cliente (distribuido)."""
+
+    # ── Parse payload ──────────────────────────────────────────────────────────
     try:
         payload = json.loads(request.body.decode('utf-8') or '{}')
     except Exception:
         payload = request.POST
 
+    # ── UUID — OBLIGATORIO desde el frontend ──────────────────────────────────
+    uuid_pago = (payload.get('uuid_pago') or '').strip()
+    if not uuid_pago:
+        return JsonResponse(
+            {'success': False, 'error': 'uuid_pago es requerido. Debe generarse en el frontend antes de enviar.'},
+            status=400
+        )
+
+    # ── FASE 1: Verificación de Idempotencia Persistente ─────────────────────
+    # Si ya procesamos esta llave hace menos de 24h, devolvemos la respuesta guardada.
+    # Esto protege contra reintentos de red y garantiza consistencia total.
+    pago_previo = IdempotencyKey.objects.filter(key=uuid_pago).first()
+    if pago_previo and not pago_previo.is_expired:
+        return JsonResponse(pago_previo.response_data, status=pago_previo.status_code)
+
+    # ── Monto ─────────────────────────────────────────────────────────────────
     try:
         monto = Decimal(str(payload.get('monto') or '0'))
     except Exception:
         monto = Decimal('0.00')
 
     if monto <= 0:
-        return JsonResponse({'success': False, 'error': 'El monto debe ser mayor que 0.'}, status=400)
+        return JsonResponse(
+            {'success': False, 'error': 'El monto debe ser mayor que 0.'},
+            status=400
+        )
 
+    # ── Fecha de pago ─────────────────────────────────────────────────────────
     fecha_pago_raw = str(payload.get('fecha_pago') or '').strip()
     fecha_pago = None
+    tz_rd = pytz.timezone('America/Santo_Domingo')
+    ahora_local = timezone.now().astimezone(tz_rd)
+
     if fecha_pago_raw:
         try:
-            # Si solo viene la fecha, combinar con hora actual
             fecha_sola = datetime.strptime(fecha_pago_raw, '%Y-%m-%d').date()
-            ahora = timezone.localtime(timezone.now())
-            fecha_pago = datetime.combine(fecha_sola, ahora.time())
+            fecha_pago = tz_rd.localize(
+                datetime.combine(fecha_sola, ahora_local.time()))
         except Exception:
-            return JsonResponse({'success': False, 'error': 'Fecha de pago inválida.'}, status=400)
-    if not fecha_pago:
-        fecha_pago = timezone.localtime(timezone.now())
-    # Forzar que fecha_pago sea always aware
-    if timezone.is_naive(fecha_pago):
-        fecha_pago = timezone.make_aware(fecha_pago)
-    else:
-        fecha_pago = timezone.localtime(fecha_pago)
+            return JsonResponse(
+                {'success': False, 'error': 'Fecha de pago inválida.'},
+                status=400
+            )
 
+    if not fecha_pago:
+        fecha_pago = ahora_local
+
+    if timezone.is_naive(fecha_pago):
+        fecha_pago = timezone.make_aware(fecha_pago, tz_rd)
+    else:
+        fecha_pago = timezone.localtime(fecha_pago, tz_rd)
+
+    # ── Método de pago ────────────────────────────────────────────────────────
     metodo_pago = (payload.get('metodo_pago') or 'efectivo').strip()
-    metodos_validos = {item[0] for item in PagoCuentaCobrar.METODO_PAGO_CHOICES}
+    metodos_validos = {item[0]
+                       for item in PagoCuentaCobrar.METODO_PAGO_CHOICES}
     if metodo_pago not in metodos_validos:
         metodo_pago = 'efectivo'
 
     referencia = (payload.get('referencia') or '').strip()
     notas = (payload.get('notas') or '').strip()
 
+    # ── Pago completo ─────────────────────────────────────────────────────────
     raw_pago_completo = payload.get('pago_completo', True)
     if isinstance(raw_pago_completo, bool):
         pago_completo = raw_pago_completo
     else:
-        pago_completo = str(raw_pago_completo).strip().lower() in {'1', 'true', 'si', 'sí', 'on'}
+        pago_completo = str(raw_pago_completo).strip().lower() in {
+            '1', 'true', 'si', 'sí', 'on'}
 
+    # ── Identificadores ───────────────────────────────────────────────────────
     factura_id = payload.get('factura_id')
     cliente_nombre = (payload.get('cliente_nombre') or '').strip()
     cliente_telefono = _telefono_solo_digitos(payload.get('cliente_telefono'))
 
-    # --- IDEMPOTENCIA: UUID de pago ---
-    uuid_pago = (payload.get('uuid_pago') or '').strip()
-    if not uuid_pago:
-        import uuid
-        uuid_pago = str(uuid.uuid4())
-
-    with transaction.atomic():
-        if factura_id:
-            factura = get_object_or_404(Factura.objects.exclude(estado='pagada').prefetch_related('pagos_cxc'), id=factura_id)
+    # =========================================================================
+    # CASO 1 — Pago a una factura específica
+    # =========================================================================
+    if factura_id:
+        with transaction.atomic():
+            # Bloqueo preventivo de la fila para evitar condiciones de carrera en el saldo
+            factura = get_object_or_404(
+                Factura.objects.select_for_update().exclude(
+                    estado='pagada').prefetch_related('pagos_cxc'),
+                id=factura_id
+            )
             cuenta = _sincronizar_cuenta_por_cobrar(factura)
             saldo_actual = _saldo_factura_pendiente(factura)
 
             if saldo_actual <= 0:
-                return JsonResponse({'success': False, 'error': 'La factura no tiene saldo pendiente.'}, status=400)
+                return JsonResponse(
+                    {'success': False, 'error': 'La factura no tiene saldo pendiente.'},
+                    status=400
+                )
             if monto > saldo_actual:
-                return JsonResponse({'success': False, 'error': f'El monto excede el saldo pendiente (RD$ {saldo_actual}).'}, status=400)
+                return JsonResponse(
+                    {'success': False,
+                        'error': f'El monto excede el saldo pendiente (RD$ {saldo_actual}).'},
+                    status=400
+                )
 
-            # Buscar si ya existe un pago con este uuid_pago
-            pago_registrado = PagoCuentaCobrar.objects.filter(uuid_pago=uuid_pago).first()
-            if pago_registrado:
-                # Ya existe, devolver info para reimpresión o confirmación
-                comprobante_url = ''
-                return JsonResponse({
-                    'success': True,
-                    'mensaje': 'Pago ya registrado previamente.',
-                    'pago_id': pago_registrado.id,
-                    'uuid_pago': pago_registrado.uuid_pago,
-                    'comprobante_url': comprobante_url,
-                    'reimpresion': True,
-                })
+            # ── Idempotencia con get_or_create para evitar race condition ────
+            try:
+                pago_registrado, creado = PagoCuentaCobrar.objects.get_or_create(
+                    uuid_pago=uuid_pago,
+                    defaults={
+                        'cuenta_por_cobrar': cuenta,
+                        'factura':           factura,
+                        'monto':             monto,
+                        'fecha_pago':        fecha_pago,
+                        'metodo_pago':       metodo_pago,
+                        'referencia':        referencia,
+                        'notas':             notas,
+                        'registrado_por':    request.user if request.user.is_authenticated else None,
+                    }
+                )
+            except IntegrityError:
+                pago_registrado = PagoCuentaCobrar.objects.get(
+                    uuid_pago=uuid_pago)
+                creado = False
 
-            pago_registrado = PagoCuentaCobrar.objects.create(
-                cuenta_por_cobrar=cuenta,
-                factura=factura,
-                monto=monto,
-                fecha_pago=fecha_pago,
-                metodo_pago=metodo_pago,
-                referencia=referencia,
-                notas=notas,
-                registrado_por=request.user if request.user.is_authenticated else None,
-                uuid_pago=uuid_pago,
+            # ── Pago duplicado — devolver info para reimpresión ──────────────
+            if not creado:
+                comprobante_url = (
+                    f"{reverse('cuentaporcobrar_comprobante_pdf')}?pagos={pago_registrado.id}"
+                    if pago_registrado.id else ''
+                )
+                response_data = {
+                    'success':          True,
+                    'mensaje':          'Pago ya registrado previamente.',
+                    'pago_id':          pago_registrado.id,
+                    'uuid_pago':        str(pago_registrado.uuid_pago),
+                    'comprobante_url':  comprobante_url,
+                    'reimpresion':      True,
+                }
+                # Persistir respuesta en IdempotencyKey para futuros reintentos
+                IdempotencyKey.objects.update_or_create(
+                    key=uuid_pago,
+                    defaults={
+                        'response_data': response_data,
+                        'status_code': 200,
+                        'expires_at': timezone.now() + timedelta(hours=24)
+                    }
+                )
+                return JsonResponse(response_data)
+
+            # ── Pago nuevo — sincronizar saldo y cerrar factura si aplica ────
+            comprobante_url = (
+                f"{reverse('cuentaporcobrar_comprobante_pdf')}?pagos={pago_registrado.id}"
             )
-
-            comprobante_url = ''
-            if pago_registrado:
-                comprobante_url = f"{reverse('cuentaporcobrar_comprobante_pdf')}?pagos={pago_registrado.id}"
-
             _sincronizar_cuenta_por_cobrar(factura)
+
             if _saldo_factura_pendiente(factura) <= 0:
                 factura.estado = 'pagada'
                 factura.metodo_pago = metodo_pago
                 factura.save(update_fields=['estado', 'metodo_pago'])
+                _sincronizar_movimientos_factura(factura)
 
-            return JsonResponse({
-                'success': True,
-                'mensaje': 'Pago registrado correctamente.',
-                'comprobante_url': comprobante_url,
-                'numero_comprobante': pago_registrado.numero_comprobante,
-            })
+            # Registrar ingreso financiero
+            MovimientoFinanciero.objects.create(
+                tipo="INGRESO", origen="PAGO_CXC", monto=monto,
+                fecha_operacion=fecha_pago, factura=factura, pago_cxc=pago_registrado,
+                metodo_pago=metodo_pago, creado_por=request.user if request.user.is_authenticated else None,
+                descripcion=f"Pago CxC factura {factura.numero_factura}.",
+                referencia=pago_registrado.numero_comprobante or "",
+            )
 
-        if not cliente_nombre and not cliente_telefono:
-            return JsonResponse({'success': False, 'error': 'Debe indicar cliente para aplicar el pago.'}, status=400)
+            response_data = {
+                'success':             True,
+                'mensaje':             'Pago registrado correctamente.',
+                'comprobante_url':     comprobante_url,
+                'numero_comprobante':  pago_registrado.numero_comprobante,
+            }
+            # Persistir respuesta exitosa
+            IdempotencyKey.objects.update_or_create(
+                key=uuid_pago,
+                defaults={
+                    'response_data': response_data,
+                    'status_code': 200,
+                    'expires_at': timezone.now() + timedelta(hours=24)
+                }
+            )
+            return JsonResponse(response_data)
 
-        if not pago_completo:
-            return JsonResponse({
-                'success': False,
-                'error': 'Seleccione una factura específica o active el pago completo de la deuda.'
-            }, status=400)
+    # =========================================================================
+    # CASO 2 — Pago distribuido por cliente
+    # =========================================================================
+    if not cliente_nombre and not cliente_telefono:
+        return JsonResponse(
+            {'success': False, 'error': 'Debe indicar cliente para aplicar el pago.'},
+            status=400
+        )
 
-        facturas_no_pagadas = Factura.objects.exclude(estado='pagada').prefetch_related('pagos_cxc').order_by('fecha_factura')
-        facturas_cliente = []
+    if not pago_completo:
+        return JsonResponse(
+            {'success': False, 'error': 'Active el pago completo de la deuda.'},
+            status=400
+        )
 
-        for factura in facturas_no_pagadas:
-            tel_factura = _telefono_solo_digitos(factura.telefono_cliente)
-            nombre_factura = (factura.nombre_cliente or '').strip().lower()
+    # ── Buscar facturas pendientes del cliente ─────────────────────────────
+    facturas_no_pagadas = Factura.objects.exclude(
+        estado='pagada').order_by('fecha_factura')
+    facturas_cliente = []
+    for f in facturas_no_pagadas:
+        tel_factura = _telefono_solo_digitos(f.telefono_cliente)
+        if (cliente_telefono and tel_factura == cliente_telefono) or \
+           (cliente_nombre and (f.nombre_cliente or '').strip().lower() == cliente_nombre.lower()):
+            facturas_cliente.append(f)
 
-            coincide = False
-            if cliente_telefono and tel_factura and cliente_telefono == tel_factura:
-                coincide = True
-            elif cliente_nombre and nombre_factura and cliente_nombre.lower() == nombre_factura:
-                coincide = True
+    if not facturas_cliente:
+        return JsonResponse({'success': False, 'error': 'No hay facturas pendientes.'}, status=404)
 
-            if coincide:
-                facturas_cliente.append(factura)
+    # ── Distribuir el pago ────────────────────────────────────────────────
+    restante = monto
+    aplicado_total = Decimal('0.00')
+    pagos_creados_ids = []
+    pagos_creados = []
+    hubo_reimpresion = False
 
-        if not facturas_cliente:
-            return JsonResponse({'success': False, 'error': 'No se encontraron facturas pendientes para ese cliente.'}, status=404)
+    with transaction.atomic():
+        # Bloquear todas las facturas del cliente para asegurar consistencia del lote
+        facturas_lock = Factura.objects.select_for_update().filter(
+            id__in=[f.id for f in facturas_cliente])
 
-        saldo_total_cliente = sum((_saldo_factura_pendiente(factura) for factura in facturas_cliente), Decimal('0.00'))
-        if monto > saldo_total_cliente:
-            return JsonResponse({
-                'success': False,
-                'error': f'El monto excede el saldo pendiente total del cliente (RD$ {saldo_total_cliente}).'
-            }, status=400)
-
-        restante = monto
-        aplicado_total = Decimal('0.00')
-        pagos_creados_ids = []
-        pagos_creados = []
-
-        for factura in facturas_cliente:
+        for factura in facturas_lock:
             if restante <= 0:
                 break
 
-            cuenta = _sincronizar_cuenta_por_cobrar(factura)
             saldo_actual = _saldo_factura_pendiente(factura)
             if saldo_actual <= 0:
                 continue
 
             monto_aplicar = saldo_actual if saldo_actual <= restante else restante
+            uuid_pago_factura = str(uuid.uuid5(
+                uuid.UUID(uuid_pago), str(factura.id)))
 
-            # Idempotencia para pagos distribuidos: usar uuid_pago + id de factura
-            uuid_pago_factura = f"{uuid_pago}-{factura.id}"
-            pago_obj = PagoCuentaCobrar.objects.filter(uuid_pago=uuid_pago_factura).first()
-            if pago_obj:
-                pagos_creados_ids.append(str(pago_obj.id))
-                pagos_creados.append(pago_obj)
-                restante -= monto_aplicar
-                continue
+            try:
+                pago_obj, creado = PagoCuentaCobrar.objects.get_or_create(
+                    uuid_pago=uuid_pago_factura,
+                    defaults={
+                        'cuenta_por_cobrar': _sincronizar_cuenta_por_cobrar(factura),
+                        'factura': factura, 'monto': monto_aplicar, 'fecha_pago': fecha_pago,
+                        'metodo_pago': metodo_pago, 'referencia': referencia, 'notas': notas,
+                        'registrado_por': request.user if request.user.is_authenticated else None,
+                    }
+                )
+            except IntegrityError:
+                pago_obj = PagoCuentaCobrar.objects.get(
+                    uuid_pago=uuid_pago_factura)
+                creado = False
 
-            pago_obj = PagoCuentaCobrar.objects.create(
-                cuenta_por_cobrar=cuenta,
-                factura=factura,
-                monto=monto_aplicar,
-                fecha_pago=fecha_pago,
-                metodo_pago=metodo_pago,
-                referencia=referencia,
-                notas=notas,
-                registrado_por=request.user if request.user.is_authenticated else None,
-                uuid_pago=uuid_pago_factura,
-            )
-            if pago_obj:
-                pagos_creados_ids.append(str(pago_obj.id))
-                pagos_creados.append(pago_obj)
+            pagos_creados_ids.append(str(pago_obj.id))
+            pagos_creados.append(pago_obj)
+
+            if creado:
+                aplicado_total += monto_aplicar
+                MovimientoFinanciero.objects.create(
+                    tipo="INGRESO", origen="PAGO_CXC", monto=monto_aplicar,
+                    fecha_operacion=fecha_pago, factura=factura, pago_cxc=pago_obj,
+                    metodo_pago=metodo_pago, creado_por=request.user if request.user.is_authenticated else None,
+                    descripcion=f"Pago CxC distribuido factura {factura.numero_factura}.",
+                    referencia=pago_obj.numero_comprobante or "",
+                )
+            else:
+                hubo_reimpresion = True
 
             restante -= monto_aplicar
-            aplicado_total += monto_aplicar
-
             _sincronizar_cuenta_por_cobrar(factura)
             if _saldo_factura_pendiente(factura) <= 0:
                 factura.estado = 'pagada'
-                factura.metodo_pago = metodo_pago
-                factura.save(update_fields=['estado', 'metodo_pago'])
+                factura.save(update_fields=['estado'])
+                _sincronizar_movimientos_factura(factura)
 
-        if aplicado_total <= 0:
-            return JsonResponse({'success': False, 'error': 'No fue posible aplicar el pago.'}, status=400)
+    # ── Respuesta del pago distribuido ────────────────────────────────────
+    comprobante_url = f"{reverse('cuentaporcobrar_comprobante_pdf')}?pagos={','.join(pagos_creados_ids)}" if pagos_creados_ids else ''
 
-        return JsonResponse({
-            'success': True,
-            'mensaje': f'Pago aplicado correctamente. Monto aplicado: RD$ {aplicado_total}',
-            'restante_no_aplicado': float(restante),
-            'comprobante_url': f"{reverse('cuentaporcobrar_comprobante_pdf')}?pagos={','.join(pagos_creados_ids)}" if pagos_creados_ids else '',
-            'numeros_comprobante': [pago.numero_comprobante for pago in pagos_creados if pago.numero_comprobante],
-        })
+    if aplicado_total <= 0 and hubo_reimpresion:
+        response_data = {
+            'success': True, 'mensaje': 'Pago ya registrado previamente.',
+            'reimpresion': True, 'comprobante_url': comprobante_url,
+        }
+    elif aplicado_total <= 0:
+        return JsonResponse({'success': False, 'error': 'No se pudo aplicar el pago.'}, status=400)
+    else:
+        response_data = {
+            'success': True, 'mensaje': f'Pago aplicado. Monto: RD$ {aplicado_total}',
+            'comprobante_url': comprobante_url,
+        }
+
+    # Persistir respuesta distribuida
+    IdempotencyKey.objects.update_or_create(
+        key=uuid_pago,
+        defaults={
+            'response_data': response_data,
+            'status_code': 200,
+            'expires_at': timezone.now() + timedelta(hours=24)
+        }
+    )
+    return JsonResponse(response_data)
 
 
-@login_required   
+@login_required
 def estado_cuenta_cliente_pdf(request):
-    """Genera un PDF A4 de estado de cuenta de un cliente."""
+    """Genera un PDF A4 de estado de cuenta de un cliente con formato de movimientos."""
     cliente_id = request.GET.get('cliente_id')
     if not cliente_id:
         return HttpResponse('Debe indicar cliente_id.', status=400)
@@ -8901,217 +9766,175 @@ def estado_cuenta_cliente_pdf(request):
         cliente = Cliente.objects.get(pk=cliente_id)
     except Cliente.DoesNotExist:
         return HttpResponse('Cliente no encontrado.', status=404)
- 
-    cuentas = CuentaPorCobrar.objects.filter(cliente=cliente).select_related('factura').order_by('fecha_emision')
-    facturas = [c.factura for c in cuentas if c.factura]
-    pagos_qs = PagoCuentaCobrar.objects.filter(factura__in=facturas).select_related('factura').order_by('fecha_pago')
- 
-    total_facturado  = sum([f.total or 0 for f in facturas])
-    total_pagado     = pagos_qs.aggregate(total=Sum('monto'))['total'] or 0
-    saldo_pendiente  = total_facturado - total_pagado
- 
-    # ── Estilos ────────────────────────────────────────────────────────────────
+
+    # 1. Recopilar todos los componentes del estado de cuenta
+    cuentas_qs = CuentaPorCobrar.objects.filter(
+        cliente=cliente).select_related('factura')
+    facturas_ids = [c.factura_id for c in cuentas_qs if c.factura_id]
+    facturas_qs = Factura.objects.filter(id__in=facturas_ids)
+
+    pagos_qs = PagoCuentaCobrar.objects.filter(
+        factura_id__in=facturas_ids).order_by('fecha_pago')
+    devoluciones_qs = Devolucion.objects.filter(
+        factura_id__in=facturas_ids).order_by('fecha_devolucion')
+
+    # 2. Construir lista de movimientos
+    movimientos = []
+
+    # Cargos (Facturas)
+    for f in facturas_qs:
+        movimientos.append({
+            'fecha': f.fecha_factura,
+            'tipo': 'Factura',
+            'referencia': f.numero_factura,
+            'debito': f.total or Decimal('0.00'),
+            'credito': Decimal('0.00'),
+            'descripcion': f'Venta a crédito'
+        })
+        # Si está anulada, agregar el contra-asiento en la fecha de anulación
+        if f.estado == 'anulada' and f.fecha_anulacion:
+            movimientos.append({
+                'fecha': f.fecha_anulacion,
+                'tipo': 'Anulación',
+                'referencia': f.numero_factura,
+                'debito': Decimal('0.00'),
+                'credito': f.total or Decimal('0.00'),
+                'descripcion': f'Anulación de factura: {f.motivo_anulacion or "N/A"}'
+            })
+
+    # Abonos (Pagos)
+    for p in pagos_qs:
+        movimientos.append({
+            'fecha': p.fecha_pago,
+            'tipo': 'Pago',
+            'referencia': p.numero_comprobante or f"P-{p.id}",
+            'debito': Decimal('0.00'),
+            'credito': p.monto,
+            'descripcion': f'Recibo de pago - {p.get_metodo_pago_display()}'
+        })
+
+    # Ajustes (Devoluciones)
+    for d in devoluciones_qs:
+        movimientos.append({
+            'fecha': d.fecha_devolucion,
+            'tipo': 'Devolución',
+            'referencia': f"Dev-{d.id}",
+            'debito': Decimal('0.00'),
+            'credito': d.monto_devuelto,
+            'descripcion': f'Devolución s/factura {d.factura.numero_factura}'
+        })
+
+    # 3. Ordenar cronológicamente y calcular saldo acumulado
+    movimientos.sort(key=lambda x: x['fecha'])
+
+    saldo_acumulado = Decimal('0.00')
+    total_debitos = Decimal('0.00')
+    total_creditos = Decimal('0.00')
+
+    for mov in movimientos:
+        saldo_acumulado += mov['debito']
+        saldo_acumulado -= mov['credito']
+        mov['saldo'] = saldo_acumulado
+        total_debitos += mov['debito']
+        total_creditos += mov['credito']
+
+    # ── Estilos y PDF ──────────────────────────────────────────────────────────
     buffer = io.BytesIO()
-    doc    = SimpleDocTemplate(
+    doc = SimpleDocTemplate(
         buffer, pagesize=A4,
-        rightMargin=20*mm, leftMargin=20*mm,
+        rightMargin=15*mm, leftMargin=15*mm,
         topMargin=20*mm,   bottomMargin=20*mm,
     )
-    styles     = getSampleStyleSheet()
-    title_sty  = ParagraphStyle('TitleEC',  parent=styles['Heading1'],  fontSize=18, alignment=1, spaceAfter=4)
-    small_sty  = ParagraphStyle('SmallEC',  parent=styles['Normal'],    fontSize=9)
-    bold_sty   = ParagraphStyle('BoldEC',   parent=styles['Normal'],    fontName='Helvetica-Bold')
-    # Estilo para celdas de tabla (evita overflow, hace word-wrap automático)
-    cell_sty   = ParagraphStyle('CellEC',   parent=styles['Normal'],    fontSize=9,  leading=11)
-    cell_b_sty = ParagraphStyle('CellBEC',  parent=styles['Normal'],    fontSize=9,  leading=11, fontName='Helvetica-Bold')
-    cell_i_sty = ParagraphStyle('CellIEC',  parent=styles['Normal'],    fontSize=8,  leading=10,
-                                fontName='Helvetica-Oblique', textColor=colors.HexColor('#555555'))
-    hdr_sty    = ParagraphStyle('HdrEC',    parent=styles['Normal'],    fontSize=9,  leading=11,
-                                fontName='Helvetica-Bold',   alignment=1)
- 
+    styles = getSampleStyleSheet()
+    title_sty = ParagraphStyle(
+        'TitleEC', parent=styles['Heading1'], fontSize=16, alignment=1)
+    small_sty = ParagraphStyle('SmallEC', parent=styles['Normal'], fontSize=8)
+    bold_sty = ParagraphStyle(
+        'BoldEC', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9)
+    cell_sty = ParagraphStyle(
+        'CellEC', parent=styles['Normal'], fontSize=8, leading=10)
+    hdr_sty = ParagraphStyle(
+        'HdrEC', parent=styles['Normal'], fontSize=8, fontName='Helvetica-Bold', alignment=1)
+
     story = []
- 
-    # ── Logo + datos empresa ───────────────────────────────────────────────────
-    try:
-        logo_path = os.path.join(settings.STATIC_ROOT or settings.BASE_DIR, 'static', 'img', 'fastfood.png')
-        if not os.path.exists(logo_path):
-            logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'fastfood.png')
-        if os.path.exists(logo_path):
-            logo       = Image(logo_path, width=30*mm, height=30*mm)
-            logo_table = Table([[logo]], colWidths=[doc.width])
-            logo_table.setStyle(TableStyle([('ALIGN', (0,0), (0,0), 'CENTER')]))
-            story.append(logo_table)
-            story.append(Spacer(1, 4))
-    except Exception:
-        pass
- 
-    story.append(Paragraph("402 FASTFOOD",                                title_sty))
-    story.append(Paragraph("RNC: 00000000",                               small_sty))
-    story.append(Paragraph("Dirección: Castanuelas, calle 30 de mayo",    small_sty))
-    story.append(Paragraph("Teléfono: 876-987-9876",                      small_sty))
-    story.append(Spacer(1, 8))
- 
-    # ── Info cliente ───────────────────────────────────────────────────────────
-    story.append(Paragraph("<b>INFORMACIÓN DEL CLIENTE</b>", bold_sty))
-    tcli = Table([
-        ["Nombre:",    cliente.nombre_completo],
-        ["Teléfono:",  cliente.telefono_principal],
-        ["Dirección:", cliente.direccion],
-        ["Email:",     getattr(cliente, 'email', '-')],
-    ], colWidths=[60*mm, doc.width - 60*mm])
-    tcli.setStyle(TableStyle([
-        ('FONTNAME',      (0,0), (-1,-1), 'Helvetica'),
-        ('FONTSIZE',      (0,0), (-1,-1), 10),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-        ('ALIGN',         (0,0), (0,-1),  'RIGHT'),
-        ('ALIGN',         (1,0), (1,-1),  'LEFT'),
-    ]))
-    story.append(tcli)
-    story.append(Spacer(1, 8))
- 
-    # ── Tarjetas de totales ────────────────────────────────────────────────────
-    val_sty = {
-        'total':    ParagraphStyle('v1', parent=bold_sty, textColor=colors.HexColor('#222222'), fontSize=14, alignment=1),
-        'pagado':   ParagraphStyle('v2', parent=bold_sty, textColor=colors.HexColor('#1ca64c'), fontSize=14, alignment=1),
-        'pendiente':ParagraphStyle('v3', parent=bold_sty, textColor=colors.HexColor('#d32f2f'), fontSize=14, alignment=1),
-    }
-    tcard = Table([
-        [Paragraph('<b>TOTAL FACTURADO</b>', bold_sty),
-         Paragraph('<b>TOTAL PAGADO</b>',    bold_sty),
-         Paragraph('<b>SALDO PENDIENTE</b>', bold_sty)],
-        [Paragraph(f"RD$ {total_facturado:,.2f}",  val_sty['total']),
-         Paragraph(f"RD$ {total_pagado:,.2f}",     val_sty['pagado']),
-         Paragraph(f"RD$ {saldo_pendiente:,.2f}",  val_sty['pendiente'])],
-    ], colWidths=[doc.width/3]*3)
-    tcard.setStyle(TableStyle([
-        ('ALIGN',         (0,0), (-1,-1), 'CENTER'),
-        ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-        ('TOPPADDING',    (0,0), (-1,-1), 6),
-        ('LINEBELOW',     (0,1), (2,1),   1, colors.HexColor('#888888')),
-    ]))
-    story.append(tcard)
-    story.append(Spacer(1, 20))
- 
-    # ── Tabla de detalle ───────────────────────────────────────────────────────
-    # Anchos de columna  (suman doc.width = 170mm aprox en A4 con márgenes 20mm)
-    #   col0 N°Factura  : 38mm   ← más ancho para evitar corte
-    #   col1 Fecha      : 22mm
-    #   col2 Descripción: resto
-    #   col3 Total      : 24mm
-    #   col4 Pagado     : 24mm
-    #   col5 Saldo      : 24mm
-    C0 = 38*mm
-    C1 = 22*mm
-    C3 = 24*mm
-    C4 = 24*mm
-    C5 = 24*mm
-    C2 = doc.width - C0 - C1 - C3 - C4 - C5   # ~38mm
- 
-    col_widths = [C0, C1, C2, C3, C4, C5]
- 
-    COLOR_HDR  = colors.HexColor('#e3e3e3')
-    COLOR_PAGO = colors.HexColor('#f5f9f5')   # fondo verde muy suave para filas de pago
- 
-    # Cabecera
+
+    # Encabezado Empresa (Logo simplificado o Texto)
+    story.append(Paragraph("<b>402 FASTFOOD</b>", title_sty))
+    story.append(Paragraph("ESTADO DE CUENTA DE CLIENTE",
+                 ParagraphStyle('Sub', parent=title_sty, fontSize=12)))
+    story.append(Spacer(1, 10))
+
+    # Info Cliente y Totales
+    info_data = [
+        [Paragraph(f"<b>Cliente:</b> {cliente.nombre_completo}", cell_sty),
+         Paragraph(f"<b>Total Cargos:</b> RD$ {total_debitos:,.2f}", cell_sty)],
+        [Paragraph(f"<b>RNC/Cédula:</b> {getattr(cliente, 'rnc', '-')}", cell_sty),
+         Paragraph(f"<b>Total Abonos:</b> RD$ {total_creditos:,.2f}", cell_sty)],
+        [Paragraph(f"<b>Fecha de Emisión:</b> {timezone.now().strftime('%d/%m/%Y %H:%M')}", cell_sty),
+         Paragraph(f"<b>SALDO ACTUAL:</b> RD$ {saldo_acumulado:,.2f}", ParagraphStyle('S', parent=cell_sty, fontName='Helvetica-Bold', textColor=colors.red if saldo_acumulado > 0 else colors.black))],
+    ]
+    tinfo = Table(info_data, colWidths=[doc.width*0.6, doc.width*0.4])
+    tinfo.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
+    story.append(tinfo)
+    story.append(Spacer(1, 15))
+
+    # Tabla de Movimientos
     data = [[
-        Paragraph('N° Factura',   hdr_sty),
-        Paragraph('Fecha',        hdr_sty),
-        Paragraph('Descripción',  hdr_sty),
-        Paragraph('Total',        hdr_sty),
-        Paragraph('Pagado',       hdr_sty),
-        Paragraph('Saldo',        hdr_sty),
+        Paragraph('Fecha', hdr_sty),
+        Paragraph('Movimiento', hdr_sty),
+        Paragraph('Referencia', hdr_sty),
+        Paragraph('Descripción', hdr_sty),
+        Paragraph('Débito (+)', hdr_sty),
+        Paragraph('Crédito (-)', hdr_sty),
+        Paragraph('Saldo', hdr_sty),
     ]]
- 
-    row_styles = []
-    row_idx    = 1
- 
-    for cxc in cuentas:
-        f          = cxc.factura
-        pagos_fact = [p for p in pagos_qs if p.factura_id == f.id]
-        pagado     = sum([p.monto for p in pagos_fact])
-        saldo      = (f.total or 0) - pagado
- 
-        # ── Fila de factura ────────────────────────────────────────────────────
-        descripcion = getattr(f, 'descripcion', None) or '-'
+
+    for m in movimientos:
+        color_mov = colors.black
+        if m['tipo'] == 'Pago':
+            color_mov = colors.HexColor('#1ca64c')
+        elif m['tipo'] == 'Anulación':
+            color_mov = colors.HexColor('#d32f2f')
+        elif m['tipo'] == 'Devolución':
+            color_mov = colors.HexColor('#f39c12')
+
         data.append([
-            Paragraph(f.numero_factura or '-',             cell_b_sty),
-            Paragraph(f.fecha_factura.strftime('%d/%m/%Y'), cell_sty),
-            Paragraph(descripcion,                          cell_sty),
-            Paragraph(f"RD$ {f.total:,.2f}",               cell_sty),
-            Paragraph(f"RD$ {pagado:,.2f}",                cell_sty),
-            Paragraph(f"RD$ {saldo:,.2f}",                 cell_sty),
+            Paragraph(m['fecha'].strftime('%d/%m/%Y'), cell_sty),
+            Paragraph(f"<b>{m['tipo']}</b>", ParagraphStyle('T',
+                      parent=cell_sty, textColor=color_mov)),
+            Paragraph(m['referencia'], cell_sty),
+            Paragraph(m['descripcion'], cell_sty),
+            Paragraph(f"{m['debito']:,.2f}" if m['debito'] > 0 else "-",
+                      ParagraphStyle('R', parent=cell_sty, alignment=2)),
+            Paragraph(f"{m['credito']:,.2f}" if m['credito'] > 0 else "-",
+                      ParagraphStyle('R', parent=cell_sty, alignment=2, textColor=color_mov)),
+            Paragraph(f"<b>{m['saldo']:,.2f}</b>", ParagraphStyle('R',
+                      parent=cell_sty, alignment=2, fontName='Helvetica-Bold')),
         ])
-        row_styles += [
-            ('ALIGN',       (3, row_idx), (5, row_idx), 'RIGHT'),
-            ('LINEBELOW',   (0, row_idx), (-1, row_idx), 0.25, colors.HexColor('#bbbbbb')),
-        ]
-        row_idx += 1
- 
-        # ── Filas de pago (una por pago) ───────────────────────────────────────
-        for p in pagos_fact:
-            metodo_str = p.get_metodo_pago_display()
-            comp_str   = p.numero_comprobante or '-'
-            # col2: método + comprobante en una sola celda, bien legible
-            desc_pago  = f"\u21b3 {metodo_str}   Comp.: {comp_str}"
- 
-            data.append([
-                Paragraph('', cell_i_sty),                           # col0: vacío
-                Paragraph(p.fecha_pago.strftime('%d/%m/%Y'), cell_i_sty),  # col1: fecha pago
-                Paragraph(desc_pago,                          cell_i_sty),  # col2: descripción pago
-                Paragraph('', cell_i_sty),                           # col3: vacío
-                Paragraph('', cell_i_sty),                           # col4: vacío
-                Paragraph(f"RD$ {p.monto:,.2f}",             cell_i_sty),  # col5: monto pago
-            ])
-            row_styles += [
-                ('BACKGROUND', (0, row_idx), (-1, row_idx), COLOR_PAGO),
-                ('ALIGN',      (5, row_idx), (5, row_idx),  'RIGHT'),
-                ('LINEBELOW',  (0, row_idx), (-1, row_idx), 0.15, colors.HexColor('#d0d0d0')),
-            ]
-            row_idx += 1
- 
+
+    col_widths = [22*mm, 20*mm, 25*mm, 53*mm, 20*mm, 20*mm, 20*mm]
     tdet = Table(data, colWidths=col_widths, repeatRows=1)
     tdet.setStyle(TableStyle([
-        # Cabecera
-        ('BACKGROUND',    (0,0), (-1,0), COLOR_HDR),
-        ('FONTNAME',      (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE',      (0,0), (-1,0), 9),
-        ('ALIGN',         (0,0), (-1,0), 'CENTER'),
-        ('LINEBELOW',     (0,0), (-1,0), 1, colors.HexColor('#888888')),
-        # General
-        ('VALIGN',        (0,0), (-1,-1), 'TOP'),
-        ('TOPPADDING',    (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ('LEFTPADDING',   (0,0), (-1,-1), 4),
-        ('RIGHTPADDING',  (0,0), (-1,-1), 4),
-        # Columnas numéricas alineadas a la derecha (filas de factura – base)
-        ('ALIGN',         (3,1), (5,-1), 'RIGHT'),
-    ] + row_styles))
-    story.append(Paragraph("<b>DETALLE DE FACTURAS</b>", bold_sty))
-    story.append(Spacer(1, 6))
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f2f2f2')),
+        ('LINEBELOW', (0, 0), (-1, 0), 1, colors.black),
+        ('LINEBELOW', (0, 1), (-1, -1), 0.5, colors.grey),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+    ]))
     story.append(tdet)
-    story.append(Spacer(1, 10))
- 
-    # ── Notas ──────────────────────────────────────────────────────────────────
-    story.append(Paragraph("<b>NOTAS / OBSERVACIONES</b>", bold_sty))
-    # Fecha límite dinámica: 15 días después de hoy
-    fecha_limite = (timezone.localdate() + timedelta(days=15)).strftime('%d/%m/%Y')
+
+    # Footer
+    story.append(Spacer(1, 20))
     story.append(Paragraph(
-        f"Por favor realizar los pagos pendientes antes del {fecha_limite}. Gracias por su preferencia.",
-        small_sty,
-    ))
- 
-    # ── Build ──────────────────────────────────────────────────────────────────
+        f"Documento generado automáticamente por el sistema de facturación. Balance pendiente al corte: RD$ {saldo_acumulado:,.2f}", small_sty))
+
     doc.build(story)
     pdf = buffer.getvalue()
     buffer.close()
+
     response = HttpResponse(content_type='application/pdf')
-    # Usar nombre del cliente en el nombre del archivo, quitando espacios y caracteres problemáticos
-    nombre_archivo = cliente.nombre_completo.strip().replace(' ', '_').replace('ñ', 'n')
-    import re
-    nombre_archivo = re.sub(r'[^A-Za-z0-9_\-]', '', nombre_archivo)
-    response['Content-Disposition'] = (
-        f'attachment; filename="estado_cuenta_cliente___{nombre_archivo}.pdf"'
-    )
+    nombre_archivo = cliente.nombre_completo.strip().replace(' ', '_')
+    response['Content-Disposition'] = f'attachment; filename="Estado_Cuenta_{nombre_archivo}.pdf"'
     response.write(pdf)
     return response

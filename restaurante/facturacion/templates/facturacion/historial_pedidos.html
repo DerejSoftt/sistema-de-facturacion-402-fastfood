@@ -445,10 +445,8 @@
             color: #4a5568;
         }
         
-        /* Status badge para pagado */
-        .status-pagado {
-            background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(69, 160, 73, 0.1) 100%);
-            color: #38a169;
+        /* Status badges por estado */
+        .status-badge {
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
@@ -458,6 +456,36 @@
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+        }
+
+        .status-pendiente {
+            background: rgba(255, 193, 7, 0.15);
+            color: #b7791f;
+            border: 1px solid rgba(255, 193, 7, 0.35);
+        }
+
+        .status-pagada {
+            background: rgba(76, 175, 80, 0.12);
+            color: #2f855a;
+            border: 1px solid rgba(76, 175, 80, 0.28);
+        }
+
+        .status-anulacion {
+            background: rgba(244, 67, 54, 0.12);
+            color: #c53030;
+            border: 1px solid rgba(244, 67, 54, 0.28);
+        }
+
+        .status-devolucion {
+            background: rgba(33, 150, 243, 0.12);
+            color: #2b6cb0;
+            border: 1px solid rgba(33, 150, 243, 0.28);
+        }
+
+        .status-otro {
+            background: rgba(113, 128, 150, 0.15);
+            color: #4a5568;
+            border: 1px solid rgba(113, 128, 150, 0.28);
         }
         
         /* Order type badges */
@@ -1038,10 +1066,34 @@
                                             <div class="order-total">RD${{ pedido.total|floatformat:2 }}</div>
                                         </td>
                                         <td>
-                                            <span class="status-pagado">
-                                                <span class="status-icon"><i class="fas fa-check-circle"></i></span>
-                                                {{ pedido.estado_display }}
-                                            </span>
+                                            {% with estado=pedido.estado|default:''|lower %}
+                                                {% if estado == 'pendiente' %}
+                                                    <span class="status-badge status-pendiente">
+                                                        <span class="status-icon"><i class="fas fa-clock"></i></span>
+                                                        {{ pedido.estado_display }}
+                                                    </span>
+                                                {% elif estado == 'pagada' %}
+                                                    <span class="status-badge status-pagada">
+                                                        <span class="status-icon"><i class="fas fa-check-circle"></i></span>
+                                                        {{ pedido.estado_display }}
+                                                    </span>
+                                                {% elif estado == 'anulada' %}
+                                                    <span class="status-badge status-anulacion">
+                                                        <span class="status-icon"><i class="fas fa-ban"></i></span>
+                                                        {{ pedido.estado_display }}
+                                                    </span>
+                                                {% elif 'devuelta' in estado %}
+                                                    <span class="status-badge status-devolucion">
+                                                        <span class="status-icon"><i class="fas fa-rotate-left"></i></span>
+                                                        {{ pedido.estado_display }}
+                                                    </span>
+                                                {% else %}
+                                                    <span class="status-badge status-otro">
+                                                        <span class="status-icon"><i class="fas fa-circle-info"></i></span>
+                                                        {{ pedido.estado_display }}
+                                                    </span>
+                                                {% endif %}
+                                            {% endwith %}
                                         </td>
                                         <td>
                                             {% with metodo=pedido.metodo_pago|default:''|lower %}
